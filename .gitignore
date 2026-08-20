@@ -27,8 +27,13 @@ crash.log
 .idea/
 
 # Synthea runtime
-scripts/synthea-loader/synthea/
-scripts/synthea-loader/output/
+scripts/synthea_loader/synthea/
+scripts/synthea_loader/output/
+scripts/synthea_loader/state/*.json
 
 # Logs
 *.log
+
+# PhysioNet BIDMC local data
+services/vitals_simulator/data/bidmc/*.csv
+services/vitals_simulator/data/bidmc/*.txt

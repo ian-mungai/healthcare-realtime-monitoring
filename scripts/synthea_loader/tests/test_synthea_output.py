@@ -8,7 +8,6 @@ OUTPUT_DIR = (
     / "fhir"
 )
 
-
 def load_fhir_bundles():
     bundles = []
 
@@ -23,7 +22,6 @@ def load_fhir_bundles():
             bundles.append(data)
 
     return bundles
-
 
 def get_resource_types(bundle):
     return {
