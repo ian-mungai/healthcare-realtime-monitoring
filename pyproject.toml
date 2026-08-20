@@ -11,6 +11,9 @@ select = [
     "UP"
 ]
 
+[tool.ruff.format]
+skip-magic-trailing-comma = true
+
 [tool.pytest.ini_options]
 testpaths = [
     "tests"
