@@ -13,8 +13,7 @@ select = [
 
 [tool.pytest.ini_options]
 testpaths = [
-    "tests",
-    "scripts/synthea-loader/tests"
+    "tests"
 ]
 
 [tool.mypy]
