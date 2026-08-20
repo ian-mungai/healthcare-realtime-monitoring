@@ -1,0 +1,9 @@
+pytest
+pytest-cov
+ruff
+mypy
+httpx
+respx
+wfdb
+fastapi
+uvicorn
