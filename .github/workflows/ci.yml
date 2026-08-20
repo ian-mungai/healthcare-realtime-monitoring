@@ -31,6 +31,13 @@ jobs:
 
       - name: Tests
         run: pytest tests -v
+      
+      - name: Run BIDMC tests
+        run: |
+          python -m pytest \
+          services/vitals_simulator/tests \
+          -v  
+      
 
   terraform:
     name: Terraform Checks
