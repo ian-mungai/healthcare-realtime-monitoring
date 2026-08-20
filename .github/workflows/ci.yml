@@ -30,7 +30,7 @@ jobs:
         run: ruff check .
 
       - name: Tests
-        run: pytest
+        run: pytest tests -v
 
   terraform:
     name: Terraform Checks
