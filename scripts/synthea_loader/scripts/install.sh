@@ -26,14 +26,7 @@ if [ -d "$SYNTHEA_DIR/.git" ]; then
 else
     echo "Cloning Synthea..."
 
-    git clone --depth 1 https://github.com/synthetichealth/synthea.git "$SYNTHEA_DIR"
-
-    cd "$SYNTHEA_DIR"
-
-    if [ "$SYNTHEA_REF" != "master" ]; then
-        git fetch --depth 1 origin "$SYNTHEA_REF"
-        git checkout FETCH_HEAD
-    fi
+    git clone --depth 1 --branch "$SYNTHEA_REF" https://github.com/synthetichealth/synthea.git "$SYNTHEA_DIR"
 fi
 
 cd "$SYNTHEA_DIR"
