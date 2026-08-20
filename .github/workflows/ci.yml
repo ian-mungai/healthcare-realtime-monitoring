@@ -88,10 +88,10 @@ jobs:
           java-version: "17"
 
       - name: Install Synthea
-        run: ./scripts/synthea-loader/scripts/install.sh
+        run: ./scripts/synthea_loader/scripts/install.sh
 
       - name: Generate test patient
-        run: POPULATION=1 ./scripts/synthea-loader/scripts/generate.sh
+        run: POPULATION=1 ./scripts/synthea_loader/scripts/generate.sh
 
       - name: Validate generated FHIR
-        run: pytest scripts/synthea-loader/tests -v
+        run: pytest scripts/synthea_loader/tests -v
