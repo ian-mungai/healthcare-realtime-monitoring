@@ -2,6 +2,7 @@ name: CI
 
 on:
   pull_request:
+
   push:
     branches:
       - main
@@ -9,7 +10,7 @@ on:
 jobs:
   python:
     name: Python Checks
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -20,28 +21,32 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: requirements-dev.txt
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
+          python -m pip install -r requirements-dev.txt
 
       - name: Ruff
-        run: ruff check .
-
-      - name: Tests
-        run: pytest tests -v
-      
-      - name: Run BIDMC tests
         run: |
-          python -m pytest \
-          services/vitals_simulator/tests \
-          -v  
-      
+          ruff check .
+
+      - name: Project tests
+        run: |
+          python -m pytest tests -v
+
+      - name: FHIR loader unit tests
+        run: |
+          python -m pytest scripts/synthea_loader/tests/test_load_fhir.py -v
+
+      - name: Vitals simulator tests
+        run: |
+          python -m pytest services/vitals_simulator/tests -v
 
   terraform:
     name: Terraform Checks
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -53,19 +58,46 @@ jobs:
           terraform_version: "1.11.0"
 
       - name: Terraform Format
-        run: terraform fmt -check -recursive infra
+        run: |
+          terraform fmt -check -recursive infra
 
       - name: Terraform Init
         working-directory: infra
-        run: terraform init -backend=false
+        run: |
+          terraform init -backend=false
 
       - name: Terraform Validate
         working-directory: infra
-        run: terraform validate
+        run: |
+          terraform validate
+
+  synthea_changes:
+    name: Detect Synthea Changes
+    runs-on: ubuntu-latest
+
+    outputs:
+      synthea: ${{ steps.filter.outputs.synthea }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Detect changes
+        id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            synthea:
+              - "scripts/synthea_loader/**"
+              - "requirements-dev.txt"
+              - ".github/workflows/ci.yml"
 
   synthea:
     name: Synthea FHIR Generation
-    runs-on: macos-latest
+    needs:
+      - synthea_changes
+    if: needs.synthea_changes.outputs.synthea == 'true'
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -75,11 +107,13 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
 
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
+          python -m pip install -r requirements-dev.txt
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -87,11 +121,35 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Cache Synthea checkout
+        id: synthea_cache
+        uses: actions/cache@v5
+        with:
+          path: scripts/synthea_loader/synthea
+          key: synthea-${{ runner.os }}-java17-${{ hashFiles('scripts/synthea_loader/synthea_version.txt') }}
+
       - name: Install Synthea
-        run: ./scripts/synthea_loader/scripts/install.sh
+        if: steps.synthea_cache.outputs.cache-hit != 'true'
+        run: |
+          ./scripts/synthea_loader/scripts/install.sh
+
+      - name: Verify cached Synthea
+        if: steps.synthea_cache.outputs.cache-hit == 'true'
+        run: |
+          test -x scripts/synthea_loader/synthea/run_synthea
+          echo "Cached Synthea checkout restored successfully."
 
       - name: Generate test patient
-        run: POPULATION=1 ./scripts/synthea_loader/scripts/generate.sh
+        run: |
+          POPULATION=1 SEED=12345 ./scripts/synthea_loader/scripts/generate.sh
 
-      - name: Validate generated FHIR
-        run: pytest scripts/synthea_loader/tests -v
+      - name: Inspect generated FHIR
+        run: |
+          find scripts/synthea_loader/synthea/output/fhir -maxdepth 1 -type f | sort
+
+      - name: Run Synthea output tests
+        run: |
+          python -m pytest scripts/synthea_loader/tests/test_synthea_output.py -v

@@ -48,14 +48,9 @@ def normalize_measurement(value: float | None, decimals: int = 1,) -> float | No
 def build_effective_datetime(simulation_start: datetime, offset_seconds: int,) -> str:
     
     if simulation_start.tzinfo is None:
-        raise ValueError(
-            "simulation_start must be timezone-aware"
-        )
+        raise ValueError("simulation_start must be timezone-aware")
 
-    effective_time = (
-        simulation_start
-        + timedelta(seconds=offset_seconds)
-    )
+    effective_time = (simulation_start + timedelta(seconds=offset_seconds))
 
     return effective_time.isoformat()
 
