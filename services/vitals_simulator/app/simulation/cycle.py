@@ -1,11 +1,8 @@
 from datetime import datetime
 
 from services.vitals_simulator.app.bidmc.source import VitalReading
-from services.vitals_simulator.app.fhir.observation import (
-    build_blood_pressure_observation,
-    build_effective_datetime,
-    build_observations_from_reading,
-)
+from services.vitals_simulator.app.fhir.identifier import add_observation_identifier
+from services.vitals_simulator.app.fhir.observation import build_blood_pressure_observation, build_effective_datetime, build_observations_from_reading
 from services.vitals_simulator.app.simulation.event import SimulatorEvent
 from services.vitals_simulator.app.synthea.blood_pressure_cadence import BloodPressureCadence
 
@@ -31,6 +28,13 @@ def build_simulator_event(reading: VitalReading, patient_id: str, encounter_id: 
                 reading=bp_reading,
                 source_offset_seconds=reading.offset_seconds,
             )
+        )
+
+    for observation in observations:
+        add_observation_identifier(
+            observation=observation,
+            source_record_id=reading.source_record_id,
+            offset_seconds=reading.offset_seconds,
         )
 
     return SimulatorEvent(
