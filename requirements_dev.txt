@@ -7,3 +7,4 @@ respx
 wfdb
 fastapi
 uvicorn
+boto3

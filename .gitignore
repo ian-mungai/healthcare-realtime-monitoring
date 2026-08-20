@@ -13,6 +13,7 @@ venv/
 # Environment
 .env
 .env.*
+!.env.example
 
 # Terraform
 .terraform/
@@ -30,6 +31,9 @@ crash.log
 scripts/synthea_loader/synthea/
 scripts/synthea_loader/output/
 scripts/synthea_loader/state/*.json
+
+#FHIR
+services/fhir_webhook/output/
 
 # Logs
 *.log
