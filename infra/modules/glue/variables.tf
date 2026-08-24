@@ -18,6 +18,16 @@ variable "script_key" {
   type        = string
 }
 
+variable "quarantine_path" {
+  description = "S3 path for rejected FHIR Observation measurements"
+  type        = string
+}
+
+variable "metrics_path" {
+  description = "S3 path for Glue processing metrics"
+  type        = string
+}
+
 variable "tags" {
   description = "Tags applied to Glue resources"
   type        = map(string)
