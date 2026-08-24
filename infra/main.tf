@@ -42,10 +42,12 @@ module "firehose" {
 module "glue" {
   source = "./modules/glue"
 
-  bucket_name   = module.raw_s3.bucket_name
-  database_name = "healthcare_realtime"
-  job_name      = "healthcare_realtime_raw_to_processed"
-  script_key    = "scripts/glue/fhir_observations_raw_to_processed.py"
+  bucket_name     = module.raw_s3.bucket_name
+  database_name   = "healthcare_realtime"
+  job_name        = "healthcare_realtime_raw_to_processed"
+  script_key      = "scripts/glue/fhir_observations_raw_to_processed.py"
+  quarantine_path = "s3://${module.raw_s3.bucket_name}/quarantine/fhir_observations/"
+  metrics_path    = "s3://${module.raw_s3.bucket_name}/metrics/glue/"
 
   tags = {
     Project     = "healthcare_realtime_monitoring"
