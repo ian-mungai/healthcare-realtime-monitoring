@@ -11,3 +11,30 @@ module "kinesis" {
     ManagedBy   = "terraform"
   }
 }
+
+module "raw_s3" {
+  source = "./modules/raw_s3"
+
+  bucket_name = "imungai-healthcare-realtime"
+
+  tags = {
+    Project     = "healthcare_realtime_monitoring"
+    Environment = "development"
+    Layer       = "raw"
+    ManagedBy   = "terraform"
+  }
+}
+
+module "firehose" {
+  source = "./modules/firehose"
+
+  delivery_stream_name = "healthcare_realtime_firehose"
+  kinesis_stream_arn   = module.kinesis.stream_arn
+  s3_bucket_arn        = module.raw_s3.bucket_arn
+
+  tags = {
+    Project     = "healthcare_realtime_monitoring"
+    Environment = "development"
+    ManagedBy   = "terraform"
+  }
+}
