@@ -38,3 +38,22 @@ module "firehose" {
     ManagedBy   = "terraform"
   }
 }
+
+module "glue" {
+  source = "./modules/glue"
+
+  bucket_name   = module.raw_s3.bucket_name
+  database_name = "healthcare_realtime"
+  job_name      = "healthcare_realtime_raw_to_processed"
+  script_key    = "scripts/glue/fhir_observations_raw_to_processed.py"
+
+  tags = {
+    Project     = "healthcare_realtime_monitoring"
+    Environment = "development"
+    ManagedBy   = "terraform"
+  }
+
+  depends_on = [
+    module.raw_s3,
+  ]
+}
