@@ -16,11 +16,10 @@ venv/
 !.env.example
 
 # Terraform
-.terraform/
+**/.terraform/*
 *.tfstate
 *.tfstate.*
 *.tfplan
-.terraform.lock.hcl
 crash.log
 
 # IDE
@@ -32,7 +31,7 @@ scripts/synthea_loader/synthea/
 scripts/synthea_loader/output/
 scripts/synthea_loader/state/*.json
 
-#FHIR
+# FHIR
 services/fhir_webhook/output/
 
 # Logs

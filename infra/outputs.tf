@@ -27,3 +27,18 @@ output "firehose_delivery_stream_arn" {
   description = "Firehose delivery stream ARN"
   value       = module.firehose.delivery_stream_arn
 }
+
+output "glue_job_name" {
+  description = "Glue raw-to-processed job"
+  value       = module.glue.job_name
+}
+
+output "glue_database_name" {
+  description = "Glue Data Catalog database"
+  value       = module.glue.database_name
+}
+
+output "glue_role_arn" {
+  description = "Glue service role ARN"
+  value       = module.glue.role_arn
+}
