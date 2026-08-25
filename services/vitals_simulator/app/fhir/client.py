@@ -74,10 +74,7 @@ class HAPIFHIRClient:
         raise FHIRRetryableError("FHIR request failed without a response")
 
     def _build_headers(self, resource: dict) -> dict[str, str]:
-        headers = {
-            "Content-Type": "application/fhir+json",
-            "Accept": "application/fhir+json",
-        }
+        headers = {"Content-Type": "application/fhir+json", "Accept": "application/fhir+json"}
 
         identifiers = resource.get("identifier", [])
 
@@ -104,12 +101,7 @@ class HAPIFHIRClient:
 
         location = response.headers.get("Location") or response.headers.get("Content-Location") or f"{resource_type}/{resource_id}"
 
-        return CreatedFHIRResource(
-            resource_type=resource_type,
-            resource_id=resource_id,
-            location=location,
-            status_code=response.status_code,
-        )
+        return CreatedFHIRResource(resource_type=resource_type, resource_id=resource_id, location=location, status_code=response.status_code)
 
     def _build_error_message(self, response: httpx.Response) -> str:
         try:

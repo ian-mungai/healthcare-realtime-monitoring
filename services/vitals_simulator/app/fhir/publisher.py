@@ -14,14 +14,7 @@ class PublishedSimulatorEvent:
     resources: list[CreatedFHIRResource]
 
     def to_dict(self) -> dict:
-        return {
-            "source_record_id": self.source_record_id,
-            "offset_seconds": self.offset_seconds,
-            "patient_id": self.patient_id,
-            "encounter_id": self.encounter_id,
-            "published_count": self.published_count,
-            "resources": [asdict(resource) for resource in self.resources],
-        }
+        return {"source_record_id": self.source_record_id, "offset_seconds": self.offset_seconds, "patient_id": self.patient_id, "encounter_id": self.encounter_id, "published_count": self.published_count, "resources": [asdict(resource) for resource in self.resources]}
 
 
 def publish_simulator_event(event: SimulatorEvent, client: HAPIFHIRClient) -> PublishedSimulatorEvent:
@@ -31,11 +24,4 @@ def publish_simulator_event(event: SimulatorEvent, client: HAPIFHIRClient) -> Pu
         created_resource = client.post_resource(observation)
         created_resources.append(created_resource)
 
-    return PublishedSimulatorEvent(
-        source_record_id=event.source_record_id,
-        offset_seconds=event.offset_seconds,
-        patient_id=event.patient_id,
-        encounter_id=event.encounter_id,
-        published_count=len(created_resources),
-        resources=created_resources,
-    )
+    return PublishedSimulatorEvent(source_record_id=event.source_record_id, offset_seconds=event.offset_seconds, patient_id=event.patient_id, encounter_id=event.encounter_id, published_count=len(created_resources), resources=created_resources)

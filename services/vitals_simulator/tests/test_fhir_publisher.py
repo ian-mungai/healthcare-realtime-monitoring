@@ -11,12 +11,7 @@ class FakeFHIRClient:
         self.resources.append(resource)
         resource_id = f"observation_{len(self.resources)}"
 
-        return CreatedFHIRResource(
-            resource_type="Observation",
-            resource_id=resource_id,
-            location=f"Observation/{resource_id}",
-            status_code=201,
-        )
+        return CreatedFHIRResource(resource_type="Observation", resource_id=resource_id, location=f"Observation/{resource_id}", status_code=201)
 
 
 def test_publish_simulator_event():
@@ -26,11 +21,7 @@ def test_publish_simulator_event():
         patient_id="patient_123",
         encounter_id="encounter_456",
         observation_count=3,
-        observations=[
-            {"resourceType": "Observation", "status": "final"},
-            {"resourceType": "Observation", "status": "final"},
-            {"resourceType": "Observation", "status": "final"},
-        ],
+        observations=[{"resourceType": "Observation", "status": "final"}, {"resourceType": "Observation", "status": "final"}, {"resourceType": "Observation", "status": "final"}],
     )
 
     client = FakeFHIRClient()

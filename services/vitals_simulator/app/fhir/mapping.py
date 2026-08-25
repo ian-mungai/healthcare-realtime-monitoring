@@ -1,13 +1,8 @@
 import json
 from pathlib import Path
 
-RESOURCE_MAP_FILE = (
-    Path(__file__).resolve().parents[4]
-    / "scripts"
-    / "synthea_loader"
-    / "state"
-    / "fhir_resource_map.json"
-)
+RESOURCE_MAP_FILE = Path(__file__).resolve().parents[4] / "scripts" / "synthea_loader" / "state" / "fhir_resource_map.json"
+
 
 def load_fhir_resource_map() -> dict:
     """
@@ -15,25 +10,16 @@ def load_fhir_resource_map() -> dict:
     by the Synthea loader.
     """
     if not RESOURCE_MAP_FILE.exists():
-        raise FileNotFoundError(
-            f"FHIR resource mapping not found: "
-            f"{RESOURCE_MAP_FILE}"
-        )
+        raise FileNotFoundError(f"FHIR resource mapping not found: {RESOURCE_MAP_FILE}")
 
-    with RESOURCE_MAP_FILE.open(
-        encoding="utf-8",
-    ) as file:
+    with RESOURCE_MAP_FILE.open(encoding="utf-8") as file:
         mapping = json.load(file)
 
     if "patients" not in mapping:
-        raise ValueError(
-            "FHIR resource map does not contain patients"
-        )
+        raise ValueError("FHIR resource map does not contain patients")
 
     if "encounters" not in mapping:
-        raise ValueError(
-            "FHIR resource map does not contain encounters"
-        )
+        raise ValueError("FHIR resource map does not contain encounters")
 
     return mapping
 
@@ -50,21 +36,13 @@ def get_first_patient_and_encounter() -> tuple[str, str]:
     encounters = mapping["encounters"]
 
     if not patients:
-        raise RuntimeError(
-            "FHIR resource map contains no patients"
-        )
+        raise RuntimeError("FHIR resource map contains no patients")
 
     if not encounters:
-        raise RuntimeError(
-            "FHIR resource map contains no encounters"
-        )
+        raise RuntimeError("FHIR resource map contains no encounters")
 
-    patient_id = next(
-        iter(patients.values())
-    )
+    patient_id = next(iter(patients.values()))
 
-    encounter_id = next(
-        iter(encounters.values())
-    )
+    encounter_id = next(iter(encounters.values()))
 
     return patient_id, encounter_id

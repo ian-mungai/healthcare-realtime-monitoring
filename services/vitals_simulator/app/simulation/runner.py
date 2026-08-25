@@ -39,13 +39,7 @@ def run_simulation(record_number: int = 1, interval_seconds: float = DEFAULT_INT
     for index, reading in enumerate(selected_readings):
         cycle_started = time.monotonic()
 
-        event = build_simulator_event(
-            reading=reading,
-            patient_id=patient_id,
-            encounter_id=encounter_id,
-            simulation_start=simulation_start,
-            bp_cadence=bp_cadence,
-        )
+        event = build_simulator_event(reading=reading, patient_id=patient_id, encounter_id=encounter_id, simulation_start=simulation_start, bp_cadence=bp_cadence)
 
         published = publish_simulator_event(event, client)
         published_events.append(published.to_dict())
@@ -78,4 +72,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    

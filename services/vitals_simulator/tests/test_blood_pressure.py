@@ -1,10 +1,6 @@
 import pytest
 
-from services.vitals_simulator.app.synthea.blood_pressure import (
-    BloodPressureReading,
-    extract_blood_pressure_readings,
-    get_component_value,
-)
+from services.vitals_simulator.app.synthea.blood_pressure import BloodPressureReading, extract_blood_pressure_readings, get_component_value
 from services.vitals_simulator.app.synthea.blood_pressure_cadence import BloodPressureCadence
 
 
@@ -18,16 +14,7 @@ def sample_bp_bundle() -> dict:
                     "resourceType": "Observation",
                     "id": "bp_1",
                     "code": {"coding": [{"system": "http://loinc.org", "code": "85354-9"}]},
-                    "component": [
-                        {
-                            "code": {"coding": [{"system": "http://loinc.org", "code": "8480-6"}]},
-                            "valueQuantity": {"value": 124, "unit": "mmHg"},
-                        },
-                        {
-                            "code": {"coding": [{"system": "http://loinc.org", "code": "8462-4"}]},
-                            "valueQuantity": {"value": 78, "unit": "mmHg"},
-                        },
-                    ],
+                    "component": [{"code": {"coding": [{"system": "http://loinc.org", "code": "8480-6"}]}, "valueQuantity": {"value": 124, "unit": "mmHg"}}, {"code": {"coding": [{"system": "http://loinc.org", "code": "8462-4"}]}, "valueQuantity": {"value": 78, "unit": "mmHg"}}],
                 }
             },
         ],

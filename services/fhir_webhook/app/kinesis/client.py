@@ -44,11 +44,7 @@ class KinesisPublisher:
         except (BotoCoreError, ClientError) as error:
             raise KinesisPublisherError(f"Failed to publish event to Kinesis: {error}") from error
 
-        return KinesisPublishResult(
-            shard_id=response["ShardId"],
-            sequence_number=response["SequenceNumber"],
-            partition_key=partition_key,
-        )
+        return KinesisPublishResult(shard_id=response["ShardId"], sequence_number=response["SequenceNumber"], partition_key=partition_key)
 
     def _get_partition_key(self, event: FHIRWebhookEvent) -> str:
         subject_reference = event.payload.get("subject", {}).get("reference")
