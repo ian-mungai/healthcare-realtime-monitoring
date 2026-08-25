@@ -59,3 +59,38 @@ module "glue" {
     module.raw_s3,
   ]
 }
+
+module "network" {
+  source = "./modules/network"
+
+  name = "healthcare_realtime_mwaa"
+
+  tags = {
+    Project     = "healthcare_realtime_monitoring"
+    Environment = "development"
+    ManagedBy   = "terraform"
+  }
+}
+
+module "mwaa" {
+  source = "./modules/mwaa"
+
+  environment_name   = "healthcare_realtime_mwaa"
+  source_bucket_name = "imungai-healthcare-realtime-mwaa"
+  data_bucket_name   = module.raw_s3.bucket_name
+
+  glue_job_name      = module.glue.job_name
+  glue_database_name = module.glue.database_name
+
+  subnet_ids = module.network.private_subnet_ids
+
+  security_group_ids = [
+    module.network.security_group_id
+  ]
+
+  tags = {
+    Project     = "healthcare_realtime_monitoring"
+    Environment = "development"
+    ManagedBy   = "terraform"
+  }
+}
