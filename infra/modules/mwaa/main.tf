@@ -62,6 +62,20 @@ data "aws_iam_policy_document" "mwaa_s3_access" {
   }
 
   statement {
+    sid    = "ReadProcessedIcebergData"
+    effect = "Allow"
+
+    actions = [
+      "s3:GetObject",
+      "s3:GetObjectVersion"
+    ]
+
+    resources = [
+      "arn:aws:s3:::${var.data_bucket_name}/processed/*"
+    ]
+  }
+
+  statement {
     sid    = "ReadMWAASourceBucketConfiguration"
     effect = "Allow"
 
