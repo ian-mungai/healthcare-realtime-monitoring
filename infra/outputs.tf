@@ -42,3 +42,23 @@ output "glue_role_arn" {
   description = "Glue service role ARN"
   value       = module.glue.role_arn
 }
+
+output "mwaa_environment_name" {
+  value = module.mwaa.environment_name
+}
+
+output "mwaa_environment_arn" {
+  value = module.mwaa.environment_arn
+}
+
+output "mwaa_execution_role_arn" {
+  value = module.mwaa.execution_role_arn
+}
+
+output "mwaa_source_bucket_name" {
+  value = module.mwaa.source_bucket_name
+}
+
+output "mwaa_webserver_url" {
+  value = module.mwaa.webserver_url
+}
