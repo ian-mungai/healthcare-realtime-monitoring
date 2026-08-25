@@ -8,3 +8,6 @@ wfdb
 fastapi
 uvicorn
 boto3
+great-expectations
+sqlalchemy
+pyathena
