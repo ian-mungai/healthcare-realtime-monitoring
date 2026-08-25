@@ -3,7 +3,14 @@ from datetime import UTC, datetime
 import pytest
 
 from services.vitals_simulator.app.bidmc.source import VitalReading
-from services.vitals_simulator.app.fhir.observation import HEART_RATE, RESPIRATORY_RATE, SPO2, build_effective_datetime, build_observations_from_reading, normalize_measurement
+from services.vitals_simulator.app.fhir.observation import (
+    HEART_RATE,
+    RESPIRATORY_RATE,
+    SPO2,
+    build_effective_datetime,
+    build_observations_from_reading,
+    normalize_measurement,
+)
 
 
 def test_normalize_measurement():

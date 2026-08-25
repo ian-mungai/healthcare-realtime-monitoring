@@ -31,7 +31,13 @@ class FHIRPermanentError(FHIRClientError):
 
 
 class HAPIFHIRClient:
-    def __init__(self, base_url: str = DEFAULT_FHIR_BASE_URL, timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS, max_retries: int = DEFAULT_MAX_RETRIES, retry_delay_seconds: float = DEFAULT_RETRY_DELAY_SECONDS):
+    def __init__(
+        self,
+        base_url: str = DEFAULT_FHIR_BASE_URL,
+        timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        retry_delay_seconds: float = DEFAULT_RETRY_DELAY_SECONDS,
+    ):
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
         self.max_retries = max_retries

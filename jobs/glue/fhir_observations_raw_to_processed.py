@@ -9,7 +9,13 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 from pyspark.sql.types import StructType
 
-MEASUREMENT_NAMES = {"8867-4": "heart_rate", "9279-1": "respiratory_rate", "2708-6": "spo2", "8480-6": "systolic_blood_pressure", "8462-4": "diastolic_blood_pressure"}
+MEASUREMENT_NAMES = {
+    "8867-4": "heart_rate",
+    "9279-1": "respiratory_rate",
+    "2708-6": "spo2",
+    "8480-6": "systolic_blood_pressure",
+    "8462-4": "diastolic_blood_pressure",
+}
 
 SUPPORTED_LOINC_CODES = list(MEASUREMENT_NAMES.keys())
 
@@ -59,7 +65,15 @@ def transform_simple_observations(df: DataFrame) -> DataFrame:
         .withColumn("value", F.col("payload.valueQuantity.value").cast("double"))
         .withColumn("unit", F.col("payload.valueQuantity.unit"))
         .withColumn("effective_datetime", F.to_timestamp(F.col("payload.effectiveDateTime")))
-        .select(F.col("resource_id").alias("observation_id"), "patient_id", "loinc_code", "value", "unit", "effective_datetime", F.to_timestamp("received_at").alias("received_at"))
+        .select(
+            F.col("resource_id").alias("observation_id"),
+            "patient_id",
+            "loinc_code",
+            "value",
+            "unit",
+            "effective_datetime",
+            F.to_timestamp("received_at").alias("received_at"),
+        )
     )
 
     return transformed
@@ -78,7 +92,15 @@ def transform_blood_pressure_observations(df: DataFrame) -> DataFrame:
         .withColumn("value", F.col("component.valueQuantity.value").cast("double"))
         .withColumn("unit", F.col("component.valueQuantity.unit"))
         .withColumn("effective_datetime", F.to_timestamp(F.col("payload.effectiveDateTime")))
-        .select(F.col("resource_id").alias("observation_id"), "patient_id", "loinc_code", "value", "unit", "effective_datetime", F.to_timestamp("received_at").alias("received_at"))
+        .select(
+            F.col("resource_id").alias("observation_id"),
+            "patient_id",
+            "loinc_code",
+            "value",
+            "unit",
+            "effective_datetime",
+            F.to_timestamp("received_at").alias("received_at"),
+        )
     )
 
     return blood_pressure
@@ -100,7 +122,13 @@ def add_measurement_metadata(df: DataFrame) -> DataFrame:
 
     measurement_map = F.create_map(*mapping_entries)
 
-    return df.withColumn("observation_type", measurement_map[F.col("loinc_code")]).withColumn("source", F.lit("fhir_webhook")).withColumn("year", F.year("effective_datetime")).withColumn("month", F.month("effective_datetime")).withColumn("day", F.dayofmonth("effective_datetime"))
+    return (
+        df.withColumn("observation_type", measurement_map[F.col("loinc_code")])
+        .withColumn("source", F.lit("fhir_webhook"))
+        .withColumn("year", F.year("effective_datetime"))
+        .withColumn("month", F.month("effective_datetime"))
+        .withColumn("day", F.dayofmonth("effective_datetime"))
+    )
 
 
 def add_quality_result(df: DataFrame) -> DataFrame:
@@ -134,7 +162,9 @@ def split_quality_results(df: DataFrame) -> tuple[DataFrame, DataFrame]:
 
 
 def select_processed_columns(df: DataFrame) -> DataFrame:
-    return df.select("observation_id", "patient_id", "observation_type", "loinc_code", "value", "unit", "effective_datetime", "received_at", "source", "year", "month", "day")
+    return df.select(
+        "observation_id", "patient_id", "observation_type", "loinc_code", "value", "unit", "effective_datetime", "received_at", "source", "year", "month", "day"
+    )
 
 
 def write_quarantine(rejected_df: DataFrame, quarantine_path: str) -> None:
@@ -178,7 +208,15 @@ def merge_processed_records(spark, valid_df: DataFrame, database_name: str, tabl
 
 
 def write_metrics(spark, metrics_path: str, run_started_at: str, candidate_count: int, valid_count: int, rejected_count: int) -> None:
-    metric = [{"run_started_at": run_started_at, "candidate_count": candidate_count, "valid_count": valid_count, "rejected_count": rejected_count, "processed_at": datetime.now(UTC).isoformat()}]
+    metric = [
+        {
+            "run_started_at": run_started_at,
+            "candidate_count": candidate_count,
+            "valid_count": valid_count,
+            "rejected_count": rejected_count,
+            "processed_at": datetime.now(UTC).isoformat(),
+        }
+    ]
 
     spark.createDataFrame(metric).coalesce(1).write.mode("append").json(metrics_path)
 
@@ -192,7 +230,12 @@ def main():
     job = Job(glue_context)
     job.init(args["JOB_NAME"], args)
 
-    raw_dynamic_frame = glue_context.create_dynamic_frame.from_options(connection_type="s3", connection_options={"paths": [args["RAW_PATH"]], "recurse": True}, format="json", transformation_ctx="raw_fhir_observations_source")
+    raw_dynamic_frame = glue_context.create_dynamic_frame.from_options(
+        connection_type="s3",
+        connection_options={"paths": [args["RAW_PATH"]], "recurse": True},
+        format="json",
+        transformation_ctx="raw_fhir_observations_source",
+    )
 
     if raw_dynamic_frame.count() == 0:
         write_metrics(spark, args["METRICS_PATH"], run_started_at, 0, 0, 0)

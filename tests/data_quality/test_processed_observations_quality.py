@@ -1,10 +1,36 @@
 from data_quality.great_expectations.validate_processed_observations import VALID_LOINC_CODES
 
-EXPECTED_COLUMNS = {"observation_id", "patient_id", "observation_type", "loinc_code", "value", "unit", "effective_datetime", "received_at", "source", "year", "month", "day"}
+EXPECTED_COLUMNS = {
+    "observation_id",
+    "patient_id",
+    "observation_type",
+    "loinc_code",
+    "value",
+    "unit",
+    "effective_datetime",
+    "received_at",
+    "source",
+    "year",
+    "month",
+    "day",
+}
 
 
 def test_expected_processed_columns():
-    assert EXPECTED_COLUMNS == {"observation_id", "patient_id", "observation_type", "loinc_code", "value", "unit", "effective_datetime", "received_at", "source", "year", "month", "day"}
+    assert EXPECTED_COLUMNS == {
+        "observation_id",
+        "patient_id",
+        "observation_type",
+        "loinc_code",
+        "value",
+        "unit",
+        "effective_datetime",
+        "received_at",
+        "source",
+        "year",
+        "month",
+        "day",
+    }
 
 
 def test_valid_loinc_codes():

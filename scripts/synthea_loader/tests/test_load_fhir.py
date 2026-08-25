@@ -34,7 +34,13 @@ def sample_patient():
 
 @pytest.fixture
 def older_encounter():
-    return {"resourceType": "Encounter", "id": "synthea-encounter-old", "identifier": [{"system": SYNTHEA_IDENTIFIER_SYSTEM, "value": "synthea-encounter-old"}], "subject": {"reference": "urn:uuid:patient-full-url"}, "period": {"start": "2026-08-18T10:00:00Z"}}
+    return {
+        "resourceType": "Encounter",
+        "id": "synthea-encounter-old",
+        "identifier": [{"system": SYNTHEA_IDENTIFIER_SYSTEM, "value": "synthea-encounter-old"}],
+        "subject": {"reference": "urn:uuid:patient-full-url"},
+        "period": {"start": "2026-08-18T10:00:00Z"},
+    }
 
 
 @pytest.fixture
@@ -132,7 +138,10 @@ def test_select_seed_resources_sanitizes_encounter(sample_bundle):
 
 
 def test_select_seed_resources_requires_patient():
-    bundle = {"resourceType": "Bundle", "entry": [{"resource": {"resourceType": "Encounter", "id": "encounter-1", "period": {"start": "2026-08-20T10:00:00Z"}}}]}
+    bundle = {
+        "resourceType": "Bundle",
+        "entry": [{"resource": {"resourceType": "Encounter", "id": "encounter-1", "period": {"start": "2026-08-20T10:00:00Z"}}}],
+    }
 
     with pytest.raises(RuntimeError, match="No Patient resource found"):
         select_seed_resources(bundle)
@@ -200,7 +209,11 @@ def test_extract_id_from_absolute_location():
 
 @respx.mock
 def test_search_resource_by_identifier_found():
-    route = respx.get(f"{FHIR_BASE_URL}/Patient").mock(return_value=httpx.Response(200, json={"resourceType": "Bundle", "type": "searchset", "total": 1, "entry": [{"resource": {"resourceType": "Patient", "id": "137506799"}}]}))
+    route = respx.get(f"{FHIR_BASE_URL}/Patient").mock(
+        return_value=httpx.Response(
+            200, json={"resourceType": "Bundle", "type": "searchset", "total": 1, "entry": [{"resource": {"resourceType": "Patient", "id": "137506799"}}]}
+        )
+    )
 
     resource = search_resource_by_identifier("Patient", SYNTHEA_IDENTIFIER_SYSTEM, "synthea-patient-1")
 
@@ -234,7 +247,23 @@ def test_get_resource():
 @respx.mock
 def test_ensure_patient_exists_reuses_existing(sample_patient):
     search_route = respx.get(f"{FHIR_BASE_URL}/Patient").mock(
-        return_value=httpx.Response(200, json={"resourceType": "Bundle", "type": "searchset", "total": 1, "entry": [{"resource": {"resourceType": "Patient", "id": "137506799", "identifier": [{"system": (SYNTHEA_IDENTIFIER_SYSTEM), "value": ("synthea-patient-1")}]}}]})
+        return_value=httpx.Response(
+            200,
+            json={
+                "resourceType": "Bundle",
+                "type": "searchset",
+                "total": 1,
+                "entry": [
+                    {
+                        "resource": {
+                            "resourceType": "Patient",
+                            "id": "137506799",
+                            "identifier": [{"system": (SYNTHEA_IDENTIFIER_SYSTEM), "value": ("synthea-patient-1")}],
+                        }
+                    }
+                ],
+            },
+        )
     )
 
     patient = sanitize_patient(sample_patient)
@@ -247,7 +276,9 @@ def test_ensure_patient_exists_reuses_existing(sample_patient):
 
 @respx.mock
 def test_ensure_patient_exists_creates_when_missing(sample_patient):
-    search_route = respx.get(f"{FHIR_BASE_URL}/Patient").mock(return_value=httpx.Response(200, json={"resourceType": "Bundle", "type": "searchset", "total": 0}))
+    search_route = respx.get(f"{FHIR_BASE_URL}/Patient").mock(
+        return_value=httpx.Response(200, json={"resourceType": "Bundle", "type": "searchset", "total": 0})
+    )
 
     create_route = respx.post(f"{FHIR_BASE_URL}/Patient").mock(return_value=httpx.Response(201, json={"resourceType": "Patient", "id": "new-patient-id"}))
 
@@ -265,7 +296,23 @@ def test_ensure_patient_exists_creates_when_missing(sample_patient):
 @respx.mock
 def test_ensure_encounter_exists_reuses_existing(sample_encounter):
     search_route = respx.get(f"{FHIR_BASE_URL}/Encounter").mock(
-        return_value=httpx.Response(200, json={"resourceType": "Bundle", "type": "searchset", "total": 1, "entry": [{"resource": {"resourceType": "Encounter", "id": "137506800", "identifier": [{"system": (SYNTHEA_IDENTIFIER_SYSTEM), "value": ("synthea-encounter-1")}]}}]})
+        return_value=httpx.Response(
+            200,
+            json={
+                "resourceType": "Bundle",
+                "type": "searchset",
+                "total": 1,
+                "entry": [
+                    {
+                        "resource": {
+                            "resourceType": "Encounter",
+                            "id": "137506800",
+                            "identifier": [{"system": (SYNTHEA_IDENTIFIER_SYSTEM), "value": ("synthea-encounter-1")}],
+                        }
+                    }
+                ],
+            },
+        )
     )
 
     encounter = sanitize_encounter(sample_encounter)
@@ -278,9 +325,13 @@ def test_ensure_encounter_exists_reuses_existing(sample_encounter):
 
 @respx.mock
 def test_ensure_encounter_exists_creates_when_missing(sample_encounter):
-    search_route = respx.get(f"{FHIR_BASE_URL}/Encounter").mock(return_value=httpx.Response(200, json={"resourceType": "Bundle", "type": "searchset", "total": 0}))
+    search_route = respx.get(f"{FHIR_BASE_URL}/Encounter").mock(
+        return_value=httpx.Response(200, json={"resourceType": "Bundle", "type": "searchset", "total": 0})
+    )
 
-    create_route = respx.post(f"{FHIR_BASE_URL}/Encounter").mock(return_value=httpx.Response(201, json={"resourceType": "Encounter", "id": "new-encounter-id", "subject": {"reference": "Patient/137506799"}}))
+    create_route = respx.post(f"{FHIR_BASE_URL}/Encounter").mock(
+        return_value=httpx.Response(201, json={"resourceType": "Encounter", "id": "new-encounter-id", "subject": {"reference": "Patient/137506799"}})
+    )
 
     encounter = sanitize_encounter(sample_encounter)
 

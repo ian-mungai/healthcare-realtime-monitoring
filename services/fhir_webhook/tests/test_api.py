@@ -50,7 +50,9 @@ def test_webhook_requires_secret_for_observation():
 
 
 def test_webhook_accepts_observation():
-    response = client.post("/webhooks/fhir", headers={"X-Webhook-Secret": TEST_SECRET}, json={"resourceType": "Observation", "id": "observation_123", "status": "final"})
+    response = client.post(
+        "/webhooks/fhir", headers={"X-Webhook-Secret": TEST_SECRET}, json={"resourceType": "Observation", "id": "observation_123", "status": "final"}
+    )
 
     assert response.status_code == 202
     assert response.json()["resource_id"] == "observation_123"
