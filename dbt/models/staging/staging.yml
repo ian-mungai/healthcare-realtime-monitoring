@@ -1,0 +1,38 @@
+version: 2
+
+models:
+  - name: stg_fhir_observations
+    description: Clean staging model for processed FHIR observations.
+
+    columns:
+      - name: observation_id
+        tests:
+          - not_null
+
+      - name: patient_id
+        tests:
+          - not_null
+
+      - name: observation_type
+        tests:
+          - not_null
+
+      - name: loinc_code
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - "8867-4"
+                  - "2708-6"
+                  - "8480-6"
+                  - "8462-4"
+                  - "9279-1"
+
+      - name: value
+        tests:
+          - not_null
+
+      - name: effective_datetime
+        tests:
+          - not_null
