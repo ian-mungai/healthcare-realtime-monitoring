@@ -16,9 +16,4 @@ def parse_fhir_payload(payload: dict) -> FHIRWebhookEvent:
     if resource_type != "Observation":
         raise InvalidFHIRPayloadError(f"Unsupported FHIR resource type: {resource_type}")
 
-    return FHIRWebhookEvent(
-        received_at=datetime.now(UTC),
-        resource_type=resource_type,
-        resource_id=payload.get("id"),
-        payload=payload,
-    )
+    return FHIRWebhookEvent(received_at=datetime.now(UTC), resource_type=resource_type, resource_id=payload.get("id"), payload=payload)

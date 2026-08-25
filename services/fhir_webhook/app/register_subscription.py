@@ -22,15 +22,7 @@ def main():
 
     subscription = build_observation_subscription(webhook_url, webhook_secret)
 
-    response = httpx.post(
-        f"{FHIR_BASE_URL}/Subscription",
-        headers={
-            "Content-Type": "application/fhir+json",
-            "Accept": "application/fhir+json",
-        },
-        json=subscription,
-        timeout=30.0,
-    )
+    response = httpx.post(f"{FHIR_BASE_URL}/Subscription", headers={"Content-Type": "application/fhir+json", "Accept": "application/fhir+json"}, json=subscription, timeout=30.0)
 
     if response.is_error:
         print(f"HTTP status: {response.status_code}")

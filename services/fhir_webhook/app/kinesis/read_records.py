@@ -31,11 +31,7 @@ def main():
     for shard in shards:
         shard_id = shard["ShardId"]
 
-        iterator_response = client.get_shard_iterator(
-            StreamName=stream_name,
-            ShardId=shard_id,
-            ShardIteratorType="TRIM_HORIZON",
-        )
+        iterator_response = client.get_shard_iterator(StreamName=stream_name, ShardId=shard_id, ShardIteratorType="TRIM_HORIZON")
 
         shard_iterator = iterator_response["ShardIterator"]
 
@@ -45,24 +41,11 @@ def main():
             for record in response.get("Records", []):
                 payload = json.loads(record["Data"].decode("utf-8"))
 
-                decoded_records.append(
-                    {
-                        "shard_id": shard_id,
-                        "sequence_number": record["SequenceNumber"],
-                        "partition_key": record["PartitionKey"],
-                        "approximate_arrival_timestamp": record["ApproximateArrivalTimestamp"].isoformat(),
-                        "payload": payload,
-                    }
-                )
+                decoded_records.append({"shard_id": shard_id, "sequence_number": record["SequenceNumber"], "partition_key": record["PartitionKey"], "approximate_arrival_timestamp": record["ApproximateArrivalTimestamp"].isoformat(), "payload": payload})
 
             shard_iterator = response.get("NextShardIterator")
 
-            print(
-                f"shard={shard_id} "
-                f"attempt={attempt} "
-                f"records={len(response.get('Records', []))} "
-                f"millis_behind_latest={response.get('MillisBehindLatest')}"
-            )
+            print(f"shard={shard_id} attempt={attempt} records={len(response.get('Records', []))} millis_behind_latest={response.get('MillisBehindLatest')}")
 
             if not shard_iterator:
                 break

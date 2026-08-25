@@ -23,13 +23,7 @@ def main():
 
     reading = bidmc_readings[0]
 
-    event = build_simulator_event(
-        reading=reading,
-        patient_id=patient_id,
-        encounter_id=encounter_id,
-        simulation_start=simulation_start,
-        bp_cadence=bp_cadence,
-    )
+    event = build_simulator_event(reading=reading, patient_id=patient_id, encounter_id=encounter_id, simulation_start=simulation_start, bp_cadence=bp_cadence)
 
     print(f"Patient: Patient/{patient_id}")
     print(f"Encounter: Encounter/{encounter_id}")
