@@ -1,6 +1,9 @@
 import os
 
 import great_expectations as gx
+from openlineage.client.event_v2 import RunState
+
+from lineage.openlineage.great_expectations_lineage import emit_great_expectations_lineage
 
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 ATHENA_DATABASE = os.getenv("ATHENA_DATABASE", "healthcare_realtime")
@@ -67,6 +70,44 @@ def add_expectations(validator) -> None:
 
 
 def validate() -> None:
+    lineage_run_id = emit_great_expectations_lineage(RunState.START)
+
+    try:
+        context = build_context()
+        validator = build_validator(context)
+        add_expectations(validator)
+
+        result = validator.validate()
+
+        print(f"Success: {result.success}")
+        print(f"Evaluated expectations: {result.statistics['evaluated_expectations']}")
+        print(f"Successful expectations: {result.statistics['successful_expectations']}")
+        print(f"Unsuccessful expectations: {result.statistics['unsuccessful_expectations']}")
+        print(f"Success percent: {result.statistics['success_percent']}")
+
+        if not result.success:
+            print("\nFailed expectations:")
+
+            for expectation_result in result.results:
+                if expectation_result.success:
+                    continue
+
+                config = expectation_result.expectation_config
+
+                print("\n----------------------------------------")
+                print(f"Expectation: {config.type}")
+                print(f"Column: {config.kwargs.get('column')}")
+                print(f"Arguments: {config.kwargs}")
+                print(f"Result: {expectation_result.result}")
+
+            raise RuntimeError("Processed FHIR observation data quality validation failed")
+
+        emit_great_expectations_lineage(RunState.COMPLETE, lineage_run_id)
+
+    except Exception:
+        emit_great_expectations_lineage(RunState.FAIL, lineage_run_id)
+        raise
+
     context = build_context()
     validator = build_validator(context)
     add_expectations(validator)

@@ -5,7 +5,12 @@ from services.fhir_webhook.app.models import FHIRWebhookEvent
 
 
 def main():
-    event = FHIRWebhookEvent(received_at=datetime.now(UTC), resource_type="Observation", resource_id="kinesis_smoke_test", payload={"resourceType": "Observation", "id": "kinesis_smoke_test", "status": "final", "subject": {"reference": "Patient/kinesis_test_patient"}})
+    event = FHIRWebhookEvent(
+        received_at=datetime.now(UTC),
+        resource_type="Observation",
+        resource_id="kinesis_smoke_test",
+        payload={"resourceType": "Observation", "id": "kinesis_smoke_test", "status": "final", "subject": {"reference": "Patient/kinesis_test_patient"}},
+    )
 
     publisher = KinesisPublisher()
     result = publisher.publish(event)

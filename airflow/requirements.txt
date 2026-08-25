@@ -1,1 +1,3 @@
 boto3
+openlineage-python[fsspec]
+s3fs

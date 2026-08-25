@@ -27,7 +27,11 @@ def health():
 
 @app.get("/records")
 def list_records():
-    return {"minimum": SUPPORTED_RECORD_MIN, "maximum": SUPPORTED_RECORD_MAX, "records": [f"bidmc{number:02d}" for number in range(SUPPORTED_RECORD_MIN, SUPPORTED_RECORD_MAX + 1)]}
+    return {
+        "minimum": SUPPORTED_RECORD_MIN,
+        "maximum": SUPPORTED_RECORD_MAX,
+        "records": [f"bidmc{number:02d}" for number in range(SUPPORTED_RECORD_MIN, SUPPORTED_RECORD_MAX + 1)],
+    }
 
 
 @app.get("/records/{record_number}")
@@ -38,7 +42,12 @@ def get_record_info(record_number: int):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    return {"record_number": record_number, "source_record_id": (readings[0].source_record_id if readings else None), "reading_count": len(readings), "first_reading": (readings[0].to_dict() if readings else None)}
+    return {
+        "record_number": record_number,
+        "source_record_id": (readings[0].source_record_id if readings else None),
+        "reading_count": len(readings),
+        "first_reading": (readings[0].to_dict() if readings else None),
+    }
 
 
 @app.get("/records/{record_number}/next")

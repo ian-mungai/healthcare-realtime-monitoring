@@ -19,7 +19,11 @@ def sample_observation() -> dict:
 
 @respx.mock
 def test_post_resource_returns_created_resource():
-    respx.post(f"{FHIR_BASE_URL}/Observation").mock(return_value=httpx.Response(201, json={"resourceType": "Observation", "id": "observation_123"}, headers={"Location": "Observation/observation_123/_history/1"}))
+    respx.post(f"{FHIR_BASE_URL}/Observation").mock(
+        return_value=httpx.Response(
+            201, json={"resourceType": "Observation", "id": "observation_123"}, headers={"Location": "Observation/observation_123/_history/1"}
+        )
+    )
 
     client = HAPIFHIRClient(base_url=FHIR_BASE_URL)
     created = client.post_resource(sample_observation())
@@ -31,7 +35,11 @@ def test_post_resource_returns_created_resource():
 
 @respx.mock
 def test_post_resource_rejects_permanent_error():
-    respx.post(f"{FHIR_BASE_URL}/Observation").mock(return_value=httpx.Response(400, json={"resourceType": "OperationOutcome", "issue": [{"severity": "error", "code": "processing", "diagnostics": "Invalid Observation"}]}))
+    respx.post(f"{FHIR_BASE_URL}/Observation").mock(
+        return_value=httpx.Response(
+            400, json={"resourceType": "OperationOutcome", "issue": [{"severity": "error", "code": "processing", "diagnostics": "Invalid Observation"}]}
+        )
+    )
 
     client = HAPIFHIRClient(base_url=FHIR_BASE_URL)
 
@@ -48,7 +56,9 @@ def test_post_resource_requires_resource_type():
 
 @respx.mock
 def test_post_resource_retries_transient_failure():
-    route = respx.post(f"{FHIR_BASE_URL}/Observation").mock(side_effect=[httpx.Response(503), httpx.Response(201, json={"resourceType": "Observation", "id": "observation_456"})])
+    route = respx.post(f"{FHIR_BASE_URL}/Observation").mock(
+        side_effect=[httpx.Response(503), httpx.Response(201, json={"resourceType": "Observation", "id": "observation_456"})]
+    )
 
     client = HAPIFHIRClient(base_url=FHIR_BASE_URL, max_retries=3, retry_delay_seconds=0)
     created = client.post_resource(sample_observation())
@@ -59,7 +69,11 @@ def test_post_resource_retries_transient_failure():
 
 @respx.mock
 def test_post_resource_does_not_retry_bad_request():
-    route = respx.post(f"{FHIR_BASE_URL}/Observation").mock(return_value=httpx.Response(400, json={"resourceType": "OperationOutcome", "issue": [{"severity": "error", "code": "processing", "diagnostics": "Bad request"}]}))
+    route = respx.post(f"{FHIR_BASE_URL}/Observation").mock(
+        return_value=httpx.Response(
+            400, json={"resourceType": "OperationOutcome", "issue": [{"severity": "error", "code": "processing", "diagnostics": "Bad request"}]}
+        )
+    )
 
     client = HAPIFHIRClient(base_url=FHIR_BASE_URL, max_retries=3, retry_delay_seconds=0)
 

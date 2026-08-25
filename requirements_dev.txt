@@ -11,3 +11,5 @@ boto3
 great-expectations
 sqlalchemy
 pyathena
+openlineage-python[fsspec]
+s3fs

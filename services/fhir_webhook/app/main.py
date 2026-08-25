@@ -34,4 +34,13 @@ async def receive_fhir_webhook(request: Request, x_webhook_secret: str | None = 
     except KinesisPublisherError as error:
         raise HTTPException(status_code=503, detail="Kinesis ingestion failed") from error
 
-    return JSONResponse(status_code=202, content={"status": "accepted", "resource_type": event.resource_type, "resource_id": event.resource_id, "shard_id": result.shard_id, "sequence_number": result.sequence_number})
+    return JSONResponse(
+        status_code=202,
+        content={
+            "status": "accepted",
+            "resource_type": event.resource_type,
+            "resource_id": event.resource_id,
+            "shard_id": result.shard_id,
+            "sequence_number": result.sequence_number,
+        },
+    )

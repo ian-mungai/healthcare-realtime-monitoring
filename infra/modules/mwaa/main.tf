@@ -76,6 +76,22 @@ data "aws_iam_policy_document" "mwaa_s3_access" {
   }
 
   statement {
+    sid    = "ManageOpenLineageEvents"
+    effect = "Allow"
+
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:AbortMultipartUpload",
+      "s3:ListMultipartUploadParts"
+    ]
+
+    resources = [
+      "arn:aws:s3:::${var.data_bucket_name}/lineage/openlineage/*"
+    ]
+  }
+
+  statement {
     sid    = "ReadMWAASourceBucketConfiguration"
     effect = "Allow"
 
@@ -332,6 +348,27 @@ resource "aws_s3_object" "dag" {
   etag   = filemd5("${path.root}/../airflow/dags/healthcare_realtime_pipeline.py")
 }
 
+resource "aws_s3_object" "openlineage_helper" {
+  bucket = aws_s3_bucket.mwaa.id
+  key    = "dags/lib/openlineage_events.py"
+  source = "${path.root}/../airflow/dags/lib/openlineage_events.py"
+  etag   = filemd5("${path.root}/../airflow/dags/lib/openlineage_events.py")
+}
+
+resource "aws_s3_object" "athena_lineage_helper" {
+  bucket = aws_s3_bucket.mwaa.id
+  key    = "dags/lib/athena_lineage.py"
+  source = "${path.root}/../airflow/dags/lib/athena_lineage.py"
+  etag   = filemd5("${path.root}/../airflow/dags/lib/athena_lineage.py")
+}
+
+resource "aws_s3_object" "dag_lib_init" {
+  bucket = aws_s3_bucket.mwaa.id
+  key    = "dags/lib/__init__.py"
+  source = "${path.root}/../airflow/dags/lib/__init__.py"
+  etag   = filemd5("${path.root}/../airflow/dags/lib/__init__.py")
+}
+
 resource "aws_s3_object" "requirements" {
   bucket = aws_s3_bucket.mwaa.id
   key    = "requirements.txt"
@@ -396,6 +433,9 @@ resource "aws_mwaa_environment" "healthcare_realtime" {
     aws_s3_bucket_versioning.mwaa,
     aws_s3_bucket_public_access_block.mwaa,
     aws_s3_object.dag,
+    aws_s3_object.openlineage_helper,
+    aws_s3_object.athena_lineage_helper,
+    aws_s3_object.dag_lib_init,
     aws_s3_object.requirements,
     aws_iam_role_policy.mwaa_s3_access,
     aws_iam_role_policy.mwaa_glue_access,
