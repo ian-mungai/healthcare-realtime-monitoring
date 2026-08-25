@@ -1,0 +1,29 @@
+name: healthcare_realtime
+version: "1.0.0"
+config-version: 2
+
+profile: healthcare_realtime
+
+model-paths:
+  - models
+
+test-paths:
+  - tests
+
+macro-paths:
+  - macros
+
+clean-targets:
+  - target
+  - dbt_packages
+
+models:
+  healthcare_realtime:
+    staging:
+      +materialized: view
+
+    marts:
+      core:
+        +materialized: table
+        +table_type: iceberg
+        +format: parquet

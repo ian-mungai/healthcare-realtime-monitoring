@@ -1,0 +1,43 @@
+version: 2
+
+models:
+  - name: dim_patient
+    description: Patient-level observation summary.
+
+    columns:
+      - name: patient_id
+        tests:
+          - not_null
+          - unique
+
+  - name: dim_observation_type
+    description: Vital-sign observation type dimension.
+
+    columns:
+      - name: observation_type
+        tests:
+          - not_null
+
+      - name: loinc_code
+        tests:
+          - not_null
+
+  - name: fact_observations
+    description: Observation-level healthcare fact table.
+
+    columns:
+      - name: observation_id
+        tests:
+          - not_null
+
+      - name: patient_id
+        tests:
+          - not_null
+
+      - name: loinc_code
+        tests:
+          - not_null
+
+      - name: value
+        tests:
+          - not_null
