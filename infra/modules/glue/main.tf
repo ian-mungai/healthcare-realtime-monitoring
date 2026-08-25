@@ -12,7 +12,7 @@ data "aws_iam_policy_document" "glue_assume_role" {
 }
 
 resource "aws_iam_role" "glue" {
-  name               = "AWSGlueServiceRole_healthcare_realtime"
+  name               = "healthcare_realtime_glue_role"
   assume_role_policy = data.aws_iam_policy_document.glue_assume_role.json
 
   tags = var.tags
