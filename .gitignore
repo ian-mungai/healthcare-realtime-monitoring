@@ -22,6 +22,10 @@ venv/
 *.tfplan
 crash.log
 
+#Lineage
+lineage/events/*.json
+lineage/events/*.jsonl
+
 # IDE
 .vscode/
 .idea/

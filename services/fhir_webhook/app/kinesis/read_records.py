@@ -41,7 +41,15 @@ def main():
             for record in response.get("Records", []):
                 payload = json.loads(record["Data"].decode("utf-8"))
 
-                decoded_records.append({"shard_id": shard_id, "sequence_number": record["SequenceNumber"], "partition_key": record["PartitionKey"], "approximate_arrival_timestamp": record["ApproximateArrivalTimestamp"].isoformat(), "payload": payload})
+                decoded_records.append(
+                    {
+                        "shard_id": shard_id,
+                        "sequence_number": record["SequenceNumber"],
+                        "partition_key": record["PartitionKey"],
+                        "approximate_arrival_timestamp": record["ApproximateArrivalTimestamp"].isoformat(),
+                        "payload": payload,
+                    }
+                )
 
             shard_iterator = response.get("NextShardIterator")
 

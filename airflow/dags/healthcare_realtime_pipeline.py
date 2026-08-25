@@ -6,6 +6,9 @@ from datetime import UTC, datetime, timedelta
 import boto3
 from airflow.exceptions import AirflowException
 from airflow.sdk import dag, task
+from lib.athena_lineage import emit_athena_lineage_event
+from lib.openlineage_events import emit_glue_lineage_event
+from openlineage.client.event_v2 import RunState
 
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 GLUE_JOB_NAME = os.getenv("GLUE_JOB_NAME", "healthcare_realtime_raw_to_processed")
@@ -102,31 +105,34 @@ def healthcare_realtime_pipeline():
     @task
     def run_glue_job() -> str:
         glue_client = build_client("glue")
+        lineage_run_id = emit_glue_lineage_event(RunState.START)
 
-        response = glue_client.get_job_runs(JobName=GLUE_JOB_NAME, MaxResults=10)
+        try:
+            response = glue_client.get_job_runs(JobName=GLUE_JOB_NAME, MaxResults=10)
 
-        active_runs = [run for run in response.get("JobRuns", []) if run["JobRunState"] in {"STARTING", "RUNNING", "STOPPING", "WAITING"}]
+            active_runs = [run for run in response.get("JobRuns", []) if run["JobRunState"] in {"STARTING", "RUNNING", "STOPPING", "WAITING"}]
 
-        if active_runs:
-            job_run_id = active_runs[0]["Id"]
+            if active_runs:
+                job_run_id = active_runs[0]["Id"]
+                print(f"Existing Glue job is active: {job_run_id}")
+                print("Waiting for the existing Glue run instead of starting another run.")
+                wait_for_glue_job(glue_client, job_run_id)
+                emit_glue_lineage_event(RunState.COMPLETE, lineage_run_id)
+                return job_run_id
 
-            print(f"Existing Glue job is active: {job_run_id}")
+            response = glue_client.start_job_run(JobName=GLUE_JOB_NAME)
+            job_run_id = response["JobRunId"]
 
-            print("Waiting for the existing Glue run instead of starting another run.")
+            print(f"Started Glue job: {job_run_id}")
 
             wait_for_glue_job(glue_client, job_run_id)
+            emit_glue_lineage_event(RunState.COMPLETE, lineage_run_id)
 
             return job_run_id
 
-        response = glue_client.start_job_run(JobName=GLUE_JOB_NAME)
-
-        job_run_id = response["JobRunId"]
-
-        print(f"Started Glue job: {job_run_id}")
-
-        wait_for_glue_job(glue_client, job_run_id)
-
-        return job_run_id
+        except Exception:
+            emit_glue_lineage_event(RunState.FAIL, lineage_run_id)
+            raise
 
     @task
     def check_glue_metrics(job_run_id: str) -> dict:
@@ -146,39 +152,47 @@ def healthcare_realtime_pipeline():
     @task
     def validate_processed_data(metric: dict) -> None:
         athena_client = build_client("athena")
+        lineage_run_id = emit_athena_lineage_event(RunState.START)
 
         query = f"""
         SELECT COUNT(*) AS invalid_count
         FROM {GLUE_DATABASE}.{GLUE_TABLE}
         WHERE observation_id IS NULL
-           OR patient_id IS NULL
-           OR patient_id = ''
-           OR loinc_code IS NULL
-           OR value IS NULL
-           OR effective_datetime IS NULL
+        OR patient_id IS NULL
+        OR patient_id = ''
+        OR loinc_code IS NULL
+        OR value IS NULL
+        OR effective_datetime IS NULL
         """
 
-        response = athena_client.start_query_execution(QueryString=query, QueryExecutionContext={"Database": GLUE_DATABASE}, ResultConfiguration={"OutputLocation": ATHENA_OUTPUT})
+        try:
+            response = athena_client.start_query_execution(
+                QueryString=query, QueryExecutionContext={"Database": GLUE_DATABASE}, ResultConfiguration={"OutputLocation": ATHENA_OUTPUT}
+            )
 
-        query_execution_id = response["QueryExecutionId"]
+            query_execution_id = response["QueryExecutionId"]
 
-        wait_for_athena_query(athena_client, query_execution_id)
+            wait_for_athena_query(athena_client, query_execution_id)
 
-        results = athena_client.get_query_results(QueryExecutionId=query_execution_id)
+            results = athena_client.get_query_results(QueryExecutionId=query_execution_id)
+            rows = results["ResultSet"]["Rows"]
 
-        rows = results["ResultSet"]["Rows"]
+            if len(rows) < 2:
+                raise AirflowException("Athena validation returned no data row")
 
-        if len(rows) < 2:
-            raise AirflowException("Athena validation returned no data row")
+            invalid_count = int(rows[1]["Data"][0]["VarCharValue"])
 
-        invalid_count = int(rows[1]["Data"][0]["VarCharValue"])
+            print(f"Glue candidates: {metric['candidate_count']}")
+            print(f"Processed table invalid rows: {invalid_count}")
 
-        print(f"Glue candidates: {metric['candidate_count']}")
+            if invalid_count > 0:
+                raise AirflowException(f"Processed Iceberg table contains {invalid_count} invalid rows")
 
-        print(f"Processed table invalid rows: {invalid_count}")
+            emit_athena_lineage_event(RunState.COMPLETE, lineage_run_id)
 
-        if invalid_count > 0:
-            raise AirflowException(f"Processed Iceberg table contains {invalid_count} invalid rows")
+        except Exception:
+            emit_athena_lineage_event(RunState.FAIL, lineage_run_id)
+            raise
 
     raw_data = check_raw_data()
     glue_run = run_glue_job()

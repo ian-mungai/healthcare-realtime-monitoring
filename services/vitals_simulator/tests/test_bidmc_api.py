@@ -8,7 +8,10 @@ from services.vitals_simulator.app.bidmc.source import VitalReading
 client = TestClient(app)
 
 
-SAMPLE_READINGS = [VitalReading(source_record_id="bidmc01n", offset_seconds=0, heart_rate=94.0, respiratory_rate=25.0, spo2=97.0), VitalReading(source_record_id="bidmc01n", offset_seconds=1, heart_rate=95.0, respiratory_rate=26.0, spo2=98.0)]
+SAMPLE_READINGS = [
+    VitalReading(source_record_id="bidmc01n", offset_seconds=0, heart_rate=94.0, respiratory_rate=25.0, spo2=97.0),
+    VitalReading(source_record_id="bidmc01n", offset_seconds=1, heart_rate=95.0, respiratory_rate=26.0, spo2=98.0),
+]
 
 
 def test_health():

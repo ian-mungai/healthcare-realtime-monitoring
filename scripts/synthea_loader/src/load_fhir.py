@@ -182,7 +182,12 @@ def search_resource_by_identifier(resource_type: str, system: str, value: str) -
         resource dict if found
         None if not found
     """
-    response = httpx.get(f"{FHIR_BASE_URL}/{resource_type}", params={"identifier": f"{system}|{value}", "_count": "10"}, headers={"Accept": "application/fhir+json"}, timeout=30.0)
+    response = httpx.get(
+        f"{FHIR_BASE_URL}/{resource_type}",
+        params={"identifier": f"{system}|{value}", "_count": "10"},
+        headers={"Accept": "application/fhir+json"},
+        timeout=30.0,
+    )
 
     response.raise_for_status()
 
@@ -240,7 +245,12 @@ def create_resource(resource_type: str, resource: dict) -> dict:
     Uses Prefer: return=representation so the response should
     contain the created resource.
     """
-    response = httpx.post(f"{FHIR_BASE_URL}/{resource_type}", headers={"Content-Type": "application/fhir+json", "Accept": "application/fhir+json", "Prefer": "return=representation"}, json=resource, timeout=60.0)
+    response = httpx.post(
+        f"{FHIR_BASE_URL}/{resource_type}",
+        headers={"Content-Type": "application/fhir+json", "Accept": "application/fhir+json", "Prefer": "return=representation"},
+        json=resource,
+        timeout=60.0,
+    )
 
     print(f"Create {resource_type}: HTTP {response.status_code}")
 
