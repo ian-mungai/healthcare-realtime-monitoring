@@ -41,6 +41,13 @@ services/fhir_webhook/output/
 # Logs
 *.log
 
+#dbt
+dbt/profiles.yml
+dbt/.user.yml
+dbt/target/
+dbt/logs/
+
+
 # PhysioNet BIDMC local data
 services/vitals_simulator/data/bidmc/*.csv
 services/vitals_simulator/data/bidmc/*.txt

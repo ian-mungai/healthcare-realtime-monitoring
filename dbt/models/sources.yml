@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: healthcare_realtime
+    database: AwsDataCatalog
+    schema: healthcare_realtime
+
+    tables:
+      - name: processed_fhir_observations
+        description: Processed FHIR vital-sign observations stored as an Apache Iceberg table.
