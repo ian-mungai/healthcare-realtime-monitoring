@@ -7,13 +7,7 @@ from services.vitals_simulator.app.synthea.blood_pressure_cadence import BloodPr
 
 
 def build_test_reading(offset_seconds: int) -> VitalReading:
-    return VitalReading(
-        source_record_id="bidmc01n",
-        offset_seconds=offset_seconds,
-        heart_rate=94.0,
-        respiratory_rate=25.0,
-        spo2=97.0,
-    )
+    return VitalReading(source_record_id="bidmc01n", offset_seconds=offset_seconds, heart_rate=94.0, respiratory_rate=25.0, spo2=97.0)
 
 
 def test_event_contains_bp_when_due():

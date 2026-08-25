@@ -5,18 +5,12 @@ from services.fhir_webhook.app.kinesis.client import KinesisPublisher, KinesisPu
 from services.fhir_webhook.app.parser import InvalidFHIRPayloadError, parse_fhir_payload
 from services.fhir_webhook.app.security import WEBHOOK_SECRET_HEADER, validate_webhook_secret
 
-app = FastAPI(
-    title="FHIR Observation Webhook",
-    version="0.2.0",
-)
+app = FastAPI(title="FHIR Observation Webhook", version="0.2.0")
 
 
 @app.get("/health")
 def health() -> dict:
-    return {
-        "status": "healthy",
-        "service": "fhir_webhook",
-    }
+    return {"status": "healthy", "service": "fhir_webhook"}
 
 
 @app.post("/webhooks/fhir")
@@ -40,13 +34,4 @@ async def receive_fhir_webhook(request: Request, x_webhook_secret: str | None = 
     except KinesisPublisherError as error:
         raise HTTPException(status_code=503, detail="Kinesis ingestion failed") from error
 
-    return JSONResponse(
-        status_code=202,
-        content={
-            "status": "accepted",
-            "resource_type": event.resource_type,
-            "resource_id": event.resource_id,
-            "shard_id": result.shard_id,
-            "sequence_number": result.sequence_number,
-        },
-    )
+    return JSONResponse(status_code=202, content={"status": "accepted", "resource_type": event.resource_type, "resource_id": event.resource_id, "shard_id": result.shard_id, "sequence_number": result.sequence_number})

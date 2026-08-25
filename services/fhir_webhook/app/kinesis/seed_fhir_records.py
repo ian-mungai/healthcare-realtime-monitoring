@@ -11,26 +11,10 @@ def build_quantity_observation(observation_id: str, loinc_code: str, display: st
         "resourceType": "Observation",
         "id": observation_id,
         "status": "final",
-        "code": {
-            "coding": [
-                {
-                    "system": "http://loinc.org",
-                    "code": loinc_code,
-                    "display": display,
-                }
-            ],
-            "text": display,
-        },
-        "subject": {
-            "reference": f"Patient/{PATIENT_ID}",
-        },
+        "code": {"coding": [{"system": "http://loinc.org", "code": loinc_code, "display": display}], "text": display},
+        "subject": {"reference": f"Patient/{PATIENT_ID}"},
         "effectiveDateTime": effective_datetime.isoformat(),
-        "valueQuantity": {
-            "value": value,
-            "unit": unit,
-            "system": "http://unitsofmeasure.org",
-            "code": ucum_code,
-        },
+        "valueQuantity": {"value": value, "unit": unit, "system": "http://unitsofmeasure.org", "code": ucum_code},
     }
 
 
@@ -39,55 +23,12 @@ def build_blood_pressure_observation(observation_id: str, systolic: float, diast
         "resourceType": "Observation",
         "id": observation_id,
         "status": "final",
-        "code": {
-            "coding": [
-                {
-                    "system": "http://loinc.org",
-                    "code": "85354-9",
-                    "display": "Blood pressure systolic and diastolic",
-                }
-            ],
-            "text": "Blood pressure systolic and diastolic",
-        },
-        "subject": {
-            "reference": f"Patient/{PATIENT_ID}",
-        },
+        "code": {"coding": [{"system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure systolic and diastolic"}], "text": "Blood pressure systolic and diastolic"},
+        "subject": {"reference": f"Patient/{PATIENT_ID}"},
         "effectiveDateTime": effective_datetime.isoformat(),
         "component": [
-            {
-                "code": {
-                    "coding": [
-                        {
-                            "system": "http://loinc.org",
-                            "code": "8480-6",
-                            "display": "Systolic blood pressure",
-                        }
-                    ]
-                },
-                "valueQuantity": {
-                    "value": systolic,
-                    "unit": "mmHg",
-                    "system": "http://unitsofmeasure.org",
-                    "code": "mm[Hg]",
-                },
-            },
-            {
-                "code": {
-                    "coding": [
-                        {
-                            "system": "http://loinc.org",
-                            "code": "8462-4",
-                            "display": "Diastolic blood pressure",
-                        }
-                    ]
-                },
-                "valueQuantity": {
-                    "value": diastolic,
-                    "unit": "mmHg",
-                    "system": "http://unitsofmeasure.org",
-                    "code": "mm[Hg]",
-                },
-            },
+            {"code": {"coding": [{"system": "http://loinc.org", "code": "8480-6", "display": "Systolic blood pressure"}]}, "valueQuantity": {"value": systolic, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}},
+            {"code": {"coding": [{"system": "http://loinc.org", "code": "8462-4", "display": "Diastolic blood pressure"}]}, "valueQuantity": {"value": diastolic, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}},
         ],
     }
 
@@ -114,12 +55,7 @@ def main():
     observations = build_seed_observations()
 
     for index, observation in enumerate(observations, start=1):
-        event = FHIRWebhookEvent(
-            received_at=datetime.now(UTC),
-            resource_type="Observation",
-            resource_id=observation["id"],
-            payload=observation,
-        )
+        event = FHIRWebhookEvent(received_at=datetime.now(UTC), resource_type="Observation", resource_id=observation["id"], payload=observation)
 
         result = publisher.publish(event)
 

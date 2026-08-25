@@ -16,17 +16,7 @@ def test_different_offsets_produce_different_identifiers():
 
 
 def test_add_observation_identifier():
-    observation = {
-        "resourceType": "Observation",
-        "code": {
-            "coding": [
-                {
-                    "system": "http://loinc.org",
-                    "code": "8867-4",
-                }
-            ]
-        },
-    }
+    observation = {"resourceType": "Observation", "code": {"coding": [{"system": "http://loinc.org", "code": "8867-4"}]}}
 
     result = add_observation_identifier(observation, "bidmc01n", 10)
 

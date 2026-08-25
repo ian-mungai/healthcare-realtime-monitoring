@@ -8,24 +8,9 @@ FHIR_OBSERVATION_CATEGORY_SYSTEM = "http://terminology.hl7.org/CodeSystem/observ
 LOINC_SYSTEM = "http://loinc.org"
 UCUM_SYSTEM = "http://unitsofmeasure.org"
 
-HEART_RATE = {
-    "loinc_code": "8867-4",
-    "display": "Heart rate",
-    "unit": "beats/minute",
-    "ucum_code": "/min",
-}
-RESPIRATORY_RATE = {
-    "loinc_code": "9279-1",
-    "display": "Respiratory rate",
-    "unit": "breaths/minute",
-    "ucum_code": "/min",
-}
-SPO2 = {
-    "loinc_code": "2708-6",
-    "display": "Oxygen saturation in Arterial blood",
-    "unit": "%",
-    "ucum_code": "%",
-}
+HEART_RATE = {"loinc_code": "8867-4", "display": "Heart rate", "unit": "beats/minute", "ucum_code": "/min"}
+RESPIRATORY_RATE = {"loinc_code": "9279-1", "display": "Respiratory rate", "unit": "breaths/minute", "ucum_code": "/min"}
+SPO2 = {"loinc_code": "2708-6", "display": "Oxygen saturation in Arterial blood", "unit": "%", "ucum_code": "%"}
 BLOOD_PRESSURE = {"loinc_code": "85354-9", "display": "Blood pressure systolic and diastolic"}
 SYSTOLIC_BP = {"loinc_code": "8480-6", "display": "Systolic blood pressure"}
 DIASTOLIC_BP = {"loinc_code": "8462-4", "display": "Diastolic blood pressure"}
@@ -47,60 +32,21 @@ def build_effective_datetime(simulation_start: datetime, offset_seconds: int) ->
     return effective_time.isoformat()
 
 
-def build_observation(
-    patient_id: str,
-    encounter_id: str,
-    effective_datetime: str,
-    code: str,
-    display: str,
-    value: float,
-    unit: str,
-    ucum_code: str,
-    source_record_id: str,
-    source_offset_seconds: int,
-) -> dict[str, Any]:
+def build_observation(patient_id: str, encounter_id: str, effective_datetime: str, code: str, display: str, value: float, unit: str, ucum_code: str, source_record_id: str, source_offset_seconds: int) -> dict[str, Any]:
     return {
         "resourceType": "Observation",
         "status": "final",
-        "category": [
-            {
-                "coding": [
-                    {
-                        "system": FHIR_OBSERVATION_CATEGORY_SYSTEM,
-                        "code": "vital-signs",
-                        "display": "Vital Signs",
-                    }
-                ]
-            }
-        ],
-        "code": {
-            "coding": [{"system": LOINC_SYSTEM, "code": code, "display": display}],
-            "text": display,
-        },
+        "category": [{"coding": [{"system": FHIR_OBSERVATION_CATEGORY_SYSTEM, "code": "vital-signs", "display": "Vital Signs"}]}],
+        "code": {"coding": [{"system": LOINC_SYSTEM, "code": code, "display": display}], "text": display},
         "subject": {"reference": f"Patient/{patient_id}"},
         "encounter": {"reference": f"Encounter/{encounter_id}"},
         "effectiveDateTime": effective_datetime,
         "valueQuantity": {"value": value, "unit": unit, "system": UCUM_SYSTEM, "code": ucum_code},
-        "extension": [
-            {
-                "url": "https://example.org/fhir/StructureDefinition/source_record_id",
-                "valueString": source_record_id,
-            },
-            {
-                "url": "https://example.org/fhir/StructureDefinition/source_offset_seconds",
-                "valueInteger": source_offset_seconds,
-            },
-        ],
+        "extension": [{"url": "https://example.org/fhir/StructureDefinition/source_record_id", "valueString": source_record_id}, {"url": "https://example.org/fhir/StructureDefinition/source_offset_seconds", "valueInteger": source_offset_seconds}],
     }
 
 
-def build_blood_pressure_observation(
-    patient_id: str,
-    encounter_id: str,
-    effective_datetime: str,
-    reading: BloodPressureReading,
-    source_offset_seconds: int,
-) -> dict[str, Any]:
+def build_blood_pressure_observation(patient_id: str, encounter_id: str, effective_datetime: str, reading: BloodPressureReading, source_offset_seconds: int) -> dict[str, Any]:
     systolic = normalize_measurement(reading.systolic)
     diastolic = normalize_measurement(reading.diastolic)
 
@@ -110,82 +56,20 @@ def build_blood_pressure_observation(
     return {
         "resourceType": "Observation",
         "status": "final",
-        "category": [
-            {
-                "coding": [
-                    {
-                        "system": FHIR_OBSERVATION_CATEGORY_SYSTEM,
-                        "code": "vital-signs",
-                        "display": "Vital Signs",
-                    }
-                ]
-            }
-        ],
-        "code": {
-            "coding": [
-                {
-                    "system": LOINC_SYSTEM,
-                    "code": BLOOD_PRESSURE["loinc_code"],
-                    "display": BLOOD_PRESSURE["display"],
-                }
-            ],
-            "text": BLOOD_PRESSURE["display"],
-        },
+        "category": [{"coding": [{"system": FHIR_OBSERVATION_CATEGORY_SYSTEM, "code": "vital-signs", "display": "Vital Signs"}]}],
+        "code": {"coding": [{"system": LOINC_SYSTEM, "code": BLOOD_PRESSURE["loinc_code"], "display": BLOOD_PRESSURE["display"]}], "text": BLOOD_PRESSURE["display"]},
         "subject": {"reference": f"Patient/{patient_id}"},
         "encounter": {"reference": f"Encounter/{encounter_id}"},
         "effectiveDateTime": effective_datetime,
         "component": [
-            {
-                "code": {
-                    "coding": [
-                        {
-                            "system": LOINC_SYSTEM,
-                            "code": SYSTOLIC_BP["loinc_code"],
-                            "display": SYSTOLIC_BP["display"],
-                        }
-                    ]
-                },
-                "valueQuantity": {
-                    "value": systolic,
-                    "unit": "mmHg",
-                    "system": UCUM_SYSTEM,
-                    "code": "mm[Hg]",
-                },
-            },
-            {
-                "code": {
-                    "coding": [
-                        {
-                            "system": LOINC_SYSTEM,
-                            "code": DIASTOLIC_BP["loinc_code"],
-                            "display": DIASTOLIC_BP["display"],
-                        }
-                    ]
-                },
-                "valueQuantity": {
-                    "value": diastolic,
-                    "unit": "mmHg",
-                    "system": UCUM_SYSTEM,
-                    "code": "mm[Hg]",
-                },
-            },
+            {"code": {"coding": [{"system": LOINC_SYSTEM, "code": SYSTOLIC_BP["loinc_code"], "display": SYSTOLIC_BP["display"]}]}, "valueQuantity": {"value": systolic, "unit": "mmHg", "system": UCUM_SYSTEM, "code": "mm[Hg]"}},
+            {"code": {"coding": [{"system": LOINC_SYSTEM, "code": DIASTOLIC_BP["loinc_code"], "display": DIASTOLIC_BP["display"]}]}, "valueQuantity": {"value": diastolic, "unit": "mmHg", "system": UCUM_SYSTEM, "code": "mm[Hg]"}},
         ],
-        "extension": [
-            {
-                "url": "https://example.org/fhir/StructureDefinition/source_record_id",
-                "valueString": reading.source_observation_id or "synthea_bp",
-            },
-            {
-                "url": "https://example.org/fhir/StructureDefinition/source_offset_seconds",
-                "valueInteger": source_offset_seconds,
-            },
-        ],
+        "extension": [{"url": "https://example.org/fhir/StructureDefinition/source_record_id", "valueString": reading.source_observation_id or "synthea_bp"}, {"url": "https://example.org/fhir/StructureDefinition/source_offset_seconds", "valueInteger": source_offset_seconds}],
     }
 
 
-def build_observations_from_reading(
-    reading: VitalReading, patient_id: str, encounter_id: str, simulation_start: datetime
-) -> list[dict[str, Any]]:
+def build_observations_from_reading(reading: VitalReading, patient_id: str, encounter_id: str, simulation_start: datetime) -> list[dict[str, Any]]:
     effective_datetime = build_effective_datetime(simulation_start, reading.offset_seconds)
     observations = []
 

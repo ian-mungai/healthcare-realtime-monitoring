@@ -20,11 +20,7 @@ class BloodPressureReading:
 
 
 def get_coding_codes(resource: dict) -> set[str]:
-    return {
-        coding.get("code")
-        for coding in resource.get("code", {}).get("coding", [])
-        if coding.get("code")
-    }
+    return {coding.get("code") for coding in resource.get("code", {}).get("coding", []) if coding.get("code")}
 
 
 def get_component_value(observation: dict, loinc_code: str) -> float | None:
@@ -71,14 +67,7 @@ def extract_blood_pressure_readings(bundle: dict) -> list[BloodPressureReading]:
         if systolic is None or diastolic is None:
             continue
 
-        readings.append(
-            BloodPressureReading(
-                source_patient_id=patient_id,
-                source_observation_id=resource.get("id"),
-                systolic=systolic,
-                diastolic=diastolic,
-            )
-        )
+        readings.append(BloodPressureReading(source_patient_id=patient_id, source_observation_id=resource.get("id"), systolic=systolic, diastolic=diastolic))
 
     return readings
 

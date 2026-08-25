@@ -13,12 +13,5 @@ def build_observation_subscription(webhook_url: str, webhook_secret: str) -> dic
         "status": "requested",
         "reason": "Stream newly created vital sign Observations to the realtime monitoring pipeline",
         "criteria": "Observation?status=final",
-        "channel": {
-            "type": "rest-hook",
-            "endpoint": webhook_url,
-            "payload": "application/fhir+json",
-            "header": [
-                f"{WEBHOOK_SECRET_HEADER}: {webhook_secret}",
-            ],
-        },
+        "channel": {"type": "rest-hook", "endpoint": webhook_url, "payload": "application/fhir+json", "header": [f"{WEBHOOK_SECRET_HEADER}: {webhook_secret}"]},
     }

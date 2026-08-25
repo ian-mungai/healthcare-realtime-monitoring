@@ -44,27 +44,13 @@ def test_empty_handshake_is_accepted():
 
 
 def test_webhook_requires_secret_for_observation():
-    response = client.post(
-        "/webhooks/fhir",
-        json={
-            "resourceType": "Observation",
-            "id": "observation_123",
-        },
-    )
+    response = client.post("/webhooks/fhir", json={"resourceType": "Observation", "id": "observation_123"})
 
     assert response.status_code == 401
 
 
 def test_webhook_accepts_observation():
-    response = client.post(
-        "/webhooks/fhir",
-        headers={"X-Webhook-Secret": TEST_SECRET},
-        json={
-            "resourceType": "Observation",
-            "id": "observation_123",
-            "status": "final",
-        },
-    )
+    response = client.post("/webhooks/fhir", headers={"X-Webhook-Secret": TEST_SECRET}, json={"resourceType": "Observation", "id": "observation_123", "status": "final"})
 
     assert response.status_code == 202
     assert response.json()["resource_id"] == "observation_123"
@@ -72,28 +58,13 @@ def test_webhook_accepts_observation():
 
 
 def test_webhook_rejects_patient():
-    response = client.post(
-        "/webhooks/fhir",
-        headers={"X-Webhook-Secret": TEST_SECRET},
-        json={
-            "resourceType": "Patient",
-            "id": "patient_123",
-        },
-    )
+    response = client.post("/webhooks/fhir", headers={"X-Webhook-Secret": TEST_SECRET}, json={"resourceType": "Patient", "id": "patient_123"})
 
     assert response.status_code == 400
 
 
-
 def test_list_events():
-    client.post(
-        "/webhooks/fhir",
-        headers={"X-Webhook-Secret": TEST_SECRET},
-        json={
-            "resourceType": "Observation",
-            "id": "observation_123",
-        },
-    )
+    client.post("/webhooks/fhir", headers={"X-Webhook-Secret": TEST_SECRET}, json={"resourceType": "Observation", "id": "observation_123"})
 
     response = client.get("/events")
 
