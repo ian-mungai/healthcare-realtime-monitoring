@@ -13,3 +13,4 @@ sqlalchemy
 pyathena
 openlineage-python[fsspec]
 s3fs
+soda-athena==4.22.0
