@@ -14,7 +14,12 @@ resource "aws_ecr_repository" "dbt" {
 }
 
 resource "aws_ecs_cluster" "dbt" {
-  name = "healthcare-realtime-dbt"
+  name = "healthcare-realtime-data-jobs"
+
+  setting {
+    name  = "containerInsights"
+    value = "enabled"
+  }
 
   tags = var.tags
 }

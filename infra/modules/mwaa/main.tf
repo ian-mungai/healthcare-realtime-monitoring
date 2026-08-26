@@ -42,6 +42,34 @@ data "aws_iam_policy_document" "mwaa_assume_role" {
   }
 }
 
+data "aws_iam_policy_document" "mwaa_cloudwatch_metrics" {
+  statement {
+    sid    = "PublishPipelineMetrics"
+    effect = "Allow"
+
+    actions = [
+      "cloudwatch:PutMetricData"
+    ]
+
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "cloudwatch:namespace"
+
+      values = [
+        "HealthcareRealtime/Pipeline"
+      ]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "mwaa_cloudwatch_metrics" {
+  name   = "healthcare_realtime_mwaa_cloudwatch_metrics"
+  role   = aws_iam_role.mwaa_execution.id
+  policy = data.aws_iam_policy_document.mwaa_cloudwatch_metrics.json
+}
+
 data "aws_iam_policy_document" "mwaa_ecs_access" {
   statement {
     sid    = "RunDbtEcsTask"
@@ -447,6 +475,12 @@ resource "aws_s3_object" "dbt_lineage_helper" {
   source = "${path.root}/../airflow/dags/lib/dbt_lineage.py"
   etag   = filemd5("${path.root}/../airflow/dags/lib/dbt_lineage.py")
 }
+resource "aws_s3_object" "cloudwatch_metrics_helper" {
+  bucket = aws_s3_bucket.mwaa.id
+  key    = "dags/lib/cloudwatch_metrics.py"
+  source = "${path.root}/../airflow/dags/lib/cloudwatch_metrics.py"
+  etag   = filemd5("${path.root}/../airflow/dags/lib/cloudwatch_metrics.py")
+}
 
 resource "aws_mwaa_environment" "healthcare_realtime" {
   name = var.environment_name
@@ -521,6 +555,8 @@ resource "aws_mwaa_environment" "healthcare_realtime" {
     aws_s3_object.athena_lineage_helper,
     aws_s3_object.dbt_lineage_helper,
     aws_s3_object.soda_lineage_helper,
+    aws_iam_role_policy.mwaa_cloudwatch_metrics,
+    aws_s3_object.cloudwatch_metrics_helper,
     aws_s3_object.dag_lib_init,
     aws_s3_object.requirements,
     aws_iam_role_policy.mwaa_s3_access,
