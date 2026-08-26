@@ -107,6 +107,25 @@ module "mwaa" {
   }
 }
 
+module "observability" {
+  source = "./modules/observability"
+
+  aws_region = "us-east-1"
+
+  kinesis_stream_name           = module.kinesis.stream_name
+  firehose_delivery_stream_name = module.firehose.delivery_stream_name
+  glue_job_name                 = module.glue.job_name
+
+  ecs_cluster_name      = "healthcare-realtime-data-jobs"
+  mwaa_environment_name = "healthcare_realtime_mwaa"
+
+  tags = {
+    Project     = "healthcare_realtime_monitoring"
+    Environment = "development"
+    ManagedBy   = "terraform"
+  }
+}
+
 module "dbt_ecs" {
   source = "./modules/dbt_ecs"
 

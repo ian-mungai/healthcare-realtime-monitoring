@@ -72,8 +72,8 @@ output "dbt_ecs_cluster_name" {
   value       = module.dbt_ecs.cluster_name
 }
 
-output "dbt_ecs_cluster_arn" {
-  description = "ECS cluster ARN."
+output "data_jobs_ecs_cluster_arn" {
+  description = "ARN of the shared ECS cluster for data processing jobs."
   value       = module.dbt_ecs.cluster_arn
 }
 
@@ -120,4 +120,19 @@ output "soda_ecs_task_execution_role_arn" {
 output "soda_ecs_security_group_id" {
   description = "Security group used by Soda ECS tasks."
   value       = module.soda_ecs.security_group_id
+}
+
+output "cloudwatch_dashboard_name" {
+  description = "CloudWatch operational dashboard."
+  value       = module.observability.dashboard_name
+}
+
+output "pipeline_failure_alarm_name" {
+  description = "Pipeline task failure CloudWatch alarm."
+  value       = module.observability.pipeline_failure_alarm_name
+}
+
+output "mwaa_queue_age_alarm_name" {
+  description = "MWAA native queue age CloudWatch alarm."
+  value       = module.observability.mwaa_queue_age_alarm_name
 }
