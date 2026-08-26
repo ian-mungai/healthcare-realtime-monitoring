@@ -42,6 +42,61 @@ data "aws_iam_policy_document" "mwaa_assume_role" {
   }
 }
 
+data "aws_iam_policy_document" "mwaa_ecs_access" {
+  statement {
+    sid    = "RunDbtEcsTask"
+    effect = "Allow"
+
+    actions = [
+      "ecs:RunTask"
+    ]
+
+    resources = [
+      var.dbt_ecs_task_definition_arn
+    ]
+  }
+
+  statement {
+    sid    = "DescribeDbtEcsTasks"
+    effect = "Allow"
+
+    actions = [
+      "ecs:DescribeTasks"
+    ]
+
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "PassDbtEcsRoles"
+    effect = "Allow"
+
+    actions = [
+      "iam:PassRole"
+    ]
+
+    resources = [
+      var.dbt_ecs_task_role_arn,
+      var.dbt_ecs_task_execution_role_arn
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
+
+      values = [
+        "ecs-tasks.amazonaws.com"
+      ]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "mwaa_ecs_access" {
+  name   = "healthcare_realtime_mwaa_ecs_access"
+  role   = aws_iam_role.mwaa_execution.id
+  policy = data.aws_iam_policy_document.mwaa_ecs_access.json
+}
+
 resource "aws_iam_role" "mwaa_execution" {
   name               = "healthcare_realtime_mwaa_execution_role"
   assume_role_policy = data.aws_iam_policy_document.mwaa_assume_role.json
@@ -376,6 +431,13 @@ resource "aws_s3_object" "requirements" {
   etag   = filemd5("${path.root}/../airflow/requirements.txt")
 }
 
+resource "aws_s3_object" "dbt_lineage_helper" {
+  bucket = aws_s3_bucket.mwaa.id
+  key    = "dags/lib/dbt_lineage.py"
+  source = "${path.root}/../airflow/dags/lib/dbt_lineage.py"
+  etag   = filemd5("${path.root}/../airflow/dags/lib/dbt_lineage.py")
+}
+
 resource "aws_mwaa_environment" "healthcare_realtime" {
   name = var.environment_name
 
@@ -427,6 +489,16 @@ resource "aws_mwaa_environment" "healthcare_realtime" {
     }
   }
 
+  airflow_configuration_options = merge(
+    {
+      "core.load_examples" = "False"
+    },
+    {
+      "dbt.ecs_security_group" = var.dbt_ecs_security_group_id
+      "dbt.ecs_subnets"        = join(",", var.dbt_ecs_subnet_ids)
+    }
+  )
+
   tags = var.tags
 
   depends_on = [
@@ -435,6 +507,7 @@ resource "aws_mwaa_environment" "healthcare_realtime" {
     aws_s3_object.dag,
     aws_s3_object.openlineage_helper,
     aws_s3_object.athena_lineage_helper,
+    aws_s3_object.dbt_lineage_helper,
     aws_s3_object.dag_lib_init,
     aws_s3_object.requirements,
     aws_iam_role_policy.mwaa_s3_access,
@@ -442,6 +515,7 @@ resource "aws_mwaa_environment" "healthcare_realtime" {
     aws_iam_role_policy.mwaa_athena_access,
     aws_iam_role_policy.mwaa_cloudwatch_access,
     aws_iam_role_policy.mwaa_sqs_access,
-    aws_iam_role_policy.mwaa_kms_access
+    aws_iam_role_policy.mwaa_kms_access,
+    aws_iam_role_policy.mwaa_ecs_access,
   ]
 }

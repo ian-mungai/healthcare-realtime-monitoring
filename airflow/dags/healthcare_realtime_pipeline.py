@@ -7,6 +7,7 @@ import boto3
 from airflow.exceptions import AirflowException
 from airflow.sdk import dag, task
 from lib.athena_lineage import emit_athena_lineage_event
+from lib.dbt_lineage import emit_dbt_lineage_event
 from lib.openlineage_events import emit_glue_lineage_event
 from openlineage.client.event_v2 import RunState
 
@@ -18,6 +19,10 @@ METRICS_PREFIX = os.getenv("METRICS_PREFIX", "metrics/glue/")
 GLUE_DATABASE = os.getenv("GLUE_DATABASE", "healthcare_realtime")
 GLUE_TABLE = os.getenv("GLUE_TABLE", "processed_fhir_observations")
 ATHENA_OUTPUT = f"s3://{RAW_BUCKET}/athena_results/"
+DBT_ECS_CLUSTER = os.getenv("DBT_ECS_CLUSTER", "healthcare-realtime-dbt")
+DBT_ECS_TASK_DEFINITION = os.getenv("DBT_ECS_TASK_DEFINITION", "healthcare_realtime_dbt")
+DBT_ECS_SECURITY_GROUP = os.getenv("AIRFLOW__DBT__ECS_SECURITY_GROUP", "")
+DBT_ECS_SUBNETS = [subnet.strip() for subnet in os.getenv("AIRFLOW__DBT__ECS_SUBNETS", "").split(",") if subnet.strip()]
 
 
 def build_client(service_name: str):
@@ -194,14 +199,91 @@ def healthcare_realtime_pipeline():
             emit_athena_lineage_event(RunState.FAIL, lineage_run_id)
             raise
 
+    @task
+    def run_dbt_build() -> str:
+        ecs_client = build_client("ecs")
+        lineage_run_id = emit_dbt_lineage_event(RunState.START)
+
+        if not DBT_ECS_SECURITY_GROUP:
+            raise AirflowException("DBT_ECS_SECURITY_GROUP is not configured")
+
+        if not DBT_ECS_SUBNETS:
+            raise AirflowException("DBT_ECS_SUBNETS is not configured")
+
+        try:
+            response = ecs_client.run_task(
+                cluster=DBT_ECS_CLUSTER,
+                taskDefinition=DBT_ECS_TASK_DEFINITION,
+                launchType="FARGATE",
+                count=1,
+                networkConfiguration={
+                    "awsvpcConfiguration": {"subnets": DBT_ECS_SUBNETS, "securityGroups": [DBT_ECS_SECURITY_GROUP], "assignPublicIp": "DISABLED"}
+                },
+                startedBy="healthcare-realtime-mwaa",
+            )
+
+            failures = response.get("failures", [])
+
+            if failures:
+                raise AirflowException(f"Unable to start dbt ECS task: {failures}")
+
+            tasks = response.get("tasks", [])
+
+            if not tasks:
+                raise AirflowException("ECS RunTask returned no dbt task")
+
+            task_arn = tasks[0]["taskArn"]
+
+            print(f"Started dbt ECS task: {task_arn}")
+
+            while True:
+                response = ecs_client.describe_tasks(cluster=DBT_ECS_CLUSTER, tasks=[task_arn])
+
+                tasks = response.get("tasks", [])
+
+                if not tasks:
+                    raise AirflowException(f"Unable to describe dbt ECS task {task_arn}")
+
+                ecs_task = tasks[0]
+                status = ecs_task["lastStatus"]
+
+                print(f"dbt ECS task status: {status}")
+
+                if status == "STOPPED":
+                    break
+
+                time.sleep(15)
+
+            containers = ecs_task.get("containers", [])
+
+            if not containers:
+                raise AirflowException(f"dbt ECS task {task_arn} returned no container status")
+
+            container = containers[0]
+            exit_code = container.get("exitCode")
+
+            if exit_code != 0:
+                reason = container.get("reason") or ecs_task.get("stoppedReason") or "Unknown dbt ECS failure"
+                raise AirflowException(f"dbt ECS task failed with exit code {exit_code}: {reason}")
+
+            emit_dbt_lineage_event(RunState.COMPLETE, lineage_run_id)
+
+            return task_arn
+
+        except Exception:
+            emit_dbt_lineage_event(RunState.FAIL, lineage_run_id)
+            raise
+
     raw_data = check_raw_data()
     glue_run = run_glue_job()
     metrics = check_glue_metrics(glue_run)
     validation = validate_processed_data(metrics)
+    dbt_build = run_dbt_build()
 
     raw_data >> glue_run
     glue_run >> metrics
     metrics >> validation
+    validation >> dbt_build
 
 
 healthcare_realtime_pipeline()
