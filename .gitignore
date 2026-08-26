@@ -7,8 +7,13 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
 .venv/
 venv/
+env/
 
 # Environment
 .env
@@ -20,11 +25,11 @@ venv/
 *.tfstate
 *.tfstate.*
 *.tfplan
+tfplan
 crash.log
 
 #Lineage
-lineage/events/*.json
-lineage/events/*.jsonl
+lineage/events/
 
 # IDE
 .vscode/
@@ -46,7 +51,6 @@ dbt/profiles.yml
 dbt/.user.yml
 dbt/target/
 dbt/logs/
-
 
 # PhysioNet BIDMC local data
 services/vitals_simulator/data/bidmc/*.csv
