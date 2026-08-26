@@ -7,6 +7,7 @@ import boto3
 from airflow.exceptions import AirflowException
 from airflow.sdk import dag, task
 from lib.athena_lineage import emit_athena_lineage_event
+from lib.cloudwatch_metrics import task_failure_callback, task_success_callback
 from lib.dbt_lineage import emit_dbt_lineage_event
 from lib.openlineage_events import emit_glue_lineage_event
 from lib.soda_lineage import emit_soda_lineage_event
@@ -20,7 +21,7 @@ METRICS_PREFIX = os.getenv("METRICS_PREFIX", "metrics/glue/")
 GLUE_DATABASE = os.getenv("GLUE_DATABASE", "healthcare_realtime")
 GLUE_TABLE = os.getenv("GLUE_TABLE", "processed_fhir_observations")
 ATHENA_OUTPUT = f"s3://{RAW_BUCKET}/athena_results/"
-DBT_ECS_CLUSTER = os.getenv("DBT_ECS_CLUSTER", "healthcare-realtime-dbt")
+DATA_JOBS_ECS_CLUSTER = os.getenv("DATA_JOBS_ECS_CLUSTER", "healthcare-realtime-data-jobs")
 DBT_ECS_TASK_DEFINITION = os.getenv("DBT_ECS_TASK_DEFINITION", "healthcare_realtime_dbt")
 DBT_ECS_SECURITY_GROUP = os.getenv("AIRFLOW__DBT__ECS_SECURITY_GROUP", "")
 DBT_ECS_SUBNETS = [subnet.strip() for subnet in os.getenv("AIRFLOW__DBT__ECS_SUBNETS", "").split(",") if subnet.strip()]
@@ -96,7 +97,14 @@ def read_latest_metric(s3_client) -> dict:
     schedule="*/15 * * * *",
     catchup=False,
     max_active_runs=1,
-    default_args={"owner": "healthcare_realtime", "depends_on_past": False, "retries": 2, "retry_delay": timedelta(minutes=1)},
+    default_args={
+        "owner": "healthcare_realtime",
+        "on_success_callback": task_success_callback,
+        "on_failure_callback": task_failure_callback,
+        "depends_on_past": False,
+        "retries": 2,
+        "retry_delay": timedelta(minutes=1),
+    },
     tags=["healthcare", "fhir", "glue", "iceberg"],
 )
 def healthcare_realtime_pipeline():
@@ -216,7 +224,7 @@ def healthcare_realtime_pipeline():
 
         try:
             response = ecs_client.run_task(
-                cluster=DBT_ECS_CLUSTER,
+                cluster=DATA_JOBS_ECS_CLUSTER,
                 taskDefinition=DBT_ECS_TASK_DEFINITION,
                 launchType="FARGATE",
                 count=1,
@@ -241,7 +249,7 @@ def healthcare_realtime_pipeline():
             print(f"Started dbt ECS task: {task_arn}")
 
             while True:
-                response = ecs_client.describe_tasks(cluster=DBT_ECS_CLUSTER, tasks=[task_arn])
+                response = ecs_client.describe_tasks(cluster=DATA_JOBS_ECS_CLUSTER, tasks=[task_arn])
 
                 tasks = response.get("tasks", [])
 
@@ -291,7 +299,7 @@ def healthcare_realtime_pipeline():
                 raise AirflowException("SODA_ECS_SUBNETS is not configured")
 
             response = ecs_client.run_task(
-                cluster=DBT_ECS_CLUSTER,
+                cluster=DATA_JOBS_ECS_CLUSTER,
                 taskDefinition=SODA_ECS_TASK_DEFINITION,
                 launchType="FARGATE",
                 count=1,
@@ -316,7 +324,7 @@ def healthcare_realtime_pipeline():
             print(f"Started Soda ECS task: {task_arn}")
 
             while True:
-                response = ecs_client.describe_tasks(cluster=DBT_ECS_CLUSTER, tasks=[task_arn])
+                response = ecs_client.describe_tasks(cluster=DATA_JOBS_ECS_CLUSTER, tasks=[task_arn])
 
                 tasks = response.get("tasks", [])
 
