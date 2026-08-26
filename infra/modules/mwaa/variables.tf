@@ -63,3 +63,28 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "soda_ecs_task_definition_arn" {
+  description = "Soda ECS task definition ARN."
+  type        = string
+}
+
+variable "soda_ecs_task_role_arn" {
+  description = "Soda ECS task role ARN."
+  type        = string
+}
+
+variable "soda_ecs_task_execution_role_arn" {
+  description = "Soda ECS task execution role ARN."
+  type        = string
+}
+
+variable "soda_ecs_security_group_id" {
+  description = "Security group used by Soda ECS tasks."
+  type        = string
+}
+
+variable "soda_ecs_subnet_ids" {
+  description = "Private subnet IDs used by Soda ECS tasks."
+  type        = list(string)
+}

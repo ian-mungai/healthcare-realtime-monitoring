@@ -52,7 +52,8 @@ data "aws_iam_policy_document" "mwaa_ecs_access" {
     ]
 
     resources = [
-      var.dbt_ecs_task_definition_arn
+      var.dbt_ecs_task_definition_arn,
+      var.soda_ecs_task_definition_arn
     ]
   }
 
@@ -77,7 +78,9 @@ data "aws_iam_policy_document" "mwaa_ecs_access" {
 
     resources = [
       var.dbt_ecs_task_role_arn,
-      var.dbt_ecs_task_execution_role_arn
+      var.dbt_ecs_task_execution_role_arn,
+      var.soda_ecs_task_role_arn,
+      var.soda_ecs_task_execution_role_arn
     ]
 
     condition {
@@ -102,6 +105,13 @@ resource "aws_iam_role" "mwaa_execution" {
   assume_role_policy = data.aws_iam_policy_document.mwaa_assume_role.json
 
   tags = var.tags
+}
+
+resource "aws_s3_object" "soda_lineage_helper" {
+  bucket = aws_s3_bucket.mwaa.id
+  key    = "dags/lib/soda_lineage.py"
+  source = "${path.root}/../airflow/dags/lib/soda_lineage.py"
+  etag   = filemd5("${path.root}/../airflow/dags/lib/soda_lineage.py")
 }
 
 data "aws_iam_policy_document" "mwaa_s3_access" {
@@ -494,8 +504,10 @@ resource "aws_mwaa_environment" "healthcare_realtime" {
       "core.load_examples" = "False"
     },
     {
-      "dbt.ecs_security_group" = var.dbt_ecs_security_group_id
-      "dbt.ecs_subnets"        = join(",", var.dbt_ecs_subnet_ids)
+      "dbt.ecs_security_group"  = var.dbt_ecs_security_group_id
+      "dbt.ecs_subnets"         = join(",", var.dbt_ecs_subnet_ids)
+      "soda.ecs_security_group" = var.soda_ecs_security_group_id
+      "soda.ecs_subnets"        = join(",", var.soda_ecs_subnet_ids)
     }
   )
 
@@ -508,6 +520,7 @@ resource "aws_mwaa_environment" "healthcare_realtime" {
     aws_s3_object.openlineage_helper,
     aws_s3_object.athena_lineage_helper,
     aws_s3_object.dbt_lineage_helper,
+    aws_s3_object.soda_lineage_helper,
     aws_s3_object.dag_lib_init,
     aws_s3_object.requirements,
     aws_iam_role_policy.mwaa_s3_access,

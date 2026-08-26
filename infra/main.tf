@@ -85,6 +85,12 @@ module "mwaa" {
   dbt_ecs_security_group_id       = module.dbt_ecs.security_group_id
   dbt_ecs_subnet_ids              = module.network.private_subnet_ids
 
+  soda_ecs_task_definition_arn     = module.soda_ecs.task_definition_arn
+  soda_ecs_task_role_arn           = module.soda_ecs.task_role_arn
+  soda_ecs_task_execution_role_arn = module.soda_ecs.task_execution_role_arn
+  soda_ecs_security_group_id       = module.soda_ecs.security_group_id
+  soda_ecs_subnet_ids              = module.network.private_subnet_ids
+
   glue_job_name      = module.glue.job_name
   glue_database_name = module.glue.database_name
 
@@ -103,6 +109,23 @@ module "mwaa" {
 
 module "dbt_ecs" {
   source = "./modules/dbt_ecs"
+
+  vpc_id             = module.network.vpc_id
+  private_subnet_ids = module.network.private_subnet_ids
+  data_bucket_name   = "imungai-healthcare-realtime"
+
+  source_database_name = "healthcare_realtime"
+  dbt_database_name    = "healthcare_realtime_dbt"
+
+  tags = {
+    Project     = "healthcare_realtime_monitoring"
+    Environment = "development"
+    ManagedBy   = "terraform"
+  }
+}
+
+module "soda_ecs" {
+  source = "./modules/soda_ecs"
 
   vpc_id             = module.network.vpc_id
   private_subnet_ids = module.network.private_subnet_ids

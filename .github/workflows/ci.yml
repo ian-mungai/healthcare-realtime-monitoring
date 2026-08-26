@@ -30,6 +30,11 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements_dev.txt
 
+      - name: Soda contract syntax
+        run: |
+          for contract in data_quality/soda/contracts/*.yml; do
+            soda contract test --contract "$contract"
+          done
       - name: Ruff
         run: |
           ruff check .
@@ -155,3 +160,27 @@ jobs:
       - name: Run Synthea output tests
         run: |
           python -m pytest scripts/synthea_loader/tests/test_synthea_output.py -v
+
+  containers:
+    name: Container Builds
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build dbt image
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            -f deploy/dbt/Dockerfile \
+            -t healthcare-realtime-dbt:test \
+            .
+
+      - name: Build Soda image
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            -f deploy/soda/Dockerfile \
+            -t healthcare-realtime-soda:test \
+            .

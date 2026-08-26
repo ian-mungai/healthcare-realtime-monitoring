@@ -1,0 +1,30 @@
+dataset: healthcare_realtime_athena/awsdatacatalog/healthcare_realtime_dbt/dim_patient
+
+checks:
+  - row_count:
+      threshold:
+        must_be_greater_than: 0
+
+columns:
+  - name: patient_id
+    checks:
+      - missing:
+      - duplicate:
+
+  - name: first_observation_at
+    checks:
+      - missing:
+
+  - name: latest_observation_at
+    checks:
+      - missing:
+
+  - name: observation_row_count
+    checks:
+      - invalid:
+          valid_min: 1
+
+  - name: observation_count
+    checks:
+      - invalid:
+          valid_min: 1
