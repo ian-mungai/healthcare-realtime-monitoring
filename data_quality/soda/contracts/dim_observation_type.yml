@@ -1,0 +1,27 @@
+dataset: healthcare_realtime_athena/awsdatacatalog/healthcare_realtime_dbt/dim_observation_type
+
+checks:
+  - row_count:
+      threshold:
+        must_be_greater_than: 0
+
+columns:
+  - name: observation_type
+    checks:
+      - missing:
+
+  - name: loinc_code
+    checks:
+      - missing:
+      - invalid:
+          valid_values:
+            - "8867-4"
+            - "2708-6"
+            - "8480-6"
+            - "8462-4"
+            - "9279-1"
+
+  - name: observation_count
+    checks:
+      - invalid:
+          valid_min: 1

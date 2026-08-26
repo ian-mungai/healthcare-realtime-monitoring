@@ -52,6 +52,10 @@ dbt/.user.yml
 dbt/target/
 dbt/logs/
 
+#soda
+data_quality/soda/config/configuration.yml
+data_quality/soda/results/
+
 # PhysioNet BIDMC local data
 services/vitals_simulator/data/bidmc/*.csv
 services/vitals_simulator/data/bidmc/*.txt

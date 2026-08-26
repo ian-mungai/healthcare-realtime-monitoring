@@ -96,3 +96,28 @@ output "dbt_ecs_security_group_id" {
   description = "Security group used by dbt ECS tasks."
   value       = module.dbt_ecs.security_group_id
 }
+
+output "soda_ecr_repository_url" {
+  description = "ECR repository containing the Soda image."
+  value       = module.soda_ecs.ecr_repository_url
+}
+
+output "soda_ecs_task_definition_arn" {
+  description = "Soda ECS task definition ARN."
+  value       = module.soda_ecs.task_definition_arn
+}
+
+output "soda_ecs_task_role_arn" {
+  description = "Soda ECS task role ARN."
+  value       = module.soda_ecs.task_role_arn
+}
+
+output "soda_ecs_task_execution_role_arn" {
+  description = "Soda ECS task execution role ARN."
+  value       = module.soda_ecs.task_execution_role_arn
+}
+
+output "soda_ecs_security_group_id" {
+  description = "Security group used by Soda ECS tasks."
+  value       = module.soda_ecs.security_group_id
+}
