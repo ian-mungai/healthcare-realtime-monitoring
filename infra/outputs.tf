@@ -62,3 +62,37 @@ output "mwaa_source_bucket_name" {
 output "mwaa_webserver_url" {
   value = module.mwaa.webserver_url
 }
+output "dbt_ecr_repository_url" {
+  description = "ECR repository containing the dbt image."
+  value       = module.dbt_ecs.ecr_repository_url
+}
+
+output "dbt_ecs_cluster_name" {
+  description = "ECS cluster running dbt."
+  value       = module.dbt_ecs.cluster_name
+}
+
+output "dbt_ecs_cluster_arn" {
+  description = "ECS cluster ARN."
+  value       = module.dbt_ecs.cluster_arn
+}
+
+output "dbt_ecs_task_definition_arn" {
+  description = "dbt ECS task definition ARN."
+  value       = module.dbt_ecs.task_definition_arn
+}
+
+output "dbt_ecs_task_role_arn" {
+  description = "dbt ECS task role ARN."
+  value       = module.dbt_ecs.task_role_arn
+}
+
+output "dbt_ecs_task_execution_role_arn" {
+  description = "dbt ECS task execution role ARN."
+  value       = module.dbt_ecs.task_execution_role_arn
+}
+
+output "dbt_ecs_security_group_id" {
+  description = "Security group used by dbt ECS tasks."
+  value       = module.dbt_ecs.security_group_id
+}
