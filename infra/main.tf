@@ -159,3 +159,46 @@ module "soda_ecs" {
     ManagedBy   = "terraform"
   }
 }
+
+module "realtime_vitals" {
+  source = "./modules/realtime_vitals"
+
+  tags = {
+    Project     = "healthcare_realtime_monitoring"
+    Environment = "development"
+    ManagedBy   = "terraform"
+  }
+}
+
+module "realtime_processor" {
+  source = "./modules/realtime_processor"
+
+  kinesis_stream_arn       = module.kinesis.stream_arn
+  latest_vitals_table_name = module.realtime_vitals.latest_vitals_table_name
+  latest_vitals_table_arn  = module.realtime_vitals.latest_vitals_table_arn
+  lambda_zip_path          = "${path.root}/../build/lambda/vitals_stream_processor.zip"
+  connections_table_name   = module.realtime_vitals.websocket_connections_table_name
+  connections_table_arn    = module.realtime_vitals.websocket_connections_table_arn
+  websocket_api_id         = module.realtime_websocket.api_id
+  websocket_stage_name     = "development"
+
+  tags = {
+    Project     = "healthcare_realtime_monitoring"
+    Environment = "development"
+    ManagedBy   = "terraform"
+  }
+}
+
+module "realtime_websocket" {
+  source = "./modules/realtime_websocket"
+
+  connections_table_name = module.realtime_vitals.websocket_connections_table_name
+  connections_table_arn  = module.realtime_vitals.websocket_connections_table_arn
+  lambda_zip_path        = "${path.root}/../build/lambda/websocket_handler.zip"
+
+  tags = {
+    Project     = "healthcare_realtime_monitoring"
+    Environment = "development"
+    ManagedBy   = "terraform"
+  }
+}

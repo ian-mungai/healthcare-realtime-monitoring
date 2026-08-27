@@ -56,6 +56,9 @@ dbt/logs/
 data_quality/soda/config/configuration.yml
 data_quality/soda/results/
 
+# Build artifacts
+build/
+
 # PhysioNet BIDMC local data
 services/vitals_simulator/data/bidmc/*.csv
 services/vitals_simulator/data/bidmc/*.txt
