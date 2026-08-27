@@ -136,3 +136,43 @@ output "mwaa_queue_age_alarm_name" {
   description = "MWAA native queue age CloudWatch alarm."
   value       = module.observability.mwaa_queue_age_alarm_name
 }
+
+output "latest_vitals_table_name" {
+  description = "DynamoDB latest vitals table name."
+  value       = module.realtime_vitals.latest_vitals_table_name
+}
+
+output "latest_vitals_table_arn" {
+  description = "DynamoDB latest vitals table ARN."
+  value       = module.realtime_vitals.latest_vitals_table_arn
+}
+
+output "realtime_processor_lambda_name" {
+  description = "Realtime vitals processor Lambda function name."
+  value       = module.realtime_processor.lambda_function_name
+}
+
+output "realtime_processor_lambda_arn" {
+  description = "Realtime vitals processor Lambda function ARN."
+  value       = module.realtime_processor.lambda_function_arn
+}
+
+output "websocket_connections_table_name" {
+  description = "WebSocket connections table name."
+  value       = module.realtime_vitals.websocket_connections_table_name
+}
+
+output "websocket_connections_table_arn" {
+  description = "WebSocket connections table ARN."
+  value       = module.realtime_vitals.websocket_connections_table_arn
+}
+
+output "realtime_websocket_url" {
+  description = "Realtime vitals WebSocket URL."
+  value       = module.realtime_websocket.websocket_url
+}
+
+output "realtime_websocket_api_id" {
+  description = "Realtime vitals WebSocket API ID."
+  value       = module.realtime_websocket.api_id
+}
