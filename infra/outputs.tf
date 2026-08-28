@@ -196,3 +196,33 @@ output "vitals_api_id" {
   description = "ID of the latest-vitals HTTP API."
   value       = module.vitals_api.api_id
 }
+
+output "realtime_observability_dashboard_name" {
+  description = "Name of the realtime CloudWatch observability dashboard."
+  value       = module.realtime_observability.dashboard_name
+}
+
+output "realtime_processing_latency_alarm_name" {
+  description = "Name of the realtime processing latency alarm."
+  value       = module.realtime_observability.processing_latency_alarm_name
+}
+
+output "realtime_websocket_delivery_failure_alarm_name" {
+  description = "Name of the realtime WebSocket delivery failure alarm."
+  value       = module.realtime_observability.websocket_delivery_failure_alarm_name
+}
+
+output "realtime_processor_error_alarm_name" {
+  description = "Name of the realtime processor error alarm."
+  value       = module.realtime_observability.processor_error_alarm_name
+}
+
+output "realtime_processor_throttle_alarm_name" {
+  description = "Name of the realtime processor throttle alarm."
+  value       = module.realtime_observability.processor_throttle_alarm_name
+}
+
+output "realtime_iterator_age_alarm_name" {
+  description = "Name of the realtime Kinesis consumer iterator-age alarm."
+  value       = module.realtime_observability.iterator_age_alarm_name
+}
