@@ -17,6 +17,193 @@ resource "aws_cloudwatch_dashboard" "healthcare_realtime" {
       {
         type   = "metric"
         x      = 0
+        y      = 38
+        width  = 12
+        height = 6
+
+        properties = {
+          title   = "Live Vitals Processing"
+          region  = var.aws_region
+          view    = "timeSeries"
+          stacked = false
+
+          metrics = [
+            [
+              "HealthcareRealtime/Live",
+              "RecordsProcessed",
+              {
+                stat  = "Sum"
+                label = "Records Processed"
+              }
+            ],
+            [
+              ".",
+              "WebSocketDeliveries",
+              {
+                stat  = "Sum"
+                label = "WebSocket Deliveries"
+              }
+            ],
+            [
+              ".",
+              "WebSocketDeliveryFailures",
+              {
+                stat  = "Sum"
+                label = "WebSocket Delivery Failures"
+              }
+            ]
+          ]
+
+          period = 60
+        }
+        }, {
+        type   = "metric"
+        x      = 12
+        y      = 38
+        width  = 12
+        height = 6
+
+        properties = {
+          title   = "Live Processing Latency"
+          region  = var.aws_region
+          view    = "timeSeries"
+          stacked = false
+
+          metrics = [
+            [
+              "HealthcareRealtime/Live",
+              "ProcessingLatencyMilliseconds",
+              {
+                stat  = "Average"
+                label = "Average"
+              }
+            ],
+            [
+              "...",
+              {
+                stat  = "Maximum"
+                label = "Maximum"
+              }
+            ]
+          ]
+
+          period = 60
+
+          yAxis = {
+            left = {
+              min   = 0
+              label = "Milliseconds"
+            }
+          }
+
+          annotations = {
+            horizontal = [
+              {
+                label = "5 second threshold"
+                value = 5000
+              },
+              {
+                label = "3 second target"
+                value = 3000
+              }
+            ]
+          }
+        }
+        }, {
+        type   = "metric"
+        x      = 0
+        y      = 44
+        width  = 12
+        height = 6
+
+        properties = {
+          title   = "Active WebSocket Connections"
+          region  = var.aws_region
+          view    = "timeSeries"
+          stacked = false
+
+          metrics = [
+            [
+              "HealthcareRealtime/Live",
+              "ActiveConnections",
+              {
+                stat  = "Maximum"
+                label = "Active Connections"
+              }
+            ]
+          ]
+
+          period = 60
+
+          yAxis = {
+            left = {
+              min = 0
+            }
+          }
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 44
+        width  = 12
+        height = 6
+
+        properties = {
+          title   = "Live Path Health"
+          region  = var.aws_region
+          view    = "singleValue"
+          stacked = false
+
+          metrics = [
+            [
+              "HealthcareRealtime/Live",
+              "RecordsProcessed",
+              {
+                stat  = "Sum"
+                label = "Records"
+              }
+            ],
+            [
+              ".",
+              "WebSocketDeliveries",
+              {
+                stat  = "Sum"
+                label = "Deliveries"
+              }
+            ],
+            [
+              ".",
+              "WebSocketDeliveryFailures",
+              {
+                stat  = "Sum"
+                label = "Failures"
+              }
+            ],
+            [
+              ".",
+              "ProcessingLatencyMilliseconds",
+              {
+                stat  = "Average"
+                label = "Avg Latency (ms)"
+              }
+            ],
+            [
+              ".",
+              "ActiveConnections",
+              {
+                stat  = "Maximum"
+                label = "Connections"
+              }
+            ]
+          ]
+
+          period = 300
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
         y      = 14
         width  = 12
         height = 6
@@ -417,6 +604,45 @@ resource "aws_cloudwatch_metric_alarm" "mwaa_queue_age" {
   dimensions = {
     Environment = var.mwaa_environment_name
   }
+
+  treat_missing_data = "notBreaching"
+
+  tags = var.tags
+}
+
+resource "aws_cloudwatch_metric_alarm" "live_processing_latency" {
+  alarm_name        = "healthcare-realtime-live-processing-latency"
+  alarm_description = "Near-real-time vital processing latency exceeded the five-second threshold."
+
+  namespace   = "HealthcareRealtime/Live"
+  metric_name = "ProcessingLatencyMilliseconds"
+  statistic   = "Average"
+
+  period              = 60
+  evaluation_periods  = 2
+  datapoints_to_alarm = 2
+  threshold           = 5000
+
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+
+  treat_missing_data = "notBreaching"
+
+  tags = var.tags
+}
+resource "aws_cloudwatch_metric_alarm" "websocket_delivery_failure" {
+  alarm_name        = "healthcare-realtime-websocket-delivery-failure"
+  alarm_description = "One or more realtime WebSocket vital deliveries failed."
+
+  namespace   = "HealthcareRealtime/Live"
+  metric_name = "WebSocketDeliveryFailures"
+  statistic   = "Sum"
+
+  period              = 60
+  evaluation_periods  = 1
+  datapoints_to_alarm = 1
+  threshold           = 1
+
+  comparison_operator = "GreaterThanOrEqualToThreshold"
 
   treat_missing_data = "notBreaching"
 
