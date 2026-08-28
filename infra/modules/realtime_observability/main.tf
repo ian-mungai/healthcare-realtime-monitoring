@@ -150,6 +150,14 @@ resource "aws_cloudwatch_metric_alarm" "processing_latency" {
 
   treat_missing_data = "notBreaching"
 
+  alarm_actions = [
+    aws_sns_topic.realtime_alerts.arn
+  ]
+
+  ok_actions = [
+    aws_sns_topic.realtime_alerts.arn
+  ]
+
   tags = var.tags
 }
 
@@ -169,6 +177,14 @@ resource "aws_cloudwatch_metric_alarm" "websocket_delivery_failures" {
   threshold = 1
 
   treat_missing_data = "notBreaching"
+
+  alarm_actions = [
+    aws_sns_topic.realtime_alerts.arn
+  ]
+
+  ok_actions = [
+    aws_sns_topic.realtime_alerts.arn
+  ]
 
   tags = var.tags
 }
@@ -194,6 +210,14 @@ resource "aws_cloudwatch_metric_alarm" "processor_errors" {
 
   treat_missing_data = "notBreaching"
 
+  alarm_actions = [
+    aws_sns_topic.realtime_alerts.arn
+  ]
+
+  ok_actions = [
+    aws_sns_topic.realtime_alerts.arn
+  ]
+
   tags = var.tags
 }
 
@@ -217,6 +241,14 @@ resource "aws_cloudwatch_metric_alarm" "processor_throttles" {
   threshold = 1
 
   treat_missing_data = "notBreaching"
+
+  alarm_actions = [
+    aws_sns_topic.realtime_alerts.arn
+  ]
+
+  ok_actions = [
+    aws_sns_topic.realtime_alerts.arn
+  ]
 
   tags = var.tags
 }
@@ -242,5 +274,25 @@ resource "aws_cloudwatch_metric_alarm" "iterator_age" {
 
   treat_missing_data = "notBreaching"
 
+  alarm_actions = [
+    aws_sns_topic.realtime_alerts.arn
+  ]
+
+  ok_actions = [
+    aws_sns_topic.realtime_alerts.arn
+  ]
+
   tags = var.tags
+}
+
+resource "aws_sns_topic" "realtime_alerts" {
+  name = "healthcare-realtime-alerts-${var.environment}"
+
+  tags = var.tags
+}
+
+resource "aws_sns_topic_subscription" "realtime_alert_email" {
+  topic_arn = aws_sns_topic.realtime_alerts.arn
+  protocol  = "email"
+  endpoint  = var.alert_email
 }

@@ -12,3 +12,8 @@ variable "tags" {
   description = "Tags applied to supported observability resources."
   type        = map(string)
 }
+
+variable "alert_email" {
+  description = "Email address subscribed to realtime CloudWatch alarm notifications."
+  type        = string
+}

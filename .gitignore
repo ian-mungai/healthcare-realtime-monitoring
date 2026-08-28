@@ -26,6 +26,8 @@ env/
 *.tfstate.*
 *.tfplan
 tfplan
+*.tfvars
+*.tfvars.json
 crash.log
 
 #Lineage
