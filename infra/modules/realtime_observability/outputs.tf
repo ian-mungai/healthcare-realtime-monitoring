@@ -27,3 +27,13 @@ output "iterator_age_alarm_name" {
   description = "Name of the Kinesis consumer iterator-age alarm."
   value       = aws_cloudwatch_metric_alarm.iterator_age.alarm_name
 }
+
+output "alert_topic_arn" {
+  description = "ARN of the realtime alert SNS topic."
+  value       = aws_sns_topic.realtime_alerts.arn
+}
+
+output "alert_topic_name" {
+  description = "Name of the realtime alert SNS topic."
+  value       = aws_sns_topic.realtime_alerts.name
+}

@@ -226,3 +226,13 @@ output "realtime_iterator_age_alarm_name" {
   description = "Name of the realtime Kinesis consumer iterator-age alarm."
   value       = module.realtime_observability.iterator_age_alarm_name
 }
+
+output "realtime_alert_topic_arn" {
+  description = "ARN of the realtime CloudWatch alarm SNS topic."
+  value       = module.realtime_observability.alert_topic_arn
+}
+
+output "realtime_alert_topic_name" {
+  description = "Name of the realtime CloudWatch alarm SNS topic."
+  value       = module.realtime_observability.alert_topic_name
+}

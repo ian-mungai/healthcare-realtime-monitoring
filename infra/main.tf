@@ -225,6 +225,7 @@ module "realtime_observability" {
 
   lambda_function_name = module.realtime_processor.lambda_function_name
   environment          = "development"
+  alert_email          = var.realtime_alert_email
 
   tags = {
     Project     = "healthcare_realtime_monitoring"
