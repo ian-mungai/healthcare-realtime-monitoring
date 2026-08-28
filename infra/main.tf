@@ -219,3 +219,16 @@ module "vitals_api" {
     ManagedBy   = "terraform"
   }
 }
+
+module "realtime_observability" {
+  source = "./modules/realtime_observability"
+
+  lambda_function_name = module.realtime_processor.lambda_function_name
+  environment          = "development"
+
+  tags = {
+    Project     = "healthcare_realtime_monitoring"
+    Environment = "development"
+    ManagedBy   = "terraform"
+  }
+}
