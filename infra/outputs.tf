@@ -176,3 +176,13 @@ output "realtime_websocket_api_id" {
   description = "Realtime vitals WebSocket API ID."
   value       = module.realtime_websocket.api_id
 }
+
+output "live_processing_latency_alarm_name" {
+  description = "Live processing latency CloudWatch alarm."
+  value       = module.observability.live_processing_latency_alarm_name
+}
+
+output "websocket_delivery_failure_alarm_name" {
+  description = "WebSocket delivery failure CloudWatch alarm."
+  value       = module.observability.websocket_delivery_failure_alarm_name
+}

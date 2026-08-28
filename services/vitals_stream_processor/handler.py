@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -11,9 +12,13 @@ LATEST_VITALS_TABLE = os.getenv("LATEST_VITALS_TABLE", "healthcare-realtime-late
 CONNECTIONS_TABLE = os.getenv("CONNECTIONS_TABLE", "healthcare-realtime-websocket-connections")
 WEBSOCKET_ENDPOINT = os.getenv("WEBSOCKET_ENDPOINT", "")
 
+METRIC_NAMESPACE = "HealthcareRealtime/Live"
+
 dynamodb = boto3.resource("dynamodb")
 latest_vitals_table = dynamodb.Table(LATEST_VITALS_TABLE)
 connections_table = dynamodb.Table(CONNECTIONS_TABLE)
+
+cloudwatch = boto3.client("cloudwatch")
 
 
 def decode_kinesis_record(record: dict[str, Any]) -> dict[str, Any]:
@@ -34,30 +39,98 @@ def write_latest_vitals(payload: dict[str, Any]) -> None:
 
 
 def get_connection_ids() -> list[str]:
-    response = connections_table.scan(ProjectionExpression="connection_id")
-    return [item["connection_id"] for item in response.get("Items", [])]
+    connection_ids: list[str] = []
+    scan_kwargs: dict[str, Any] = {"ProjectionExpression": "connection_id"}
+
+    while True:
+        response = connections_table.scan(**scan_kwargs)
+
+        connection_ids.extend(item["connection_id"] for item in response.get("Items", []))
+
+        last_evaluated_key = response.get("LastEvaluatedKey")
+
+        if not last_evaluated_key:
+            break
+
+        scan_kwargs["ExclusiveStartKey"] = last_evaluated_key
+
+    return connection_ids
 
 
 def delete_connection(connection_id: str) -> None:
     connections_table.delete_item(Key={"connection_id": connection_id})
 
 
-def push_vitals(payload: dict[str, Any]) -> None:
-    if not WEBSOCKET_ENDPOINT:
+def emit_metrics(metric_data: list[dict[str, Any]]) -> None:
+    if not metric_data:
         return
 
+    cloudwatch.put_metric_data(Namespace=METRIC_NAMESPACE, MetricData=metric_data)
+
+
+def calculate_latency_ms(event_timestamp: str) -> float:
+    event_time = datetime.fromisoformat(event_timestamp.replace("Z", "+00:00"))
+
+    if event_time.tzinfo is None:
+        event_time = event_time.replace(tzinfo=UTC)
+
+    current_time = datetime.now(UTC)
+
+    return max((current_time - event_time).total_seconds() * 1000, 0.0)
+
+
+def push_vitals(payload: dict[str, Any]) -> tuple[int, int, int]:
+    if not WEBSOCKET_ENDPOINT:
+        print("WebSocket endpoint is not configured")
+        return 0, 0, 0
+
     api_gateway = boto3.client("apigatewaymanagementapi", endpoint_url=WEBSOCKET_ENDPOINT)
+
+    connection_ids = get_connection_ids()
     message = json.dumps(payload).encode("utf-8")
 
-    for connection_id in get_connection_ids():
+    deliveries = 0
+    failures = 0
+
+    print(f"Sending vital update to {len(connection_ids)} WebSocket connection(s)")
+
+    for connection_id in connection_ids:
         try:
             api_gateway.post_to_connection(ConnectionId=connection_id, Data=message)
-        except ClientError as error:
-            if error.response["ResponseMetadata"]["HTTPStatusCode"] == 410:
-                delete_connection(connection_id)
-                continue
 
-            raise
+            deliveries += 1
+            print(f"Sent vital update to connection {connection_id}")
+
+        except ClientError as error:
+            status_code = error.response["ResponseMetadata"]["HTTPStatusCode"]
+
+            print(f"WebSocket delivery failed for {connection_id}: {error}")
+
+            if status_code == 410:
+                delete_connection(connection_id)
+            else:
+                failures += 1
+
+    return deliveries, failures, len(connection_ids)
+
+
+def build_metric_data(payload: dict[str, Any], deliveries: int, delivery_failures: int, active_connections: int) -> list[dict[str, Any]]:
+    metric_data: list[dict[str, Any]] = [
+        {"MetricName": "RecordsProcessed", "Value": 1, "Unit": "Count"},
+        {"MetricName": "WebSocketDeliveries", "Value": deliveries, "Unit": "Count"},
+        {"MetricName": "WebSocketDeliveryFailures", "Value": delivery_failures, "Unit": "Count"},
+        {"MetricName": "ActiveConnections", "Value": active_connections, "Unit": "Count"},
+    ]
+
+    event_timestamp = payload.get("event_timestamp")
+
+    if event_timestamp:
+        try:
+            metric_data.append({"MetricName": "ProcessingLatencyMilliseconds", "Value": calculate_latency_ms(event_timestamp), "Unit": "Milliseconds"})
+        except (TypeError, ValueError) as error:
+            print(f"Unable to calculate processing latency for timestamp {event_timestamp!r}: {error}")
+
+    return metric_data
 
 
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, list[dict[str, str]]]:
@@ -68,9 +141,18 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, list[dict[s
 
         try:
             payload = decode_kinesis_record(record)
+
             write_latest_vitals(payload)
-            push_vitals(payload)
-        except Exception:
+
+            deliveries, delivery_failures, active_connections = push_vitals(payload)
+
+            metric_data = build_metric_data(payload, deliveries, delivery_failures, active_connections)
+
+            emit_metrics(metric_data)
+
+        except Exception as error:
+            print(f"Failed Kinesis record {sequence_number}: {error}")
+
             batch_item_failures.append({"itemIdentifier": sequence_number})
 
     return {"batchItemFailures": batch_item_failures}

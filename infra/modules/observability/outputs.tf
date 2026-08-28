@@ -22,3 +22,13 @@ output "mwaa_queue_age_alarm_name" {
   description = "MWAA queue age alarm name."
   value       = aws_cloudwatch_metric_alarm.mwaa_queue_age.alarm_name
 }
+
+output "live_processing_latency_alarm_name" {
+  description = "Name of the live processing latency CloudWatch alarm."
+  value       = aws_cloudwatch_metric_alarm.live_processing_latency.alarm_name
+}
+
+output "websocket_delivery_failure_alarm_name" {
+  description = "Name of the WebSocket delivery failure CloudWatch alarm."
+  value       = aws_cloudwatch_metric_alarm.websocket_delivery_failure.alarm_name
+}

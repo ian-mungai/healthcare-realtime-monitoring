@@ -44,6 +44,26 @@ data "aws_iam_policy_document" "lambda" {
   }
 
   statement {
+    sid    = "PublishLivePipelineMetrics"
+    effect = "Allow"
+
+    actions = [
+      "cloudwatch:PutMetricData"
+    ]
+
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "cloudwatch:namespace"
+
+      values = [
+        "HealthcareRealtime/Live"
+      ]
+    }
+  }
+
+  statement {
     sid    = "ReadWebSocketConnections"
     effect = "Allow"
 
