@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import Any
 
 import boto3
+from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 
 LATEST_VITALS_TABLE = os.getenv("LATEST_VITALS_TABLE", "healthcare-realtime-latest-vitals")
@@ -38,21 +39,25 @@ def write_latest_vitals(payload: dict[str, Any]) -> None:
     latest_vitals_table.put_item(Item=to_dynamodb_item(payload))
 
 
-def get_connection_ids() -> list[str]:
+def get_patient_connections(patient_id: str) -> list[str]:
     connection_ids: list[str] = []
-    scan_kwargs: dict[str, Any] = {"ProjectionExpression": "connection_id"}
+    query_parameters: dict[str, Any] = {
+        "IndexName": "patient_id-index",
+        "KeyConditionExpression": Key("patient_id").eq(patient_id),
+        "ProjectionExpression": "connection_id",
+    }
 
     while True:
-        response = connections_table.scan(**scan_kwargs)
+        response = connections_table.query(**query_parameters)
 
-        connection_ids.extend(item["connection_id"] for item in response.get("Items", []))
+        connection_ids.extend(item["connection_id"] for item in response.get("Items", []) if item.get("connection_id"))
 
         last_evaluated_key = response.get("LastEvaluatedKey")
 
         if not last_evaluated_key:
             break
 
-        scan_kwargs["ExclusiveStartKey"] = last_evaluated_key
+        query_parameters["ExclusiveStartKey"] = last_evaluated_key
 
     return connection_ids
 
@@ -84,22 +89,27 @@ def push_vitals(payload: dict[str, Any]) -> tuple[int, int, int]:
         print("WebSocket endpoint is not configured")
         return 0, 0, 0
 
+    patient_id = payload.get("patient_id")
+
+    if not patient_id:
+        raise ValueError("patient_id is required")
+
     api_gateway = boto3.client("apigatewaymanagementapi", endpoint_url=WEBSOCKET_ENDPOINT)
 
-    connection_ids = get_connection_ids()
+    connection_ids = get_patient_connections(patient_id)
     message = json.dumps(payload).encode("utf-8")
 
     deliveries = 0
     failures = 0
 
-    print(f"Sending vital update to {len(connection_ids)} WebSocket connection(s)")
+    print(f"Sending vital update for patient {patient_id} to {len(connection_ids)} WebSocket connection(s)")
 
     for connection_id in connection_ids:
         try:
             api_gateway.post_to_connection(ConnectionId=connection_id, Data=message)
 
             deliveries += 1
-            print(f"Sent vital update to connection {connection_id}")
+            print(f"Sent vital update for patient {patient_id} to connection {connection_id}")
 
         except ClientError as error:
             status_code = error.response["ResponseMetadata"]["HTTPStatusCode"]

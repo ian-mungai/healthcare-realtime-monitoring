@@ -1,9 +1,20 @@
 import base64
 import json
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
-from services.vitals_stream_processor.handler import decode_kinesis_record, lambda_handler, to_dynamodb_item
+import pytest
+from botocore.exceptions import ClientError
+
+from services.vitals_stream_processor.handler import (
+    calculate_latency_ms,
+    decode_kinesis_record,
+    get_patient_connections,
+    lambda_handler,
+    push_vitals,
+    to_dynamodb_item,
+)
 
 
 def build_kinesis_record(payload: dict, sequence_number: str = "1") -> dict:
@@ -64,19 +75,68 @@ def test_lambda_handler_reports_failed_record(write_latest_vitals) -> None:
     assert result == {"batchItemFailures": [{"itemIdentifier": "12345"}]}
 
 
-@patch("services.vitals_stream_processor.handler.get_connection_ids")
+@patch("services.vitals_stream_processor.handler.connections_table")
+def test_get_patient_connections_queries_patient_index(connections_table) -> None:
+    connections_table.query.return_value = {"Items": [{"connection_id": "connection-1"}, {"connection_id": "connection-2"}]}
+
+    connection_ids = get_patient_connections("137506799")
+
+    assert connection_ids == ["connection-1", "connection-2"]
+
+    connections_table.query.assert_called_once()
+
+    query_arguments = connections_table.query.call_args.kwargs
+
+    assert query_arguments["IndexName"] == "patient_id-index"
+    assert query_arguments["ProjectionExpression"] == "connection_id"
+
+
+@patch("services.vitals_stream_processor.handler.connections_table")
+def test_get_patient_connections_handles_pagination(connections_table) -> None:
+    connections_table.query.side_effect = [
+        {"Items": [{"connection_id": "connection-1"}], "LastEvaluatedKey": {"patient_id": "137506799", "connection_id": "connection-1"}},
+        {"Items": [{"connection_id": "connection-2"}]},
+    ]
+
+    connection_ids = get_patient_connections("137506799")
+
+    assert connection_ids == ["connection-1", "connection-2"]
+
+    assert connections_table.query.call_count == 2
+
+    second_query_arguments = connections_table.query.call_args_list[1].kwargs
+
+    assert second_query_arguments["ExclusiveStartKey"] == {"patient_id": "137506799", "connection_id": "connection-1"}
+
+
+@patch("services.vitals_stream_processor.handler.connections_table")
+def test_get_patient_connections_returns_empty_list(connections_table) -> None:
+    connections_table.query.return_value = {"Items": []}
+
+    connection_ids = get_patient_connections("137506799")
+
+    assert connection_ids == []
+
+    connections_table.query.assert_called_once()
+
+
+@patch("services.vitals_stream_processor.handler.get_patient_connections")
 @patch("services.vitals_stream_processor.handler.boto3.client")
-def test_push_vitals_sends_to_connections(boto_client, get_connection_ids, monkeypatch) -> None:
+def test_push_vitals_sends_to_patient_connections(boto_client, get_patient_connections_mock, monkeypatch) -> None:
     from services.vitals_stream_processor import handler
 
     monkeypatch.setattr(handler, "WEBSOCKET_ENDPOINT", "https://example.execute-api.us-east-1.amazonaws.com/development")
 
-    get_connection_ids.return_value = ["connection-1", "connection-2"]
+    get_patient_connections_mock.return_value = ["connection-1", "connection-2"]
 
     api_gateway = MagicMock()
     boto_client.return_value = api_gateway
 
-    deliveries, failures, active_connections = handler.push_vitals({"patient_id": "137506799", "heart_rate": 96.0})
+    payload = {"patient_id": "137506799", "heart_rate": 96.0}
+
+    deliveries, failures, active_connections = push_vitals(payload)
+
+    get_patient_connections_mock.assert_called_once_with("137506799")
 
     assert api_gateway.post_to_connection.call_count == 2
     assert deliveries == 2
@@ -84,19 +144,108 @@ def test_push_vitals_sends_to_connections(boto_client, get_connection_ids, monke
     assert active_connections == 2
 
 
-def test_calculate_latency_ms() -> None:
-    from datetime import UTC, datetime, timedelta
-    from unittest.mock import patch
-
+@patch("services.vitals_stream_processor.handler.get_patient_connections")
+@patch("services.vitals_stream_processor.handler.boto3.client")
+def test_push_vitals_uses_payload_patient_id(boto_client, get_patient_connections_mock, monkeypatch) -> None:
     from services.vitals_stream_processor import handler
 
+    monkeypatch.setattr(handler, "WEBSOCKET_ENDPOINT", "https://example.execute-api.us-east-1.amazonaws.com/development")
+
+    get_patient_connections_mock.return_value = []
+    boto_client.return_value = MagicMock()
+
+    payload = {"patient_id": "999999999", "heart_rate": 150.0}
+
+    deliveries, failures, active_connections = push_vitals(payload)
+
+    get_patient_connections_mock.assert_called_once_with("999999999")
+
+    assert deliveries == 0
+    assert failures == 0
+    assert active_connections == 0
+
+
+@patch("services.vitals_stream_processor.handler.delete_connection")
+@patch("services.vitals_stream_processor.handler.get_patient_connections")
+@patch("services.vitals_stream_processor.handler.boto3.client")
+def test_push_vitals_deletes_stale_connection(boto_client, get_patient_connections_mock, delete_connection, monkeypatch) -> None:
+    from services.vitals_stream_processor import handler
+
+    monkeypatch.setattr(handler, "WEBSOCKET_ENDPOINT", "https://example.execute-api.us-east-1.amazonaws.com/development")
+
+    get_patient_connections_mock.return_value = ["stale-connection"]
+
+    api_gateway = MagicMock()
+
+    api_gateway.post_to_connection.side_effect = ClientError(
+        {"Error": {"Code": "GoneException", "Message": "Gone"}, "ResponseMetadata": {"HTTPStatusCode": 410}}, "PostToConnection"
+    )
+
+    boto_client.return_value = api_gateway
+
+    payload = {"patient_id": "137506799", "heart_rate": 96.0}
+
+    deliveries, failures, active_connections = push_vitals(payload)
+
+    delete_connection.assert_called_once_with("stale-connection")
+
+    assert deliveries == 0
+    assert failures == 0
+    assert active_connections == 1
+
+
+@patch("services.vitals_stream_processor.handler.delete_connection")
+@patch("services.vitals_stream_processor.handler.get_patient_connections")
+@patch("services.vitals_stream_processor.handler.boto3.client")
+def test_push_vitals_counts_non_410_delivery_failure(boto_client, get_patient_connections_mock, delete_connection, monkeypatch) -> None:
+    from services.vitals_stream_processor import handler
+
+    monkeypatch.setattr(handler, "WEBSOCKET_ENDPOINT", "https://example.execute-api.us-east-1.amazonaws.com/development")
+
+    get_patient_connections_mock.return_value = ["connection-1"]
+
+    api_gateway = MagicMock()
+
+    api_gateway.post_to_connection.side_effect = ClientError(
+        {"Error": {"Code": "InternalServerErrorException", "Message": "Internal error"}, "ResponseMetadata": {"HTTPStatusCode": 500}}, "PostToConnection"
+    )
+
+    boto_client.return_value = api_gateway
+
+    payload = {"patient_id": "137506799", "heart_rate": 96.0}
+
+    deliveries, failures, active_connections = push_vitals(payload)
+
+    delete_connection.assert_not_called()
+
+    assert deliveries == 0
+    assert failures == 1
+    assert active_connections == 1
+
+
+@patch("services.vitals_stream_processor.handler.boto3.client")
+def test_push_vitals_requires_patient_id(boto_client, monkeypatch) -> None:
+    from services.vitals_stream_processor import handler
+
+    monkeypatch.setattr(handler, "WEBSOCKET_ENDPOINT", "https://example.execute-api.us-east-1.amazonaws.com/development")
+
+    payload = {"heart_rate": 96.0}
+
+    with pytest.raises(ValueError, match="patient_id is required"):
+        push_vitals(payload)
+
+    boto_client.assert_not_called()
+
+
+def test_calculate_latency_ms() -> None:
     current_time = datetime(2026, 8, 28, 16, 0, 5, tzinfo=UTC)
+
     event_time = current_time - timedelta(seconds=2)
 
     with patch("services.vitals_stream_processor.handler.datetime") as mocked_datetime:
         mocked_datetime.now.return_value = current_time
         mocked_datetime.fromisoformat.return_value = event_time
 
-        latency = handler.calculate_latency_ms("2026-08-28T16:00:03Z")
+        latency = calculate_latency_ms("2026-08-28T16:00:03Z")
 
     assert latency == 2000.0
