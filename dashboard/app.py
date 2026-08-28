@@ -6,6 +6,7 @@ import time
 from collections import deque
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlencode
 
 import pandas as pd
 import requests
@@ -15,6 +16,7 @@ import websocket
 PATIENT_ID = os.getenv("PATIENT_ID", "137506799")
 API_ENDPOINT = os.environ["VITALS_API_ENDPOINT"].rstrip("/")
 WEBSOCKET_URL = os.environ["VITALS_WEBSOCKET_URL"]
+WEBSOCKET_SUBSCRIPTION_URL = f"{WEBSOCKET_URL}?{urlencode({'patient_id': PATIENT_ID})}"
 
 REFRESH_INTERVAL_SECONDS = 0.5
 HISTORY_SIZE = 60
@@ -60,7 +62,7 @@ def websocket_worker(message_queue: queue.Queue[dict[str, Any]], connection_stat
 
     while True:
         try:
-            ws = websocket.WebSocketApp(WEBSOCKET_URL, on_open=on_open, on_message=on_message, on_error=on_error, on_close=on_close)
+            ws = websocket.WebSocketApp(WEBSOCKET_SUBSCRIPTION_URL, on_open=on_open, on_message=on_message, on_error=on_error, on_close=on_close)
 
             ws.run_forever()
 
