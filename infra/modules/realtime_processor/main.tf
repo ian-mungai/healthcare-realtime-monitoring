@@ -64,30 +64,17 @@ data "aws_iam_policy_document" "lambda" {
   }
 
   statement {
-    sid    = "ReadWebSocketConnections"
-    effect = "Allow"
-
-    actions = [
-      "dynamodb:Scan",
-      "dynamodb:DeleteItem"
-    ]
-
-    resources = [
-      var.connections_table_arn
-    ]
-  }
-
-  statement {
     sid    = "ManageWebSocketConnections"
     effect = "Allow"
 
     actions = [
-      "execute-api:ManageConnections"
+      "dynamodb:DeleteItem",
+      "dynamodb:Query"
     ]
 
     resources = [
-      "arn:aws:execute-api:us-east-1:${data.aws_caller_identity.current.account_id}:${var.websocket_api_id}/${var.websocket_stage_name}/POST/@connections",
-      "arn:aws:execute-api:us-east-1:${data.aws_caller_identity.current.account_id}:${var.websocket_api_id}/${var.websocket_stage_name}/POST/@connections/*"
+      var.connections_table_arn,
+      "${var.connections_table_arn}/index/patient_id-index"
     ]
   }
 
@@ -150,6 +137,7 @@ resource "aws_lambda_function" "vitals_processor" {
 
   tags = var.tags
 }
+
 resource "aws_lambda_event_source_mapping" "vitals_kinesis" {
   event_source_arn  = var.kinesis_stream_arn
   function_name     = aws_lambda_function.vitals_processor.arn
@@ -167,4 +155,3 @@ resource "aws_lambda_event_source_mapping" "vitals_kinesis" {
   maximum_record_age_in_seconds  = 300
   enabled                        = true
 }
-
