@@ -186,3 +186,13 @@ output "websocket_delivery_failure_alarm_name" {
   description = "WebSocket delivery failure CloudWatch alarm."
   value       = module.observability.websocket_delivery_failure_alarm_name
 }
+
+output "vitals_api_endpoint" {
+  description = "Base URL of the latest-vitals HTTP API."
+  value       = module.vitals_api.api_endpoint
+}
+
+output "vitals_api_id" {
+  description = "ID of the latest-vitals HTTP API."
+  value       = module.vitals_api.api_id
+}
