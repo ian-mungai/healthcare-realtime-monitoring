@@ -44,6 +44,19 @@ data "aws_iam_policy_document" "lambda" {
   }
 
   statement {
+    sid    = "SendFailedInvocationsToSqs"
+    effect = "Allow"
+
+    actions = [
+      "sqs:SendMessage"
+    ]
+
+    resources = [
+      var.failure_queue_arn
+    ]
+  }
+
+  statement {
     sid    = "PublishLivePipelineMetrics"
     effect = "Allow"
 
@@ -150,8 +163,13 @@ resource "aws_lambda_event_source_mapping" "vitals_kinesis" {
     "ReportBatchItemFailures"
   ]
 
+  destination_config {
+    on_failure {
+      destination_arn = var.failure_queue_arn
+    }
+  }
   bisect_batch_on_function_error = true
   maximum_retry_attempts         = 3
-  maximum_record_age_in_seconds  = 300
+  maximum_record_age_in_seconds  = 3600
   enabled                        = true
 }
