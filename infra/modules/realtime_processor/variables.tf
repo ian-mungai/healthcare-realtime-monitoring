@@ -44,3 +44,8 @@ variable "websocket_stage_name" {
   type        = string
   default     = "development"
 }
+
+variable "failure_queue_arn" {
+  description = "ARN of the SQS destination for discarded Kinesis records."
+  type        = string
+}
