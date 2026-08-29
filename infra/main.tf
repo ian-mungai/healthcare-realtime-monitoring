@@ -181,6 +181,7 @@ module "realtime_processor" {
   connections_table_arn    = module.realtime_vitals.websocket_connections_table_arn
   websocket_api_id         = module.realtime_websocket.api_id
   websocket_stage_name     = "development"
+  failure_queue_arn        = module.realtime_failure_handling.vitals_failures_queue_arn
 
   tags = {
     Project     = "healthcare_realtime_monitoring"
@@ -226,6 +227,18 @@ module "realtime_observability" {
   lambda_function_name = module.realtime_processor.lambda_function_name
   environment          = "development"
   alert_email          = var.realtime_alert_email
+
+  tags = {
+    Project     = "healthcare_realtime_monitoring"
+    Environment = "development"
+    ManagedBy   = "terraform"
+  }
+}
+
+module "realtime_failure_handling" {
+  source = "./modules/realtime_failure_handling"
+
+  environment = "development"
 
   tags = {
     Project     = "healthcare_realtime_monitoring"
