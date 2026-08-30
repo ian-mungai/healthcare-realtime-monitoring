@@ -246,3 +246,17 @@ module "realtime_failure_handling" {
     ManagedBy   = "terraform"
   }
 }
+
+module "realtime_replay" {
+  source = "./modules/realtime_replay"
+
+  kinesis_stream_arn = module.kinesis.stream_arn
+  failure_queue_arn  = module.realtime_failure_handling.vitals_failures_queue_arn
+  lambda_zip_path    = "${path.root}/../build/lambda/vitals_replay.zip"
+
+  tags = {
+    Project     = "healthcare_realtime_monitoring"
+    Environment = "development"
+    ManagedBy   = "terraform"
+  }
+}
