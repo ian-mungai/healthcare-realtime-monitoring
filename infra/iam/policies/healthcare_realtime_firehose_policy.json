@@ -1,0 +1,19 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ManageHealthcareFirehose",
+      "Effect": "Allow",
+      "Action": [
+        "firehose:CreateDeliveryStream",
+        "firehose:DescribeDeliveryStream",
+        "firehose:UpdateDestination",
+        "firehose:DeleteDeliveryStream",
+        "firehose:TagDeliveryStream",
+        "firehose:UntagDeliveryStream",
+        "firehose:ListTagsForDeliveryStream"
+      ],
+      "Resource": "arn:aws:firehose:us-east-1:${AWS_ACCOUNT_ID}:deliverystream/healthcare_realtime_firehose"
+    }
+  ]
+}

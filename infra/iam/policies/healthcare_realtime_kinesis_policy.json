@@ -1,0 +1,39 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CreateAndListKinesisStreams",
+      "Effect": "Allow",
+      "Action": [
+        "kinesis:CreateStream",
+        "kinesis:ListStreams",
+        "kinesis:DescribeLimits"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ManageHealthcareRealtimeVitalsStream",
+      "Effect": "Allow",
+      "Action": [
+        "kinesis:AddTagsToStream",
+        "kinesis:RemoveTagsFromStream",
+        "kinesis:ListTagsForStream",
+        "kinesis:ListTagsForResource",
+        "kinesis:DescribeStream",
+        "kinesis:DescribeStreamSummary",
+        "kinesis:ListShards",
+        "kinesis:PutRecord",
+        "kinesis:PutRecords",
+        "kinesis:GetRecords",
+        "kinesis:GetShardIterator",
+        "kinesis:IncreaseStreamRetentionPeriod",
+        "kinesis:DecreaseStreamRetentionPeriod",
+        "kinesis:UpdateStreamMode",
+        "kinesis:StartStreamEncryption",
+        "kinesis:StopStreamEncryption",
+        "kinesis:DeleteStream"
+      ],
+      "Resource": "arn:aws:kinesis:us-east-1:${AWS_ACCOUNT_ID}:stream/healthcare_realtime_vitals"
+    }
+  ]
+}

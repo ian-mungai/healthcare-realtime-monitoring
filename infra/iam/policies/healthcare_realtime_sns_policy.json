@@ -1,0 +1,34 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ManageHealthcareRealtimeSnsTopics",
+      "Effect": "Allow",
+      "Action": [
+        "sns:CreateTopic",
+        "sns:DeleteTopic",
+        "sns:GetTopicAttributes",
+        "sns:SetTopicAttributes",
+        "sns:ListSubscriptionsByTopic",
+        "sns:ListTagsForResource",
+        "sns:TagResource",
+        "sns:UntagResource",
+        "sns:Subscribe",
+        "sns:Unsubscribe",
+        "sns:GetSubscriptionAttributes",
+        "sns:SetSubscriptionAttributes",
+        "sns:Publish"
+      ],
+      "Resource": "arn:aws:sns:us-east-1:${AWS_ACCOUNT_ID}:healthcare-realtime-*"
+    },
+    {
+      "Sid": "ListSnsResources",
+      "Effect": "Allow",
+      "Action": [
+        "sns:ListTopics",
+        "sns:ListSubscriptions"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

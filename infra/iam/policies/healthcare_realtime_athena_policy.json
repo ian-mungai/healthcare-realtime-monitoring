@@ -1,0 +1,27 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "RunHealthcareAthenaQueries",
+      "Effect": "Allow",
+      "Action": [
+        "athena:StartQueryExecution",
+        "athena:GetQueryExecution",
+        "athena:GetQueryResults",
+        "athena:StopQueryExecution"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ReadHealthcareAthenaMetadata",
+      "Effect": "Allow",
+      "Action": [
+        "athena:GetDatabase",
+        "athena:GetTableMetadata",
+        "athena:ListDatabases",
+        "athena:ListTableMetadata"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

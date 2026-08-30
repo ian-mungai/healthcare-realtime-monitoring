@@ -1,0 +1,45 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadHealthcareRealtimeCostExplorer",
+      "Effect": "Allow",
+      "Action": [
+        "ce:GetCostAndUsage",
+        "ce:GetCostAndUsageWithResources",
+        "ce:GetCostAndUsageComparisons",
+        "ce:GetCostComparisonDrivers",
+        "ce:GetCostForecast",
+        "ce:GetUsageForecast",
+        "ce:GetDimensionValues",
+        "ce:GetTags",
+        "ce:ListCostAllocationTags"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ManageHealthcareRealtimeBudgets",
+      "Effect": "Allow",
+      "Action": [
+        "budgets:ModifyBudget",
+        "budgets:ViewBudget",
+        "budgets:ListTagsForResource",
+        "budgets:TagResource",
+        "budgets:UntagResource"
+      ],
+      "Resource": [
+        "arn:aws:budgets::${AWS_ACCOUNT_ID}:budget/healthcare-realtime-*",
+        "arn:aws:budgets::${AWS_ACCOUNT_ID}:budget/healthcare_realtime_*"
+      ]
+    },
+    {
+      "Sid": "HealthcareRealtimeBillingAccess",
+      "Effect": "Allow",
+      "Action": [
+        "aws-portal:ViewBilling",
+        "aws-portal:ModifyBilling"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

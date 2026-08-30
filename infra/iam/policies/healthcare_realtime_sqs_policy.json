@@ -1,0 +1,40 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListHealthcareRealtimeQueues",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:ListQueues"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ManageHealthcareRealtimeQueues",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:CreateQueue",
+        "sqs:DeleteQueue",
+        "sqs:GetQueueUrl",
+        "sqs:GetQueueAttributes",
+        "sqs:SetQueueAttributes",
+        "sqs:ListQueueTags",
+        "sqs:TagQueue",
+        "sqs:UntagQueue",
+        "sqs:ListDeadLetterSourceQueues",
+        "sqs:PurgeQueue",
+        "sqs:SendMessage",
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:ChangeMessageVisibility",
+        "sqs:StartMessageMoveTask",
+        "sqs:CancelMessageMoveTask",
+        "sqs:ListMessageMoveTasks"
+      ],
+      "Resource": [
+        "arn:aws:sqs:us-east-1:${AWS_ACCOUNT_ID}:healthcare-realtime-*",
+        "arn:aws:sqs:us-east-1:${AWS_ACCOUNT_ID}:healthcare_realtime_*"
+      ]
+    }
+  ]
+}

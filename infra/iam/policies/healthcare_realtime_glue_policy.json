@@ -1,0 +1,82 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadHealthcareGlueResources",
+      "Effect": "Allow",
+      "Action": [
+        "glue:GetDatabase",
+        "glue:GetDatabases",
+        "glue:GetTable",
+        "glue:GetTables",
+        "glue:GetTableVersion",
+        "glue:GetTableVersions",
+        "glue:GetPartition",
+        "glue:GetPartitions",
+        "glue:BatchGetPartition",
+        "glue:GetJob",
+        "glue:GetJobs",
+        "glue:GetJobRun",
+        "glue:GetJobRuns",
+        "glue:GetTags"
+      ],
+      "Resource": [
+        "arn:aws:glue:us-east-1:${AWS_ACCOUNT_ID}:catalog",
+        "arn:aws:glue:us-east-1:${AWS_ACCOUNT_ID}:database/healthcare_realtime",
+        "arn:aws:glue:us-east-1:${AWS_ACCOUNT_ID}:database/healthcare_realtime_dbt",
+        "arn:aws:glue:us-east-1:${AWS_ACCOUNT_ID}:table/healthcare_realtime/*",
+        "arn:aws:glue:us-east-1:${AWS_ACCOUNT_ID}:table/healthcare_realtime_dbt/*",
+        "arn:aws:glue:us-east-1:${AWS_ACCOUNT_ID}:job/healthcare_realtime_raw_to_processed"
+      ]
+    },
+    {
+      "Sid": "ManageHealthcareRealtimeGlueJob",
+      "Effect": "Allow",
+      "Action": [
+        "glue:CreateJob",
+        "glue:UpdateJob",
+        "glue:DeleteJob",
+        "glue:StartJobRun"
+      ],
+      "Resource": "arn:aws:glue:us-east-1:${AWS_ACCOUNT_ID}:job/healthcare_realtime_raw_to_processed"
+    },
+    {
+      "Sid": "ManageHealthcareGlueCatalog",
+      "Effect": "Allow",
+      "Action": [
+        "glue:CreateDatabase",
+        "glue:GetDatabase",
+        "glue:GetDatabases",
+        "glue:DeleteDatabase",
+        "glue:GetTable",
+        "glue:GetTables",
+        "glue:CreateTable",
+        "glue:UpdateTable",
+        "glue:DeleteTable"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ManageDbtGlueCatalogObjects",
+      "Effect": "Allow",
+      "Action": [
+        "glue:CreateTable",
+        "glue:UpdateTable",
+        "glue:DeleteTable",
+        "glue:BatchDeleteTable",
+        "glue:DeleteTableVersion",
+        "glue:BatchDeleteTableVersion",
+        "glue:CreatePartition",
+        "glue:BatchCreatePartition",
+        "glue:UpdatePartition",
+        "glue:DeletePartition",
+        "glue:BatchDeletePartition"
+      ],
+      "Resource": [
+        "arn:aws:glue:us-east-1:${AWS_ACCOUNT_ID}:catalog",
+        "arn:aws:glue:us-east-1:${AWS_ACCOUNT_ID}:database/healthcare_realtime_dbt",
+        "arn:aws:glue:us-east-1:${AWS_ACCOUNT_ID}:table/healthcare_realtime_dbt/*"
+      ]
+    }
+  ]
+}
