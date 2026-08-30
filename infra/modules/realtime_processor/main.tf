@@ -150,7 +150,6 @@ resource "aws_lambda_function" "vitals_processor" {
 
   tags = var.tags
 }
-
 resource "aws_lambda_event_source_mapping" "vitals_kinesis" {
   event_source_arn  = var.kinesis_stream_arn
   function_name     = aws_lambda_function.vitals_processor.arn
@@ -158,6 +157,7 @@ resource "aws_lambda_event_source_mapping" "vitals_kinesis" {
 
   batch_size                         = 10
   maximum_batching_window_in_seconds = 0
+  parallelization_factor             = 3
 
   function_response_types = [
     "ReportBatchItemFailures"
@@ -168,6 +168,7 @@ resource "aws_lambda_event_source_mapping" "vitals_kinesis" {
       destination_arn = var.failure_queue_arn
     }
   }
+
   bisect_batch_on_function_error = true
   maximum_retry_attempts         = 3
   maximum_record_age_in_seconds  = 3600
