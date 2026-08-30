@@ -85,21 +85,6 @@ resource "aws_apigatewayv2_api" "vitals_api" {
   name          = "healthcare-realtime-vitals-api"
   protocol_type = "HTTP"
 
-  cors_configuration {
-    allow_headers = [
-      "content-type"
-    ]
-
-    allow_methods = [
-      "GET",
-      "OPTIONS"
-    ]
-
-    allow_origins = [
-      "*"
-    ]
-  }
-
   tags = var.tags
 }
 
@@ -114,8 +99,9 @@ resource "aws_apigatewayv2_integration" "vitals_api" {
 resource "aws_apigatewayv2_route" "latest_vitals" {
   api_id = aws_apigatewayv2_api.vitals_api.id
 
-  route_key = "GET /patients/{patient_id}/vitals"
-  target    = "integrations/${aws_apigatewayv2_integration.vitals_api.id}"
+  route_key          = "GET /patients/{patient_id}/vitals"
+  authorization_type = "AWS_IAM"
+  target             = "integrations/${aws_apigatewayv2_integration.vitals_api.id}"
 }
 
 resource "aws_apigatewayv2_stage" "development" {

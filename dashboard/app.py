@@ -13,6 +13,8 @@ import requests
 import streamlit as st
 import websocket
 
+from dashboard.aws_auth import get_sigv4_headers
+
 PATIENT_ID = os.getenv("PATIENT_ID", "137506799")
 API_ENDPOINT = os.environ["VITALS_API_ENDPOINT"].rstrip("/")
 WEBSOCKET_URL = os.environ["VITALS_WEBSOCKET_URL"]
@@ -25,7 +27,8 @@ st.set_page_config(page_title="Healthcare Realtime Monitoring", page_icon="🩺"
 
 
 def get_initial_vitals(patient_id: str) -> dict[str, Any] | None:
-    response = requests.get(f"{API_ENDPOINT}/patients/{patient_id}/vitals", timeout=10)
+    url = f"{API_ENDPOINT}/patients/{patient_id}/vitals"
+    response = requests.get(url, headers=get_sigv4_headers(url), timeout=10)
 
     if response.status_code == 404:
         return None
@@ -62,7 +65,16 @@ def websocket_worker(message_queue: queue.Queue[dict[str, Any]], connection_stat
 
     while True:
         try:
-            ws = websocket.WebSocketApp(WEBSOCKET_SUBSCRIPTION_URL, on_open=on_open, on_message=on_message, on_error=on_error, on_close=on_close)
+            signed_headers = get_sigv4_headers(WEBSOCKET_SUBSCRIPTION_URL)
+
+            ws = websocket.WebSocketApp(
+                WEBSOCKET_SUBSCRIPTION_URL,
+                header=[f"{key}: {value}" for key, value in signed_headers.items()],
+                on_open=on_open,
+                on_message=on_message,
+                on_error=on_error,
+                on_close=on_close,
+            )
 
             ws.run_forever()
 
@@ -90,28 +102,6 @@ def start_websocket_thread() -> None:
 
 
 def append_history(vitals: dict[str, Any]) -> None:
-    event_timestamp = vitals.get("event_timestamp")
-
-    if event_timestamp:
-        try:
-            timestamp = datetime.fromisoformat(event_timestamp.replace("Z", "+00:00"))
-
-        except ValueError:
-            timestamp = datetime.now(UTC)
-
-    else:
-        timestamp = datetime.now(UTC)
-
-    st.session_state.vitals_history.append(
-        {
-            "timestamp": timestamp,
-            "heart_rate": vitals.get("heart_rate"),
-            "spo2": vitals.get("spo2"),
-            "respiratory_rate": vitals.get("respiratory_rate"),
-            "systolic_bp": vitals.get("systolic_bp"),
-            "diastolic_bp": vitals.get("diastolic_bp"),
-        }
-    )
     event_timestamp = vitals.get("event_timestamp")
 
     if event_timestamp:
