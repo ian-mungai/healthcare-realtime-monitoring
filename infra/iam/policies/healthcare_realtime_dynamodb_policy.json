@@ -1,0 +1,73 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListHealthcareRealtimeDynamoDbResources",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:ListTables",
+        "dynamodb:DescribeLimits",
+        "dynamodb:DescribeEndpoints",
+        "dynamodb:ListBackups"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ManageHealthcareRealtimeTables",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:CreateTable",
+        "dynamodb:DescribeTable",
+        "dynamodb:UpdateTable",
+        "dynamodb:DeleteTable",
+        "dynamodb:DescribeContinuousBackups",
+        "dynamodb:UpdateContinuousBackups",
+        "dynamodb:DescribeTimeToLive",
+        "dynamodb:UpdateTimeToLive",
+        "dynamodb:DescribeContributorInsights",
+        "dynamodb:UpdateContributorInsights",
+        "dynamodb:ListTagsOfResource",
+        "dynamodb:TagResource",
+        "dynamodb:UntagResource",
+        "dynamodb:CreateBackup"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:${AWS_ACCOUNT_ID}:table/healthcare-realtime-*",
+        "arn:aws:dynamodb:us-east-1:${AWS_ACCOUNT_ID}:table/healthcare_realtime_*"
+      ]
+    },
+    {
+      "Sid": "ReadWriteHealthcareRealtimeTableData",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:BatchGetItem",
+        "dynamodb:Query",
+        "dynamodb:Scan",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:ConditionCheckItem"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:${AWS_ACCOUNT_ID}:table/healthcare-realtime-*",
+        "arn:aws:dynamodb:us-east-1:${AWS_ACCOUNT_ID}:table/healthcare-realtime-*/index/*",
+        "arn:aws:dynamodb:us-east-1:${AWS_ACCOUNT_ID}:table/healthcare_realtime_*",
+        "arn:aws:dynamodb:us-east-1:${AWS_ACCOUNT_ID}:table/healthcare_realtime_*/index/*"
+      ]
+    },
+    {
+      "Sid": "ManageHealthcareRealtimeBackups",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:DescribeBackup",
+        "dynamodb:DeleteBackup"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:${AWS_ACCOUNT_ID}:table/healthcare-realtime-*/backup/*",
+        "arn:aws:dynamodb:us-east-1:${AWS_ACCOUNT_ID}:table/healthcare_realtime_*/backup/*"
+      ]
+    }
+  ]
+}

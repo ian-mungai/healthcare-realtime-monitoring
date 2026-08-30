@@ -1,0 +1,19 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ManageHealthcareRealtimeMWAA",
+      "Effect": "Allow",
+      "Action": [
+        "airflow:CreateEnvironment",
+        "airflow:GetEnvironment",
+        "airflow:UpdateEnvironment",
+        "airflow:DeleteEnvironment",
+        "airflow:ListTagsForResource",
+        "airflow:TagResource",
+        "airflow:UntagResource"
+      ],
+      "Resource": "arn:aws:airflow:us-east-1:${AWS_ACCOUNT_ID}:environment/healthcare_realtime_mwaa"
+    }
+  ]
+}
