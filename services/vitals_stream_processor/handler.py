@@ -8,6 +8,7 @@ from typing import Any
 import boto3
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
+from schema import validate_vitals_payload
 
 LATEST_VITALS_TABLE = os.getenv("LATEST_VITALS_TABLE", "healthcare-realtime-latest-vitals")
 CONNECTIONS_TABLE = os.getenv("CONNECTIONS_TABLE", "healthcare-realtime-websocket-connections")
@@ -32,11 +33,46 @@ def to_dynamodb_item(payload: dict[str, Any]) -> dict[str, Any]:
     return json.loads(json.dumps(payload), parse_float=Decimal)
 
 
-def write_latest_vitals(payload: dict[str, Any]) -> None:
-    if "patient_id" not in payload:
+def event_timestamp_epoch_ms(event_timestamp: str) -> int:
+    event_time = datetime.fromisoformat(event_timestamp.replace("Z", "+00:00"))
+
+    if event_time.tzinfo is None:
+        event_time = event_time.replace(tzinfo=UTC)
+
+    return int(event_time.timestamp() * 1000)
+
+
+def write_latest_vitals(payload: dict[str, Any]) -> bool:
+    patient_id = payload.get("patient_id")
+    event_timestamp = payload.get("event_timestamp")
+
+    if not patient_id:
         raise ValueError("patient_id is required")
 
-    latest_vitals_table.put_item(Item=to_dynamodb_item(payload))
+    if not event_timestamp:
+        raise ValueError("event_timestamp is required")
+
+    incoming_epoch_ms = event_timestamp_epoch_ms(event_timestamp)
+
+    item = to_dynamodb_item(payload)
+    item["_event_timestamp_epoch_ms"] = incoming_epoch_ms
+
+    try:
+        latest_vitals_table.put_item(
+            Item=item,
+            ConditionExpression="attribute_not_exists(#event_epoch) OR #event_epoch < :incoming_event_epoch",
+            ExpressionAttributeNames={"#event_epoch": "_event_timestamp_epoch_ms"},
+            ExpressionAttributeValues={":incoming_event_epoch": incoming_epoch_ms},
+        )
+
+    except ClientError as error:
+        if error.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            print(f"Ignoring duplicate or stale vital event for patient {patient_id} at {event_timestamp}")
+            return False
+
+        raise
+
+    return True
 
 
 def get_patient_connections(patient_id: str) -> list[str]:
@@ -152,7 +188,10 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, list[dict[s
         try:
             payload = decode_kinesis_record(record)
 
-            write_latest_vitals(payload)
+            validate_vitals_payload(payload)
+
+            if not write_latest_vitals(payload):
+                continue
 
             deliveries, delivery_failures, active_connections = push_vitals(payload)
 
