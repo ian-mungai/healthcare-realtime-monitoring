@@ -90,7 +90,8 @@ resource "aws_lambda_function" "vitals_replay" {
 
   environment {
     variables = {
-      KINESIS_STREAM_ARN = var.kinesis_stream_arn
+      KINESIS_STREAM_ARN  = var.kinesis_stream_arn
+      MAX_REPLAY_ATTEMPTS = "1"
     }
   }
 
