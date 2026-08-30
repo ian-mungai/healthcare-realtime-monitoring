@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-os.environ["KINESIS_STREAM_ARN"] = "arn:aws:kinesis:us-east-1:828591411593:stream/healthcare_realtime_vitals"
+os.environ["KINESIS_STREAM_ARN"] = "arn:aws:kinesis:us-east-1:123456789012:stream/healthcare_realtime_vitals"
 
 from services.vitals_replay import handler
 
@@ -95,12 +95,20 @@ def test_get_failed_records_raises_when_no_source_records_exist(kinesis) -> None
         handler.get_failed_records("shardId-000000000000", "100", "101")
 
 
-def test_build_replay_entries_preserves_data_and_partition_key() -> None:
+def test_build_replay_entries_adds_replay_attempt_and_preserves_partition_key() -> None:
     records = [{"SequenceNumber": "100", "Data": b'{"patient_id":"137506799"}', "PartitionKey": "137506799"}]
 
     entries = handler.build_replay_entries(records)
 
-    assert entries == [{"Data": b'{"patient_id":"137506799"}', "PartitionKey": "137506799"}]
+    assert json.loads(entries[0]["Data"]) == {"patient_id": "137506799", "_replay_attempt": 1}
+    assert entries[0]["PartitionKey"] == "137506799"
+
+
+def test_build_replay_entries_rejects_record_at_replay_limit() -> None:
+    records = [{"SequenceNumber": "100", "Data": b'{"patient_id":"137506799","_replay_attempt":1}', "PartitionKey": "137506799"}]
+
+    with pytest.raises(RuntimeError, match="Automatic replay limit reached"):
+        handler.build_replay_entries(records)
 
 
 @patch("services.vitals_replay.handler.kinesis")
@@ -114,7 +122,7 @@ def test_replay_records_puts_records_back_to_stream(kinesis) -> None:
     assert replayed_count == 1
 
     kinesis.put_records.assert_called_once_with(
-        StreamARN=handler.KINESIS_STREAM_ARN, Records=[{"Data": b'{"patient_id":"137506799"}', "PartitionKey": "137506799"}]
+        StreamARN=handler.KINESIS_STREAM_ARN, Records=[{"Data": b'{"patient_id":"137506799","_replay_attempt":1}', "PartitionKey": "137506799"}]
     )
 
 
@@ -122,7 +130,7 @@ def test_replay_records_puts_records_back_to_stream(kinesis) -> None:
 def test_replay_records_raises_on_partial_put_failure(kinesis) -> None:
     kinesis.put_records.return_value = {"FailedRecordCount": 1, "Records": [{"ErrorCode": "ProvisionedThroughputExceededException"}]}
 
-    records = [{"SequenceNumber": "100", "Data": b"record", "PartitionKey": "patient-1"}]
+    records = [{"SequenceNumber": "100", "Data": b'{"patient_id":"patient-1"}', "PartitionKey": "patient-1"}]
 
     with pytest.raises(RuntimeError, match=r"Kinesis replay failed for 1 record\(s\)"):
         handler.replay_records(records)

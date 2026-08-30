@@ -5,6 +5,7 @@ from typing import Any
 import boto3
 
 KINESIS_STREAM_ARN = os.environ["KINESIS_STREAM_ARN"]
+MAX_REPLAY_ATTEMPTS = int(os.getenv("MAX_REPLAY_ATTEMPTS", "1"))
 MAX_GET_RECORDS_CALLS = 10
 GET_RECORDS_LIMIT = 100
 
@@ -19,7 +20,6 @@ def parse_failure_message(record: dict[str, Any]) -> dict[str, str]:
         raise ValueError("KinesisBatchInfo is required")
 
     required_fields = ["shardId", "startSequenceNumber", "endSequenceNumber", "streamArn"]
-
     missing_fields = [field for field in required_fields if not batch_info.get(field)]
 
     if missing_fields:
@@ -47,7 +47,6 @@ def get_failed_records(shard_id: str, start_sequence_number: str, end_sequence_n
 
     for _ in range(MAX_GET_RECORDS_CALLS):
         response = kinesis.get_records(ShardIterator=shard_iterator, Limit=GET_RECORDS_LIMIT)
-
         shard_iterator = response.get("NextShardIterator")
 
         for record in response.get("Records", []):
@@ -63,10 +62,7 @@ def get_failed_records(shard_id: str, start_sequence_number: str, end_sequence_n
                 reached_end = True
                 break
 
-        if reached_end:
-            break
-
-        if not shard_iterator:
+        if reached_end or not shard_iterator:
             break
 
     if not failed_records:
@@ -78,18 +74,25 @@ def get_failed_records(shard_id: str, start_sequence_number: str, end_sequence_n
     return failed_records
 
 
+def build_replay_entry(record: dict[str, Any]) -> dict[str, Any]:
+    payload = json.loads(record["Data"].decode("utf-8"))
+    replay_attempt = int(payload.get("_replay_attempt", 0))
+
+    if replay_attempt >= MAX_REPLAY_ATTEMPTS:
+        raise RuntimeError(f"Automatic replay limit reached at attempt {replay_attempt}")
+
+    payload["_replay_attempt"] = replay_attempt + 1
+
+    entry: dict[str, Any] = {"Data": json.dumps(payload, separators=(",", ":")).encode("utf-8"), "PartitionKey": record["PartitionKey"]}
+
+    if record.get("ExplicitHashKey"):
+        entry["ExplicitHashKey"] = record["ExplicitHashKey"]
+
+    return entry
+
+
 def build_replay_entries(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    entries: list[dict[str, Any]] = []
-
-    for record in records:
-        entry: dict[str, Any] = {"Data": record["Data"], "PartitionKey": record["PartitionKey"]}
-
-        if record.get("ExplicitHashKey"):
-            entry["ExplicitHashKey"] = record["ExplicitHashKey"]
-
-        entries.append(entry)
-
-    return entries
+    return [build_replay_entry(record) for record in records]
 
 
 def replay_records(records: list[dict[str, Any]]) -> int:
@@ -107,7 +110,6 @@ def replay_records(records: list[dict[str, Any]]) -> int:
 
 def process_sqs_record(record: dict[str, Any]) -> int:
     failure = parse_failure_message(record)
-
     records = get_failed_records(failure["shard_id"], failure["start_sequence_number"], failure["end_sequence_number"])
 
     return replay_records(records)

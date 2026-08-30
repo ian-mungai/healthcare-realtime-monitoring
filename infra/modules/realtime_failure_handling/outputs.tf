@@ -12,3 +12,18 @@ output "vitals_failures_queue_name" {
   description = "Name of the realtime vitals failure queue."
   value       = aws_sqs_queue.vitals_failures.name
 }
+
+output "vitals_replay_dlq_arn" {
+  description = "ARN of the terminal realtime vitals replay dead-letter queue."
+  value       = aws_sqs_queue.vitals_replay_dlq.arn
+}
+
+output "vitals_replay_dlq_url" {
+  description = "URL of the terminal realtime vitals replay dead-letter queue."
+  value       = aws_sqs_queue.vitals_replay_dlq.url
+}
+
+output "vitals_replay_dlq_name" {
+  description = "Name of the terminal realtime vitals replay dead-letter queue."
+  value       = aws_sqs_queue.vitals_replay_dlq.name
+}
