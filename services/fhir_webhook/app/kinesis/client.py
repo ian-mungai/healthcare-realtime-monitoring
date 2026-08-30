@@ -6,6 +6,7 @@ import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
 from services.fhir_webhook.app.models import FHIRWebhookEvent
+from services.fhir_webhook.app.vitals import transform_fhir_vitals
 
 
 @dataclass(frozen=True)
@@ -36,23 +37,13 @@ class KinesisPublisher:
         self.client = boto3.client("kinesis", region_name=self.region_name)
 
     def publish(self, event: FHIRWebhookEvent) -> KinesisPublishResult:
-        partition_key = self._get_partition_key(event)
-        payload = json.dumps(event.to_dict(), separators=(",", ":")).encode("utf-8")
+        payload = transform_fhir_vitals(event)
+        partition_key = payload["patient_id"]
+        data = json.dumps(payload, separators=(",", ":")).encode("utf-8")
 
         try:
-            response = self.client.put_record(StreamName=self.stream_name, Data=payload, PartitionKey=partition_key)
+            response = self.client.put_record(StreamName=self.stream_name, Data=data, PartitionKey=partition_key)
         except (BotoCoreError, ClientError) as error:
             raise KinesisPublisherError(f"Failed to publish event to Kinesis: {error}") from error
 
         return KinesisPublishResult(shard_id=response["ShardId"], sequence_number=response["SequenceNumber"], partition_key=partition_key)
-
-    def _get_partition_key(self, event: FHIRWebhookEvent) -> str:
-        subject_reference = event.payload.get("subject", {}).get("reference")
-
-        if subject_reference:
-            return subject_reference
-
-        if event.resource_id:
-            return event.resource_id
-
-        return "unknown_patient"
