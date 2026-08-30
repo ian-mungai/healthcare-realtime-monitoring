@@ -5,12 +5,19 @@ from services.fhir_webhook.app.models import FHIRWebhookEvent
 
 
 def main():
-    event = FHIRWebhookEvent(
-        received_at=datetime.now(UTC),
-        resource_type="Observation",
-        resource_id="kinesis_smoke_test",
-        payload={"resourceType": "Observation", "id": "kinesis_smoke_test", "status": "final", "subject": {"reference": "Patient/kinesis_test_patient"}},
-    )
+    event_time = datetime.now(UTC)
+
+    observation = {
+        "resourceType": "Observation",
+        "id": "kinesis_smoke_test",
+        "status": "final",
+        "code": {"coding": [{"system": "http://loinc.org", "code": "8867-4", "display": "Heart rate"}]},
+        "subject": {"reference": "Patient/kinesis_test_patient"},
+        "effectiveDateTime": event_time.isoformat(),
+        "valueQuantity": {"value": 82.0, "unit": "beats/minute", "system": "http://unitsofmeasure.org", "code": "/min"},
+    }
+
+    event = FHIRWebhookEvent(received_at=event_time, resource_type="Observation", resource_id=observation["id"], payload=observation)
 
     publisher = KinesisPublisher()
     result = publisher.publish(event)
