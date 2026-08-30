@@ -97,9 +97,10 @@ resource "aws_apigatewayv2_integration" "websocket_handler" {
 }
 
 resource "aws_apigatewayv2_route" "connect" {
-  api_id    = aws_apigatewayv2_api.vitals_websocket.id
-  route_key = "$connect"
-  target    = "integrations/${aws_apigatewayv2_integration.websocket_handler.id}"
+  api_id             = aws_apigatewayv2_api.vitals_websocket.id
+  route_key          = "$connect"
+  authorization_type = "AWS_IAM"
+  target             = "integrations/${aws_apigatewayv2_integration.websocket_handler.id}"
 }
 
 resource "aws_apigatewayv2_route" "disconnect" {

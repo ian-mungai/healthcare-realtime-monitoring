@@ -2,7 +2,7 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "ManageHealthcareRealtimeWebSocketApi",
+      "Sid": "ManageHealthcareRealtimeApiGatewayResources",
       "Effect": "Allow",
       "Action": [
         "apigateway:GET",
@@ -15,6 +15,17 @@
         "arn:aws:apigateway:us-east-1::/apis",
         "arn:aws:apigateway:us-east-1::/apis/*",
         "arn:aws:apigateway:us-east-1::/tags/*"
+      ]
+    },
+    {
+      "Sid": "InvokeHealthcareRealtimeApis",
+      "Effect": "Allow",
+      "Action": [
+        "execute-api:Invoke"
+      ],
+      "Resource": [
+        "arn:aws:execute-api:us-east-1:${AWS_ACCOUNT_ID}:*/development/GET/patients/*/vitals",
+        "arn:aws:execute-api:us-east-1:${AWS_ACCOUNT_ID}:*/development/$connect"
       ]
     }
   ]
