@@ -16,17 +16,19 @@ else:
         from services.vitals_stream_processor.schema import validate_vitals_payload
     except ModuleNotFoundError:
         from schema import validate_vitals_payload
+
+AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "us-east-1"
 LATEST_VITALS_TABLE = os.getenv("LATEST_VITALS_TABLE", "healthcare-realtime-latest-vitals")
 CONNECTIONS_TABLE = os.getenv("CONNECTIONS_TABLE", "healthcare-realtime-websocket-connections")
 WEBSOCKET_ENDPOINT = os.getenv("WEBSOCKET_ENDPOINT", "")
 
 METRIC_NAMESPACE = "HealthcareRealtime/Live"
 
-dynamodb = boto3.resource("dynamodb")
+dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
 latest_vitals_table = dynamodb.Table(LATEST_VITALS_TABLE)
 connections_table = dynamodb.Table(CONNECTIONS_TABLE)
 
-cloudwatch = boto3.client("cloudwatch")
+cloudwatch = boto3.client("cloudwatch", region_name=AWS_REGION)
 
 
 def decode_kinesis_record(record: dict[str, Any]) -> dict[str, Any]:
