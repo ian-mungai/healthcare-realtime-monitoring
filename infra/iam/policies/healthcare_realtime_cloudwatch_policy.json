@@ -55,31 +55,6 @@
         "cloudwatch:ListDashboards"
       ],
       "Resource": "*"
-    },
-    {
-      "Sid": "DescribeHealthcareRealtimeCloudWatchLogs",
-      "Effect": "Allow",
-      "Action": [
-        "logs:DescribeLogGroups",
-        "logs:DescribeLogStreams"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Sid": "ReadHealthcareRealtimeCloudWatchLogs",
-      "Effect": "Allow",
-      "Action": [
-        "logs:FilterLogEvents",
-        "logs:GetLogEvents",
-        "logs:GetLogRecord",
-        "logs:StartQuery",
-        "logs:StopQuery",
-        "logs:GetQueryResults"
-      ],
-      "Resource": [
-        "arn:aws:logs:us-east-1:${AWS_ACCOUNT_ID}:log-group:/aws/lambda/healthcare_realtime_*",
-        "arn:aws:logs:us-east-1:${AWS_ACCOUNT_ID}:log-group:/aws/lambda/healthcare_realtime_*:*"
-      ]
     }
   ]
 }

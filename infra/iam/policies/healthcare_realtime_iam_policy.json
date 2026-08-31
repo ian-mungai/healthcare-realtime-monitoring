@@ -29,6 +29,64 @@
       "Resource": "*"
     },
     {
+      "Sid": "ListHealthcareRealtimeGroups",
+      "Effect": "Allow",
+      "Action": [
+        "iam:ListGroups"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ManageHealthcareRealtimeDeveloperGroups",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateGroup",
+        "iam:DeleteGroup",
+        "iam:GetGroup",
+        "iam:AddUserToGroup",
+        "iam:RemoveUserFromGroup",
+        "iam:ListAttachedGroupPolicies",
+        "iam:ListGroupPolicies"
+      ],
+      "Resource": [
+        "arn:aws:iam::${AWS_ACCOUNT_ID}:group/healthcare_realtime_data_group",
+        "arn:aws:iam::${AWS_ACCOUNT_ID}:group/healthcare_realtime_compute_group",
+        "arn:aws:iam::${AWS_ACCOUNT_ID}:group/healthcare_realtime_platform_group"
+      ]
+    },
+    {
+      "Sid": "ManageHealthcareRealtimeGroupPolicyAttachments",
+      "Effect": "Allow",
+      "Action": [
+        "iam:AttachGroupPolicy",
+        "iam:DetachGroupPolicy"
+      ],
+      "Resource": [
+        "arn:aws:iam::${AWS_ACCOUNT_ID}:group/healthcare_realtime_data_group",
+        "arn:aws:iam::${AWS_ACCOUNT_ID}:group/healthcare_realtime_compute_group",
+        "arn:aws:iam::${AWS_ACCOUNT_ID}:group/healthcare_realtime_platform_group"
+      ],
+      "Condition": {
+        "ArnLike": {
+          "iam:PolicyARN": "arn:aws:iam::${AWS_ACCOUNT_ID}:policy/healthcare_realtime_*"
+        }
+      }
+    },
+    {
+      "Sid": "ManageHealthcareRealtimeDeveloperPolicyAttachments",
+      "Effect": "Allow",
+      "Action": [
+        "iam:AttachUserPolicy",
+        "iam:DetachUserPolicy"
+      ],
+      "Resource": "arn:aws:iam::${AWS_ACCOUNT_ID}:user/healthcare_realtime_dev",
+      "Condition": {
+        "ArnLike": {
+          "iam:PolicyARN": "arn:aws:iam::${AWS_ACCOUNT_ID}:policy/healthcare_realtime_*"
+        }
+      }
+    },
+    {
       "Sid": "SimulateHealthcareRealtimeDeveloperPolicy",
       "Effect": "Allow",
       "Action": [
@@ -67,6 +125,24 @@
         "arn:aws:iam::${AWS_ACCOUNT_ID}:role/healthcare_realtime_*",
         "arn:aws:iam::${AWS_ACCOUNT_ID}:role/healthcare-realtime-*"
       ]
+    },
+    {
+      "Sid": "ManageHealthcareRealtimeManagedPolicyVersions",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicyVersion",
+        "iam:SetDefaultPolicyVersion"
+      ],
+      "Resource": "arn:aws:iam::${AWS_ACCOUNT_ID}:policy/healthcare_realtime_*"
+    },
+    {
+      "Sid": "CreateHealthcareRealtimeManagedPolicies",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreatePolicy"
+      ],
+      "Resource": "*"
     },
     {
       "Sid": "PassHealthcareRealtimeRolesToProjectServices",
