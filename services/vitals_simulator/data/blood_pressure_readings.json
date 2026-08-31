@@ -1,0 +1,734 @@
+[
+  {
+    "source_patient_id": "711b282e-4737-639b-197c-b7424765778f",
+    "source_observation_id": "711b282e-4737-639b-91eb-57891c659afb",
+    "systolic": 89.0,
+    "diastolic": 74.0
+  },
+  {
+    "source_patient_id": "711b282e-4737-639b-197c-b7424765778f",
+    "source_observation_id": "711b282e-4737-639b-7ee7-d597ee6306a2",
+    "systolic": 96.0,
+    "diastolic": 66.0
+  },
+  {
+    "source_patient_id": "711b282e-4737-639b-197c-b7424765778f",
+    "source_observation_id": "711b282e-4737-639b-9647-bac123ffee78",
+    "systolic": 84.0,
+    "diastolic": 76.0
+  },
+  {
+    "source_patient_id": "711b282e-4737-639b-197c-b7424765778f",
+    "source_observation_id": "711b282e-4737-639b-9504-983d839e6460",
+    "systolic": 94.0,
+    "diastolic": 71.0
+  },
+  {
+    "source_patient_id": "711b282e-4737-639b-197c-b7424765778f",
+    "source_observation_id": "711b282e-4737-639b-de8d-14790977236f",
+    "systolic": 97.0,
+    "diastolic": 77.0
+  },
+  {
+    "source_patient_id": "711b282e-4737-639b-197c-b7424765778f",
+    "source_observation_id": "711b282e-4737-639b-d190-f0b4b2b0f720",
+    "systolic": 99.0,
+    "diastolic": 74.0
+  },
+  {
+    "source_patient_id": "711b282e-4737-639b-197c-b7424765778f",
+    "source_observation_id": "711b282e-4737-639b-5a9a-47ba5d562fe6",
+    "systolic": 95.0,
+    "diastolic": 76.0
+  },
+  {
+    "source_patient_id": "711b282e-4737-639b-197c-b7424765778f",
+    "source_observation_id": "711b282e-4737-639b-bba4-fccc2f89453b",
+    "systolic": 96.0,
+    "diastolic": 76.0
+  },
+  {
+    "source_patient_id": "711b282e-4737-639b-197c-b7424765778f",
+    "source_observation_id": "711b282e-4737-639b-6bb4-7bef868011ac",
+    "systolic": 95.0,
+    "diastolic": 77.0
+  },
+  {
+    "source_patient_id": "711b282e-4737-639b-197c-b7424765778f",
+    "source_observation_id": "711b282e-4737-639b-07a7-e3fea52d93a1",
+    "systolic": 90.0,
+    "diastolic": 70.0
+  },
+  {
+    "source_patient_id": "d545798e-09a4-ef89-abc5-9f62dc5a5095",
+    "source_observation_id": "d545798e-09a4-ef89-adfd-b926c7ea990c",
+    "systolic": 112.0,
+    "diastolic": 75.0
+  },
+  {
+    "source_patient_id": "d545798e-09a4-ef89-abc5-9f62dc5a5095",
+    "source_observation_id": "d545798e-09a4-ef89-c181-d2c70fbd5e4b",
+    "systolic": 104.0,
+    "diastolic": 78.0
+  },
+  {
+    "source_patient_id": "d545798e-09a4-ef89-abc5-9f62dc5a5095",
+    "source_observation_id": "d545798e-09a4-ef89-e9c6-c33cbdcc5342",
+    "systolic": 109.0,
+    "diastolic": 79.0
+  },
+  {
+    "source_patient_id": "d545798e-09a4-ef89-abc5-9f62dc5a5095",
+    "source_observation_id": "d545798e-09a4-ef89-3a03-1d430192a02b",
+    "systolic": 102.0,
+    "diastolic": 79.0
+  },
+  {
+    "source_patient_id": "d545798e-09a4-ef89-abc5-9f62dc5a5095",
+    "source_observation_id": "d545798e-09a4-ef89-7057-9040b7c2d484",
+    "systolic": 102.0,
+    "diastolic": 81.0
+  },
+  {
+    "source_patient_id": "d545798e-09a4-ef89-abc5-9f62dc5a5095",
+    "source_observation_id": "d545798e-09a4-ef89-bb79-bab21a847aa2",
+    "systolic": 103.0,
+    "diastolic": 79.0
+  },
+  {
+    "source_patient_id": "d545798e-09a4-ef89-abc5-9f62dc5a5095",
+    "source_observation_id": "d545798e-09a4-ef89-2e34-15915c4c5004",
+    "systolic": 111.0,
+    "diastolic": 74.0
+  },
+  {
+    "source_patient_id": "288427c5-ee03-f47e-6872-def5772f427c",
+    "source_observation_id": "288427c5-ee03-f47e-f576-1d8220d66aa2",
+    "systolic": 141.0,
+    "diastolic": 114.0
+  },
+  {
+    "source_patient_id": "288427c5-ee03-f47e-6872-def5772f427c",
+    "source_observation_id": "288427c5-ee03-f47e-96a0-f12df6540345",
+    "systolic": 142.0,
+    "diastolic": 114.0
+  },
+  {
+    "source_patient_id": "288427c5-ee03-f47e-6872-def5772f427c",
+    "source_observation_id": "288427c5-ee03-f47e-c61f-226b863ab09f",
+    "systolic": 159.0,
+    "diastolic": 115.0
+  },
+  {
+    "source_patient_id": "288427c5-ee03-f47e-6872-def5772f427c",
+    "source_observation_id": "288427c5-ee03-f47e-0da6-6146ab933ca9",
+    "systolic": 143.0,
+    "diastolic": 106.0
+  },
+  {
+    "source_patient_id": "288427c5-ee03-f47e-6872-def5772f427c",
+    "source_observation_id": "288427c5-ee03-f47e-23a2-15900e8d1b6e",
+    "systolic": 147.0,
+    "diastolic": 108.0
+  },
+  {
+    "source_patient_id": "288427c5-ee03-f47e-6872-def5772f427c",
+    "source_observation_id": "288427c5-ee03-f47e-fa41-cff35e503217",
+    "systolic": 142.0,
+    "diastolic": 108.0
+  },
+  {
+    "source_patient_id": "288427c5-ee03-f47e-6872-def5772f427c",
+    "source_observation_id": "288427c5-ee03-f47e-dce1-8d8c4073567e",
+    "systolic": 144.0,
+    "diastolic": 107.0
+  },
+  {
+    "source_patient_id": "288427c5-ee03-f47e-6872-def5772f427c",
+    "source_observation_id": "288427c5-ee03-f47e-bca3-cf049e95fc98",
+    "systolic": 151.0,
+    "diastolic": 111.0
+  },
+  {
+    "source_patient_id": "288427c5-ee03-f47e-6872-def5772f427c",
+    "source_observation_id": "288427c5-ee03-f47e-57af-c24ba4a8db13",
+    "systolic": 147.0,
+    "diastolic": 105.0
+  },
+  {
+    "source_patient_id": "288427c5-ee03-f47e-6872-def5772f427c",
+    "source_observation_id": "288427c5-ee03-f47e-bd4b-f2acf9e8e881",
+    "systolic": 141.0,
+    "diastolic": 108.0
+  },
+  {
+    "source_patient_id": "288427c5-ee03-f47e-6872-def5772f427c",
+    "source_observation_id": "288427c5-ee03-f47e-0b1c-3bee70678fd7",
+    "systolic": 143.0,
+    "diastolic": 108.0
+  },
+  {
+    "source_patient_id": "288427c5-ee03-f47e-6872-def5772f427c",
+    "source_observation_id": "288427c5-ee03-f47e-d965-ee95313ab395",
+    "systolic": 156.0,
+    "diastolic": 110.0
+  },
+  {
+    "source_patient_id": "288427c5-ee03-f47e-6872-def5772f427c",
+    "source_observation_id": "288427c5-ee03-f47e-71b3-58d301ca2e77",
+    "systolic": 149.0,
+    "diastolic": 116.0
+  },
+  {
+    "source_patient_id": "288427c5-ee03-f47e-6872-def5772f427c",
+    "source_observation_id": "288427c5-ee03-f47e-c2b8-63e4be35aed7",
+    "systolic": 150.0,
+    "diastolic": 108.0
+  },
+  {
+    "source_patient_id": "288427c5-ee03-f47e-6872-def5772f427c",
+    "source_observation_id": "288427c5-ee03-f47e-a7bc-9ab091a7b1f8",
+    "systolic": 150.0,
+    "diastolic": 105.0
+  },
+  {
+    "source_patient_id": "288427c5-ee03-f47e-6872-def5772f427c",
+    "source_observation_id": "288427c5-ee03-f47e-bb66-14a1dd48e1af",
+    "systolic": 147.0,
+    "diastolic": 107.0
+  },
+  {
+    "source_patient_id": "288427c5-ee03-f47e-6872-def5772f427c",
+    "source_observation_id": "288427c5-ee03-f47e-2141-79d64038335a",
+    "systolic": 142.0,
+    "diastolic": 111.0
+  },
+  {
+    "source_patient_id": "288427c5-ee03-f47e-6872-def5772f427c",
+    "source_observation_id": "288427c5-ee03-f47e-3aa9-c203aa5e9a5c",
+    "systolic": 148.0,
+    "diastolic": 105.0
+  },
+  {
+    "source_patient_id": "a35dfdc9-1d97-63e0-a0b6-3e97b6fd5fe1",
+    "source_observation_id": "a35dfdc9-1d97-63e0-4cbd-4cbbe03d7dde",
+    "systolic": 138.0,
+    "diastolic": 77.0
+  },
+  {
+    "source_patient_id": "a35dfdc9-1d97-63e0-a0b6-3e97b6fd5fe1",
+    "source_observation_id": "a35dfdc9-1d97-63e0-1981-b58edff10372",
+    "systolic": 143.0,
+    "diastolic": 76.0
+  },
+  {
+    "source_patient_id": "a35dfdc9-1d97-63e0-a0b6-3e97b6fd5fe1",
+    "source_observation_id": "a35dfdc9-1d97-63e0-aa63-a0d3787c00ee",
+    "systolic": 135.0,
+    "diastolic": 84.0
+  },
+  {
+    "source_patient_id": "a35dfdc9-1d97-63e0-a0b6-3e97b6fd5fe1",
+    "source_observation_id": "a35dfdc9-1d97-63e0-6741-85bfaefea53a",
+    "systolic": 137.0,
+    "diastolic": 76.0
+  },
+  {
+    "source_patient_id": "a35dfdc9-1d97-63e0-a0b6-3e97b6fd5fe1",
+    "source_observation_id": "a35dfdc9-1d97-63e0-c0d0-b2bc117c6e00",
+    "systolic": 139.0,
+    "diastolic": 79.0
+  },
+  {
+    "source_patient_id": "a35dfdc9-1d97-63e0-a0b6-3e97b6fd5fe1",
+    "source_observation_id": "a35dfdc9-1d97-63e0-3d59-ae5c76953971",
+    "systolic": 146.0,
+    "diastolic": 81.0
+  },
+  {
+    "source_patient_id": "a35dfdc9-1d97-63e0-a0b6-3e97b6fd5fe1",
+    "source_observation_id": "a35dfdc9-1d97-63e0-ac6d-023ab8999272",
+    "systolic": 139.0,
+    "diastolic": 77.0
+  },
+  {
+    "source_patient_id": "a35dfdc9-1d97-63e0-a0b6-3e97b6fd5fe1",
+    "source_observation_id": "a35dfdc9-1d97-63e0-9973-be199838271d",
+    "systolic": 146.0,
+    "diastolic": 83.0
+  },
+  {
+    "source_patient_id": "a35dfdc9-1d97-63e0-a0b6-3e97b6fd5fe1",
+    "source_observation_id": "a35dfdc9-1d97-63e0-02e7-43e2e81d516d",
+    "systolic": 151.0,
+    "diastolic": 79.0
+  },
+  {
+    "source_patient_id": "a35dfdc9-1d97-63e0-a0b6-3e97b6fd5fe1",
+    "source_observation_id": "a35dfdc9-1d97-63e0-4b61-22aa58310f75",
+    "systolic": 133.0,
+    "diastolic": 78.0
+  },
+  {
+    "source_patient_id": "a35dfdc9-1d97-63e0-a0b6-3e97b6fd5fe1",
+    "source_observation_id": "a35dfdc9-1d97-63e0-802e-a7a118bf50a0",
+    "systolic": 136.0,
+    "diastolic": 76.0
+  },
+  {
+    "source_patient_id": "a35dfdc9-1d97-63e0-a0b6-3e97b6fd5fe1",
+    "source_observation_id": "a35dfdc9-1d97-63e0-1841-ab3d84693fdb",
+    "systolic": 144.0,
+    "diastolic": 74.0
+  },
+  {
+    "source_patient_id": "a35dfdc9-1d97-63e0-a0b6-3e97b6fd5fe1",
+    "source_observation_id": "a35dfdc9-1d97-63e0-27e3-2fcda5605dec",
+    "systolic": 137.0,
+    "diastolic": 80.0
+  },
+  {
+    "source_patient_id": "a35dfdc9-1d97-63e0-a0b6-3e97b6fd5fe1",
+    "source_observation_id": "a35dfdc9-1d97-63e0-cc4a-1759a65cc1af",
+    "systolic": 138.0,
+    "diastolic": 74.0
+  },
+  {
+    "source_patient_id": "a35dfdc9-1d97-63e0-a0b6-3e97b6fd5fe1",
+    "source_observation_id": "a35dfdc9-1d97-63e0-be7e-e17064458969",
+    "systolic": 141.0,
+    "diastolic": 79.0
+  },
+  {
+    "source_patient_id": "a35dfdc9-1d97-63e0-a0b6-3e97b6fd5fe1",
+    "source_observation_id": "a35dfdc9-1d97-63e0-a9d4-87a93cc746f6",
+    "systolic": 134.0,
+    "diastolic": 74.0
+  },
+  {
+    "source_patient_id": "a35dfdc9-1d97-63e0-a0b6-3e97b6fd5fe1",
+    "source_observation_id": "a35dfdc9-1d97-63e0-cee2-462da3799157",
+    "systolic": 137.0,
+    "diastolic": 77.0
+  },
+  {
+    "source_patient_id": "a35dfdc9-1d97-63e0-a0b6-3e97b6fd5fe1",
+    "source_observation_id": "a35dfdc9-1d97-63e0-1619-fd9bfc2d3925",
+    "systolic": 147.0,
+    "diastolic": 83.0
+  },
+  {
+    "source_patient_id": "eed8a921-eac8-0778-4113-255f4e35506a",
+    "source_observation_id": "eed8a921-eac8-0778-30d5-db301665fcc4",
+    "systolic": 107.0,
+    "diastolic": 76.0
+  },
+  {
+    "source_patient_id": "eed8a921-eac8-0778-4113-255f4e35506a",
+    "source_observation_id": "eed8a921-eac8-0778-b769-a9665f0bf5ba",
+    "systolic": 115.0,
+    "diastolic": 76.0
+  },
+  {
+    "source_patient_id": "eed8a921-eac8-0778-4113-255f4e35506a",
+    "source_observation_id": "eed8a921-eac8-0778-bb10-e9532302aafb",
+    "systolic": 154.0,
+    "diastolic": 102.0
+  },
+  {
+    "source_patient_id": "eed8a921-eac8-0778-4113-255f4e35506a",
+    "source_observation_id": "eed8a921-eac8-0778-0fcd-8143e53c82ab",
+    "systolic": 139.0,
+    "diastolic": 87.0
+  },
+  {
+    "source_patient_id": "eed8a921-eac8-0778-4113-255f4e35506a",
+    "source_observation_id": "eed8a921-eac8-0778-126b-a2af0c89ed27",
+    "systolic": 138.0,
+    "diastolic": 89.0
+  },
+  {
+    "source_patient_id": "eed8a921-eac8-0778-4113-255f4e35506a",
+    "source_observation_id": "eed8a921-eac8-0778-bec6-7b2a2fc3231b",
+    "systolic": 139.0,
+    "diastolic": 95.0
+  },
+  {
+    "source_patient_id": "eed8a921-eac8-0778-4113-255f4e35506a",
+    "source_observation_id": "eed8a921-eac8-0778-2957-a2c925390b8f",
+    "systolic": 137.0,
+    "diastolic": 86.0
+  },
+  {
+    "source_patient_id": "eed8a921-eac8-0778-4113-255f4e35506a",
+    "source_observation_id": "eed8a921-eac8-0778-fef4-a75f192964c9",
+    "systolic": 140.0,
+    "diastolic": 87.0
+  },
+  {
+    "source_patient_id": "eed8a921-eac8-0778-4113-255f4e35506a",
+    "source_observation_id": "eed8a921-eac8-0778-8230-fb838357a303",
+    "systolic": 140.0,
+    "diastolic": 87.0
+  },
+  {
+    "source_patient_id": "eed8a921-eac8-0778-4113-255f4e35506a",
+    "source_observation_id": "eed8a921-eac8-0778-432b-73247209f12a",
+    "systolic": 151.0,
+    "diastolic": 91.0
+  },
+  {
+    "source_patient_id": "eed8a921-eac8-0778-4113-255f4e35506a",
+    "source_observation_id": "eed8a921-eac8-0778-5841-3421da206564",
+    "systolic": 132.0,
+    "diastolic": 76.0
+  },
+  {
+    "source_patient_id": "3c4b499b-090b-c6fa-28d7-b56c6056d0a2",
+    "source_observation_id": "3c4b499b-090b-c6fa-3c36-f53347b91357",
+    "systolic": 131.0,
+    "diastolic": 90.0
+  },
+  {
+    "source_patient_id": "3c4b499b-090b-c6fa-28d7-b56c6056d0a2",
+    "source_observation_id": "3c4b499b-090b-c6fa-a6ae-687531d4685e",
+    "systolic": 137.0,
+    "diastolic": 90.0
+  },
+  {
+    "source_patient_id": "3c4b499b-090b-c6fa-28d7-b56c6056d0a2",
+    "source_observation_id": "3c4b499b-090b-c6fa-67c9-1149f5b54808",
+    "systolic": 138.0,
+    "diastolic": 92.0
+  },
+  {
+    "source_patient_id": "595f9fb9-fcf0-e5bc-239a-e86a96db6211",
+    "source_observation_id": "595f9fb9-fcf0-e5bc-ef1b-ea9c2a29645d",
+    "systolic": 104.0,
+    "diastolic": 83.0
+  },
+  {
+    "source_patient_id": "595f9fb9-fcf0-e5bc-239a-e86a96db6211",
+    "source_observation_id": "595f9fb9-fcf0-e5bc-ac8e-12083c957deb",
+    "systolic": 103.0,
+    "diastolic": 82.0
+  },
+  {
+    "source_patient_id": "595f9fb9-fcf0-e5bc-239a-e86a96db6211",
+    "source_observation_id": "595f9fb9-fcf0-e5bc-9a4d-8a9db2be6a55",
+    "systolic": 93.0,
+    "diastolic": 82.0
+  },
+  {
+    "source_patient_id": "595f9fb9-fcf0-e5bc-239a-e86a96db6211",
+    "source_observation_id": "595f9fb9-fcf0-e5bc-f74b-3a44bdc40218",
+    "systolic": 152.0,
+    "diastolic": 104.0
+  },
+  {
+    "source_patient_id": "595f9fb9-fcf0-e5bc-239a-e86a96db6211",
+    "source_observation_id": "595f9fb9-fcf0-e5bc-982f-2a069e96d9f9",
+    "systolic": 140.0,
+    "diastolic": 88.0
+  },
+  {
+    "source_patient_id": "595f9fb9-fcf0-e5bc-239a-e86a96db6211",
+    "source_observation_id": "595f9fb9-fcf0-e5bc-1812-866876730501",
+    "systolic": 121.0,
+    "diastolic": 77.0
+  },
+  {
+    "source_patient_id": "595f9fb9-fcf0-e5bc-239a-e86a96db6211",
+    "source_observation_id": "595f9fb9-fcf0-e5bc-4d97-fb61f1018828",
+    "systolic": 114.0,
+    "diastolic": 72.0
+  },
+  {
+    "source_patient_id": "595f9fb9-fcf0-e5bc-239a-e86a96db6211",
+    "source_observation_id": "595f9fb9-fcf0-e5bc-b7e0-b120eb679080",
+    "systolic": 109.0,
+    "diastolic": 78.0
+  },
+  {
+    "source_patient_id": "595f9fb9-fcf0-e5bc-239a-e86a96db6211",
+    "source_observation_id": "595f9fb9-fcf0-e5bc-faac-321e9ace79ee",
+    "systolic": 103.0,
+    "diastolic": 77.0
+  },
+  {
+    "source_patient_id": "595f9fb9-fcf0-e5bc-239a-e86a96db6211",
+    "source_observation_id": "595f9fb9-fcf0-e5bc-c411-06736f8063f2",
+    "systolic": 112.0,
+    "diastolic": 77.0
+  },
+  {
+    "source_patient_id": "595f9fb9-fcf0-e5bc-239a-e86a96db6211",
+    "source_observation_id": "595f9fb9-fcf0-e5bc-dbdc-93fa2d81ed2a",
+    "systolic": 113.0,
+    "diastolic": 69.0
+  },
+  {
+    "source_patient_id": "72b5373b-e9f1-db2d-6c43-4506fb4b3e3f",
+    "source_observation_id": "72b5373b-e9f1-db2d-801f-de1f44152162",
+    "systolic": 127.0,
+    "diastolic": 88.0
+  },
+  {
+    "source_patient_id": "72b5373b-e9f1-db2d-6c43-4506fb4b3e3f",
+    "source_observation_id": "72b5373b-e9f1-db2d-7d06-8865673141b7",
+    "systolic": 126.0,
+    "diastolic": 88.0
+  },
+  {
+    "source_patient_id": "72b5373b-e9f1-db2d-6c43-4506fb4b3e3f",
+    "source_observation_id": "72b5373b-e9f1-db2d-e363-8afd48cdc4b3",
+    "systolic": 119.0,
+    "diastolic": 96.0
+  },
+  {
+    "source_patient_id": "72b5373b-e9f1-db2d-6c43-4506fb4b3e3f",
+    "source_observation_id": "72b5373b-e9f1-db2d-133b-4249d7067ec5",
+    "systolic": 129.0,
+    "diastolic": 88.0
+  },
+  {
+    "source_patient_id": "72b5373b-e9f1-db2d-6c43-4506fb4b3e3f",
+    "source_observation_id": "72b5373b-e9f1-db2d-d579-83c520d1783b",
+    "systolic": 122.0,
+    "diastolic": 85.0
+  },
+  {
+    "source_patient_id": "72b5373b-e9f1-db2d-6c43-4506fb4b3e3f",
+    "source_observation_id": "72b5373b-e9f1-db2d-973a-3dcde9604f04",
+    "systolic": 136.0,
+    "diastolic": 88.0
+  },
+  {
+    "source_patient_id": "72b5373b-e9f1-db2d-6c43-4506fb4b3e3f",
+    "source_observation_id": "72b5373b-e9f1-db2d-eead-13f5140a8ad4",
+    "systolic": 113.0,
+    "diastolic": 82.0
+  },
+  {
+    "source_patient_id": "72b5373b-e9f1-db2d-6c43-4506fb4b3e3f",
+    "source_observation_id": "72b5373b-e9f1-db2d-d2b0-fcecc476994b",
+    "systolic": 118.0,
+    "diastolic": 83.0
+  },
+  {
+    "source_patient_id": "72b5373b-e9f1-db2d-6c43-4506fb4b3e3f",
+    "source_observation_id": "72b5373b-e9f1-db2d-33cc-c80d17dec65a",
+    "systolic": 112.0,
+    "diastolic": 80.0
+  },
+  {
+    "source_patient_id": "72b5373b-e9f1-db2d-6c43-4506fb4b3e3f",
+    "source_observation_id": "72b5373b-e9f1-db2d-1815-2c1882ae2087",
+    "systolic": 118.0,
+    "diastolic": 80.0
+  },
+  {
+    "source_patient_id": "72b5373b-e9f1-db2d-6c43-4506fb4b3e3f",
+    "source_observation_id": "72b5373b-e9f1-db2d-9425-7d39d4e70cb0",
+    "systolic": 117.0,
+    "diastolic": 79.0
+  },
+  {
+    "source_patient_id": "5393ea7f-1fea-4064-9df4-460a2f662d07",
+    "source_observation_id": "5393ea7f-1fea-4064-a58a-020a27953aa4",
+    "systolic": 119.0,
+    "diastolic": 76.0
+  },
+  {
+    "source_patient_id": "5393ea7f-1fea-4064-9df4-460a2f662d07",
+    "source_observation_id": "5393ea7f-1fea-4064-a8fa-b9450bbd84e1",
+    "systolic": 131.0,
+    "diastolic": 76.0
+  },
+  {
+    "source_patient_id": "5393ea7f-1fea-4064-9df4-460a2f662d07",
+    "source_observation_id": "5393ea7f-1fea-4064-1700-60f93e082b3e",
+    "systolic": 166.0,
+    "diastolic": 117.0
+  },
+  {
+    "source_patient_id": "5393ea7f-1fea-4064-9df4-460a2f662d07",
+    "source_observation_id": "5393ea7f-1fea-4064-5786-e732ec3d1e5b",
+    "systolic": 132.0,
+    "diastolic": 98.0
+  },
+  {
+    "source_patient_id": "5393ea7f-1fea-4064-9df4-460a2f662d07",
+    "source_observation_id": "5393ea7f-1fea-4064-98a7-3cfbd53d11f8",
+    "systolic": 141.0,
+    "diastolic": 103.0
+  },
+  {
+    "source_patient_id": "5393ea7f-1fea-4064-9df4-460a2f662d07",
+    "source_observation_id": "5393ea7f-1fea-4064-8cad-22f8a6b6260b",
+    "systolic": 129.0,
+    "diastolic": 106.0
+  },
+  {
+    "source_patient_id": "5393ea7f-1fea-4064-9df4-460a2f662d07",
+    "source_observation_id": "5393ea7f-1fea-4064-dbab-f0ba51c243e4",
+    "systolic": 140.0,
+    "diastolic": 99.0
+  },
+  {
+    "source_patient_id": "5393ea7f-1fea-4064-9df4-460a2f662d07",
+    "source_observation_id": "5393ea7f-1fea-4064-19d2-62c928b7ef87",
+    "systolic": 136.0,
+    "diastolic": 98.0
+  },
+  {
+    "source_patient_id": "5393ea7f-1fea-4064-9df4-460a2f662d07",
+    "source_observation_id": "5393ea7f-1fea-4064-77e5-82f749f377a8",
+    "systolic": 149.0,
+    "diastolic": 113.0
+  },
+  {
+    "source_patient_id": "5393ea7f-1fea-4064-9df4-460a2f662d07",
+    "source_observation_id": "5393ea7f-1fea-4064-e83c-029262e04ead",
+    "systolic": 137.0,
+    "diastolic": 100.0
+  },
+  {
+    "source_patient_id": "5393ea7f-1fea-4064-9df4-460a2f662d07",
+    "source_observation_id": "5393ea7f-1fea-4064-5674-e7ab1bab3f5d",
+    "systolic": 138.0,
+    "diastolic": 98.0
+  },
+  {
+    "source_patient_id": "5c9f20d5-8361-b331-9267-5303ca5b136a",
+    "source_observation_id": "5c9f20d5-8361-b331-0a8b-41a2c0d9f603",
+    "systolic": 126.0,
+    "diastolic": 82.0
+  },
+  {
+    "source_patient_id": "5c9f20d5-8361-b331-9267-5303ca5b136a",
+    "source_observation_id": "5c9f20d5-8361-b331-748c-1e1ce9f6ec6d",
+    "systolic": 134.0,
+    "diastolic": 82.0
+  },
+  {
+    "source_patient_id": "5c9f20d5-8361-b331-9267-5303ca5b136a",
+    "source_observation_id": "5c9f20d5-8361-b331-1a2a-be9503bd2f89",
+    "systolic": 137.0,
+    "diastolic": 84.0
+  },
+  {
+    "source_patient_id": "5c9f20d5-8361-b331-9267-5303ca5b136a",
+    "source_observation_id": "5c9f20d5-8361-b331-2a90-ef2be7278f12",
+    "systolic": 136.0,
+    "diastolic": 86.0
+  },
+  {
+    "source_patient_id": "5c9f20d5-8361-b331-9267-5303ca5b136a",
+    "source_observation_id": "5c9f20d5-8361-b331-5955-5a174756dd30",
+    "systolic": 134.0,
+    "diastolic": 90.0
+  },
+  {
+    "source_patient_id": "5c9f20d5-8361-b331-9267-5303ca5b136a",
+    "source_observation_id": "5c9f20d5-8361-b331-30c6-36032410d650",
+    "systolic": 128.0,
+    "diastolic": 83.0
+  },
+  {
+    "source_patient_id": "5c9f20d5-8361-b331-9267-5303ca5b136a",
+    "source_observation_id": "5c9f20d5-8361-b331-bc0a-2ba92a1f8b00",
+    "systolic": 137.0,
+    "diastolic": 88.0
+  },
+  {
+    "source_patient_id": "5c9f20d5-8361-b331-9267-5303ca5b136a",
+    "source_observation_id": "5c9f20d5-8361-b331-3c21-e2519b3d9fb9",
+    "systolic": 133.0,
+    "diastolic": 92.0
+  },
+  {
+    "source_patient_id": "5c9f20d5-8361-b331-9267-5303ca5b136a",
+    "source_observation_id": "5c9f20d5-8361-b331-4ea0-64a304a43a59",
+    "systolic": 126.0,
+    "diastolic": 84.0
+  },
+  {
+    "source_patient_id": "5c9f20d5-8361-b331-9267-5303ca5b136a",
+    "source_observation_id": "5c9f20d5-8361-b331-c681-f8c281b85920",
+    "systolic": 128.0,
+    "diastolic": 88.0
+  },
+  {
+    "source_patient_id": "c4d5d909-433c-fccf-5984-4213b88417cb",
+    "source_observation_id": "c4d5d909-433c-fccf-ec31-18ef629c10b0",
+    "systolic": 103.0,
+    "diastolic": 77.0
+  },
+  {
+    "source_patient_id": "c4d5d909-433c-fccf-5984-4213b88417cb",
+    "source_observation_id": "c4d5d909-433c-fccf-c90f-30109e78b9c2",
+    "systolic": 98.0,
+    "diastolic": 69.0
+  },
+  {
+    "source_patient_id": "c4d5d909-433c-fccf-5984-4213b88417cb",
+    "source_observation_id": "c4d5d909-433c-fccf-b088-f04b11d4360e",
+    "systolic": 102.0,
+    "diastolic": 77.0
+  },
+  {
+    "source_patient_id": "c4d5d909-433c-fccf-5984-4213b88417cb",
+    "source_observation_id": "c4d5d909-433c-fccf-f19e-4bd5bd58a630",
+    "systolic": 106.0,
+    "diastolic": 81.0
+  },
+  {
+    "source_patient_id": "c4d5d909-433c-fccf-5984-4213b88417cb",
+    "source_observation_id": "c4d5d909-433c-fccf-f244-32e973a32027",
+    "systolic": 101.0,
+    "diastolic": 79.0
+  },
+  {
+    "source_patient_id": "c4d5d909-433c-fccf-5984-4213b88417cb",
+    "source_observation_id": "c4d5d909-433c-fccf-dcc1-0eb2541ad6bd",
+    "systolic": 105.0,
+    "diastolic": 77.0
+  },
+  {
+    "source_patient_id": "c4d5d909-433c-fccf-5984-4213b88417cb",
+    "source_observation_id": "c4d5d909-433c-fccf-2116-5ffa82e97aa7",
+    "systolic": 104.0,
+    "diastolic": 77.0
+  },
+  {
+    "source_patient_id": "c4d5d909-433c-fccf-5984-4213b88417cb",
+    "source_observation_id": "c4d5d909-433c-fccf-ca31-997506bb6496",
+    "systolic": 102.0,
+    "diastolic": 80.0
+  },
+  {
+    "source_patient_id": "c4d5d909-433c-fccf-5984-4213b88417cb",
+    "source_observation_id": "c4d5d909-433c-fccf-2c7d-4779e782658f",
+    "systolic": 105.0,
+    "diastolic": 79.0
+  },
+  {
+    "source_patient_id": "c4d5d909-433c-fccf-5984-4213b88417cb",
+    "source_observation_id": "c4d5d909-433c-fccf-5a41-65532a148397",
+    "systolic": 101.0,
+    "diastolic": 75.0
+  },
+  {
+    "source_patient_id": "c4d5d909-433c-fccf-5984-4213b88417cb",
+    "source_observation_id": "c4d5d909-433c-fccf-35b8-f09124dff376",
+    "systolic": 104.0,
+    "diastolic": 75.0
+  },
+  {
+    "source_patient_id": "c4d5d909-433c-fccf-5984-4213b88417cb",
+    "source_observation_id": "c4d5d909-433c-fccf-b414-6b0a3df84468",
+    "systolic": 95.0,
+    "diastolic": 76.0
+  }
+]
