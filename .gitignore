@@ -40,7 +40,7 @@ lineage/events/
 # Synthea runtime
 scripts/synthea_loader/synthea/
 scripts/synthea_loader/output/
-scripts/synthea_loader/state/*.json
+scripts/synthea_loader/state/
 
 # FHIR
 services/fhir_webhook/output/
