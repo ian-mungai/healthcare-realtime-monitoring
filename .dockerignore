@@ -8,13 +8,9 @@ __pycache__
 build
 airflow
 dashboard
-data_quality
-dbt
-deploy
 infra
 jobs
 lineage
-scripts
 tests
 services/fhir_webhook
 services/realtime_processor

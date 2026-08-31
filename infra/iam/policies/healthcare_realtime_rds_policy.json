@@ -13,10 +13,21 @@
       "Resource": "*"
     },
     {
+      "Sid": "CreateHealthcareRealtimeHapiDatabase",
+      "Effect": "Allow",
+      "Action": [
+        "rds:CreateDBInstance"
+      ],
+      "Resource": [
+        "arn:aws:rds:us-east-1:${AWS_ACCOUNT_ID}:db:healthcare-realtime-hapi",
+        "arn:aws:rds:us-east-1:${AWS_ACCOUNT_ID}:subgrp:healthcare-realtime-hapi",
+        "arn:aws:rds:us-east-1:${AWS_ACCOUNT_ID}:pg:default.postgres16"
+      ]
+    },
+    {
       "Sid": "ManageHealthcareRealtimeHapiDatabase",
       "Effect": "Allow",
       "Action": [
-        "rds:CreateDBInstance",
         "rds:ModifyDBInstance",
         "rds:DeleteDBInstance",
         "rds:AddTagsToResource",
