@@ -19,6 +19,8 @@ mkdir -p "${STAGING_DIR}/services"
 cp "${REPO_ROOT}/services/__init__.py" "${STAGING_DIR}/services/__init__.py"
 cp -R "${REPO_ROOT}/services/fhir_webhook" "${STAGING_DIR}/services/fhir_webhook"
 
+rm -rf "${STAGING_DIR}/services/fhir_webhook/tests"
+
 find "${STAGING_DIR}" -type d -name "__pycache__" -prune -exec rm -rf {} +
 find "${STAGING_DIR}" -type f -name "*.pyc" -delete
 

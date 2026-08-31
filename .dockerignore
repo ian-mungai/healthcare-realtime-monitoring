@@ -12,8 +12,14 @@ infra
 jobs
 lineage
 tests
+scripts/synthea_loader/synthea
+scripts/synthea_loader/output
+scripts/synthea_loader/state
+services/*/tests
 services/fhir_webhook
-services/realtime_processor
-services/realtime_replay
+services/vitals_stream_processor
+services/vitals_replay
 services/vitals_api
 services/websocket_handler
+services/vitals_simulator/output
+services/vitals_simulator/data/bidmc
