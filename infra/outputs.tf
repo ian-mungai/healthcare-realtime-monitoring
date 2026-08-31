@@ -236,3 +236,23 @@ output "realtime_alert_topic_name" {
   description = "Name of the realtime CloudWatch alarm SNS topic."
   value       = module.realtime_observability.alert_topic_name
 }
+
+output "hapi_fhir_base_url" {
+  description = "Public HAPI FHIR R4 base URL."
+  value       = module.hapi_ecs.fhir_base_url
+}
+
+output "hapi_ecs_cluster_name" {
+  description = "ECS cluster hosting persistent realtime services."
+  value       = module.hapi_ecs.cluster_name
+}
+
+output "hapi_ecs_service_name" {
+  description = "HAPI FHIR ECS service name."
+  value       = module.hapi_ecs.service_name
+}
+
+output "hapi_database_endpoint" {
+  description = "Private PostgreSQL endpoint backing HAPI FHIR."
+  value       = module.hapi_ecs.database_endpoint
+}

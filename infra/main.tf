@@ -260,3 +260,17 @@ module "realtime_replay" {
     ManagedBy   = "terraform"
   }
 }
+
+module "hapi_ecs" {
+  source = "./modules/hapi_ecs"
+
+  vpc_id             = module.network.vpc_id
+  public_subnet_ids  = module.network.public_subnet_ids
+  private_subnet_ids = module.network.private_subnet_ids
+
+  tags = {
+    Project     = "healthcare_realtime_monitoring"
+    Environment = "development"
+    ManagedBy   = "terraform"
+  }
+}

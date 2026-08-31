@@ -9,7 +9,8 @@
         "kms:ListAliases",
         "kms:ListResourceTags",
         "kms:ListKeyPolicies",
-        "kms:ListGrants"
+        "kms:ListGrants",
+        "kms:DescribeKey"
       ],
       "Resource": "*"
     },

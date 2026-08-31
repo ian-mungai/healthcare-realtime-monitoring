@@ -2,7 +2,15 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "ManageHealthcareRealtimeDataJobsCluster",
+      "Sid": "ListHealthcareRealtimeEcsResources",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:ListClusters"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ManageHealthcareRealtimeClusters",
       "Effect": "Allow",
       "Action": [
         "ecs:CreateCluster",
@@ -14,7 +22,27 @@
         "ecs:TagResource",
         "ecs:UntagResource"
       ],
-      "Resource": "arn:aws:ecs:us-east-1:${AWS_ACCOUNT_ID}:cluster/healthcare-realtime-data-jobs"
+      "Resource": [
+        "arn:aws:ecs:us-east-1:${AWS_ACCOUNT_ID}:cluster/healthcare-realtime-data-jobs",
+        "arn:aws:ecs:us-east-1:${AWS_ACCOUNT_ID}:cluster/healthcare-realtime-services"
+      ]
+    },
+    {
+      "Sid": "ManageHealthcareRealtimeServices",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:CreateService",
+        "ecs:UpdateService",
+        "ecs:DeleteService",
+        "ecs:DescribeServices",
+        "ecs:ListServices",
+        "ecs:TagResource",
+        "ecs:UntagResource"
+      ],
+      "Resource": [
+        "arn:aws:ecs:us-east-1:${AWS_ACCOUNT_ID}:service/healthcare-realtime-data-jobs/*",
+        "arn:aws:ecs:us-east-1:${AWS_ACCOUNT_ID}:service/healthcare-realtime-services/*"
+      ]
     },
     {
       "Sid": "ManageHealthcareRealtimeDataJobTaskDefinitions",
@@ -31,7 +59,7 @@
       "Resource": "*"
     },
     {
-      "Sid": "RunHealthcareRealtimeDataJobs",
+      "Sid": "RunHealthcareRealtimeTasks",
       "Effect": "Allow",
       "Action": [
         "ecs:RunTask",

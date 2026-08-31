@@ -14,6 +14,7 @@ POLICY_NAMES = [
     "healthcare_realtime_ec2_policy",
     "healthcare_realtime_ecr_policy",
     "healthcare_realtime_ecs_policy",
+    "healthcare_realtime_elasticloadbalancing_policy",
     "healthcare_realtime_firehose_policy",
     "healthcare_realtime_glue_policy",
     "healthcare_realtime_iam_policy",
@@ -22,7 +23,9 @@ POLICY_NAMES = [
     "healthcare_realtime_lambda_policy",
     "healthcare_realtime_logs_policy",
     "healthcare_realtime_mwaa_policy",
+    "healthcare_realtime_rds_policy",
     "healthcare_realtime_s3_policy",
+    "healthcare_realtime_secretsmanager_policy",
     "healthcare_realtime_sns_policy",
     "healthcare_realtime_sqs_policy",
 ]
