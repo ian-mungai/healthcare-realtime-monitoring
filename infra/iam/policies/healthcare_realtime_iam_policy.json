@@ -145,6 +145,32 @@
       "Resource": "*"
     },
     {
+      "Sid": "CreateElasticLoadBalancingServiceLinkedRole",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateServiceLinkedRole"
+      ],
+      "Resource": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/aws-service-role/elasticloadbalancing.amazonaws.com/AWSServiceRoleForElasticLoadBalancing",
+      "Condition": {
+        "StringEquals": {
+          "iam:AWSServiceName": "elasticloadbalancing.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sid": "CreateRdsServiceLinkedRole",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateServiceLinkedRole"
+      ],
+      "Resource": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/aws-service-role/rds.amazonaws.com/AWSServiceRoleForRDS",
+      "Condition": {
+        "StringEquals": {
+          "iam:AWSServiceName": "rds.amazonaws.com"
+        }
+      }
+    },
+    {
       "Sid": "PassHealthcareRealtimeRolesToProjectServices",
       "Effect": "Allow",
       "Action": [
