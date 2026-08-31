@@ -5,6 +5,7 @@ import pytest
 import respx
 
 from scripts.synthea_loader.src.load_fhir import (
+    DEFAULT_FHIR_BASE_URL,
     FHIR_BASE_URL,
     SYNTHEA_IDENTIFIER_SYSTEM,
     contains_resource,
@@ -19,6 +20,10 @@ from scripts.synthea_loader.src.load_fhir import (
     search_resource_by_identifier,
     select_seed_resources,
 )
+
+
+def test_default_fhir_base_url_is_local():
+    assert DEFAULT_FHIR_BASE_URL == "http://127.0.0.1:8090/fhir"
 
 
 @pytest.fixture

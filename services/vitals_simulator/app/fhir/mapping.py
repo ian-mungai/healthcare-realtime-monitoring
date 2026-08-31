@@ -1,7 +1,16 @@
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 RESOURCE_MAP_FILE = Path(__file__).resolve().parents[4] / "scripts" / "synthea_loader" / "state" / "fhir_resource_map.json"
+
+
+@dataclass(frozen=True)
+class FHIRPatientContext:
+    synthea_patient_id: str
+    hapi_patient_id: str
+    synthea_encounter_id: str
+    hapi_encounter_id: str
 
 
 def load_fhir_resource_map() -> dict:
@@ -24,25 +33,43 @@ def load_fhir_resource_map() -> dict:
     return mapping
 
 
-def get_first_patient_and_encounter() -> tuple[str, str]:
+def get_patient_cohort(expected_count: int = 10) -> list[FHIRPatientContext]:
     """
-    Return one HAPI Patient ID and one HAPI Encounter ID.
+    Return the final Synthea/HAPI patient cohort.
 
-    This is sufficient for the first simulator MVP.
+    Every patient must have an explicit matching encounter.
     """
     mapping = load_fhir_resource_map()
 
-    patients = mapping["patients"]
-    encounters = mapping["encounters"]
+    cohort = mapping.get("cohort")
 
-    if not patients:
-        raise RuntimeError("FHIR resource map contains no patients")
+    if not cohort:
+        raise RuntimeError("FHIR resource map does not contain cohort mappings. Re-run the Synthea loader.")
 
-    if not encounters:
-        raise RuntimeError("FHIR resource map contains no encounters")
+    if len(cohort) != expected_count:
+        raise RuntimeError(f"Expected {expected_count} cohort patients but found {len(cohort)}")
 
-    patient_id = next(iter(patients.values()))
+    contexts = []
 
-    encounter_id = next(iter(encounters.values()))
+    for synthea_patient_id in sorted(cohort):
+        entry = cohort[synthea_patient_id]
 
-    return patient_id, encounter_id
+        contexts.append(
+            FHIRPatientContext(
+                synthea_patient_id=synthea_patient_id,
+                hapi_patient_id=entry["hapi_patient_id"],
+                synthea_encounter_id=entry["synthea_encounter_id"],
+                hapi_encounter_id=entry["hapi_encounter_id"],
+            )
+        )
+
+    return contexts
+
+
+def get_first_patient_and_encounter() -> tuple[str, str]:
+    """
+    Preserve the original single-patient simulator interface.
+    """
+    context = get_patient_cohort()[0]
+
+    return context.hapi_patient_id, context.hapi_encounter_id
