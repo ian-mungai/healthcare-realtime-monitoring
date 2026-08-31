@@ -3,8 +3,12 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+import boto3
+
 DEFAULT_RESOURCE_MAP_FILE = Path(__file__).resolve().parents[4] / "scripts" / "synthea_loader" / "state" / "fhir_resource_map.json"
 RESOURCE_MAP_FILE_ENV = "FHIR_RESOURCE_MAP_FILE"
+RESOURCE_MAP_S3_BUCKET_ENV = "FHIR_RESOURCE_MAP_S3_BUCKET"
+RESOURCE_MAP_S3_KEY_ENV = "FHIR_RESOURCE_MAP_S3_KEY"
 
 
 @dataclass(frozen=True)
@@ -22,21 +26,46 @@ def get_resource_map_file() -> Path:
     return DEFAULT_RESOURCE_MAP_FILE
 
 
-def load_fhir_resource_map() -> dict:
-    """
-    Load the Synthea -> HAPI resource mapping created
-    by the Synthea loader.
-    """
+def load_local_fhir_resource_map() -> dict:
     resource_map_file = get_resource_map_file()
     if not resource_map_file.exists():
         raise FileNotFoundError(f"FHIR resource mapping not found: {resource_map_file}")
     with resource_map_file.open(encoding="utf-8") as file:
-        mapping = json.load(file)
+        return json.load(file)
+
+
+def load_s3_fhir_resource_map(bucket: str, key: str) -> dict:
+    s3 = boto3.client("s3")
+    response = s3.get_object(Bucket=bucket, Key=key)
+    return json.loads(response["Body"].read().decode("utf-8"))
+
+
+def validate_fhir_resource_map(mapping: dict) -> dict:
     if "patients" not in mapping:
         raise ValueError("FHIR resource map does not contain patients")
     if "encounters" not in mapping:
         raise ValueError("FHIR resource map does not contain encounters")
     return mapping
+
+
+def load_fhir_resource_map() -> dict:
+    """
+    Load the Synthea -> HAPI resource mapping.
+
+    Cloud deployments can load the mapping from S3 using:
+        FHIR_RESOURCE_MAP_S3_BUCKET
+        FHIR_RESOURCE_MAP_S3_KEY
+
+    Local development continues to use:
+        FHIR_RESOURCE_MAP_FILE
+    """
+    bucket = os.getenv(RESOURCE_MAP_S3_BUCKET_ENV)
+    key = os.getenv(RESOURCE_MAP_S3_KEY_ENV)
+    if bucket or key:
+        if not bucket or not key:
+            raise RuntimeError(f"{RESOURCE_MAP_S3_BUCKET_ENV} and {RESOURCE_MAP_S3_KEY_ENV} must both be configured")
+        return validate_fhir_resource_map(load_s3_fhir_resource_map(bucket, key))
+    return validate_fhir_resource_map(load_local_fhir_resource_map())
 
 
 def get_patient_cohort(expected_count: int = 10) -> list[FHIRPatientContext]:
