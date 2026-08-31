@@ -92,11 +92,3 @@ def get_patient_cohort(expected_count: int = 10) -> list[FHIRPatientContext]:
             )
         )
     return contexts
-
-
-def get_first_patient_and_encounter() -> tuple[str, str]:
-    """
-    Preserve the original single-patient simulator interface.
-    """
-    context = get_patient_cohort()[0]
-    return context.hapi_patient_id, context.hapi_encounter_id
