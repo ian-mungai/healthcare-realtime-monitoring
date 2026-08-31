@@ -271,3 +271,33 @@ output "vitals_simulator_ecr_repository_arn" {
   description = "ARN of the vitals simulator ECR repository."
   value       = module.vitals_simulator_ecs.ecr_repository_arn
 }
+
+output "vitals_simulator_task_definition_arn" {
+  description = "ARN of the vitals simulator ECS task definition."
+  value       = module.vitals_simulator_ecs.task_definition_arn
+}
+
+output "vitals_simulator_task_definition_family" {
+  description = "Family of the vitals simulator ECS task definition."
+  value       = module.vitals_simulator_ecs.task_definition_family
+}
+
+output "vitals_simulator_task_execution_role_arn" {
+  description = "ARN of the vitals simulator ECS task execution role."
+  value       = module.vitals_simulator_ecs.task_execution_role_arn
+}
+
+output "vitals_simulator_task_role_arn" {
+  description = "ARN of the vitals simulator ECS task role."
+  value       = module.vitals_simulator_ecs.task_role_arn
+}
+
+output "vitals_simulator_security_group_id" {
+  description = "Security group used by vitals simulator ECS tasks."
+  value       = module.vitals_simulator_ecs.security_group_id
+}
+
+output "vitals_simulator_log_group_name" {
+  description = "CloudWatch log group used by vitals simulator ECS tasks."
+  value       = module.vitals_simulator_ecs.log_group_name
+}
