@@ -140,3 +140,75 @@ def test_kinesis_failure_returns_503(mock_publisher_class):
 
     assert response["statusCode"] == 503
     assert json.loads(response["body"])["detail"] == "Kinesis ingestion failed"
+
+
+def test_fhir_metadata():
+    response = lambda_handler({"routeKey": "GET /webhooks/fhir/metadata"}, None)
+
+    assert response["statusCode"] == 200
+    assert response["headers"]["content-type"] == "application/fhir+json"
+
+    payload = json.loads(response["body"])
+
+    assert payload["resourceType"] == "CapabilityStatement"
+    assert payload["fhirVersion"] == "4.0.1"
+    assert payload["rest"][0]["resource"][0]["type"] == "Observation"
+    assert payload["rest"][0]["resource"][0]["interaction"] == [{"code": "update"}]
+
+
+@patch("services.fhir_webhook.app.lambda_handler.KinesisPublisher")
+def test_hapi_fhir_update_is_published(mock_publisher_class):
+    publisher = MagicMock()
+    publisher.publish.return_value = KinesisPublishResult(shard_id="shardId-000000000000", sequence_number="123456789", partition_key="patient_123")
+    mock_publisher_class.return_value = publisher
+
+    observation = {"resourceType": "Observation", "id": "observation_123", "status": "final", "subject": {"reference": "Patient/patient_123"}}
+
+    response = lambda_handler(
+        {
+            "routeKey": "PUT /webhooks/fhir/{resource_type}/{resource_id}",
+            "pathParameters": {"resource_type": "Observation", "resource_id": "observation_123"},
+            "headers": {"x-webhook-secret": TEST_SECRET},
+            "body": json.dumps(observation),
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 200
+    assert response["headers"]["content-type"] == "application/fhir+json"
+    assert json.loads(response["body"]) == observation
+    publisher.publish.assert_called_once()
+
+
+@patch("services.fhir_webhook.app.lambda_handler.KinesisPublisher")
+def test_hapi_fhir_update_resource_type_mismatch_returns_400(mock_publisher_class):
+    response = lambda_handler(
+        {
+            "routeKey": "PUT /webhooks/fhir/{resource_type}/{resource_id}",
+            "pathParameters": {"resource_type": "Patient", "resource_id": "observation_123"},
+            "headers": {"x-webhook-secret": TEST_SECRET},
+            "body": json.dumps({"resourceType": "Observation", "id": "observation_123", "status": "final"}),
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 400
+    assert json.loads(response["body"])["detail"] == "FHIR resource type does not match request path"
+    mock_publisher_class.assert_not_called()
+
+
+@patch("services.fhir_webhook.app.lambda_handler.KinesisPublisher")
+def test_hapi_fhir_update_resource_id_mismatch_returns_400(mock_publisher_class):
+    response = lambda_handler(
+        {
+            "routeKey": "PUT /webhooks/fhir/{resource_type}/{resource_id}",
+            "pathParameters": {"resource_type": "Observation", "resource_id": "observation_456"},
+            "headers": {"x-webhook-secret": TEST_SECRET},
+            "body": json.dumps({"resourceType": "Observation", "id": "observation_123", "status": "final"}),
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 400
+    assert json.loads(response["body"])["detail"] == "FHIR resource identifier does not match request path"
+    mock_publisher_class.assert_not_called()
