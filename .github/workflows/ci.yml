@@ -50,6 +50,12 @@ jobs:
       - name: Vitals simulator tests
         run: |
           python -m pytest services/vitals_simulator/tests -v
+      - name: Vitals stream processor tests
+        run: |
+          python -m pytest services/vitals_stream_processor/tests -v
+      - name: Vitals replay tests
+        run: |
+          python -m pytest services/vitals_replay/tests -v
 
   terraform:
     name: Terraform Checks
