@@ -160,6 +160,16 @@ module "soda_ecs" {
   }
 }
 
+module "vitals_simulator_ecs" {
+  source = "./modules/vitals_simulator_ecs"
+
+  tags = {
+    Project     = "healthcare_realtime_monitoring"
+    Environment = "development"
+    ManagedBy   = "terraform"
+  }
+}
+
 module "realtime_vitals" {
   source = "./modules/realtime_vitals"
 

@@ -16,6 +16,9 @@
         "ecr:PutImageScanningConfiguration",
         "ecr:PutImageTagMutability",
         "ecr:GetRepositoryPolicy",
+        "ecr:GetLifecyclePolicy",
+        "ecr:PutLifecyclePolicy",
+        "ecr:DeleteLifecyclePolicy",
         "ecr:BatchCheckLayerAvailability",
         "ecr:GetDownloadUrlForLayer",
         "ecr:BatchGetImage",
@@ -26,7 +29,8 @@
       ],
       "Resource": [
         "arn:aws:ecr:us-east-1:${AWS_ACCOUNT_ID}:repository/healthcare-realtime-dbt",
-        "arn:aws:ecr:us-east-1:${AWS_ACCOUNT_ID}:repository/healthcare-realtime-soda"
+        "arn:aws:ecr:us-east-1:${AWS_ACCOUNT_ID}:repository/healthcare-realtime-soda",
+        "arn:aws:ecr:us-east-1:${AWS_ACCOUNT_ID}:repository/healthcare-realtime-vitals-simulator"
       ]
     },
     {
