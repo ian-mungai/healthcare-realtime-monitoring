@@ -2,6 +2,7 @@ import base64
 import json
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -51,8 +52,7 @@ def test_to_dynamodb_item_converts_floats() -> None:
 @patch("services.vitals_stream_processor.handler.push_vitals")
 @patch("services.vitals_stream_processor.handler.write_latest_vitals")
 def test_lambda_handler_processes_record(write_latest_vitals, push_vitals, emit_metrics) -> None:
-    payload = {"patient_id": "137506799", "heart_rate": 94.0}
-
+    payload = {"schema_version": "1.0", "patient_id": "137506799", "source": "bidmc", "event_timestamp": "2026-08-31T22:42:19Z", "heart_rate": 94.0}
     push_vitals.return_value = (1, 0, 1)
 
     result = lambda_handler({"Records": [build_kinesis_record(payload)]}, None)
@@ -177,9 +177,8 @@ def test_push_vitals_deletes_stale_connection(boto_client, get_patient_connectio
 
     api_gateway = MagicMock()
 
-    api_gateway.post_to_connection.side_effect = ClientError(
-        {"Error": {"Code": "GoneException", "Message": "Gone"}, "ResponseMetadata": {"HTTPStatusCode": 410}}, "PostToConnection"
-    )
+    gone_error = {"Error": {"Code": "GoneException", "Message": "Gone"}, "ResponseMetadata": {"HTTPStatusCode": 410}}
+    api_gateway.post_to_connection.side_effect = ClientError(cast(Any, gone_error), "PostToConnection")
 
     boto_client.return_value = api_gateway
 
@@ -206,9 +205,8 @@ def test_push_vitals_counts_non_410_delivery_failure(boto_client, get_patient_co
 
     api_gateway = MagicMock()
 
-    api_gateway.post_to_connection.side_effect = ClientError(
-        {"Error": {"Code": "InternalServerErrorException", "Message": "Internal error"}, "ResponseMetadata": {"HTTPStatusCode": 500}}, "PostToConnection"
-    )
+    internal_error = {"Error": {"Code": "InternalServerErrorException", "Message": "Internal error"}, "ResponseMetadata": {"HTTPStatusCode": 500}}
+    api_gateway.post_to_connection.side_effect = ClientError(cast(Any, internal_error), "PostToConnection")
 
     boto_client.return_value = api_gateway
 
