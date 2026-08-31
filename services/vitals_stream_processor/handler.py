@@ -3,13 +3,19 @@ import json
 import os
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import boto3
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
-from schema import validate_vitals_payload
 
+if TYPE_CHECKING:
+    from services.vitals_stream_processor.schema import validate_vitals_payload
+else:
+    try:
+        from services.vitals_stream_processor.schema import validate_vitals_payload
+    except ModuleNotFoundError:
+        from schema import validate_vitals_payload
 LATEST_VITALS_TABLE = os.getenv("LATEST_VITALS_TABLE", "healthcare-realtime-latest-vitals")
 CONNECTIONS_TABLE = os.getenv("CONNECTIONS_TABLE", "healthcare-realtime-websocket-connections")
 WEBSOCKET_ENDPOINT = os.getenv("WEBSOCKET_ENDPOINT", "")
