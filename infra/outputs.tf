@@ -256,3 +256,18 @@ output "hapi_database_endpoint" {
   description = "Private PostgreSQL endpoint backing HAPI FHIR."
   value       = module.hapi_ecs.database_endpoint
 }
+
+output "vitals_simulator_ecr_repository_name" {
+  description = "Name of the vitals simulator ECR repository."
+  value       = module.vitals_simulator_ecs.ecr_repository_name
+}
+
+output "vitals_simulator_ecr_repository_url" {
+  description = "URL of the vitals simulator ECR repository."
+  value       = module.vitals_simulator_ecs.ecr_repository_url
+}
+
+output "vitals_simulator_ecr_repository_arn" {
+  description = "ARN of the vitals simulator ECR repository."
+  value       = module.vitals_simulator_ecs.ecr_repository_arn
+}
