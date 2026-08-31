@@ -184,3 +184,11 @@ jobs:
             -f deploy/soda/Dockerfile \
             -t healthcare-realtime-soda:test \
             .
+
+      - name: Build vitals simulator image
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            -f services/vitals_simulator/Dockerfile \
+            -t healthcare-realtime-vitals-simulator:test \
+            .
