@@ -6,20 +6,24 @@ import httpx
 
 from services.fhir_webhook.app.subscription import build_observation_subscription
 
-DEFAULT_FHIR_BASE_URL = "http://127.0.0.1:8090/fhir"
 OUTPUT_FILE = Path("services/fhir_webhook/output/subscription.json")
 
 
 def main():
-    fhir_base_url = os.getenv("FHIR_BASE_URL", DEFAULT_FHIR_BASE_URL).rstrip("/")
+    fhir_base_url = os.getenv("FHIR_BASE_URL")
     webhook_url = os.getenv("FHIR_WEBHOOK_URL")
     webhook_secret = os.getenv("FHIR_WEBHOOK_SECRET")
+
+    if not fhir_base_url:
+        raise RuntimeError("FHIR_BASE_URL is not configured")
 
     if not webhook_url:
         raise RuntimeError("FHIR_WEBHOOK_URL is not configured")
 
     if not webhook_secret:
         raise RuntimeError("FHIR_WEBHOOK_SECRET is not configured")
+
+    fhir_base_url = fhir_base_url.rstrip("/")
 
     subscription = build_observation_subscription(webhook_url, webhook_secret)
 
