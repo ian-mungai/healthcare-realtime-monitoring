@@ -163,6 +163,17 @@ module "soda_ecs" {
 module "vitals_simulator_ecs" {
   source = "./modules/vitals_simulator_ecs"
 
+  aws_region = var.aws_region
+
+  vpc_id             = module.network.vpc_id
+  private_subnet_ids = module.network.private_subnet_ids
+
+  ecs_cluster_arn = module.hapi_ecs.cluster_arn
+  fhir_base_url   = module.hapi_ecs.fhir_base_url
+
+  data_bucket_name = module.raw_s3.bucket_name
+  image_tag        = var.vitals_simulator_image_tag
+
   tags = {
     Project     = "healthcare_realtime_monitoring"
     Environment = "development"
