@@ -1,16 +1,20 @@
 import json
+import os
 from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
 
-FHIR_BASE_URL = "https://hapi.fhir.org/baseR4"
+DEFAULT_FHIR_BASE_URL = "http://127.0.0.1:8090/fhir"
+FHIR_BASE_URL = os.getenv("FHIR_BASE_URL", DEFAULT_FHIR_BASE_URL).rstrip("/")
 
 SYNTHEA_IDENTIFIER_SYSTEM = "https://github.com/synthetichealth/synthea"
 
 FHIR_OUTPUT_DIR = Path(__file__).resolve().parents[1] / "synthea" / "output" / "fhir"
 
 STATE_DIR = Path(__file__).resolve().parents[1] / "state"
+
+PRODUCTION_COHORT_SIZE = 10
 
 RESOURCE_MAP_FILE = STATE_DIR / "fhir_resource_map.json"
 
@@ -46,7 +50,21 @@ def find_patient_bundles() -> list[Path]:
         if bundle.get("resourceType") == "Bundle" and contains_resource(bundle, "Patient"):
             bundles.append(file_path)
 
-    return bundles
+    return sorted(bundles)
+
+
+def select_production_cohort(bundles: list[Path], cohort_size: int = PRODUCTION_COHORT_SIZE) -> list[Path]:
+    """
+    Select the deterministic production patient cohort.
+
+    Synthea may produce more patient Bundles than the requested
+    population depending on generation behavior. The final
+    portfolio cohort is explicitly limited to ten patients.
+    """
+    if len(bundles) < cohort_size:
+        raise RuntimeError(f"Expected at least {cohort_size} patient bundles but found {len(bundles)}")
+
+    return bundles[:cohort_size]
 
 
 def sanitize_patient(patient: dict) -> dict:
@@ -303,10 +321,27 @@ def load_resource_map() -> dict:
     Load existing local Synthea -> HAPI mappings.
     """
     if not RESOURCE_MAP_FILE.exists():
-        return {"patients": {}, "encounters": {}}
+        return {"patients": {}, "encounters": {}, "cohort": {}}
 
     with RESOURCE_MAP_FILE.open(encoding="utf-8") as file:
-        return json.load(file)
+        resource_map = json.load(file)
+
+    resource_map.setdefault("patients", {})
+    resource_map.setdefault("encounters", {})
+    resource_map.setdefault("cohort", {})
+
+    return resource_map
+
+
+def initialize_resource_map() -> None:
+    """
+    Reset the local mapping before rebuilding the current
+    production cohort.
+
+    This does not delete resources from HAPI FHIR. Existing HAPI
+    resources are rediscovered by identifier and reused.
+    """
+    save_resource_map({"patients": {}, "encounters": {}, "cohort": {}})
 
 
 def save_resource_map(resource_map: dict) -> None:
@@ -321,13 +356,19 @@ def save_resource_map(resource_map: dict) -> None:
 
 def update_resource_map(synthea_patient_id: str, hapi_patient_id: str, synthea_encounter_id: str, hapi_encounter_id: str) -> dict:
     """
-    Add or update Patient and Encounter mappings.
+    Add or update Patient, Encounter and cohort mappings.
     """
     resource_map = load_resource_map()
 
     resource_map["patients"][synthea_patient_id] = hapi_patient_id
 
     resource_map["encounters"][synthea_encounter_id] = hapi_encounter_id
+
+    resource_map["cohort"][synthea_patient_id] = {
+        "hapi_patient_id": hapi_patient_id,
+        "synthea_encounter_id": synthea_encounter_id,
+        "hapi_encounter_id": hapi_encounter_id,
+    }
 
     save_resource_map(resource_map)
 
@@ -414,16 +455,22 @@ def main():
     Re-running this loader should reuse existing HAPI
     resources instead of creating duplicates.
     """
-    bundles = find_patient_bundles()
+    available_bundles = find_patient_bundles()
 
-    if not bundles:
+    if not available_bundles:
         raise RuntimeError(f"No patient FHIR Bundles found in {FHIR_OUTPUT_DIR}")
+
+    bundles = select_production_cohort(available_bundles)
 
     print(f"FHIR server: {FHIR_BASE_URL}")
 
     print(f"FHIR output directory: {FHIR_OUTPUT_DIR}")
 
-    print(f"Found {len(bundles)} patient bundle(s)")
+    print(f"Available patient bundles: {len(available_bundles)}")
+
+    print(f"Production cohort size: {len(bundles)}")
+
+    initialize_resource_map()
 
     for bundle_path in bundles:
         print("\n================================")

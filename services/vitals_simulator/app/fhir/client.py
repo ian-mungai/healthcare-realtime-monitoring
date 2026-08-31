@@ -1,10 +1,11 @@
+import os
 import time
 from dataclasses import dataclass
 from urllib.parse import quote
 
 import httpx
 
-DEFAULT_FHIR_BASE_URL = "https://hapi.fhir.org/baseR4"
+DEFAULT_FHIR_BASE_URL = "http://127.0.0.1:8090/fhir"
 DEFAULT_TIMEOUT_SECONDS = 30.0
 DEFAULT_MAX_RETRIES = 3
 DEFAULT_RETRY_DELAY_SECONDS = 1.0
@@ -33,12 +34,12 @@ class FHIRPermanentError(FHIRClientError):
 class HAPIFHIRClient:
     def __init__(
         self,
-        base_url: str = DEFAULT_FHIR_BASE_URL,
+        base_url: str | None = None,
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
         max_retries: int = DEFAULT_MAX_RETRIES,
         retry_delay_seconds: float = DEFAULT_RETRY_DELAY_SECONDS,
     ):
-        self.base_url = base_url.rstrip("/")
+        self.base_url = (base_url or os.getenv("FHIR_BASE_URL") or DEFAULT_FHIR_BASE_URL).rstrip("/")
         self.timeout_seconds = timeout_seconds
         self.max_retries = max_retries
         self.retry_delay_seconds = retry_delay_seconds
