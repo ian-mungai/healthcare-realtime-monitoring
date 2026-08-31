@@ -200,11 +200,11 @@ resource "aws_ecs_task_definition" "vitals_simulator" {
         },
         {
           name  = "SIMULATOR_MAX_CYCLES"
-          value = "1"
+          value = "unlimited"
         },
         {
           name  = "SIMULATOR_REPLAY"
-          value = "false"
+          value = "true"
         }
       ]
 
