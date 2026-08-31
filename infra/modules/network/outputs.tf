@@ -3,8 +3,16 @@ output "vpc_id" {
   value       = aws_vpc.mwaa.id
 }
 
+output "public_subnet_ids" {
+  description = "Public subnet IDs used by internet-facing resources"
+  value = [
+    aws_subnet.public_a.id,
+    aws_subnet.public_b.id
+  ]
+}
+
 output "private_subnet_ids" {
-  description = "Private subnet IDs used by MWAA"
+  description = "Private subnet IDs used by MWAA and private workloads"
   value = [
     aws_subnet.private_a.id,
     aws_subnet.private_b.id
