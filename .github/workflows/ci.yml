@@ -75,6 +75,9 @@ jobs:
       - name: Terraform Format
         run: |
           terraform fmt -check -recursive infra
+      - name: Build Glue lineage package
+        run: |
+          ./scripts/glue/build_lineage_package.sh
 
       - name: Terraform Init
         working-directory: infra
