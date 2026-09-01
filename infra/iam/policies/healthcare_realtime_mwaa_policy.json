@@ -2,16 +2,40 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "ManageHealthcareRealtimeMWAA",
+      "Sid": "CreateAndListHealthcareRealtimeMWAAServerlessWorkflows",
       "Effect": "Allow",
       "Action": [
-        "airflow:CreateEnvironment",
+        "airflow-serverless:CreateWorkflow",
+        "airflow-serverless:ListWorkflows"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ManageHealthcareRealtimeMWAAServerlessWorkflows",
+      "Effect": "Allow",
+      "Action": [
+        "airflow-serverless:DeleteWorkflow",
+        "airflow-serverless:GetWorkflow",
+        "airflow-serverless:ListWorkflowVersions",
+        "airflow-serverless:StartWorkflowRun",
+        "airflow-serverless:StopWorkflowRun",
+        "airflow-serverless:GetWorkflowRun",
+        "airflow-serverless:ListWorkflowRuns",
+        "airflow-serverless:GetTaskInstance",
+        "airflow-serverless:ListTaskInstances",
+        "airflow-serverless:UpdateWorkflow",
+        "airflow-serverless:ListTagsForResource",
+        "airflow-serverless:TagResource",
+        "airflow-serverless:UntagResource"
+      ],
+      "Resource": "arn:aws:airflow-serverless:us-east-1:${AWS_ACCOUNT_ID}:workflow/*"
+    },
+    {
+      "Sid": "MigrateHealthcareRealtimeTraditionalMWAA",
+      "Effect": "Allow",
+      "Action": [
         "airflow:GetEnvironment",
-        "airflow:UpdateEnvironment",
-        "airflow:DeleteEnvironment",
-        "airflow:ListTagsForResource",
-        "airflow:TagResource",
-        "airflow:UntagResource"
+        "airflow:DeleteEnvironment"
       ],
       "Resource": "arn:aws:airflow:us-east-1:${AWS_ACCOUNT_ID}:environment/healthcare_realtime_mwaa"
     }

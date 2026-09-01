@@ -1,0 +1,96 @@
+healthcare_realtime_pipeline:
+  dag_id: healthcare_realtime_pipeline
+  tasks:
+    check_raw_data:
+      operator: airflow.providers.amazon.aws.sensors.s3.S3KeySensor
+      bucket_name: imungai-healthcare-realtime
+      bucket_key: raw/fhir_observations/*
+      wildcard_match: true
+      poke_interval: 10
+      timeout: 300
+      retries: 2
+      retry_delay: 60
+      dependencies: []
+
+    run_glue_job:
+      operator: airflow.providers.amazon.aws.operators.glue.GlueJobOperator
+      job_name: ${glue_job_name}
+      wait_for_completion: false
+      retries: 2
+      retry_delay: 60
+      dependencies:
+        - check_raw_data
+
+    wait_for_glue_job:
+      operator: airflow.providers.amazon.aws.sensors.glue.GlueJobSensor
+      job_name: ${glue_job_name}
+      run_id: "{{ ti.xcom_pull(task_ids='run_glue_job') }}"
+      poke_interval: 15
+      timeout: 1800
+      retries: 2
+      retry_delay: 60
+      dependencies:
+        - run_glue_job
+
+    validate_processed_data:
+      operator: airflow.providers.amazon.aws.operators.athena.AthenaOperator
+      query: |
+        SELECT CASE
+          WHEN COUNT(*) > 0 THEN CAST('healthcare_realtime_validation_failed' AS BIGINT)
+          ELSE CAST(0 AS BIGINT)
+        END AS validation_result
+        FROM ${glue_database_name}.${glue_table_name}
+        WHERE observation_id IS NULL
+        OR patient_id IS NULL
+        OR patient_id = ''
+        OR loinc_code IS NULL
+        OR value IS NULL
+        OR effective_datetime IS NULL
+      database: ${glue_database_name}
+      output_location: s3://imungai-healthcare-realtime/athena_results/
+      retries: 2
+      retry_delay: 60
+      dependencies:
+        - wait_for_glue_job
+
+    run_dbt_build:
+      operator: airflow.providers.amazon.aws.operators.ecs.EcsRunTaskOperator
+      cluster: healthcare-realtime-data-jobs
+      task_definition: ${dbt_ecs_task_definition_arn}
+      launch_type: FARGATE
+      overrides: {}
+      wait_for_completion: true
+      network_configuration:
+        awsvpcConfiguration:
+          subnets:
+%{ for subnet_id in dbt_ecs_subnet_ids ~}
+            - ${subnet_id}
+%{ endfor ~}
+          securityGroups:
+            - ${dbt_ecs_security_group_id}
+          assignPublicIp: DISABLED
+      retries: 2
+      retry_delay: 60
+      dependencies:
+        - validate_processed_data
+
+    run_soda_checks:
+      operator: airflow.providers.amazon.aws.operators.ecs.EcsRunTaskOperator
+      cluster: healthcare-realtime-data-jobs
+      task_definition: ${soda_ecs_task_definition_arn}
+      launch_type: FARGATE
+      overrides: {}
+      wait_for_completion: true
+      network_configuration:
+        awsvpcConfiguration:
+          subnets:
+%{ for subnet_id in soda_ecs_subnet_ids ~}
+            - ${subnet_id}
+%{ endfor ~}
+          securityGroups:
+            - ${soda_ecs_security_group_id}
+          assignPublicIp: DISABLED
+      retries: 2
+      retry_delay: 60
+      dependencies:
+        - run_dbt_build

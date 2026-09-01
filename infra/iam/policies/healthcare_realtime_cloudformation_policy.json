@@ -1,0 +1,20 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "ManageHealthcareRealtimeCloudControlResources",
+            "Effect": "Allow",
+            "Action": [
+                "cloudformation:CancelResourceRequest",
+                "cloudformation:CreateResource",
+                "cloudformation:GetResource",
+                "cloudformation:GetResourceRequestStatus",
+                "cloudformation:ListResourceRequests",
+                "cloudformation:ListResources",
+                "cloudformation:UpdateResource",
+                "cloudformation:DeleteResource"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

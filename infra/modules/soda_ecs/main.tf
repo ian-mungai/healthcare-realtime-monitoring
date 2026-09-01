@@ -161,6 +161,18 @@ data "aws_iam_policy_document" "task" {
   }
 
   statement {
+    sid    = "WriteSodaOpenLineageEvents"
+    effect = "Allow"
+
+    actions = [
+      "s3:PutObject"
+    ]
+
+    resources = [
+      "arn:aws:s3:::${var.data_bucket_name}/lineage/openlineage/soda/*"
+    ]
+  }
+  statement {
     sid    = "ReadHealthcareData"
     effect = "Allow"
 
@@ -232,7 +244,7 @@ resource "aws_ecs_task_definition" "soda" {
   container_definitions = jsonencode([
     {
       name      = "soda"
-      image     = "${aws_ecr_repository.soda.repository_url}:latest"
+      image     = "${aws_ecr_repository.soda.repository_url}:${var.image_tag}"
       essential = true
 
       logConfiguration = {

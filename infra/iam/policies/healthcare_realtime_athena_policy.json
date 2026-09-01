@@ -8,7 +8,8 @@
         "athena:StartQueryExecution",
         "athena:GetQueryExecution",
         "athena:GetQueryResults",
-        "athena:StopQueryExecution"
+        "athena:StopQueryExecution",
+        "athena:ListQueryExecutions"
       ],
       "Resource": "*"
     },

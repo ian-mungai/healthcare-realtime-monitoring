@@ -75,7 +75,7 @@ module "network" {
 module "mwaa" {
   source = "./modules/mwaa"
 
-  environment_name   = "healthcare_realtime_mwaa"
+  workflow_name      = "healthcare_realtime_pipeline"
   source_bucket_name = "imungai-healthcare-realtime-mwaa"
   data_bucket_name   = module.raw_s3.bucket_name
 
@@ -93,6 +93,8 @@ module "mwaa" {
 
   glue_job_name      = module.glue.job_name
   glue_database_name = module.glue.database_name
+  glue_table_name    = "processed_fhir_observations"
+
 
   subnet_ids = module.network.private_subnet_ids
 
@@ -116,8 +118,7 @@ module "observability" {
   firehose_delivery_stream_name = module.firehose.delivery_stream_name
   glue_job_name                 = module.glue.job_name
 
-  ecs_cluster_name      = "healthcare-realtime-data-jobs"
-  mwaa_environment_name = "healthcare_realtime_mwaa"
+  ecs_cluster_name = "healthcare-realtime-data-jobs"
 
   tags = {
     Project     = "healthcare_realtime_monitoring"
@@ -132,6 +133,7 @@ module "dbt_ecs" {
   vpc_id             = module.network.vpc_id
   private_subnet_ids = module.network.private_subnet_ids
   data_bucket_name   = "imungai-healthcare-realtime"
+  image_tag          = var.dbt_image_tag
 
   source_database_name = "healthcare_realtime"
   dbt_database_name    = "healthcare_realtime_dbt"
@@ -149,6 +151,7 @@ module "soda_ecs" {
   vpc_id             = module.network.vpc_id
   private_subnet_ids = module.network.private_subnet_ids
   data_bucket_name   = "imungai-healthcare-realtime"
+  image_tag          = var.soda_image_tag
 
   source_database_name = "healthcare_realtime"
   dbt_database_name    = "healthcare_realtime_dbt"

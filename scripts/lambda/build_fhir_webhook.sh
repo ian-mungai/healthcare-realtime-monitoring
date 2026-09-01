@@ -24,11 +24,12 @@ rm -rf "${STAGING_DIR}/services/fhir_webhook/tests"
 find "${STAGING_DIR}" -type d -name "__pycache__" -prune -exec rm -rf {} +
 find "${STAGING_DIR}" -type f -name "*.pyc" -delete
 
+find "${STAGING_DIR}" -type f -exec touch -t 198001010000 {} +
 rm -f "${OUTPUT_FILE}"
 
 (
     cd "${STAGING_DIR}"
-    zip -qr "${OUTPUT_FILE}" services
+    find services -type f -print | LC_ALL=C sort | zip -X -q "${OUTPUT_FILE}" -@
 )
 
 echo "FHIR webhook Lambda package created:"
