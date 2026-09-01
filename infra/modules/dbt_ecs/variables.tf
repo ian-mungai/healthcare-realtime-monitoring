@@ -25,6 +25,12 @@ variable "dbt_database_name" {
   default     = "healthcare_realtime_dbt"
 }
 
+variable "image_tag" {
+  description = "ECR image tag used by the dbt ECS task."
+  type        = string
+  default     = "latest"
+}
+
 variable "tags" {
   description = "Tags applied to dbt ECS resources."
   type        = map(string)

@@ -43,12 +43,20 @@ output "glue_role_arn" {
   value       = module.glue.role_arn
 }
 
-output "mwaa_environment_name" {
-  value = module.mwaa.environment_name
+output "mwaa_workflow_name" {
+  value = module.mwaa.workflow_name
 }
 
-output "mwaa_environment_arn" {
-  value = module.mwaa.environment_arn
+output "mwaa_workflow_arn" {
+  value = module.mwaa.workflow_arn
+}
+
+output "mwaa_workflow_status" {
+  value = module.mwaa.workflow_status
+}
+
+output "mwaa_workflow_version" {
+  value = module.mwaa.workflow_version
 }
 
 output "mwaa_execution_role_arn" {
@@ -57,10 +65,6 @@ output "mwaa_execution_role_arn" {
 
 output "mwaa_source_bucket_name" {
   value = module.mwaa.source_bucket_name
-}
-
-output "mwaa_webserver_url" {
-  value = module.mwaa.webserver_url
 }
 output "dbt_ecr_repository_url" {
   description = "ECR repository containing the dbt image."
@@ -130,11 +134,6 @@ output "cloudwatch_dashboard_name" {
 output "pipeline_failure_alarm_name" {
   description = "Pipeline task failure CloudWatch alarm."
   value       = module.observability.pipeline_failure_alarm_name
-}
-
-output "mwaa_queue_age_alarm_name" {
-  description = "MWAA native queue age CloudWatch alarm."
-  value       = module.observability.mwaa_queue_age_alarm_name
 }
 
 output "latest_vitals_table_name" {

@@ -33,6 +33,13 @@ def get_patient_id(observation: dict[str, Any]) -> str:
     return patient_id
 
 
+def get_observation_id(event: FHIRWebhookEvent) -> str:
+    if not event.resource_id:
+        raise ValueError("FHIR Observation identifier is required")
+
+    return event.resource_id
+
+
 def get_event_timestamp(observation: dict[str, Any], event: FHIRWebhookEvent) -> str:
     return observation.get("effectiveDateTime") or event.received_at.isoformat()
 
@@ -43,6 +50,7 @@ def transform_fhir_vitals(event: FHIRWebhookEvent) -> dict[str, Any]:
 
     payload: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
+        "observation_id": get_observation_id(event),
         "patient_id": get_patient_id(observation),
         "event_timestamp": get_event_timestamp(observation, event),
         "source": "fhir_webhook",

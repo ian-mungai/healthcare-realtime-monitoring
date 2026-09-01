@@ -30,11 +30,6 @@ variable "tags" {
   default     = {}
 }
 
-variable "mwaa_environment_name" {
-  description = "MWAA environment name."
-  type        = string
-}
-
 variable "dbt_task_definition_family" {
   description = "dbt ECS task-definition family."
   type        = string

@@ -115,6 +115,7 @@
         "iam:DeleteRolePolicy",
         "iam:ListRolePolicies",
         "iam:ListAttachedRolePolicies",
+        "iam:ListInstanceProfilesForRole",
         "iam:AttachRolePolicy",
         "iam:DetachRolePolicy",
         "iam:TagRole",
@@ -171,6 +172,29 @@
       }
     },
     {
+      "Sid": "CreateMwaaServerlessServiceLinkedRole",
+      "Effect": "Allow",
+      "Action": [
+          "iam:CreateServiceLinkedRole"
+      ],
+      "Resource": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/aws-service-role/airflow-serverless.amazonaws.com/AWSServiceRoleForAmazonMWAAServerless*",
+      "Condition": {
+          "StringLike": {
+              "iam:AWSServiceName": "airflow-serverless.amazonaws.com"
+          }
+      }
+  },
+  {
+      "Sid": "ManageMwaaServerlessServiceLinkedRolePolicies",
+      "Effect": "Allow",
+      "Action": [
+          "iam:AttachRolePolicy",
+          "iam:PutRolePolicy",
+          "iam:GetRole"
+      ],
+      "Resource": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/aws-service-role/airflow-serverless.amazonaws.com/AWSServiceRoleForAmazonMWAAServerless*"
+  },
+    {
       "Sid": "PassHealthcareRealtimeRolesToProjectServices",
       "Effect": "Allow",
       "Action": [
@@ -187,7 +211,9 @@
             "firehose.amazonaws.com",
             "glue.amazonaws.com",
             "airflow.amazonaws.com",
-            "ecs-tasks.amazonaws.com"
+            "ecs-tasks.amazonaws.com",
+            "airflow-serverless.amazonaws.com",
+            "cloudformation.amazonaws.com"
           ]
         }
       }

@@ -41,6 +41,11 @@ def validate_vitals_payload(payload: dict[str, Any]) -> None:
     if schema_version != SCHEMA_VERSION:
         raise ValueError(f"schema_version must be {SCHEMA_VERSION}")
 
+    observation_id = payload.get("observation_id")
+
+    if not isinstance(observation_id, str) or not observation_id.strip():
+        raise ValueError("observation_id must be a non-empty string")
+
     patient_id = payload.get("patient_id")
 
     if not isinstance(patient_id, str) or not patient_id.strip():
