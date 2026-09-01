@@ -4,12 +4,13 @@ from typing import Any
 
 import boto3
 
+AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "us-east-1"
 KINESIS_STREAM_ARN = os.environ["KINESIS_STREAM_ARN"]
 MAX_REPLAY_ATTEMPTS = int(os.getenv("MAX_REPLAY_ATTEMPTS", "1"))
 MAX_GET_RECORDS_CALLS = 10
 GET_RECORDS_LIMIT = 100
 
-kinesis = boto3.client("kinesis")
+kinesis = boto3.client("kinesis", region_name=AWS_REGION)
 
 
 def parse_failure_message(record: dict[str, Any]) -> dict[str, str]:
