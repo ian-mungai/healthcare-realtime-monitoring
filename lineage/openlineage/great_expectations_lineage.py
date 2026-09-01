@@ -7,6 +7,7 @@ from lineage.openlineage.client import build_s3_openlineage_client
 
 NAMESPACE = "healthcare-realtime-monitoring"
 PRODUCER = "https://github.com/OpenLineage/OpenLineage"
+S3_LINEAGE_EVENT_PATH = "s3://imungai-healthcare-realtime/lineage/openlineage/great_expectations/event"
 
 PROCESSED_DATASET = Dataset(namespace="aws-glue", name="healthcare_realtime.processed_fhir_observations")
 GX_VALIDATION_DATASET = Dataset(namespace="great-expectations", name="processed_fhir_observations_quality")
@@ -25,6 +26,6 @@ def emit_great_expectations_lineage(run_state: RunState, lineage_run_id: str | N
         outputs=[GX_VALIDATION_DATASET],
     )
 
-    build_s3_openlineage_client().emit(event)
+    build_s3_openlineage_client(S3_LINEAGE_EVENT_PATH).emit(event)
 
     return lineage_run_id

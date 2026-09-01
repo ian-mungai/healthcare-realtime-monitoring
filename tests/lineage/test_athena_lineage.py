@@ -1,4 +1,4 @@
-from airflow.dags.lib.athena_lineage import NAMESPACE, PROCESSED_DATASET, S3_LINEAGE_EVENT_PATH, VALIDATION_DATASET
+from lineage.openlineage.athena_lineage import NAMESPACE, PROCESSED_DATASET, S3_LINEAGE_EVENT_PATH, VALIDATION_DATASET
 
 
 def test_athena_lineage_namespace() -> None:

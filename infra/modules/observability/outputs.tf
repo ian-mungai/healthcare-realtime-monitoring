@@ -18,11 +18,6 @@ output "firehose_delivery_failure_alarm_name" {
   value       = aws_cloudwatch_metric_alarm.firehose_delivery_failure.alarm_name
 }
 
-output "mwaa_queue_age_alarm_name" {
-  description = "MWAA queue age alarm name."
-  value       = aws_cloudwatch_metric_alarm.mwaa_queue_age.alarm_name
-}
-
 output "live_processing_latency_alarm_name" {
   description = "Name of the live processing latency CloudWatch alarm."
   value       = aws_cloudwatch_metric_alarm.live_processing_latency.alarm_name

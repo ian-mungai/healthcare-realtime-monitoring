@@ -1,7 +1,7 @@
-from airflow.dags.lib.openlineage_events import NAMESPACE, PROCESSED_DATASET, RAW_DATASET, S3_LINEAGE_EVENT_PATH
+from lineage.openlineage.glue_lineage import NAMESPACE, PROCESSED_DATASET, RAW_DATASET, S3_LINEAGE_EVENT_PATH
 
 
-def test_namespace() -> None:
+def test_lineage_namespace() -> None:
     assert NAMESPACE == "healthcare-realtime-monitoring"
 
 

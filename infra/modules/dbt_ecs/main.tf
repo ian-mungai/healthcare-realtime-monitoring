@@ -242,6 +242,19 @@ data "aws_iam_policy_document" "task" {
       "arn:aws:s3:::${var.data_bucket_name}/dbt/*"
     ]
   }
+
+  statement {
+    sid    = "WriteDbtOpenLineageEvents"
+    effect = "Allow"
+
+    actions = [
+      "s3:PutObject"
+    ]
+
+    resources = [
+      "arn:aws:s3:::${var.data_bucket_name}/lineage/openlineage/dbt/*"
+    ]
+  }
 }
 
 resource "aws_iam_role_policy" "task" {
@@ -284,7 +297,7 @@ resource "aws_ecs_task_definition" "dbt" {
   container_definitions = jsonencode([
     {
       name      = "dbt"
-      image     = "${aws_ecr_repository.dbt.repository_url}:latest"
+      image     = "${aws_ecr_repository.dbt.repository_url}:${var.image_tag}"
       essential = true
 
       command = [

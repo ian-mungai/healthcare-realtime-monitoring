@@ -52,7 +52,14 @@ def test_to_dynamodb_item_converts_floats() -> None:
 @patch("services.vitals_stream_processor.handler.push_vitals")
 @patch("services.vitals_stream_processor.handler.write_latest_vitals")
 def test_lambda_handler_processes_record(write_latest_vitals, push_vitals, emit_metrics) -> None:
-    payload = {"schema_version": "1.0", "patient_id": "137506799", "source": "bidmc", "event_timestamp": "2026-08-31T22:42:19Z", "heart_rate": 94.0}
+    payload = {
+        "schema_version": "1.0",
+        "observation_id": "observation_123",
+        "patient_id": "137506799",
+        "source": "bidmc",
+        "event_timestamp": "2026-08-31T22:42:19Z",
+        "heart_rate": 94.0,
+    }
     push_vitals.return_value = (1, 0, 1)
 
     result = lambda_handler({"Records": [build_kinesis_record(payload)]}, None)

@@ -3,19 +3,15 @@ from pathlib import Path
 from openlineage.client import OpenLineageClient
 from openlineage.client.transport.file import FileConfig, FileTransport
 
-LOCAL_LINEAGE_EVENT_PATH = Path("lineage/events/openlineage.jsonl")
-S3_LINEAGE_EVENT_PATH = "s3://imungai-healthcare-realtime/lineage/openlineage/great_expectations/event"
+LOCAL_LINEAGE_DIRECTORY = Path("lineage/events")
 
 
-def build_local_openlineage_client() -> OpenLineageClient:
-    LOCAL_LINEAGE_EVENT_PATH.parent.mkdir(parents=True, exist_ok=True)
-
-    transport = FileTransport(FileConfig(log_file_path=str(LOCAL_LINEAGE_EVENT_PATH), append=False))
-
+def build_local_openlineage_client(event_name: str) -> OpenLineageClient:
+    LOCAL_LINEAGE_DIRECTORY.mkdir(parents=True, exist_ok=True)
+    transport = FileTransport(FileConfig(log_file_path=str(LOCAL_LINEAGE_DIRECTORY / f"{event_name}.jsonl"), append=False))
     return OpenLineageClient(transport=transport)
 
 
-def build_s3_openlineage_client() -> OpenLineageClient:
-    transport = FileTransport(FileConfig(log_file_path=S3_LINEAGE_EVENT_PATH, append=False))
-
+def build_s3_openlineage_client(event_path: str) -> OpenLineageClient:
+    transport = FileTransport(FileConfig(log_file_path=event_path, append=False))
     return OpenLineageClient(transport=transport)

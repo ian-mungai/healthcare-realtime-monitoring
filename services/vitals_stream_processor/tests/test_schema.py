@@ -6,14 +6,11 @@ from services.vitals_stream_processor.schema import validate_vitals_payload
 def valid_payload() -> dict:
     return {
         "schema_version": "1.0",
+        "observation_id": "observation_123",
         "patient_id": "schema-test-patient",
         "event_timestamp": "2026-08-30T20:30:00Z",
         "source": "schema_unit_test",
         "heart_rate": 80,
-        "spo2": 98,
-        "respiratory_rate": 16,
-        "systolic_bp": 120,
-        "diastolic_bp": 80,
     }
 
 
@@ -86,9 +83,7 @@ def test_non_numeric_vital_fails() -> None:
 
 def test_payload_requires_at_least_one_vital() -> None:
     payload = valid_payload()
-
-    for field in ("heart_rate", "spo2", "respiratory_rate", "systolic_bp", "diastolic_bp"):
-        payload.pop(field)
+    payload.pop("heart_rate")
 
     with pytest.raises(ValueError, match="at least one supported vital"):
         validate_vitals_payload(payload)
@@ -99,4 +94,11 @@ def test_replay_attempt_must_be_non_negative_integer() -> None:
     payload["_replay_attempt"] = -1
 
     with pytest.raises(ValueError, match="_replay_attempt"):
+        validate_vitals_payload(payload)
+
+
+def test_validate_vitals_payload_rejects_missing_observation_id() -> None:
+    payload = {"schema_version": "1.0", "patient_id": "137506799", "source": "fhir_webhook", "event_timestamp": "2026-08-31T22:42:19Z", "heart_rate": 94.0}
+
+    with pytest.raises(ValueError, match="observation_id must be a non-empty string"):
         validate_vitals_payload(payload)

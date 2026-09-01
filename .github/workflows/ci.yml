@@ -46,7 +46,9 @@ jobs:
       - name: FHIR loader unit tests
         run: |
           python -m pytest scripts/synthea_loader/tests/test_load_fhir.py -v
-
+      - name: FHIR webhook tests
+        run: |
+          python -m pytest services/fhir_webhook/tests -v
       - name: Vitals simulator tests
         run: |
           python -m pytest services/vitals_simulator/tests -v
