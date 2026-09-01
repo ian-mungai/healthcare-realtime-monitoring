@@ -12,6 +12,7 @@ htmlcov/
 
 # Virtual environments
 .venv/
+.venv_*/
 venv/
 env/
 
@@ -60,3 +61,6 @@ data_quality/soda/results/
 
 # Build artifacts
 build/
+
+# Temporary review artifacts
+tmp/

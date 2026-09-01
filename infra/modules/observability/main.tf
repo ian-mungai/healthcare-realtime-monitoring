@@ -204,62 +204,6 @@ resource "aws_cloudwatch_dashboard" "healthcare_realtime" {
       {
         type   = "metric"
         x      = 0
-        y      = 14
-        width  = 12
-        height = 6
-
-        properties = {
-          title  = "MWAA Running / Queued Tasks"
-          region = var.aws_region
-
-          metrics = [
-            [
-              "AWS/MWAA",
-              "RunningTasks",
-              "Environment",
-              var.mwaa_environment_name
-            ],
-            [
-              ".",
-              "QueuedTasks",
-              ".",
-              "."
-            ]
-          ]
-
-          period = 300
-          stat   = "Maximum"
-          view   = "timeSeries"
-        }
-      },
-      {
-        type   = "metric"
-        x      = 12
-        y      = 14
-        width  = 12
-        height = 6
-
-        properties = {
-          title  = "MWAA Queue Age"
-          region = var.aws_region
-
-          metrics = [
-            [
-              "AWS/MWAA",
-              "ApproximateAgeOfOldestTask",
-              "Environment",
-              var.mwaa_environment_name
-            ]
-          ]
-
-          period = 300
-          stat   = "Maximum"
-          view   = "timeSeries"
-        }
-      },
-      {
-        type   = "metric"
-        x      = 0
         y      = 2
         width  = 12
         height = 6
@@ -281,41 +225,6 @@ resource "aws_cloudwatch_dashboard" "healthcare_realtime" {
 
           period = 300
           stat   = "Sum"
-          view   = "timeSeries"
-        }
-      },
-      {
-        type   = "metric"
-        x      = 0
-        y      = 20
-        width  = 24
-        height = 6
-
-        properties = {
-          title  = "MWAA WebServer / Worker CPU"
-          region = var.aws_region
-
-          metrics = [
-            [
-              "AWS/MWAA",
-              "CPUUtilization",
-              "Cluster",
-              "WebServer",
-              "Environment",
-              var.mwaa_environment_name
-            ],
-            [
-              ".",
-              "CPUUtilization",
-              ".",
-              "BaseWorker",
-              ".",
-              "."
-            ]
-          ]
-
-          period = 300
-          stat   = "Average"
           view   = "timeSeries"
         }
       },
@@ -580,29 +489,6 @@ resource "aws_cloudwatch_metric_alarm" "firehose_delivery_failure" {
 
   dimensions = {
     DeliveryStreamName = var.firehose_delivery_stream_name
-  }
-
-  treat_missing_data = "notBreaching"
-
-  tags = var.tags
-}
-
-resource "aws_cloudwatch_metric_alarm" "mwaa_queue_age" {
-  alarm_name        = "healthcare-realtime-mwaa-queue-age"
-  alarm_description = "MWAA has tasks waiting in the queue for an excessive period."
-
-  namespace   = "AWS/MWAA"
-  metric_name = "ApproximateAgeOfOldestTask"
-  statistic   = "Maximum"
-
-  period             = 300
-  evaluation_periods = 2
-  threshold          = 600
-
-  comparison_operator = "GreaterThanThreshold"
-
-  dimensions = {
-    Environment = var.mwaa_environment_name
   }
 
   treat_missing_data = "notBreaching"

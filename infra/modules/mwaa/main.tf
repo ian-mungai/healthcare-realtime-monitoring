@@ -25,7 +25,33 @@ resource "aws_s3_bucket_public_access_block" "mwaa" {
   restrict_public_buckets = true
 }
 
-data "aws_iam_policy_document" "mwaa_assume_role" {
+locals {
+  workflow_definition = templatefile("${path.root}/../airflow/serverless/healthcare_realtime_pipeline.yml.tftpl", {
+    glue_job_name                = var.glue_job_name
+    glue_database_name           = var.glue_database_name
+    glue_table_name              = var.glue_table_name
+    dbt_ecs_task_definition_arn  = var.dbt_ecs_task_definition_arn
+    dbt_ecs_security_group_id    = var.dbt_ecs_security_group_id
+    dbt_ecs_subnet_ids           = var.dbt_ecs_subnet_ids
+    soda_ecs_task_definition_arn = var.soda_ecs_task_definition_arn
+    soda_ecs_security_group_id   = var.soda_ecs_security_group_id
+    soda_ecs_subnet_ids          = var.soda_ecs_subnet_ids
+  })
+}
+
+resource "aws_s3_object" "workflow_definition" {
+  bucket       = aws_s3_bucket.mwaa.id
+  key          = "workflows/healthcare_realtime_pipeline.yml"
+  content      = local.workflow_definition
+  content_type = "application/x-yaml"
+
+  depends_on = [
+    aws_s3_bucket_versioning.mwaa,
+    aws_s3_bucket_public_access_block.mwaa,
+  ]
+}
+
+data "aws_iam_policy_document" "mwaa_serverless_assume_role" {
   statement {
     effect = "Allow"
 
@@ -33,8 +59,7 @@ data "aws_iam_policy_document" "mwaa_assume_role" {
       type = "Service"
 
       identifiers = [
-        "airflow.amazonaws.com",
-        "airflow-env.amazonaws.com"
+        "airflow-serverless.amazonaws.com"
       ]
     }
 
@@ -42,120 +67,16 @@ data "aws_iam_policy_document" "mwaa_assume_role" {
   }
 }
 
-data "aws_iam_policy_document" "mwaa_cloudwatch_metrics" {
-  statement {
-    sid    = "PublishPipelineMetrics"
-    effect = "Allow"
-
-    actions = [
-      "cloudwatch:PutMetricData"
-    ]
-
-    resources = ["*"]
-
-    condition {
-      test     = "StringEquals"
-      variable = "cloudwatch:namespace"
-
-      values = [
-        "HealthcareRealtime/Pipeline"
-      ]
-    }
-  }
-}
-
-resource "aws_iam_role_policy" "mwaa_cloudwatch_metrics" {
-  name   = "healthcare_realtime_mwaa_cloudwatch_metrics"
-  role   = aws_iam_role.mwaa_execution.id
-  policy = data.aws_iam_policy_document.mwaa_cloudwatch_metrics.json
-}
-
-data "aws_iam_policy_document" "mwaa_ecs_access" {
-  statement {
-    sid    = "RunDbtEcsTask"
-    effect = "Allow"
-
-    actions = [
-      "ecs:RunTask"
-    ]
-
-    resources = [
-      var.dbt_ecs_task_definition_arn,
-      var.soda_ecs_task_definition_arn
-    ]
-  }
-
-  statement {
-    sid    = "DescribeDbtEcsTasks"
-    effect = "Allow"
-
-    actions = [
-      "ecs:DescribeTasks"
-    ]
-
-    resources = ["*"]
-  }
-
-  statement {
-    sid    = "PassDbtEcsRoles"
-    effect = "Allow"
-
-    actions = [
-      "iam:PassRole"
-    ]
-
-    resources = [
-      var.dbt_ecs_task_role_arn,
-      var.dbt_ecs_task_execution_role_arn,
-      var.soda_ecs_task_role_arn,
-      var.soda_ecs_task_execution_role_arn
-    ]
-
-    condition {
-      test     = "StringEquals"
-      variable = "iam:PassedToService"
-
-      values = [
-        "ecs-tasks.amazonaws.com"
-      ]
-    }
-  }
-}
-
-resource "aws_iam_role_policy" "mwaa_ecs_access" {
-  name   = "healthcare_realtime_mwaa_ecs_access"
-  role   = aws_iam_role.mwaa_execution.id
-  policy = data.aws_iam_policy_document.mwaa_ecs_access.json
-}
-
 resource "aws_iam_role" "mwaa_execution" {
-  name               = "healthcare_realtime_mwaa_execution_role"
-  assume_role_policy = data.aws_iam_policy_document.mwaa_assume_role.json
+  name               = "healthcare_realtime_mwaa_serverless_execution_role"
+  assume_role_policy = data.aws_iam_policy_document.mwaa_serverless_assume_role.json
 
   tags = var.tags
 }
 
-resource "aws_s3_object" "soda_lineage_helper" {
-  bucket = aws_s3_bucket.mwaa.id
-  key    = "dags/lib/soda_lineage.py"
-  source = "${path.root}/../airflow/dags/lib/soda_lineage.py"
-  etag   = filemd5("${path.root}/../airflow/dags/lib/soda_lineage.py")
-}
-
 data "aws_iam_policy_document" "mwaa_s3_access" {
   statement {
-    sid    = "ReadAccountPublicAccessBlock"
-    effect = "Allow"
-
-    actions = [
-      "s3:GetAccountPublicAccessBlock"
-    ]
-
-    resources = ["*"]
-  }
-
-  statement {
-    sid    = "ReadProcessedIcebergData"
+    sid    = "ReadWorkflowDefinition"
     effect = "Allow"
 
     actions = [
@@ -164,58 +85,12 @@ data "aws_iam_policy_document" "mwaa_s3_access" {
     ]
 
     resources = [
-      "arn:aws:s3:::${var.data_bucket_name}/processed/*"
+      "${aws_s3_bucket.mwaa.arn}/workflows/*"
     ]
   }
 
   statement {
-    sid    = "ManageOpenLineageEvents"
-    effect = "Allow"
-
-    actions = [
-      "s3:GetObject",
-      "s3:PutObject",
-      "s3:AbortMultipartUpload",
-      "s3:ListMultipartUploadParts"
-    ]
-
-    resources = [
-      "arn:aws:s3:::${var.data_bucket_name}/lineage/openlineage/*"
-    ]
-  }
-
-  statement {
-    sid    = "ReadMWAASourceBucketConfiguration"
-    effect = "Allow"
-
-    actions = [
-      "s3:ListBucket",
-      "s3:GetBucketLocation",
-      "s3:GetBucketVersioning",
-      "s3:GetBucketPublicAccessBlock"
-    ]
-
-    resources = [
-      aws_s3_bucket.mwaa.arn
-    ]
-  }
-
-  statement {
-    sid    = "ReadMWAASourceObjects"
-    effect = "Allow"
-
-    actions = [
-      "s3:GetObject",
-      "s3:GetObjectVersion"
-    ]
-
-    resources = [
-      "${aws_s3_bucket.mwaa.arn}/*"
-    ]
-  }
-
-  statement {
-    sid    = "ReadHealthcareDataBucketConfiguration"
+    sid    = "ReadHealthcareDataBucket"
     effect = "Allow"
 
     actions = [
@@ -229,15 +104,16 @@ data "aws_iam_policy_document" "mwaa_s3_access" {
   }
 
   statement {
-    sid    = "ReadHealthcareMetrics"
+    sid    = "ReadHealthcareDataObjects"
     effect = "Allow"
 
     actions = [
-      "s3:GetObject"
+      "s3:GetObject",
+      "s3:GetObjectVersion"
     ]
 
     resources = [
-      "arn:aws:s3:::${var.data_bucket_name}/metrics/*"
+      "arn:aws:s3:::${var.data_bucket_name}/*"
     ]
   }
 
@@ -259,7 +135,7 @@ data "aws_iam_policy_document" "mwaa_s3_access" {
 }
 
 resource "aws_iam_role_policy" "mwaa_s3_access" {
-  name   = "healthcare_realtime_mwaa_s3_access"
+  name   = "healthcare_realtime_mwaa_serverless_s3_access"
   role   = aws_iam_role.mwaa_execution.id
   policy = data.aws_iam_policy_document.mwaa_s3_access.json
 }
@@ -270,9 +146,10 @@ data "aws_iam_policy_document" "mwaa_glue_access" {
     effect = "Allow"
 
     actions = [
+      "glue:GetJob",
       "glue:StartJobRun",
       "glue:GetJobRun",
-      "glue:GetJobRuns"
+      "glue:GetJobRuns",
     ]
 
     resources = [
@@ -298,7 +175,7 @@ data "aws_iam_policy_document" "mwaa_glue_access" {
 }
 
 resource "aws_iam_role_policy" "mwaa_glue_access" {
-  name   = "healthcare_realtime_mwaa_glue_access"
+  name   = "healthcare_realtime_mwaa_serverless_glue_access"
   role   = aws_iam_role.mwaa_execution.id
   policy = data.aws_iam_policy_document.mwaa_glue_access.json
 }
@@ -319,252 +196,118 @@ data "aws_iam_policy_document" "mwaa_athena_access" {
 }
 
 resource "aws_iam_role_policy" "mwaa_athena_access" {
-  name   = "healthcare_realtime_mwaa_athena_access"
+  name   = "healthcare_realtime_mwaa_serverless_athena_access"
   role   = aws_iam_role.mwaa_execution.id
   policy = data.aws_iam_policy_document.mwaa_athena_access.json
 }
 
-data "aws_iam_policy_document" "mwaa_cloudwatch_access" {
+data "aws_iam_policy_document" "mwaa_ecs_access" {
   statement {
-    sid    = "PublishAirflowMetrics"
+    sid    = "RunHealthcareDataTasks"
     effect = "Allow"
 
     actions = [
-      "airflow:PublishMetrics"
+      "ecs:RunTask"
     ]
 
     resources = [
-      "arn:aws:airflow:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:environment/${var.environment_name}"
+      var.dbt_ecs_task_definition_arn,
+      var.soda_ecs_task_definition_arn
     ]
   }
 
   statement {
-    sid    = "ManageAirflowLogs"
+    sid    = "DescribeHealthcareDataTasks"
     effect = "Allow"
 
     actions = [
-      "logs:CreateLogStream",
-      "logs:CreateLogGroup",
-      "logs:PutLogEvents",
-      "logs:GetLogEvents",
-      "logs:GetLogRecord",
-      "logs:GetLogGroupFields",
-      "logs:GetQueryResults"
-    ]
-
-    resources = [
-      "arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:airflow-${var.environment_name}-*"
-    ]
-  }
-
-  statement {
-    sid    = "DescribeAirflowLogGroups"
-    effect = "Allow"
-
-    actions = [
-      "logs:DescribeLogGroups"
+      "ecs:DescribeTasks"
     ]
 
     resources = ["*"]
   }
-}
 
-resource "aws_iam_role_policy" "mwaa_cloudwatch_access" {
-  name   = "healthcare_realtime_mwaa_cloudwatch_access"
-  role   = aws_iam_role.mwaa_execution.id
-  policy = data.aws_iam_policy_document.mwaa_cloudwatch_access.json
-}
-
-data "aws_iam_policy_document" "mwaa_sqs_access" {
   statement {
-    sid    = "ManageAirflowCeleryQueues"
+    sid    = "PassHealthcareDataTaskRoles"
     effect = "Allow"
 
     actions = [
-      "sqs:ChangeMessageVisibility",
-      "sqs:DeleteMessage",
-      "sqs:GetQueueAttributes",
-      "sqs:GetQueueUrl",
-      "sqs:ReceiveMessage",
-      "sqs:SendMessage"
+      "iam:PassRole"
     ]
 
     resources = [
-      "arn:aws:sqs:${data.aws_region.current.region}:*:airflow-celery-*"
-    ]
-  }
-}
-
-resource "aws_iam_role_policy" "mwaa_sqs_access" {
-  name   = "healthcare_realtime_mwaa_sqs_access"
-  role   = aws_iam_role.mwaa_execution.id
-  policy = data.aws_iam_policy_document.mwaa_sqs_access.json
-}
-
-data "aws_iam_policy_document" "mwaa_kms_access" {
-  statement {
-    sid    = "UseAWSOwnedEncryptionKeys"
-    effect = "Allow"
-
-    actions = [
-      "kms:Decrypt",
-      "kms:DescribeKey",
-      "kms:GenerateDataKey*",
-      "kms:Encrypt"
-    ]
-
-    not_resources = [
-      "arn:aws:kms:*:${data.aws_caller_identity.current.account_id}:key/*"
+      var.dbt_ecs_task_role_arn,
+      var.dbt_ecs_task_execution_role_arn,
+      var.soda_ecs_task_role_arn,
+      var.soda_ecs_task_execution_role_arn
     ]
 
     condition {
-      test     = "StringLike"
-      variable = "kms:ViaService"
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
 
       values = [
-        "sqs.${data.aws_region.current.region}.amazonaws.com"
+        "ecs-tasks.amazonaws.com"
       ]
     }
   }
 }
 
-resource "aws_iam_role_policy" "mwaa_kms_access" {
-  name   = "healthcare_realtime_mwaa_kms_access"
+resource "aws_iam_role_policy" "mwaa_ecs_access" {
+  name   = "healthcare_realtime_mwaa_serverless_ecs_access"
   role   = aws_iam_role.mwaa_execution.id
-  policy = data.aws_iam_policy_document.mwaa_kms_access.json
+  policy = data.aws_iam_policy_document.mwaa_ecs_access.json
 }
 
-resource "aws_s3_object" "dag" {
-  bucket = aws_s3_bucket.mwaa.id
-  key    = "dags/healthcare_realtime_pipeline.py"
-  source = "${path.root}/../airflow/dags/healthcare_realtime_pipeline.py"
-  etag   = filemd5("${path.root}/../airflow/dags/healthcare_realtime_pipeline.py")
+resource "aws_iam_role_policy" "mwaa_logs_access" {
+  name = "healthcare_realtime_mwaa_serverless_logs_access"
+  role = aws_iam_role.mwaa_execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Sid    = "WriteMwaaServerlessTaskLogs"
+        Effect = "Allow"
+
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+        ]
+
+        Resource = "arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/mwaa-serverless/*"
+      },
+    ]
+  })
 }
 
-resource "aws_s3_object" "openlineage_helper" {
-  bucket = aws_s3_bucket.mwaa.id
-  key    = "dags/lib/openlineage_events.py"
-  source = "${path.root}/../airflow/dags/lib/openlineage_events.py"
-  etag   = filemd5("${path.root}/../airflow/dags/lib/openlineage_events.py")
-}
+resource "awscc_mwaaserverless_workflow" "healthcare_realtime" {
+  name         = var.workflow_name
+  role_arn     = aws_iam_role.mwaa_execution.arn
+  trigger_mode = "manual_only"
 
-resource "aws_s3_object" "athena_lineage_helper" {
-  bucket = aws_s3_bucket.mwaa.id
-  key    = "dags/lib/athena_lineage.py"
-  source = "${path.root}/../airflow/dags/lib/athena_lineage.py"
-  etag   = filemd5("${path.root}/../airflow/dags/lib/athena_lineage.py")
-}
+  definition_s3_location = {
+    bucket     = aws_s3_bucket.mwaa.bucket
+    object_key = aws_s3_object.workflow_definition.key
+    version_id = aws_s3_object.workflow_definition.version_id
+  }
 
-resource "aws_s3_object" "dag_lib_init" {
-  bucket = aws_s3_bucket.mwaa.id
-  key    = "dags/lib/__init__.py"
-  source = "${path.root}/../airflow/dags/lib/__init__.py"
-  etag   = filemd5("${path.root}/../airflow/dags/lib/__init__.py")
-}
-
-resource "aws_s3_object" "requirements" {
-  bucket = aws_s3_bucket.mwaa.id
-  key    = "requirements.txt"
-  source = "${path.root}/../airflow/requirements.txt"
-  etag   = filemd5("${path.root}/../airflow/requirements.txt")
-}
-
-resource "aws_s3_object" "dbt_lineage_helper" {
-  bucket = aws_s3_bucket.mwaa.id
-  key    = "dags/lib/dbt_lineage.py"
-  source = "${path.root}/../airflow/dags/lib/dbt_lineage.py"
-  etag   = filemd5("${path.root}/../airflow/dags/lib/dbt_lineage.py")
-}
-resource "aws_s3_object" "cloudwatch_metrics_helper" {
-  bucket = aws_s3_bucket.mwaa.id
-  key    = "dags/lib/cloudwatch_metrics.py"
-  source = "${path.root}/../airflow/dags/lib/cloudwatch_metrics.py"
-  etag   = filemd5("${path.root}/../airflow/dags/lib/cloudwatch_metrics.py")
-}
-
-resource "aws_mwaa_environment" "healthcare_realtime" {
-  name = var.environment_name
-
-  execution_role_arn = aws_iam_role.mwaa_execution.arn
-  source_bucket_arn  = aws_s3_bucket.mwaa.arn
-
-  dag_s3_path = "dags"
-
-  requirements_s3_path           = aws_s3_object.requirements.key
-  requirements_s3_object_version = aws_s3_object.requirements.version_id
-
-  network_configuration {
+  network_configuration = {
     subnet_ids         = var.subnet_ids
     security_group_ids = var.security_group_ids
   }
 
-  webserver_access_mode = "PUBLIC_ONLY"
-
-  environment_class = "mw1.micro"
-
-  min_workers = 1
-  max_workers = 1
-  schedulers  = 1
-
-  logging_configuration {
-    dag_processing_logs {
-      enabled   = true
-      log_level = "INFO"
-    }
-
-    scheduler_logs {
-      enabled   = true
-      log_level = "INFO"
-    }
-
-    task_logs {
-      enabled   = true
-      log_level = "INFO"
-    }
-
-    webserver_logs {
-      enabled   = true
-      log_level = "INFO"
-    }
-
-    worker_logs {
-      enabled   = true
-      log_level = "INFO"
-    }
+  encryption_configuration = {
+    type = "AWS_MANAGED_KEY"
   }
-
-  airflow_configuration_options = merge(
-    {
-      "core.load_examples" = "False"
-    },
-    {
-      "dbt.ecs_security_group"  = var.dbt_ecs_security_group_id
-      "dbt.ecs_subnets"         = join(",", var.dbt_ecs_subnet_ids)
-      "soda.ecs_security_group" = var.soda_ecs_security_group_id
-      "soda.ecs_subnets"        = join(",", var.soda_ecs_subnet_ids)
-    }
-  )
 
   tags = var.tags
 
   depends_on = [
-    aws_s3_bucket_versioning.mwaa,
-    aws_s3_bucket_public_access_block.mwaa,
-    aws_s3_object.dag,
-    aws_s3_object.openlineage_helper,
-    aws_s3_object.athena_lineage_helper,
-    aws_s3_object.dbt_lineage_helper,
-    aws_s3_object.soda_lineage_helper,
-    aws_iam_role_policy.mwaa_cloudwatch_metrics,
-    aws_s3_object.cloudwatch_metrics_helper,
-    aws_s3_object.dag_lib_init,
-    aws_s3_object.requirements,
     aws_iam_role_policy.mwaa_s3_access,
     aws_iam_role_policy.mwaa_glue_access,
     aws_iam_role_policy.mwaa_athena_access,
-    aws_iam_role_policy.mwaa_cloudwatch_access,
-    aws_iam_role_policy.mwaa_sqs_access,
-    aws_iam_role_policy.mwaa_kms_access,
     aws_iam_role_policy.mwaa_ecs_access,
   ]
 }

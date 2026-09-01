@@ -2,12 +2,27 @@
   "Version": "2012-10-17",
   "Statement": [
     {
+      "Sid": "AuthenticateToHealthcareRealtimeEcr",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:GetAuthorizationToken"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DescribeHealthcareRealtimeEcrRepositories",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:DescribeRepositories"
+      ],
+      "Resource": "*"
+    },
+    {
       "Sid": "ManageHealthcareRealtimeRepositories",
       "Effect": "Allow",
       "Action": [
         "ecr:CreateRepository",
         "ecr:DeleteRepository",
-        "ecr:DescribeRepositories",
         "ecr:DescribeImages",
         "ecr:ListImages",
         "ecr:ListTagsForResource",
@@ -32,12 +47,6 @@
         "arn:aws:ecr:us-east-1:${AWS_ACCOUNT_ID}:repository/healthcare-realtime-soda",
         "arn:aws:ecr:us-east-1:${AWS_ACCOUNT_ID}:repository/healthcare-realtime-vitals-simulator"
       ]
-    },
-    {
-      "Sid": "GetEcrAuthorization",
-      "Effect": "Allow",
-      "Action": "ecr:GetAuthorizationToken",
-      "Resource": "*"
     }
   ]
 }

@@ -4,10 +4,13 @@ from datetime import UTC, datetime
 from awsglue.context import GlueContext
 from awsglue.job import Job
 from awsglue.utils import getResolvedOptions
+from openlineage.client.event_v2 import RunState
 from pyspark.context import SparkContext
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 from pyspark.sql.types import StructType
+
+from lineage.openlineage.glue_lineage import emit_s3_glue_lineage
 
 MEASUREMENT_NAMES = {
     "8867-4": "heart_rate",
@@ -17,7 +20,27 @@ MEASUREMENT_NAMES = {
     "8462-4": "diastolic_blood_pressure",
 }
 
+FLATTENED_MEASUREMENTS = {
+    "heart_rate": ("8867-4", "beats/minute"),
+    "respiratory_rate": ("9279-1", "breaths/minute"),
+    "spo2": ("2708-6", "%"),
+    "systolic_bp": ("8480-6", "mmHg"),
+    "diastolic_bp": ("8462-4", "mmHg"),
+}
+
 SUPPORTED_LOINC_CODES = list(MEASUREMENT_NAMES.keys())
+
+RAW_CHOICE_RESOLUTION_SPECS = [
+    ("heart_rate", "cast:double"),
+    ("respiratory_rate", "cast:double"),
+    ("spo2", "cast:double"),
+    ("systolic_bp", "cast:double"),
+    ("diastolic_bp", "cast:double"),
+    ("observation_id", "cast:string"),
+    ("patient_id", "cast:string"),
+    ("event_timestamp", "cast:string"),
+    ("source", "cast:string"),
+]
 
 
 def extract_patient_id(reference_column):
@@ -41,6 +64,10 @@ def struct_field_exists(schema: StructType, field_path: str) -> bool:
     return True
 
 
+def column_exists(df: DataFrame, field_name: str) -> bool:
+    return field_name in df.columns
+
+
 def create_empty_measurement_dataframe(df: DataFrame) -> DataFrame:
     return df.limit(0).select(
         F.lit(None).cast("string").alias("observation_id"),
@@ -50,14 +77,20 @@ def create_empty_measurement_dataframe(df: DataFrame) -> DataFrame:
         F.lit(None).cast("string").alias("unit"),
         F.lit(None).cast("timestamp").alias("effective_datetime"),
         F.lit(None).cast("timestamp").alias("received_at"),
+        F.lit(None).cast("string").alias("source"),
     )
 
 
 def transform_simple_observations(df: DataFrame) -> DataFrame:
-    if not struct_field_exists(df.schema, "payload.valueQuantity"):
+    required_fields = ("resource_id", "received_at", "payload.code", "payload.subject.reference", "payload.effectiveDateTime", "payload.valueQuantity")
+
+    if not all(struct_field_exists(df.schema, field_path) for field_path in required_fields if field_path.startswith("payload.")):
         return create_empty_measurement_dataframe(df)
 
-    transformed = (
+    if not column_exists(df, "resource_id") or not column_exists(df, "received_at"):
+        return create_empty_measurement_dataframe(df)
+
+    return (
         df.withColumn("parent_loinc_code", F.col("payload.code.coding")[0]["code"])
         .filter((F.col("parent_loinc_code") != "85354-9") | F.col("parent_loinc_code").isNull())
         .withColumn("patient_id", extract_patient_id(F.col("payload.subject.reference")))
@@ -73,17 +106,21 @@ def transform_simple_observations(df: DataFrame) -> DataFrame:
             "unit",
             "effective_datetime",
             F.to_timestamp("received_at").alias("received_at"),
+            F.lit("fhir_webhook").alias("source"),
         )
     )
 
-    return transformed
-
 
 def transform_blood_pressure_observations(df: DataFrame) -> DataFrame:
-    if not struct_field_exists(df.schema, "payload.component"):
+    required_fields = ("payload.code", "payload.subject.reference", "payload.effectiveDateTime", "payload.component")
+
+    if not all(struct_field_exists(df.schema, field_path) for field_path in required_fields):
         return create_empty_measurement_dataframe(df)
 
-    blood_pressure = (
+    if not column_exists(df, "resource_id") or not column_exists(df, "received_at"):
+        return create_empty_measurement_dataframe(df)
+
+    return (
         df.withColumn("parent_loinc_code", F.col("payload.code.coding")[0]["code"])
         .filter(F.col("parent_loinc_code") == "85354-9")
         .withColumn("patient_id", extract_patient_id(F.col("payload.subject.reference")))
@@ -100,18 +137,85 @@ def transform_blood_pressure_observations(df: DataFrame) -> DataFrame:
             "unit",
             "effective_datetime",
             F.to_timestamp("received_at").alias("received_at"),
+            F.lit("fhir_webhook").alias("source"),
         )
     )
 
-    return blood_pressure
 
+def transform_wrapped_fhir_records(df: DataFrame) -> DataFrame:
+    if not column_exists(df, "resource_type") or not struct_field_exists(df.schema, "payload.resourceType"):
+        return create_empty_measurement_dataframe(df)
 
-def build_measurement_candidates(df: DataFrame) -> DataFrame:
     observations = df.filter((F.col("resource_type") == "Observation") & (F.col("payload.resourceType") == "Observation"))
     simple = transform_simple_observations(observations)
     blood_pressure = transform_blood_pressure_observations(observations)
 
     return simple.unionByName(blood_pressure)
+
+
+def build_legacy_flattened_observation_id(df: DataFrame):
+    source = F.col("source").cast("string") if column_exists(df, "source") else F.lit("")
+
+    identity_fields = [
+        F.coalesce(F.col("patient_id").cast("string"), F.lit("")),
+        F.coalesce(F.col("event_timestamp").cast("string"), F.lit("")),
+        F.coalesce(source, F.lit("")),
+    ]
+
+    for field_name in FLATTENED_MEASUREMENTS:
+        if column_exists(df, field_name):
+            identity_fields.append(F.coalesce(F.col(field_name).cast("string"), F.lit("")))
+        else:
+            identity_fields.append(F.lit(""))
+
+    return F.concat(F.lit("legacy_flattened_"), F.sha2(F.concat_ws("|", *identity_fields), 256))
+
+
+def transform_flattened_measurement(df: DataFrame, field_name: str, loinc_code: str, unit: str) -> DataFrame:
+    if not column_exists(df, field_name):
+        return create_empty_measurement_dataframe(df)
+
+    observation_id = F.col("observation_id") if column_exists(df, "observation_id") else F.lit(None).cast("string")
+    source = F.col("source") if column_exists(df, "source") else F.lit("fhir_webhook")
+    received_at = F.to_timestamp(F.col("received_at")) if column_exists(df, "received_at") else F.to_timestamp(F.col("event_timestamp"))
+
+    return (
+        df.filter(F.col(field_name).isNotNull())
+        .withColumn(
+            "normalized_observation_id",
+            F.when(observation_id.isNotNull() & (F.length(F.trim(observation_id)) > 0), observation_id).otherwise(build_legacy_flattened_observation_id(df)),
+        )
+        .select(
+            F.col("normalized_observation_id").alias("observation_id"),
+            F.col("patient_id").cast("string").alias("patient_id"),
+            F.lit(loinc_code).alias("loinc_code"),
+            F.col(field_name).cast("double").alias("value"),
+            F.lit(unit).alias("unit"),
+            F.to_timestamp(F.col("event_timestamp")).alias("effective_datetime"),
+            received_at.alias("received_at"),
+            source.cast("string").alias("source"),
+        )
+    )
+
+
+def transform_flattened_records(df: DataFrame) -> DataFrame:
+    if not column_exists(df, "patient_id") or not column_exists(df, "event_timestamp"):
+        return create_empty_measurement_dataframe(df)
+
+    measurements = create_empty_measurement_dataframe(df)
+
+    for field_name, (loinc_code, unit) in FLATTENED_MEASUREMENTS.items():
+        transformed = transform_flattened_measurement(df, field_name, loinc_code, unit)
+        measurements = measurements.unionByName(transformed)
+
+    return measurements
+
+
+def build_measurement_candidates(df: DataFrame) -> DataFrame:
+    wrapped = transform_wrapped_fhir_records(df)
+    flattened = transform_flattened_records(df)
+
+    return wrapped.unionByName(flattened)
 
 
 def add_measurement_metadata(df: DataFrame) -> DataFrame:
@@ -124,7 +228,7 @@ def add_measurement_metadata(df: DataFrame) -> DataFrame:
 
     return (
         df.withColumn("observation_type", measurement_map[F.col("loinc_code")])
-        .withColumn("source", F.lit("fhir_webhook"))
+        .withColumn("source", F.coalesce(F.col("source"), F.lit("fhir_webhook")))
         .withColumn("year", F.year("effective_datetime"))
         .withColumn("month", F.month("effective_datetime"))
         .withColumn("day", F.dayofmonth("effective_datetime"))
@@ -229,32 +333,43 @@ def main():
     spark = glue_context.spark_session
     job = Job(glue_context)
     job.init(args["JOB_NAME"], args)
+    lineage_run_id = emit_s3_glue_lineage(RunState.START)
 
-    raw_dynamic_frame = glue_context.create_dynamic_frame.from_options(
-        connection_type="s3",
-        connection_options={"paths": [args["RAW_PATH"]], "recurse": True},
-        format="json",
-        transformation_ctx="raw_fhir_observations_source",
-    )
+    try:
+        raw_dynamic_frame = glue_context.create_dynamic_frame.from_options(
+            connection_type="s3",
+            connection_options={"paths": [args["RAW_PATH"]], "recurse": True},
+            format="json",
+            transformation_ctx="raw_fhir_observations_source",
+        )
 
-    if raw_dynamic_frame.count() == 0:
-        write_metrics(spark, args["METRICS_PATH"], run_started_at, 0, 0, 0)
+        if raw_dynamic_frame.count() == 0:
+            write_metrics(spark, args["METRICS_PATH"], run_started_at, 0, 0, 0)
+            job.commit()
+            emit_s3_glue_lineage(RunState.COMPLETE, lineage_run_id)
+
+            return
+
+        resolved_raw_dynamic_frame = raw_dynamic_frame.resolveChoice(
+            specs=RAW_CHOICE_RESOLUTION_SPECS, transformation_ctx="resolve_raw_fhir_observation_choices"
+        )
+        raw_df = resolved_raw_dynamic_frame.toDF()
+        candidates_df = add_measurement_metadata(build_measurement_candidates(raw_df))
+        valid_df, rejected_df = split_quality_results(candidates_df)
+        valid_df = select_processed_columns(valid_df)
+        candidate_count = candidates_df.count()
+        valid_count = valid_df.count()
+        rejected_count = rejected_df.count()
+
+        write_quarantine(rejected_df, args["QUARANTINE_PATH"])
+        merge_processed_records(spark, valid_df, args["DATABASE_NAME"], args["TABLE_NAME"])
+        write_metrics(spark, args["METRICS_PATH"], run_started_at, candidate_count, valid_count, rejected_count)
         job.commit()
+        emit_s3_glue_lineage(RunState.COMPLETE, lineage_run_id)
 
-        return
-
-    raw_df = raw_dynamic_frame.toDF()
-    candidates_df = add_measurement_metadata(build_measurement_candidates(raw_df))
-    valid_df, rejected_df = split_quality_results(candidates_df)
-    valid_df = select_processed_columns(valid_df)
-    candidate_count = candidates_df.count()
-    valid_count = valid_df.count()
-    rejected_count = rejected_df.count()
-
-    write_quarantine(rejected_df, args["QUARANTINE_PATH"])
-    merge_processed_records(spark, valid_df, args["DATABASE_NAME"], args["TABLE_NAME"])
-    write_metrics(spark, args["METRICS_PATH"], run_started_at, candidate_count, valid_count, rejected_count)
-    job.commit()
+    except Exception:
+        emit_s3_glue_lineage(RunState.FAIL, lineage_run_id)
+        raise
 
 
 if __name__ == "__main__":

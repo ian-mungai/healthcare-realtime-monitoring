@@ -23,3 +23,17 @@ services/vitals_api
 services/websocket_handler
 services/vitals_simulator/output
 services/vitals_simulator/data/bidmc
+
+# Allow shared OpenLineage runtime code for workload containers.
+!lineage/
+!lineage/**
+
+# Allow dbt runtime wrapper.
+!jobs/
+!jobs/dbt/
+!jobs/dbt/run_dbt_with_lineage.py
+
+# Allow Soda runtime wrapper and contracts.
+!data_quality/
+!data_quality/soda/
+!data_quality/soda/**
