@@ -3,8 +3,9 @@ from unittest.mock import patch
 from services.websocket_handler.handler import lambda_handler
 
 
-@patch("services.websocket_handler.handler.connections_table")
-def test_connect_stores_patient_subscription(connections_table) -> None:
+@patch("services.websocket_handler.handler.get_connections_table")
+def test_connect_stores_patient_subscription(get_connections_table) -> None:
+    connections_table = get_connections_table.return_value
     event = {"requestContext": {"routeKey": "$connect", "connectionId": "connection-123"}, "queryStringParameters": {"patient_id": "137506799"}}
 
     result = lambda_handler(event, None)
@@ -14,8 +15,9 @@ def test_connect_stores_patient_subscription(connections_table) -> None:
     connections_table.put_item.assert_called_once_with(Item={"connection_id": "connection-123", "patient_id": "137506799"})
 
 
-@patch("services.websocket_handler.handler.connections_table")
-def test_connect_requires_patient_id(connections_table) -> None:
+@patch("services.websocket_handler.handler.get_connections_table")
+def test_connect_requires_patient_id(get_connections_table) -> None:
+    connections_table = get_connections_table.return_value
     event = {"requestContext": {"routeKey": "$connect", "connectionId": "connection-123"}, "queryStringParameters": {}}
 
     result = lambda_handler(event, None)
@@ -24,8 +26,9 @@ def test_connect_requires_patient_id(connections_table) -> None:
     connections_table.put_item.assert_not_called()
 
 
-@patch("services.websocket_handler.handler.connections_table")
-def test_connect_handles_missing_query_parameters(connections_table) -> None:
+@patch("services.websocket_handler.handler.get_connections_table")
+def test_connect_handles_missing_query_parameters(get_connections_table) -> None:
+    connections_table = get_connections_table.return_value
     event = {"requestContext": {"routeKey": "$connect", "connectionId": "connection-123"}, "queryStringParameters": None}
 
     result = lambda_handler(event, None)
@@ -34,8 +37,9 @@ def test_connect_handles_missing_query_parameters(connections_table) -> None:
     connections_table.put_item.assert_not_called()
 
 
-@patch("services.websocket_handler.handler.connections_table")
-def test_disconnect_removes_connection(connections_table) -> None:
+@patch("services.websocket_handler.handler.get_connections_table")
+def test_disconnect_removes_connection(get_connections_table) -> None:
+    connections_table = get_connections_table.return_value
     event = {"requestContext": {"routeKey": "$disconnect", "connectionId": "connection-123"}}
 
     result = lambda_handler(event, None)
