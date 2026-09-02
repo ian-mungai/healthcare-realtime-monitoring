@@ -300,3 +300,18 @@ output "vitals_simulator_log_group_name" {
   description = "CloudWatch log group used by vitals simulator ECS tasks."
   value       = module.vitals_simulator_ecs.log_group_name
 }
+
+output "private_subnet_ids" {
+  description = "Private subnet IDs used by healthcare realtime workloads."
+  value       = module.network.private_subnet_ids
+}
+
+output "dbt_ecs_task_definition_family" {
+  description = "dbt ECS task definition family."
+  value       = module.dbt_ecs.task_definition_family
+}
+
+output "soda_ecs_task_definition_family" {
+  description = "Soda ECS task definition family."
+  value       = module.soda_ecs.task_definition_family
+}

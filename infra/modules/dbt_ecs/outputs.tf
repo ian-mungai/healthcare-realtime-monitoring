@@ -32,3 +32,8 @@ output "security_group_id" {
   description = "Security group used by dbt Fargate tasks."
   value       = aws_security_group.dbt.id
 }
+
+output "task_definition_family" {
+  description = "dbt ECS task definition family."
+  value       = aws_ecs_task_definition.dbt.family
+}

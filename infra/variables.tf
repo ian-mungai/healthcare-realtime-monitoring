@@ -22,11 +22,9 @@ variable "vitals_simulator_image_tag" {
 variable "dbt_image_tag" {
   description = "ECR image tag deployed by the dbt ECS task."
   type        = string
-  default     = "latest"
 }
 
 variable "soda_image_tag" {
   description = "ECR image tag deployed by the Soda ECS task."
   type        = string
-  default     = "latest"
 }

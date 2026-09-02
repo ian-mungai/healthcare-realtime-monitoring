@@ -23,11 +23,6 @@ variable "glue_database_name" {
   type        = string
 }
 
-variable "glue_table_name" {
-  description = "Processed Glue table queried by MWAA Serverless"
-  type        = string
-}
-
 variable "subnet_ids" {
   description = "Private subnet IDs available to MWAA Serverless"
   type        = list(string)
@@ -38,11 +33,6 @@ variable "security_group_ids" {
   type        = list(string)
 }
 
-variable "dbt_ecs_task_definition_arn" {
-  description = "dbt ECS task definition ARN"
-  type        = string
-}
-
 variable "dbt_ecs_task_role_arn" {
   description = "dbt ECS task role ARN"
   type        = string
@@ -50,21 +40,6 @@ variable "dbt_ecs_task_role_arn" {
 
 variable "dbt_ecs_task_execution_role_arn" {
   description = "dbt ECS task execution role ARN"
-  type        = string
-}
-
-variable "dbt_ecs_security_group_id" {
-  description = "Security group used by dbt ECS tasks"
-  type        = string
-}
-
-variable "dbt_ecs_subnet_ids" {
-  description = "Private subnet IDs used by dbt ECS tasks"
-  type        = list(string)
-}
-
-variable "soda_ecs_task_definition_arn" {
-  description = "Soda ECS task definition ARN"
   type        = string
 }
 
@@ -78,14 +53,14 @@ variable "soda_ecs_task_execution_role_arn" {
   type        = string
 }
 
-variable "soda_ecs_security_group_id" {
-  description = "Security group used by Soda ECS tasks"
+variable "dbt_ecs_task_definition_family" {
+  description = "dbt ECS task definition family"
   type        = string
 }
 
-variable "soda_ecs_subnet_ids" {
-  description = "Private subnet IDs used by Soda ECS tasks"
-  type        = list(string)
+variable "soda_ecs_task_definition_family" {
+  description = "Soda ECS task definition family"
+  type        = string
 }
 
 variable "tags" {
