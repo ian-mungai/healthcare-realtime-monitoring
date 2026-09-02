@@ -117,7 +117,7 @@ data "aws_iam_policy_document" "lambda" {
     ]
 
     resources = [
-      "arn:aws:logs:us-east-1:*:*"
+      "arn:aws:logs:${var.aws_region}:*:*"
     ]
   }
 }
@@ -144,7 +144,7 @@ resource "aws_lambda_function" "vitals_processor" {
     variables = {
       LATEST_VITALS_TABLE = var.latest_vitals_table_name
       CONNECTIONS_TABLE   = var.connections_table_name
-      WEBSOCKET_ENDPOINT  = "https://${var.websocket_api_id}.execute-api.us-east-1.amazonaws.com/${var.websocket_stage_name}"
+      WEBSOCKET_ENDPOINT  = "https://${var.websocket_api_id}.execute-api.${var.aws_region}.amazonaws.com/${var.websocket_stage_name}"
     }
   }
 

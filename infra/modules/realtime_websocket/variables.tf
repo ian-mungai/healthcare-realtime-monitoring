@@ -1,3 +1,8 @@
+variable "aws_region" {
+  description = "AWS region."
+  type        = string
+}
+
 variable "connections_table_name" {
   description = "DynamoDB table containing active WebSocket connections."
   type        = string

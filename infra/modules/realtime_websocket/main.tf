@@ -49,7 +49,7 @@ data "aws_iam_policy_document" "websocket_lambda" {
     ]
 
     resources = [
-      "arn:aws:logs:us-east-1:*:*"
+      "arn:aws:logs:${var.aws_region}:*:*"
     ]
   }
 }

@@ -65,7 +65,7 @@ data "aws_iam_policy_document" "lambda" {
     ]
 
     resources = [
-      "arn:aws:logs:us-east-1:*:*"
+      "arn:aws:logs:${var.aws_region}:*:*"
     ]
   }
 }

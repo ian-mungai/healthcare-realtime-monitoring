@@ -17,7 +17,7 @@ resource "aws_cloudwatch_dashboard" "realtime" {
         properties = {
           title  = "Live Vitals Processing"
           view   = "timeSeries"
-          region = "us-east-1"
+          region = var.aws_region
           stat   = "Sum"
           period = 60
 
@@ -37,7 +37,7 @@ resource "aws_cloudwatch_dashboard" "realtime" {
         properties = {
           title  = "Live Processing Latency"
           view   = "timeSeries"
-          region = "us-east-1"
+          region = var.aws_region
           stat   = "Average"
           period = 60
 
@@ -65,7 +65,7 @@ resource "aws_cloudwatch_dashboard" "realtime" {
         properties = {
           title  = "Active WebSocket Connections"
           view   = "timeSeries"
-          region = "us-east-1"
+          region = var.aws_region
           stat   = "Maximum"
           period = 60
 
@@ -84,7 +84,7 @@ resource "aws_cloudwatch_dashboard" "realtime" {
         properties = {
           title  = "Live Path Health"
           view   = "timeSeries"
-          region = "us-east-1"
+          region = var.aws_region
           stat   = "Sum"
           period = 60
 
@@ -115,7 +115,7 @@ resource "aws_cloudwatch_dashboard" "realtime" {
         properties = {
           title  = "Kinesis Consumer Lag"
           view   = "timeSeries"
-          region = "us-east-1"
+          region = var.aws_region
           stat   = "Maximum"
           period = 60
 
