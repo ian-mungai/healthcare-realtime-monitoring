@@ -5,8 +5,9 @@ from unittest.mock import patch
 from services.vitals_api.handler import lambda_handler
 
 
-@patch("services.vitals_api.handler.latest_vitals_table")
-def test_lambda_handler_returns_latest_vitals(latest_vitals_table) -> None:
+@patch("services.vitals_api.handler.get_latest_vitals_table")
+def test_lambda_handler_returns_latest_vitals(get_latest_vitals_table) -> None:
+    latest_vitals_table = get_latest_vitals_table.return_value
     latest_vitals_table.get_item.return_value = {
         "Item": {
             "patient_id": "137506799",
@@ -29,8 +30,9 @@ def test_lambda_handler_returns_latest_vitals(latest_vitals_table) -> None:
     assert body["heart_rate"] == 96.0
 
 
-@patch("services.vitals_api.handler.latest_vitals_table")
-def test_lambda_handler_returns_not_found(latest_vitals_table) -> None:
+@patch("services.vitals_api.handler.get_latest_vitals_table")
+def test_lambda_handler_returns_not_found(get_latest_vitals_table) -> None:
+    latest_vitals_table = get_latest_vitals_table.return_value
     latest_vitals_table.get_item.return_value = {}
 
     result = lambda_handler({"pathParameters": {"patient_id": "missing"}}, None)
