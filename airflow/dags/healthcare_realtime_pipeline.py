@@ -14,9 +14,6 @@ from airflow import DAG
 RAW_BUCKET = os.getenv("RAW_BUCKET", "imungai-healthcare-realtime")
 RAW_PREFIX = os.getenv("RAW_PREFIX", "raw/fhir_observations/")
 GLUE_JOB_NAME = os.getenv("GLUE_JOB_NAME", "healthcare_realtime_raw_to_processed")
-GLUE_DATABASE = os.getenv("GLUE_DATABASE", "healthcare_realtime")
-GLUE_TABLE = os.getenv("GLUE_TABLE", "processed_fhir_observations")
-ATHENA_OUTPUT = os.getenv("ATHENA_OUTPUT", f"s3://{RAW_BUCKET}/athena_results/")
 DATA_JOBS_ECS_CLUSTER = os.getenv("DATA_JOBS_ECS_CLUSTER", "healthcare-realtime-data-jobs")
 DBT_ECS_TASK_DEFINITION = os.getenv("DBT_ECS_TASK_DEFINITION", "healthcare_realtime_dbt")
 DBT_ECS_SECURITY_GROUP = os.getenv("AIRFLOW__DBT__ECS_SECURITY_GROUP", "")
@@ -26,20 +23,6 @@ SODA_ECS_SECURITY_GROUP = os.getenv("AIRFLOW__SODA__ECS_SECURITY_GROUP", "")
 SODA_ECS_SUBNETS = [subnet.strip() for subnet in os.getenv("AIRFLOW__SODA__ECS_SUBNETS", "").split(",") if subnet.strip()]
 AIRFLOW_PIPELINE_SCHEDULE = os.getenv("AIRFLOW_PIPELINE_SCHEDULE", "*/15 * * * *")
 AIRFLOW_ENABLE_TASK_CALLBACKS = os.getenv("AIRFLOW_ENABLE_TASK_CALLBACKS", "true").lower() in {"1", "true", "yes", "on"}
-
-ATHENA_VALIDATION_QUERY = f"""
-SELECT CASE
-WHEN COUNT(*) > 0 THEN CAST('healthcare_realtime_validation_failed' AS BIGINT)
-ELSE CAST(0 AS BIGINT)
-END AS validation_result
-FROM {GLUE_DATABASE}.{GLUE_TABLE}
-WHERE observation_id IS NULL
-OR patient_id IS NULL
-OR patient_id = ''
-OR loinc_code IS NULL
-OR value IS NULL
-OR effective_datetime IS NULL
-"""
 
 DEFAULT_ARGS = {"owner": "healthcare_realtime", "depends_on_past": False, "retries": 2, "retry_delay": timedelta(minutes=1)}
 

@@ -18,10 +18,7 @@ ATHENA_POLL_INTERVAL_SECONDS = int(os.getenv("ATHENA_POLL_INTERVAL_SECONDS", "5"
 ATHENA_TERMINAL_STATES = {"SUCCEEDED", "FAILED", "CANCELLED"}
 
 ATHENA_VALIDATION_QUERY = f"""
-SELECT CASE
-WHEN COUNT(*) > 0 THEN CAST('healthcare_realtime_validation_failed' AS BIGINT)
-ELSE CAST(0 AS BIGINT)
-END AS validation_result
+SELECT COUNT(*) AS invalid_row_count
 FROM {ATHENA_DATABASE}.{ATHENA_TABLE}
 WHERE observation_id IS NULL
 OR patient_id IS NULL
@@ -35,6 +32,7 @@ OR effective_datetime IS NULL
 def emit_athena_lineage_event(run_state: RunState, lineage_run_id: str | None = None) -> str:
     return emit_s3_athena_lineage(run_state, lineage_run_id)
 
+
 def wait_for_athena_query(athena_client, query_execution_id: str) -> dict:
     while True:
         response = athena_client.get_query_execution(QueryExecutionId=query_execution_id)
@@ -44,6 +42,16 @@ def wait_for_athena_query(athena_client, query_execution_id: str) -> dict:
             return status
 
         time.sleep(ATHENA_POLL_INTERVAL_SECONDS)
+
+
+def get_invalid_row_count(athena_client, query_execution_id: str) -> int:
+    response = athena_client.get_query_results(QueryExecutionId=query_execution_id)
+    rows = response["ResultSet"]["Rows"]
+
+    if len(rows) < 2 or not rows[1].get("Data") or "VarCharValue" not in rows[1]["Data"][0]:
+        raise RuntimeError("Athena validation query returned no invalid-row count")
+
+    return int(rows[1]["Data"][0]["VarCharValue"])
 
 
 def run_athena_validation() -> str:
@@ -64,6 +72,11 @@ def run_athena_validation() -> str:
         if status["State"] != "SUCCEEDED":
             reason = status.get("StateChangeReason", "Athena query did not succeed")
             raise RuntimeError(f"Athena validation failed with state {status['State']}: {reason}")
+
+        invalid_row_count = get_invalid_row_count(athena_client, query_execution_id)
+
+        if invalid_row_count > 0:
+            raise RuntimeError(f"Processed Iceberg table contains {invalid_row_count} invalid rows")
 
         emit_athena_lineage_event(RunState.COMPLETE, lineage_run_id)
         return query_execution_id
