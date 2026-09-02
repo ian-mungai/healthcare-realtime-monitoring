@@ -116,8 +116,39 @@ def serialize_task(task) -> dict[str, Any]:
     raise TypeError(f"Unsupported task type for MWAA Serverless generation: {task.__class__.__module__}.{task.__class__.__name__}")
 
 
+def validate_dag_contract(dag) -> None:
+    if dag.catchup:
+        raise ValueError("MWAA Serverless generation requires catchup=False")
+
+    if dag.max_active_runs != 1:
+        raise ValueError("MWAA Serverless generation requires max_active_runs=1")
+
+    if dag.default_args.get("depends_on_past", False):
+        raise ValueError("MWAA Serverless generation requires depends_on_past=False")
+
+
+def validate_task_contract(task) -> None:
+    if task.depends_on_past:
+        raise ValueError(f"MWAA Serverless generation does not support depends_on_past=True for task {task.task_id}")
+
+    for callback_name in (
+        "on_execute_callback",
+        "on_retry_callback",
+        "on_skipped_callback",
+        "on_success_callback",
+        "on_failure_callback",
+    ):
+        if getattr(task, callback_name):
+            raise ValueError(f"MWAA Serverless generation does not support {callback_name} for task {task.task_id}")
+
+
 def build_workflow_definition() -> dict[str, Any]:
     dag = load_dag()
+    validate_dag_contract(dag)
+
+    for task in dag.topological_sort():
+        validate_task_contract(task)
+
     tasks = {task.task_id: serialize_task(task) for task in dag.topological_sort()}
 
     return {dag.dag_id: {"dag_id": dag.dag_id, "tasks": tasks}}
