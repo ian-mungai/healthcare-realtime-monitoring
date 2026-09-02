@@ -46,18 +46,30 @@ jobs:
       - name: FHIR loader unit tests
         run: |
           python -m pytest scripts/synthea_loader/tests/test_load_fhir.py -v
+
       - name: FHIR webhook tests
         run: |
           python -m pytest services/fhir_webhook/tests -v
+
       - name: Vitals simulator tests
         run: |
           python -m pytest services/vitals_simulator/tests -v
+
       - name: Vitals stream processor tests
         run: |
           python -m pytest services/vitals_stream_processor/tests -v
+
       - name: Vitals replay tests
         run: |
           python -m pytest services/vitals_replay/tests -v
+
+      - name: Vitals API tests
+        run: |
+          python -m pytest services/vitals_api/tests -v
+
+      - name: WebSocket handler tests
+        run: |
+          python -m pytest services/websocket_handler/tests -v
 
   terraform:
     name: Terraform Checks
@@ -72,6 +84,16 @@ jobs:
         with:
           terraform_version: "1.11.0"
 
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install MWAA Serverless generator dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r airflow/serverless/requirements_dev.txt
+
       - name: Terraform Format
         run: |
           terraform fmt -check -recursive infra
@@ -84,6 +106,42 @@ jobs:
         run: |
           ./airflow/serverless/build_code_package.sh
 
+      - name: Generate MWAA Serverless workflow
+        env:
+          AIRFLOW_ENABLE_TASK_CALLBACKS: "false"
+          AIRFLOW__DBT__ECS_SECURITY_GROUP: "sg-ci-placeholder"
+          AIRFLOW__DBT__ECS_SUBNETS: "subnet-ci-a,subnet-ci-b"
+          AIRFLOW__SODA__ECS_SECURITY_GROUP: "sg-ci-placeholder"
+          AIRFLOW__SODA__ECS_SUBNETS: "subnet-ci-a,subnet-ci-b"
+          DBT_ECS_TASK_DEFINITION: "healthcare_realtime_dbt"
+          SODA_ECS_TASK_DEFINITION: "healthcare_realtime_soda"
+          DATA_JOBS_ECS_CLUSTER: "healthcare-realtime-data-jobs"
+        run: |
+          PYTHONPATH="$PWD/airflow/dags:$PWD" python airflow/serverless/generate_healthcare_realtime_pipeline.py
+
+      - name: Validate generated MWAA Serverless workflow
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          import yaml
+
+          path = Path("airflow/serverless/generated/healthcare_realtime_pipeline.yaml")
+          workflow = yaml.safe_load(path.read_text())
+          tasks = workflow["healthcare_realtime_pipeline"]["tasks"]
+
+          assert len(tasks) == 6
+          assert tasks["validate_processed_data"]["operator"] == "airflow.providers.standard.operators.python.PythonOperator"
+          assert tasks["validate_processed_data"]["python_callable"] == "lib.athena_lineage.run_athena_validation"
+          assert tasks["run_dbt_build"]["task_definition"] == "healthcare_realtime_dbt"
+          assert tasks["run_soda_checks"]["task_definition"] == "healthcare_realtime_soda"
+
+          content = path.read_text()
+          assert not re.search(r"task-definition/.+:\d+", content)
+          assert not re.search(r"\b\d{12}\b", content)
+
+          print("MWAA Serverless workflow validation passed.")
+          PY
       - name: Terraform Init
         working-directory: infra
         run: |

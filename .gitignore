@@ -27,6 +27,7 @@ env/
 *.tfstate.*
 *.tfplan
 tfplan
+tfrefresh
 *.tfvars
 *.tfvars.json
 crash.log
@@ -64,3 +65,6 @@ build/
 
 # Temporary review artifacts
 tmp/
+
+# Generated MWAA Serverless workflow definition
+airflow/serverless/generated/
