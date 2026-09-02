@@ -22,3 +22,8 @@ output "security_group_id" {
   description = "Security group used by Soda Fargate tasks."
   value       = aws_security_group.soda.id
 }
+
+output "task_definition_family" {
+  description = "Soda ECS task definition family."
+  value       = aws_ecs_task_definition.soda.family
+}

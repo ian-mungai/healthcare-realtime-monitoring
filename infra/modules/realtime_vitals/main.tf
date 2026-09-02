@@ -32,8 +32,12 @@ resource "aws_dynamodb_table" "websocket_connections" {
 
   global_secondary_index {
     name            = "patient_id-index"
-    hash_key        = "patient_id"
     projection_type = "KEYS_ONLY"
+
+    key_schema {
+      attribute_name = "patient_id"
+      key_type       = "HASH"
+    }
   }
 
   tags = var.tags

@@ -1,3 +1,8 @@
+variable "aws_region" {
+  description = "AWS region."
+  type        = string
+}
+
 variable "kinesis_stream_arn" {
   description = "ARN of the vitals Kinesis stream."
   type        = string
