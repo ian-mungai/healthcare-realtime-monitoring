@@ -87,6 +87,30 @@ def test_athena_lifecycle_preserves_datasets() -> None:
     assert event.outputs == [VALIDATION_DATASET]
 
 
+def test_get_invalid_row_count_returns_count() -> None:
+    from airflow.dags.lib.athena_lineage import get_invalid_row_count
+
+    athena_client = MagicMock()
+    athena_client.get_query_results.return_value = {
+        "ResultSet": {"Rows": [{"Data": [{"VarCharValue": "invalid_row_count"}]}, {"Data": [{"VarCharValue": "7"}]}]}
+    }
+
+    result = get_invalid_row_count(athena_client, "query-123")
+
+    assert result == 7
+    athena_client.get_query_results.assert_called_once_with(QueryExecutionId="query-123")
+
+
+def test_get_invalid_row_count_rejects_missing_count() -> None:
+    from airflow.dags.lib.athena_lineage import get_invalid_row_count
+
+    athena_client = MagicMock()
+    athena_client.get_query_results.return_value = {"ResultSet": {"Rows": [{"Data": [{"VarCharValue": "invalid_row_count"}]}]}}
+
+    with pytest.raises(RuntimeError, match="Athena validation query returned no invalid-row count"):
+        get_invalid_row_count(athena_client, "query-123")
+
+
 @patch("airflow.dags.lib.athena_lineage.emit_athena_lineage_event")
 @patch("airflow.dags.lib.athena_lineage.boto3.client")
 def test_run_athena_validation_emits_start_complete(mock_boto_client: MagicMock, mock_emit: MagicMock) -> None:
@@ -95,14 +119,40 @@ def test_run_athena_validation_emits_start_complete(mock_boto_client: MagicMock,
     athena_client = MagicMock()
     athena_client.start_query_execution.return_value = {"QueryExecutionId": "query-123"}
     athena_client.get_query_execution.return_value = {"QueryExecution": {"Status": {"State": "SUCCEEDED"}}}
+    athena_client.get_query_results.return_value = {
+        "ResultSet": {"Rows": [{"Data": [{"VarCharValue": "invalid_row_count"}]}, {"Data": [{"VarCharValue": "0"}]}]}
+    }
     mock_boto_client.return_value = athena_client
 
     result = run_athena_validation()
 
     assert result == "query-123"
+    athena_client.get_query_results.assert_called_once_with(QueryExecutionId="query-123")
     assert mock_emit.call_count == 2
     assert mock_emit.call_args_list[0].args[0] == RunState.START
     assert mock_emit.call_args_list[1].args[0] == RunState.COMPLETE
+    assert mock_emit.call_args_list[0].args[1] == mock_emit.call_args_list[1].args[1]
+
+
+@patch("airflow.dags.lib.athena_lineage.emit_athena_lineage_event")
+@patch("airflow.dags.lib.athena_lineage.boto3.client")
+def test_run_athena_validation_invalid_rows_emits_start_fail(mock_boto_client: MagicMock, mock_emit: MagicMock) -> None:
+    from airflow.dags.lib.athena_lineage import run_athena_validation
+
+    athena_client = MagicMock()
+    athena_client.start_query_execution.return_value = {"QueryExecutionId": "query-456"}
+    athena_client.get_query_execution.return_value = {"QueryExecution": {"Status": {"State": "SUCCEEDED"}}}
+    athena_client.get_query_results.return_value = {
+        "ResultSet": {"Rows": [{"Data": [{"VarCharValue": "invalid_row_count"}]}, {"Data": [{"VarCharValue": "4"}]}]}
+    }
+    mock_boto_client.return_value = athena_client
+
+    with pytest.raises(RuntimeError, match="Processed Iceberg table contains 4 invalid rows"):
+        run_athena_validation()
+
+    assert mock_emit.call_count == 2
+    assert mock_emit.call_args_list[0].args[0] == RunState.START
+    assert mock_emit.call_args_list[1].args[0] == RunState.FAIL
     assert mock_emit.call_args_list[0].args[1] == mock_emit.call_args_list[1].args[1]
 
 
@@ -112,13 +162,14 @@ def test_run_athena_validation_emits_start_fail(mock_boto_client: MagicMock, moc
     from airflow.dags.lib.athena_lineage import run_athena_validation
 
     athena_client = MagicMock()
-    athena_client.start_query_execution.return_value = {"QueryExecutionId": "query-456"}
+    athena_client.start_query_execution.return_value = {"QueryExecutionId": "query-789"}
     athena_client.get_query_execution.return_value = {"QueryExecution": {"Status": {"State": "FAILED", "StateChangeReason": "validation error"}}}
     mock_boto_client.return_value = athena_client
 
     with pytest.raises(RuntimeError, match="validation error"):
         run_athena_validation()
 
+    athena_client.get_query_results.assert_not_called()
     assert mock_emit.call_count == 2
     assert mock_emit.call_args_list[0].args[0] == RunState.START
     assert mock_emit.call_args_list[1].args[0] == RunState.FAIL
