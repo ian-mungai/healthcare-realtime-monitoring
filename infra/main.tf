@@ -79,22 +79,16 @@ module "mwaa" {
   source_bucket_name = "imungai-healthcare-realtime-mwaa"
   data_bucket_name   = module.raw_s3.bucket_name
 
-  dbt_ecs_task_definition_arn     = module.dbt_ecs.task_definition_arn
+  dbt_ecs_task_definition_family  = module.dbt_ecs.task_definition_family
   dbt_ecs_task_role_arn           = module.dbt_ecs.task_role_arn
   dbt_ecs_task_execution_role_arn = module.dbt_ecs.task_execution_role_arn
-  dbt_ecs_security_group_id       = module.dbt_ecs.security_group_id
-  dbt_ecs_subnet_ids              = module.network.private_subnet_ids
 
-  soda_ecs_task_definition_arn     = module.soda_ecs.task_definition_arn
+  soda_ecs_task_definition_family  = module.soda_ecs.task_definition_family
   soda_ecs_task_role_arn           = module.soda_ecs.task_role_arn
   soda_ecs_task_execution_role_arn = module.soda_ecs.task_execution_role_arn
-  soda_ecs_security_group_id       = module.soda_ecs.security_group_id
-  soda_ecs_subnet_ids              = module.network.private_subnet_ids
 
   glue_job_name      = module.glue.job_name
   glue_database_name = module.glue.database_name
-  glue_table_name    = "processed_fhir_observations"
-
 
   subnet_ids = module.network.private_subnet_ids
 
@@ -112,7 +106,7 @@ module "mwaa" {
 module "observability" {
   source = "./modules/observability"
 
-  aws_region = "us-east-1"
+  aws_region = var.aws_region
 
   kinesis_stream_name           = module.kinesis.stream_name
   firehose_delivery_stream_name = module.firehose.delivery_stream_name
@@ -197,6 +191,8 @@ module "realtime_vitals" {
 module "realtime_processor" {
   source = "./modules/realtime_processor"
 
+  aws_region = var.aws_region
+
   kinesis_stream_arn       = module.kinesis.stream_arn
   latest_vitals_table_name = module.realtime_vitals.latest_vitals_table_name
   latest_vitals_table_arn  = module.realtime_vitals.latest_vitals_table_arn
@@ -216,6 +212,8 @@ module "realtime_processor" {
 
 module "realtime_websocket" {
   source = "./modules/realtime_websocket"
+
+  aws_region = var.aws_region
 
   connections_table_name = module.realtime_vitals.websocket_connections_table_name
   connections_table_arn  = module.realtime_vitals.websocket_connections_table_arn
@@ -248,6 +246,8 @@ module "vitals_api" {
 module "realtime_observability" {
   source = "./modules/realtime_observability"
 
+  aws_region = var.aws_region
+
   lambda_function_name = module.realtime_processor.lambda_function_name
   environment          = "development"
   alert_email          = var.realtime_alert_email
@@ -273,6 +273,8 @@ module "realtime_failure_handling" {
 
 module "realtime_replay" {
   source = "./modules/realtime_replay"
+
+  aws_region = var.aws_region
 
   kinesis_stream_arn = module.kinesis.stream_arn
   failure_queue_arn  = module.realtime_failure_handling.vitals_failures_queue_arn
