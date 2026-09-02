@@ -5,12 +5,13 @@ import boto3
 
 CONNECTIONS_TABLE = os.getenv("CONNECTIONS_TABLE", "healthcare-realtime-websocket-connections")
 
-dynamodb = boto3.resource("dynamodb")
-connections_table = dynamodb.Table(CONNECTIONS_TABLE)
-
 
 def build_response(status_code: int, message: str) -> dict[str, Any]:
     return {"statusCode": status_code, "body": message}
+
+
+def get_connections_table() -> Any:
+    return boto3.resource("dynamodb").Table(CONNECTIONS_TABLE)
 
 
 def handle_connect(event: dict[str, Any], connection_id: str) -> dict[str, Any]:
@@ -20,13 +21,13 @@ def handle_connect(event: dict[str, Any], connection_id: str) -> dict[str, Any]:
     if not patient_id:
         return build_response(400, "patient_id is required")
 
-    connections_table.put_item(Item={"connection_id": connection_id, "patient_id": patient_id})
+    get_connections_table().put_item(Item={"connection_id": connection_id, "patient_id": patient_id})
 
     return build_response(200, "Connected")
 
 
 def handle_disconnect(connection_id: str) -> dict[str, Any]:
-    connections_table.delete_item(Key={"connection_id": connection_id})
+    get_connections_table().delete_item(Key={"connection_id": connection_id})
 
     return build_response(200, "Disconnected")
 
