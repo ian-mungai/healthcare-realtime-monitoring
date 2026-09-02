@@ -39,7 +39,7 @@ healthcare_realtime_pipeline:
     run_dbt_build:
       operator: airflow.providers.amazon.aws.operators.ecs.EcsRunTaskOperator
       cluster: healthcare-realtime-data-jobs
-      task_definition: arn:aws:ecs:us-east-1:828591411593:task-definition/healthcare_realtime_dbt:2
+      task_definition: healthcare_realtime_dbt
       launch_type: FARGATE
       overrides: {}
       wait_for_completion: true
@@ -58,7 +58,7 @@ healthcare_realtime_pipeline:
     run_soda_checks:
       operator: airflow.providers.amazon.aws.operators.ecs.EcsRunTaskOperator
       cluster: healthcare-realtime-data-jobs
-      task_definition: arn:aws:ecs:us-east-1:828591411593:task-definition/healthcare_realtime_soda:2
+      task_definition: healthcare_realtime_soda
       launch_type: FARGATE
       overrides: {}
       wait_for_completion: true
