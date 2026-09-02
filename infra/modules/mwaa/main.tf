@@ -25,25 +25,24 @@ resource "aws_s3_bucket_public_access_block" "mwaa" {
   restrict_public_buckets = true
 }
 
-locals {
-  workflow_definition = templatefile("${path.root}/../airflow/serverless/healthcare_realtime_pipeline.yml.tftpl", {
-    glue_job_name                = var.glue_job_name
-    glue_database_name           = var.glue_database_name
-    glue_table_name              = var.glue_table_name
-    dbt_ecs_task_definition_arn  = var.dbt_ecs_task_definition_arn
-    dbt_ecs_security_group_id    = var.dbt_ecs_security_group_id
-    dbt_ecs_subnet_ids           = var.dbt_ecs_subnet_ids
-    soda_ecs_task_definition_arn = var.soda_ecs_task_definition_arn
-    soda_ecs_security_group_id   = var.soda_ecs_security_group_id
-    soda_ecs_subnet_ids          = var.soda_ecs_subnet_ids
-  })
-}
-
 resource "aws_s3_object" "workflow_definition" {
   bucket       = aws_s3_bucket.mwaa.id
   key          = "workflows/healthcare_realtime_pipeline.yml"
-  content      = local.workflow_definition
+  source       = "${path.root}/../airflow/serverless/generated/healthcare_realtime_pipeline.yaml"
+  source_hash  = filemd5("${path.root}/../airflow/serverless/generated/healthcare_realtime_pipeline.yaml")
   content_type = "application/x-yaml"
+
+  depends_on = [
+    aws_s3_bucket_versioning.mwaa,
+    aws_s3_bucket_public_access_block.mwaa,
+  ]
+}
+
+resource "aws_s3_object" "workflow_code" {
+  bucket = aws_s3_bucket.mwaa.id
+  key    = "code/healthcare_realtime_mwaa_serverless_code.zip"
+  source = "${path.root}/../tmp/healthcare_realtime_mwaa_serverless_code.zip"
+  etag   = filemd5("${path.root}/../tmp/healthcare_realtime_mwaa_serverless_code.zip")
 
   depends_on = [
     aws_s3_bucket_versioning.mwaa,
@@ -130,6 +129,19 @@ data "aws_iam_policy_document" "mwaa_s3_access" {
 
     resources = [
       "arn:aws:s3:::${var.data_bucket_name}/athena_results/*"
+    ]
+  }
+
+  statement {
+    sid    = "WriteAthenaOpenLineageEvents"
+    effect = "Allow"
+
+    actions = [
+      "s3:PutObject"
+    ]
+
+    resources = [
+      "arn:aws:s3:::${var.data_bucket_name}/lineage/openlineage/athena/*"
     ]
   }
 }
@@ -291,6 +303,14 @@ resource "awscc_mwaaserverless_workflow" "healthcare_realtime" {
     bucket     = aws_s3_bucket.mwaa.bucket
     object_key = aws_s3_object.workflow_definition.key
     version_id = aws_s3_object.workflow_definition.version_id
+  }
+
+  code = {
+    s3_location = {
+      bucket     = aws_s3_bucket.mwaa.bucket
+      object_key = aws_s3_object.workflow_code.key
+      version_id = aws_s3_object.workflow_code.version_id
+    }
   }
 
   network_configuration = {

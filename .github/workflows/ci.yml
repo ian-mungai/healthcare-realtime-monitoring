@@ -75,9 +75,14 @@ jobs:
       - name: Terraform Format
         run: |
           terraform fmt -check -recursive infra
+
       - name: Build Glue lineage package
         run: |
           ./scripts/glue/build_lineage_package.sh
+
+      - name: Build MWAA Serverless code package
+        run: |
+          ./airflow/serverless/build_code_package.sh
 
       - name: Terraform Init
         working-directory: infra
