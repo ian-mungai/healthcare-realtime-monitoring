@@ -122,7 +122,7 @@ resource "aws_db_instance" "hapi" {
   auto_minor_version_upgrade = true
   apply_immediately          = true
 
-  deletion_protection = false
+  deletion_protection = true
   skip_final_snapshot = true
 
   tags = var.tags

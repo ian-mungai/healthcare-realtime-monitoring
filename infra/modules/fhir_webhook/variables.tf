@@ -28,10 +28,9 @@ variable "lambda_zip_path" {
   type        = string
 }
 
-variable "webhook_secret" {
-  description = "Shared secret required for HAPI FHIR webhook requests."
+variable "webhook_secret_id" {
+  description = "Secrets Manager identifier containing the shared HAPI FHIR webhook secret."
   type        = string
-  sensitive   = true
 }
 
 variable "tags" {

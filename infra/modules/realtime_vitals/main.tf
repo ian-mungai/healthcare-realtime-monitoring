@@ -1,7 +1,8 @@
 resource "aws_dynamodb_table" "latest_vitals" {
-  name         = "healthcare-realtime-latest-vitals"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "patient_id"
+  name                        = "healthcare-realtime-latest-vitals"
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "patient_id"
+  deletion_protection_enabled = true
 
   attribute {
     name = "patient_id"
@@ -16,9 +17,10 @@ resource "aws_dynamodb_table" "latest_vitals" {
 }
 
 resource "aws_dynamodb_table" "websocket_connections" {
-  name         = "healthcare-realtime-websocket-connections"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "connection_id"
+  name                        = "healthcare-realtime-websocket-connections"
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "connection_id"
+  deletion_protection_enabled = true
 
   attribute {
     name = "connection_id"
