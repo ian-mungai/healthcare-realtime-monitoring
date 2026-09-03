@@ -61,6 +61,7 @@ def sanitize_string(value: str) -> str:
     mwaa_bucket_name = os.environ.get("MWAA_BUCKET_NAME")
 
     value = re.sub(r"(?<!\d)\d{12}(?!\d)", "${AWS_ACCOUNT_ID}", value)
+    value = re.sub(r"(arn:aws:[^:]+:)[a-z]{2}(?:-gov)?-[a-z]+-\d(?=:)", r"\1${AWS_REGION}", value)
     value = re.sub(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", "${EMAIL_ADDRESS}", value)
 
     if mwaa_bucket_name:

@@ -1,3 +1,4 @@
+import os
 import sys
 from datetime import UTC, datetime
 
@@ -326,13 +327,16 @@ def write_metrics(spark, metrics_path: str, run_started_at: str, candidate_count
 
 
 def main():
-    args = getResolvedOptions(sys.argv, ["JOB_NAME", "RAW_PATH", "QUARANTINE_PATH", "METRICS_PATH", "DATABASE_NAME", "TABLE_NAME"])
+    args = getResolvedOptions(
+        sys.argv, ["JOB_NAME", "RAW_PATH", "QUARANTINE_PATH", "METRICS_PATH", "DATABASE_NAME", "TABLE_NAME", "DATA_BUCKET_NAME"]
+    )
     run_started_at = datetime.now(UTC).isoformat()
     spark_context = SparkContext()
     glue_context = GlueContext(spark_context)
     spark = glue_context.spark_session
     job = Job(glue_context)
     job.init(args["JOB_NAME"], args)
+    os.environ["DATA_BUCKET_NAME"] = args["DATA_BUCKET_NAME"]
     lineage_run_id = emit_s3_glue_lineage(RunState.START)
 
     try:

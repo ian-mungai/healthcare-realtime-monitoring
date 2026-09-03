@@ -115,6 +115,7 @@ resource "aws_glue_job" "raw_to_processed" {
     "--enable-spark-ui"              = "true"
     "--datalake-formats"             = "iceberg"
     "--RAW_PATH"                     = "s3://${var.bucket_name}/raw/fhir_observations/"
+    "--DATA_BUCKET_NAME"             = var.bucket_name
     "--DATABASE_NAME"                = var.database_name
     "--TABLE_NAME"                   = "processed_fhir_observations"
     "--job-bookmark-option"          = "job-bookmark-enable"

@@ -76,6 +76,7 @@ def serialize_python_operator(task: PythonOperator) -> dict[str, Any]:
     return {
         "operator": "airflow.providers.standard.operators.python.PythonOperator",
         "python_callable": callable_path,
+        "op_kwargs": task.op_kwargs,
         "retries": task.retries,
         "retry_delay": int(task.retry_delay.total_seconds()),
         "dependencies": serialize_dependencies(task),

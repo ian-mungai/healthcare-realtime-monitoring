@@ -6,7 +6,7 @@ def test_lineage_namespace() -> None:
 
 
 def test_raw_dataset() -> None:
-    assert RAW_DATASET.namespace == "s3://example-data-bucket"
+    assert RAW_DATASET.namespace == "s3://<project-data-bucket>"
     assert RAW_DATASET.name == "raw/fhir_observations"
 
 
@@ -16,4 +16,4 @@ def test_processed_dataset() -> None:
 
 
 def test_s3_lineage_event_path() -> None:
-    assert S3_LINEAGE_EVENT_PATH == "s3://example-data-bucket/lineage/openlineage/glue/event"
+    assert S3_LINEAGE_EVENT_PATH == "s3://<project-data-bucket>/lineage/openlineage/glue/event"

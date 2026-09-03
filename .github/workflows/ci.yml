@@ -116,6 +116,7 @@ jobs:
           DBT_ECS_TASK_DEFINITION: "healthcare_realtime_dbt"
           SODA_ECS_TASK_DEFINITION: "healthcare_realtime_soda"
           DATA_JOBS_ECS_CLUSTER: "healthcare-realtime-data-jobs"
+          RAW_BUCKET: "ci-project-data-bucket"
         run: |
           PYTHONPATH="$PWD/airflow/dags:$PWD" python airflow/serverless/generate_healthcare_realtime_pipeline.py
 

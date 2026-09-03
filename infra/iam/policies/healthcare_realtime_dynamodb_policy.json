@@ -32,8 +32,8 @@
         "dynamodb:CreateBackup"
       ],
       "Resource": [
-        "arn:aws:dynamodb:us-east-1:${AWS_ACCOUNT_ID}:table/healthcare-realtime-*",
-        "arn:aws:dynamodb:us-east-1:${AWS_ACCOUNT_ID}:table/healthcare_realtime_*"
+        "arn:aws:dynamodb:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/healthcare-realtime-*",
+        "arn:aws:dynamodb:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/healthcare_realtime_*"
       ]
     },
     {
@@ -51,10 +51,10 @@
         "dynamodb:ConditionCheckItem"
       ],
       "Resource": [
-        "arn:aws:dynamodb:us-east-1:${AWS_ACCOUNT_ID}:table/healthcare-realtime-*",
-        "arn:aws:dynamodb:us-east-1:${AWS_ACCOUNT_ID}:table/healthcare-realtime-*/index/*",
-        "arn:aws:dynamodb:us-east-1:${AWS_ACCOUNT_ID}:table/healthcare_realtime_*",
-        "arn:aws:dynamodb:us-east-1:${AWS_ACCOUNT_ID}:table/healthcare_realtime_*/index/*"
+        "arn:aws:dynamodb:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/healthcare-realtime-*",
+        "arn:aws:dynamodb:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/healthcare-realtime-*/index/*",
+        "arn:aws:dynamodb:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/healthcare_realtime_*",
+        "arn:aws:dynamodb:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/healthcare_realtime_*/index/*"
       ]
     },
     {
@@ -65,8 +65,8 @@
         "dynamodb:DeleteBackup"
       ],
       "Resource": [
-        "arn:aws:dynamodb:us-east-1:${AWS_ACCOUNT_ID}:table/healthcare-realtime-*/backup/*",
-        "arn:aws:dynamodb:us-east-1:${AWS_ACCOUNT_ID}:table/healthcare_realtime_*/backup/*"
+        "arn:aws:dynamodb:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/healthcare-realtime-*/backup/*",
+        "arn:aws:dynamodb:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/healthcare_realtime_*/backup/*"
       ]
     }
   ]

@@ -15,6 +15,7 @@ def main() -> None:
 
     replacements = {
         "${AWS_ACCOUNT_ID}": os.environ["AWS_ACCOUNT_ID"],
+        "${AWS_REGION}": os.environ["AWS_REGION"],
         "${DATA_BUCKET_NAME}": os.environ.get("DATA_BUCKET_NAME", "healthcare-realtime-data"),
         "${MWAA_BUCKET_NAME}": os.environ.get("MWAA_BUCKET_NAME", "healthcare-realtime-mwaa"),
         "${EMAIL_ADDRESS}": os.environ.get("EMAIL_ADDRESS", "alerts@example.com"),

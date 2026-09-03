@@ -12,9 +12,9 @@
         "apigateway:DELETE"
       ],
       "Resource": [
-        "arn:aws:apigateway:us-east-1::/apis",
-        "arn:aws:apigateway:us-east-1::/apis/*",
-        "arn:aws:apigateway:us-east-1::/tags/*"
+        "arn:aws:apigateway:${AWS_REGION}::/apis",
+        "arn:aws:apigateway:${AWS_REGION}::/apis/*",
+        "arn:aws:apigateway:${AWS_REGION}::/tags/*"
       ]
     },
     {
@@ -24,8 +24,8 @@
         "execute-api:Invoke"
       ],
       "Resource": [
-        "arn:aws:execute-api:us-east-1:${AWS_ACCOUNT_ID}:*/development/GET/patients/*/vitals",
-        "arn:aws:execute-api:us-east-1:${AWS_ACCOUNT_ID}:*/development/$connect"
+        "arn:aws:execute-api:${AWS_REGION}:${AWS_ACCOUNT_ID}:*/development/GET/patients/*/vitals",
+        "arn:aws:execute-api:${AWS_REGION}:${AWS_ACCOUNT_ID}:*/development/$connect"
       ]
     }
   ]

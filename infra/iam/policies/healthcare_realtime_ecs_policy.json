@@ -23,8 +23,8 @@
         "ecs:UntagResource"
       ],
       "Resource": [
-        "arn:aws:ecs:us-east-1:${AWS_ACCOUNT_ID}:cluster/healthcare-realtime-data-jobs",
-        "arn:aws:ecs:us-east-1:${AWS_ACCOUNT_ID}:cluster/healthcare-realtime-services"
+        "arn:aws:ecs:${AWS_REGION}:${AWS_ACCOUNT_ID}:cluster/healthcare-realtime-data-jobs",
+        "arn:aws:ecs:${AWS_REGION}:${AWS_ACCOUNT_ID}:cluster/healthcare-realtime-services"
       ]
     },
     {
@@ -40,8 +40,8 @@
         "ecs:UntagResource"
       ],
       "Resource": [
-        "arn:aws:ecs:us-east-1:${AWS_ACCOUNT_ID}:service/healthcare-realtime-data-jobs/*",
-        "arn:aws:ecs:us-east-1:${AWS_ACCOUNT_ID}:service/healthcare-realtime-services/*"
+        "arn:aws:ecs:${AWS_REGION}:${AWS_ACCOUNT_ID}:service/healthcare-realtime-data-jobs/*",
+        "arn:aws:ecs:${AWS_REGION}:${AWS_ACCOUNT_ID}:service/healthcare-realtime-services/*"
       ]
     },
     {

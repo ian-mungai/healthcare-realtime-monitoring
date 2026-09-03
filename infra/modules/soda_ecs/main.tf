@@ -247,6 +247,17 @@ resource "aws_ecs_task_definition" "soda" {
       image     = "${aws_ecr_repository.soda.repository_url}:${var.image_tag}"
       essential = true
 
+      environment = [
+        {
+          name  = "AWS_REGION"
+          value = data.aws_region.current.region
+        },
+        {
+          name  = "DATA_BUCKET_NAME"
+          value = var.data_bucket_name
+        }
+      ]
+
       logConfiguration = {
         logDriver = "awslogs"
 

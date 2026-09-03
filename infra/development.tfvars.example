@@ -1,0 +1,9 @@
+aws_region              = "<aws-region>"
+data_bucket_name        = "<globally-unique-data-bucket>"
+mwaa_source_bucket_name = "<globally-unique-mwaa-source-bucket>"
+realtime_alert_email    = "<alert-email>"
+
+# Use immutable image tags produced by this repository's image build workflow.
+vitals_simulator_image_tag = "sha-<commit>-<variant>"
+dbt_image_tag              = "<dbt-image-tag>"
+soda_image_tag             = "<soda-image-tag>"

@@ -10,7 +10,7 @@ from services.fhir_webhook.app.lambda_handler import lambda_handler
 TEST_SECRET = "test_webhook_secret"
 
 os.environ["KINESIS_STREAM_NAME"] = "healthcare_realtime_vitals"
-os.environ["AWS_REGION"] = "us-east-1"
+os.environ["AWS_REGION"] = "example-region-1"
 
 
 @pytest.fixture(autouse=True)
