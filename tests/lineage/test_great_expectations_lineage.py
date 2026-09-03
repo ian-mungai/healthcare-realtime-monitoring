@@ -16,4 +16,4 @@ def test_great_expectations_validation_dataset() -> None:
 
 
 def test_great_expectations_lineage_s3_path() -> None:
-    assert S3_LINEAGE_EVENT_PATH == "s3://imungai-healthcare-realtime/lineage/openlineage/great_expectations/event"
+    assert S3_LINEAGE_EVENT_PATH == "s3://<project-data-bucket>/lineage/openlineage/great_expectations/event"

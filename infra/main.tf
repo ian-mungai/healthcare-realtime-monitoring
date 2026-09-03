@@ -15,7 +15,7 @@ module "kinesis" {
 module "raw_s3" {
   source = "./modules/raw_s3"
 
-  bucket_name = "imungai-healthcare-realtime"
+  bucket_name = var.data_bucket_name
 
   tags = {
     Project     = "healthcare_realtime_monitoring"
@@ -76,7 +76,7 @@ module "mwaa" {
   source = "./modules/mwaa"
 
   workflow_name      = "healthcare_realtime_pipeline"
-  source_bucket_name = "imungai-healthcare-realtime-mwaa"
+  source_bucket_name = var.mwaa_source_bucket_name
   data_bucket_name   = module.raw_s3.bucket_name
 
   dbt_ecs_task_definition_family  = module.dbt_ecs.task_definition_family
@@ -126,7 +126,7 @@ module "dbt_ecs" {
 
   vpc_id             = module.network.vpc_id
   private_subnet_ids = module.network.private_subnet_ids
-  data_bucket_name   = "imungai-healthcare-realtime"
+  data_bucket_name   = module.raw_s3.bucket_name
   image_tag          = var.dbt_image_tag
 
   source_database_name = "healthcare_realtime"
@@ -144,7 +144,7 @@ module "soda_ecs" {
 
   vpc_id             = module.network.vpc_id
   private_subnet_ids = module.network.private_subnet_ids
-  data_bucket_name   = "imungai-healthcare-realtime"
+  data_bucket_name   = module.raw_s3.bucket_name
   image_tag          = var.soda_image_tag
 
   source_database_name = "healthcare_realtime"

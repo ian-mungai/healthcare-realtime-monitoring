@@ -4,7 +4,7 @@ from typing import Any
 
 import boto3
 
-AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "us-east-1"
+AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
 KINESIS_STREAM_ARN = os.environ["KINESIS_STREAM_ARN"]
 MAX_REPLAY_ATTEMPTS = int(os.getenv("MAX_REPLAY_ATTEMPTS", "1"))
 MAX_GET_RECORDS_CALLS = 10

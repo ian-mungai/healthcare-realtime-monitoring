@@ -162,7 +162,7 @@ def test_get_patient_connections_returns_empty_list(connections_table) -> None:
 def test_push_vitals_sends_to_patient_connections(boto_client, get_patient_connections_mock, monkeypatch) -> None:
     from services.vitals_stream_processor import handler
 
-    monkeypatch.setattr(handler, "WEBSOCKET_ENDPOINT", "https://example.execute-api.us-east-1.amazonaws.com/development")
+    monkeypatch.setattr(handler, "WEBSOCKET_ENDPOINT", "https://example.execute-api.example-region-1.amazonaws.com/development")
 
     get_patient_connections_mock.return_value = ["connection-1", "connection-2"]
 
@@ -186,7 +186,7 @@ def test_push_vitals_sends_to_patient_connections(boto_client, get_patient_conne
 def test_push_vitals_uses_payload_patient_id(boto_client, get_patient_connections_mock, monkeypatch) -> None:
     from services.vitals_stream_processor import handler
 
-    monkeypatch.setattr(handler, "WEBSOCKET_ENDPOINT", "https://example.execute-api.us-east-1.amazonaws.com/development")
+    monkeypatch.setattr(handler, "WEBSOCKET_ENDPOINT", "https://example.execute-api.example-region-1.amazonaws.com/development")
 
     get_patient_connections_mock.return_value = []
     boto_client.return_value = MagicMock()
@@ -208,7 +208,7 @@ def test_push_vitals_uses_payload_patient_id(boto_client, get_patient_connection
 def test_push_vitals_deletes_stale_connection(boto_client, get_patient_connections_mock, delete_connection, monkeypatch) -> None:
     from services.vitals_stream_processor import handler
 
-    monkeypatch.setattr(handler, "WEBSOCKET_ENDPOINT", "https://example.execute-api.us-east-1.amazonaws.com/development")
+    monkeypatch.setattr(handler, "WEBSOCKET_ENDPOINT", "https://example.execute-api.example-region-1.amazonaws.com/development")
 
     get_patient_connections_mock.return_value = ["stale-connection"]
 
@@ -236,7 +236,7 @@ def test_push_vitals_deletes_stale_connection(boto_client, get_patient_connectio
 def test_push_vitals_counts_non_410_delivery_failure(boto_client, get_patient_connections_mock, delete_connection, monkeypatch) -> None:
     from services.vitals_stream_processor import handler
 
-    monkeypatch.setattr(handler, "WEBSOCKET_ENDPOINT", "https://example.execute-api.us-east-1.amazonaws.com/development")
+    monkeypatch.setattr(handler, "WEBSOCKET_ENDPOINT", "https://example.execute-api.example-region-1.amazonaws.com/development")
 
     get_patient_connections_mock.return_value = ["connection-1"]
 
@@ -262,7 +262,7 @@ def test_push_vitals_counts_non_410_delivery_failure(boto_client, get_patient_co
 def test_push_vitals_requires_patient_id(boto_client, monkeypatch) -> None:
     from services.vitals_stream_processor import handler
 
-    monkeypatch.setattr(handler, "WEBSOCKET_ENDPOINT", "https://example.execute-api.us-east-1.amazonaws.com/development")
+    monkeypatch.setattr(handler, "WEBSOCKET_ENDPOINT", "https://example.execute-api.example-region-1.amazonaws.com/development")
 
     payload = {"heart_rate": 96.0}
 

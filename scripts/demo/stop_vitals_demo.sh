@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-AWS_REGION="${AWS_REGION:-us-east-1}"
+AWS_REGION="${AWS_REGION:?Set AWS_REGION for the target environment.}"
 ECS_CLUSTER_NAME="healthcare-realtime-services"
 TASK_FAMILY="healthcare_realtime_vitals_simulator"
 

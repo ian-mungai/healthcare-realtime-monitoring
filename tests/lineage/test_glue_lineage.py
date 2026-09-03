@@ -6,7 +6,7 @@ def test_lineage_namespace() -> None:
 
 
 def test_raw_dataset() -> None:
-    assert RAW_DATASET.namespace == "s3://imungai-healthcare-realtime"
+    assert RAW_DATASET.namespace == "s3://<project-data-bucket>"
     assert RAW_DATASET.name == "raw/fhir_observations"
 
 

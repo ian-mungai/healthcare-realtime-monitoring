@@ -9,10 +9,9 @@ from openlineage.client.event_v2 import RunState
 
 from lineage.openlineage.athena_lineage import emit_s3_athena_lineage
 
-AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "us-east-1"
+AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
 ATHENA_DATABASE = os.getenv("GLUE_DATABASE", "healthcare_realtime")
 ATHENA_TABLE = os.getenv("GLUE_TABLE", "processed_fhir_observations")
-ATHENA_OUTPUT = os.getenv("ATHENA_OUTPUT", "s3://imungai-healthcare-realtime/athena_results/")
 ATHENA_WORKGROUP = os.getenv("ATHENA_WORKGROUP", "primary")
 ATHENA_POLL_INTERVAL_SECONDS = int(os.getenv("ATHENA_POLL_INTERVAL_SECONDS", "5"))
 ATHENA_TERMINAL_STATES = {"SUCCEEDED", "FAILED", "CANCELLED"}
@@ -54,7 +53,9 @@ def get_invalid_row_count(athena_client, query_execution_id: str) -> int:
     return int(rows[1]["Data"][0]["VarCharValue"])
 
 
-def run_athena_validation() -> str:
+def run_athena_validation(data_bucket_name: str = "<project-data-bucket>") -> str:
+    athena_output = os.getenv("ATHENA_OUTPUT", f"s3://{data_bucket_name}/athena_results/")
+    os.environ["DATA_BUCKET_NAME"] = data_bucket_name
     lineage_run_id = str(uuid4())
     emit_athena_lineage_event(RunState.START, lineage_run_id)
 
@@ -63,7 +64,7 @@ def run_athena_validation() -> str:
         response = athena_client.start_query_execution(
             QueryString=ATHENA_VALIDATION_QUERY,
             QueryExecutionContext={"Database": ATHENA_DATABASE},
-            ResultConfiguration={"OutputLocation": ATHENA_OUTPUT},
+            ResultConfiguration={"OutputLocation": athena_output},
             WorkGroup=ATHENA_WORKGROUP,
         )
         query_execution_id = response["QueryExecutionId"]

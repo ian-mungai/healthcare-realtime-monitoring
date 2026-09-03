@@ -52,7 +52,7 @@ Glue classifies every analytical measurement candidate before writing it. Record
 - missing values or effective timestamps; or
 - physiological range violations.
 
-Rejected records are appended to `s3://imungai-healthcare-realtime/quarantine/fhir_observations/` with `rejection_reason` and `quarantined_at`. Per-run counts are appended under `metrics/glue/`.
+Rejected records are appended to `s3://<project-data-bucket>/quarantine/fhir_observations/` with `rejection_reason` and `quarantined_at`. Per-run counts are appended under `metrics/glue/`.
 
 Great Expectations validates the processed Iceberg table for required fields, allowed LOINC codes, and uniqueness of `observation_id` plus `loinc_code`. dbt applies model-level not-null, uniqueness, and accepted-value tests. Soda contracts independently verify that the staging, fact, and dimension tables are nonempty and satisfy their column constraints.
 
@@ -76,7 +76,7 @@ Automatic replay is limited to one attempt. After five failed SQS receives, the 
 
 ## Lineage
 
-OpenLineage events are stored under `s3://imungai-healthcare-realtime/lineage/openlineage/`. Each job emits `START` and either `COMPLETE` or `FAIL` with a shared run ID.
+OpenLineage events are stored under `s3://<project-data-bucket>/lineage/openlineage/`. Each job emits `START` and either `COMPLETE` or `FAIL` with a shared run ID.
 
 The verified lineage chain is:
 
@@ -121,4 +121,3 @@ Evidence for a governed release should include:
 - Terraform convergence and CI success.
 
 Evidence must use synthetic identifiers and redact secrets, credentials, signed headers, email addresses, and other account-specific sensitive values.
-

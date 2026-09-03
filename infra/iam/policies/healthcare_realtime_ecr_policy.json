@@ -43,9 +43,9 @@
         "ecr:PutImage"
       ],
       "Resource": [
-        "arn:aws:ecr:us-east-1:${AWS_ACCOUNT_ID}:repository/healthcare-realtime-dbt",
-        "arn:aws:ecr:us-east-1:${AWS_ACCOUNT_ID}:repository/healthcare-realtime-soda",
-        "arn:aws:ecr:us-east-1:${AWS_ACCOUNT_ID}:repository/healthcare-realtime-vitals-simulator"
+        "arn:aws:ecr:${AWS_REGION}:${AWS_ACCOUNT_ID}:repository/healthcare-realtime-dbt",
+        "arn:aws:ecr:${AWS_REGION}:${AWS_ACCOUNT_ID}:repository/healthcare-realtime-soda",
+        "arn:aws:ecr:${AWS_REGION}:${AWS_ACCOUNT_ID}:repository/healthcare-realtime-vitals-simulator"
       ]
     }
   ]

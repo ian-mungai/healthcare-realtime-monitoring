@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import statistics
 import time
 from datetime import UTC, datetime
@@ -7,7 +8,7 @@ from typing import Any
 
 import boto3
 
-AWS_REGION = "us-east-1"
+AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
 STREAM_NAME = "healthcare_realtime_vitals"
 PATIENT_PREFIX = "load_test_patient_"
 

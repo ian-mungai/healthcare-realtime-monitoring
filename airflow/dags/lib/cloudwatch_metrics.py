@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import boto3
 
-AWS_REGION = "us-east-1"
+AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
 METRIC_NAMESPACE = "HealthcareRealtime/Pipeline"
 
 
