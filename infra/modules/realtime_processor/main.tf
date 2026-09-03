@@ -92,6 +92,19 @@ data "aws_iam_policy_document" "lambda" {
   }
 
   statement {
+    sid    = "PostToWebSocketConnections"
+    effect = "Allow"
+
+    actions = [
+      "execute-api:ManageConnections"
+    ]
+
+    resources = [
+      "arn:aws:execute-api:${var.aws_region}:${data.aws_caller_identity.current.account_id}:${var.websocket_api_id}/${var.websocket_stage_name}/POST/@connections/*"
+    ]
+  }
+
+  statement {
     sid    = "WriteLatestVitals"
     effect = "Allow"
 

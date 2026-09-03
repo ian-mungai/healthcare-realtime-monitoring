@@ -63,14 +63,25 @@ def write_latest_vitals(payload: dict[str, Any]) -> bool:
     incoming_epoch_ms = event_timestamp_epoch_ms(event_timestamp)
 
     item = to_dynamodb_item(payload)
-    item["_event_timestamp_epoch_ms"] = incoming_epoch_ms
+    update_values = {key: value for key, value in item.items() if key != "patient_id"}
+    update_values["_event_timestamp_epoch_ms"] = incoming_epoch_ms
+
+    expression_names = {f"#field_{index}": key for index, key in enumerate(update_values)}
+    expression_values = {f":value_{index}": value for index, value in enumerate(update_values.values())}
+    update_expression = "SET " + ", ".join(
+        f"#field_{index} = :value_{index}" for index in range(len(update_values))
+    )
+
+    expression_names["#event_epoch"] = "_event_timestamp_epoch_ms"
+    expression_values[":incoming_event_epoch"] = incoming_epoch_ms
 
     try:
-        latest_vitals_table.put_item(
-            Item=item,
-            ConditionExpression="attribute_not_exists(#event_epoch) OR #event_epoch < :incoming_event_epoch",
-            ExpressionAttributeNames={"#event_epoch": "_event_timestamp_epoch_ms"},
-            ExpressionAttributeValues={":incoming_event_epoch": incoming_epoch_ms},
+        latest_vitals_table.update_item(
+            Key={"patient_id": patient_id},
+            UpdateExpression=update_expression,
+            ConditionExpression="attribute_not_exists(#event_epoch) OR #event_epoch <= :incoming_event_epoch",
+            ExpressionAttributeNames=expression_names,
+            ExpressionAttributeValues=expression_values,
         )
 
     except ClientError as error:

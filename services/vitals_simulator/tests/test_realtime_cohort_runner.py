@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import pytest
 
 from services.vitals_simulator.app.bidmc.source import VitalReading
@@ -6,6 +8,7 @@ from services.vitals_simulator.app.simulation.realtime_cohort_runner import (
     PatientSimulation,
     SimulatorSettings,
     get_available_cycle_count,
+    get_cycle_simulation_start,
     get_replay_reading,
     parse_bool,
     parse_optional_positive_int,
@@ -106,3 +109,12 @@ def test_replay_boundary_is_continuous():
     assert last_epoch.offset_seconds == 480
     assert next_epoch.offset_seconds == 481
     assert next_epoch.offset_seconds == last_epoch.offset_seconds + 1
+
+
+def test_cycle_simulation_start_makes_effective_time_equal_publication_time():
+    cycle_timestamp = datetime(2026, 9, 3, 17, 0, 0, tzinfo=UTC)
+    reading = VitalReading(source_record_id="bidmc01n", offset_seconds=262, heart_rate=80.0, respiratory_rate=18.0, spo2=98.0)
+
+    simulation_start = get_cycle_simulation_start(cycle_timestamp, reading)
+
+    assert simulation_start.isoformat() == "2026-09-03T16:55:38+00:00"
