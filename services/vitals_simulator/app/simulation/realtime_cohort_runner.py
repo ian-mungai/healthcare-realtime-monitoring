@@ -3,7 +3,7 @@ import signal
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from threading import Event
 
 from services.vitals_simulator.app.bidmc.source import VitalReading, fetch_remote_bidmc_record
@@ -12,7 +12,7 @@ from services.vitals_simulator.app.fhir.mapping import FHIRPatientContext, get_p
 from services.vitals_simulator.app.fhir.observation import utc_now
 from services.vitals_simulator.app.fhir.publisher import PublishedSimulatorEvent, publish_simulator_event
 from services.vitals_simulator.app.simulation.cycle import build_simulator_event
-from services.vitals_simulator.app.synthea.blood_pressure import load_synthea_blood_pressure_readings
+from services.vitals_simulator.app.synthea.blood_pressure import load_synthea_blood_pressure_readings, readings_for_patient
 from services.vitals_simulator.app.synthea.blood_pressure_cadence import BloodPressureCadence
 
 COHORT_SIZE = 10
@@ -100,12 +100,13 @@ def load_patient_simulations(bp_interval_seconds: int) -> list[PatientSimulation
         readings = fetch_remote_bidmc_record(bidmc_record_number)
         if not readings:
             raise RuntimeError(f"BIDMC record {bidmc_record_number} contains no readings")
+        patient_bp_readings = readings_for_patient(bp_readings, context.synthea_patient_id)
         simulations.append(
             PatientSimulation(
                 context=context,
                 bidmc_record_number=bidmc_record_number,
                 readings=readings,
-                bp_cadence=BloodPressureCadence(readings=bp_readings, interval_seconds=bp_interval_seconds),
+                bp_cadence=BloodPressureCadence(readings=patient_bp_readings, interval_seconds=bp_interval_seconds),
             )
         )
     return simulations
@@ -122,11 +123,16 @@ def get_replay_reading(reading: VitalReading, replay_index: int, available_cycle
     return replace(reading, offset_seconds=reading.offset_seconds + replay_offset)
 
 
+def get_cycle_simulation_start(cycle_timestamp: datetime, reading: VitalReading) -> datetime:
+    return cycle_timestamp - timedelta(seconds=reading.offset_seconds)
+
+
 def publish_patient_cycle(
-    simulation: PatientSimulation, cycle_index: int, replay_index: int, available_cycles: int, simulation_start: datetime
+    simulation: PatientSimulation, cycle_index: int, replay_index: int, available_cycles: int, cycle_timestamp: datetime
 ) -> PublishedSimulatorEvent:
     source_reading = simulation.readings[cycle_index]
     reading = get_replay_reading(source_reading, replay_index, available_cycles)
+    simulation_start = get_cycle_simulation_start(cycle_timestamp, reading)
     event = build_simulator_event(
         reading=reading,
         patient_id=simulation.context.hapi_patient_id,
@@ -138,10 +144,10 @@ def publish_patient_cycle(
 
 
 def run_cycle(
-    executor: ThreadPoolExecutor, simulations: list[PatientSimulation], cycle_index: int, replay_index: int, available_cycles: int, simulation_start: datetime
+    executor: ThreadPoolExecutor, simulations: list[PatientSimulation], cycle_index: int, replay_index: int, available_cycles: int, cycle_timestamp: datetime
 ) -> tuple[int, int]:
     futures = {
-        executor.submit(publish_patient_cycle, simulation, cycle_index, replay_index, available_cycles, simulation_start): simulation
+        executor.submit(publish_patient_cycle, simulation, cycle_index, replay_index, available_cycles, cycle_timestamp): simulation
         for simulation in simulations
     }
     published_count = 0
@@ -164,7 +170,6 @@ def run_realtime_cohort(settings: SimulatorSettings | None = None) -> int:
     shutdown_event.clear()
     simulations = load_patient_simulations(settings.bp_interval_seconds)
     available_cycles = get_available_cycle_count(simulations)
-    simulation_start = utc_now()
     total_published_events = 0
     completed_cycles = 0
     print("Healthcare Realtime Persistent Cohort")
@@ -186,13 +191,14 @@ def run_realtime_cohort(settings: SimulatorSettings | None = None) -> int:
                     break
                 print(f"Starting replay epoch {replay_index + 1}.")
             cycle_started = time.monotonic()
+            cycle_timestamp = utc_now()
             published_count, observation_count = run_cycle(
                 executor=executor,
                 simulations=simulations,
                 cycle_index=source_cycle_index,
                 replay_index=replay_index,
                 available_cycles=available_cycles,
-                simulation_start=simulation_start,
+                cycle_timestamp=cycle_timestamp,
             )
             if published_count != len(simulations):
                 raise RuntimeError(f"Cycle {completed_cycles + 1} published {published_count} patient events instead of {len(simulations)}")
