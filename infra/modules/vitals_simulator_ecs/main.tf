@@ -132,6 +132,20 @@ data "aws_iam_policy_document" "task" {
       "arn:aws:s3:::${var.data_bucket_name}/${var.resource_map_s3_key}"
     ]
   }
+
+  statement {
+    sid    = "ReadWriteBIDMCCache"
+    effect = "Allow"
+
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject"
+    ]
+
+    resources = [
+      "arn:aws:s3:::${var.data_bucket_name}/cache/vitals_simulator/bidmc/*"
+    ]
+  }
 }
 
 resource "aws_iam_role_policy" "task" {
@@ -191,8 +205,24 @@ resource "aws_ecs_task_definition" "vitals_simulator" {
           value = var.resource_map_s3_key
         },
         {
+          name  = "BIDMC_CACHE_S3_BUCKET"
+          value = var.data_bucket_name
+        },
+        {
+          name  = "BIDMC_CACHE_S3_PREFIX"
+          value = "cache/vitals_simulator/bidmc"
+        },
+        {
+          name  = "BIDMC_FETCH_MAX_ATTEMPTS"
+          value = "5"
+        },
+        {
+          name  = "BIDMC_FETCH_BACKOFF_SECONDS"
+          value = "2"
+        },
+        {
           name  = "SIMULATOR_INTERVAL_SECONDS"
-          value = "1"
+          value = "5"
         },
         {
           name  = "SIMULATOR_BP_INTERVAL_SECONDS"
