@@ -13,6 +13,8 @@ jobs:
   python:
     name: Python Checks
     runs-on: ubuntu-latest
+    env:
+      AWS_REGION: example-region-1
 
     steps:
       - name: Checkout
@@ -56,8 +58,6 @@ jobs:
           python -m pytest services/vitals_simulator/tests -v
 
       - name: Vitals stream processor tests
-        env:
-          AWS_REGION: example-region-1
         run: |
           python -m pytest services/vitals_stream_processor/tests -v
 
