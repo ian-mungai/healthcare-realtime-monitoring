@@ -135,7 +135,7 @@ resource "aws_cloudwatch_dashboard" "realtime" {
 
 resource "aws_cloudwatch_metric_alarm" "processing_latency" {
   alarm_name        = "healthcare-realtime-processing-latency-${var.environment}"
-  alarm_description = "Realtime vital processing latency has exceeded five seconds."
+  alarm_description = "Realtime vital processing latency has exceeded the 15-second, three-publication-interval threshold."
 
   comparison_operator = "GreaterThanOrEqualToThreshold"
   evaluation_periods  = 2
@@ -146,7 +146,7 @@ resource "aws_cloudwatch_metric_alarm" "processing_latency" {
 
   statistic = "Average"
   period    = 60
-  threshold = 5000
+  threshold = 15000
 
   treat_missing_data = "notBreaching"
 

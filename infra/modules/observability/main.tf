@@ -498,7 +498,7 @@ resource "aws_cloudwatch_metric_alarm" "firehose_delivery_failure" {
 
 resource "aws_cloudwatch_metric_alarm" "live_processing_latency" {
   alarm_name        = "healthcare-realtime-live-processing-latency"
-  alarm_description = "Near-real-time vital processing latency exceeded the five-second threshold."
+  alarm_description = "Near-real-time vital processing latency exceeded the 15-second, three-publication-interval threshold."
 
   namespace   = "HealthcareRealtime/Live"
   metric_name = "ProcessingLatencyMilliseconds"
@@ -507,7 +507,7 @@ resource "aws_cloudwatch_metric_alarm" "live_processing_latency" {
   period              = 60
   evaluation_periods  = 2
   datapoints_to_alarm = 2
-  threshold           = 5000
+  threshold           = 15000
 
   comparison_operator = "GreaterThanOrEqualToThreshold"
 

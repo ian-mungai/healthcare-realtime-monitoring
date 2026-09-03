@@ -1,9 +1,3 @@
-variable "fhir_webhook_secret" {
-  description = "Shared secret used to authenticate HAPI FHIR webhook requests."
-  type        = string
-  sensitive   = true
-}
-
 module "fhir_webhook" {
   source = "./modules/fhir_webhook"
 
@@ -15,8 +9,8 @@ module "fhir_webhook" {
   kinesis_stream_name = module.kinesis.stream_name
   kinesis_stream_arn  = module.kinesis.stream_arn
 
-  lambda_zip_path = "${path.root}/../build/lambda/fhir_webhook.zip"
-  webhook_secret  = var.fhir_webhook_secret
+  lambda_zip_path   = "${path.root}/../build/lambda/fhir_webhook.zip"
+  webhook_secret_id = "healthcare-realtime/fhir-webhook"
 
   tags = {
     Project     = "healthcare_realtime_monitoring"
