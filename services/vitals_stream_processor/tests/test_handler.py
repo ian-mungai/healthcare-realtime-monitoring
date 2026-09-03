@@ -15,6 +15,7 @@ from services.vitals_stream_processor.handler import (
     lambda_handler,
     push_vitals,
     to_dynamodb_item,
+    write_latest_vitals,
 )
 
 
@@ -46,6 +47,35 @@ def test_to_dynamodb_item_converts_floats() -> None:
 
     assert item["patient_id"] == "137506799"
     assert item["heart_rate"] == Decimal("94.5")
+
+
+@patch("services.vitals_stream_processor.handler.latest_vitals_table")
+def test_write_latest_vitals_merges_partial_updates_with_equal_timestamps(latest_vitals_table) -> None:
+    payload = {
+        "patient_id": "1000",
+        "event_timestamp": "2026-08-31T22:42:19Z",
+        "spo2": 97.0,
+    }
+
+    assert write_latest_vitals(payload) is True
+
+    arguments = latest_vitals_table.update_item.call_args.kwargs
+    assert arguments["Key"] == {"patient_id": "1000"}
+    assert arguments["ConditionExpression"] == "attribute_not_exists(#event_epoch) OR #event_epoch <= :incoming_event_epoch"
+    assert "patient_id" not in arguments["ExpressionAttributeNames"].values()
+    assert "spo2" in arguments["ExpressionAttributeNames"].values()
+    assert Decimal("97.0") in arguments["ExpressionAttributeValues"].values()
+
+
+@patch("services.vitals_stream_processor.handler.latest_vitals_table")
+def test_write_latest_vitals_ignores_stale_updates(latest_vitals_table) -> None:
+    error_response = {
+        "Error": {"Code": "ConditionalCheckFailedException", "Message": "stale"},
+        "ResponseMetadata": {"HTTPStatusCode": 400},
+    }
+    latest_vitals_table.update_item.side_effect = ClientError(cast(Any, error_response), "UpdateItem")
+
+    assert write_latest_vitals({"patient_id": "1000", "event_timestamp": "2026-08-31T22:42:19Z", "heart_rate": 82.0}) is False
 
 
 @patch("services.vitals_stream_processor.handler.emit_metrics")

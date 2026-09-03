@@ -1,6 +1,11 @@
 import pytest
 
-from services.vitals_simulator.app.synthea.blood_pressure import BloodPressureReading, extract_blood_pressure_readings, get_component_value
+from services.vitals_simulator.app.synthea.blood_pressure import (
+    BloodPressureReading,
+    extract_blood_pressure_readings,
+    get_component_value,
+    readings_for_patient,
+)
 from services.vitals_simulator.app.synthea.blood_pressure_cadence import BloodPressureCadence
 
 
@@ -59,3 +64,20 @@ def test_bp_cadence_returns_none_between_measurements():
 def test_bp_cadence_rejects_empty_readings():
     with pytest.raises(ValueError, match="At least one blood pressure reading is required"):
         BloodPressureCadence(readings=[])
+
+
+def test_readings_for_patient_returns_only_matching_patient():
+    readings = [
+        BloodPressureReading("patient_1", "bp_1", 124.0, 78.0),
+        BloodPressureReading("patient_2", "bp_2", 118.0, 72.0),
+        BloodPressureReading("patient_1", "bp_3", 126.0, 80.0),
+    ]
+
+    assert readings_for_patient(readings, "patient_1") == [readings[0], readings[2]]
+
+
+def test_readings_for_patient_rejects_unmapped_patient():
+    readings = [BloodPressureReading("patient_1", "bp_1", 124.0, 78.0)]
+
+    with pytest.raises(RuntimeError, match="No blood pressure readings found for Synthea patient patient_2"):
+        readings_for_patient(readings, "patient_2")

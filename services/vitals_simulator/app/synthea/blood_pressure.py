@@ -76,3 +76,10 @@ def load_synthea_blood_pressure_readings() -> list[BloodPressureReading]:
     if not readings:
         raise RuntimeError("No Synthea blood pressure observations found")
     return readings
+
+
+def readings_for_patient(readings: list[BloodPressureReading], source_patient_id: str) -> list[BloodPressureReading]:
+    patient_readings = [reading for reading in readings if reading.source_patient_id == source_patient_id]
+    if not patient_readings:
+        raise RuntimeError(f"No blood pressure readings found for Synthea patient {source_patient_id}")
+    return patient_readings
