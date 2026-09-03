@@ -28,7 +28,7 @@
         "airflow-serverless:TagResource",
         "airflow-serverless:UntagResource"
       ],
-      "Resource": "arn:aws:airflow-serverless:us-east-1:${AWS_ACCOUNT_ID}:workflow/*"
+      "Resource": "arn:aws:airflow-serverless:${AWS_REGION}:${AWS_ACCOUNT_ID}:workflow/*"
     },
     {
       "Sid": "MigrateHealthcareRealtimeTraditionalMWAA",
@@ -37,7 +37,7 @@
         "airflow:GetEnvironment",
         "airflow:DeleteEnvironment"
       ],
-      "Resource": "arn:aws:airflow:us-east-1:${AWS_ACCOUNT_ID}:environment/healthcare_realtime_mwaa"
+      "Resource": "arn:aws:airflow:${AWS_REGION}:${AWS_ACCOUNT_ID}:environment/healthcare_realtime_mwaa"
     }
   ]
 }

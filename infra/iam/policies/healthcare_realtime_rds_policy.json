@@ -19,9 +19,9 @@
         "rds:CreateDBInstance"
       ],
       "Resource": [
-        "arn:aws:rds:us-east-1:${AWS_ACCOUNT_ID}:db:healthcare-realtime-hapi",
-        "arn:aws:rds:us-east-1:${AWS_ACCOUNT_ID}:subgrp:healthcare-realtime-hapi",
-        "arn:aws:rds:us-east-1:${AWS_ACCOUNT_ID}:pg:default.postgres16"
+        "arn:aws:rds:${AWS_REGION}:${AWS_ACCOUNT_ID}:db:healthcare-realtime-hapi",
+        "arn:aws:rds:${AWS_REGION}:${AWS_ACCOUNT_ID}:subgrp:healthcare-realtime-hapi",
+        "arn:aws:rds:${AWS_REGION}:${AWS_ACCOUNT_ID}:pg:default.postgres16"
       ]
     },
     {
@@ -34,7 +34,7 @@
         "rds:RemoveTagsFromResource",
         "rds:ListTagsForResource"
       ],
-      "Resource": "arn:aws:rds:us-east-1:${AWS_ACCOUNT_ID}:db:healthcare-realtime-hapi"
+      "Resource": "arn:aws:rds:${AWS_REGION}:${AWS_ACCOUNT_ID}:db:healthcare-realtime-hapi"
     },
     {
       "Sid": "ManageHealthcareRealtimeHapiDbSubnetGroup",
@@ -47,7 +47,7 @@
         "rds:RemoveTagsFromResource",
         "rds:ListTagsForResource"
       ],
-      "Resource": "arn:aws:rds:us-east-1:${AWS_ACCOUNT_ID}:subgrp:healthcare-realtime-hapi"
+      "Resource": "arn:aws:rds:${AWS_REGION}:${AWS_ACCOUNT_ID}:subgrp:healthcare-realtime-hapi"
     }
   ]
 }

@@ -2,6 +2,6 @@ name: healthcare_realtime_athena
 type: athena
 
 connection:
-  region_name: us-east-1
-  staging_dir: s3://imungai-healthcare-realtime/athena_results/soda/
+  region_name: ${AWS_REGION}
+  staging_dir: s3://${DATA_BUCKET_NAME}/athena_results/soda/
   catalog: awsdatacatalog

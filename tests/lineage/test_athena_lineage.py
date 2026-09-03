@@ -22,7 +22,7 @@ def test_validation_dataset() -> None:
 
 
 def test_athena_lineage_s3_path() -> None:
-    assert S3_LINEAGE_EVENT_PATH == "s3://imungai-healthcare-realtime/lineage/openlineage/athena/event"
+    assert S3_LINEAGE_EVENT_PATH == "s3://<project-data-bucket>/lineage/openlineage/athena/event"
 
 
 @patch("lineage.openlineage.client.boto3.client")
@@ -40,7 +40,7 @@ def test_s3_transport_writes_openlineage_event(mock_boto_client: MagicMock) -> N
 
     call = s3_client.put_object.call_args.kwargs
 
-    assert call["Bucket"] == "imungai-healthcare-realtime"
+    assert call["Bucket"] == "<project-data-bucket>"
     assert call["Key"].startswith("lineage/openlineage/athena/event-")
     assert call["Key"].endswith(".json")
     assert call["ContentType"] == "application/json"

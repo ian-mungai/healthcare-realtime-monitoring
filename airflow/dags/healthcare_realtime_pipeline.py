@@ -11,7 +11,7 @@ from lib.cloudwatch_metrics import task_failure_callback, task_success_callback
 
 from airflow import DAG
 
-RAW_BUCKET = os.getenv("RAW_BUCKET", "imungai-healthcare-realtime")
+RAW_BUCKET = os.environ["RAW_BUCKET"]
 RAW_PREFIX = os.getenv("RAW_PREFIX", "raw/fhir_observations/")
 GLUE_JOB_NAME = os.getenv("GLUE_JOB_NAME", "healthcare_realtime_raw_to_processed")
 DATA_JOBS_ECS_CLUSTER = os.getenv("DATA_JOBS_ECS_CLUSTER", "healthcare-realtime-data-jobs")
@@ -50,7 +50,9 @@ with DAG(
         task_id="wait_for_glue_job", job_name=GLUE_JOB_NAME, run_id="{{ ti.xcom_pull(task_ids='run_glue_job') }}", poke_interval=15, timeout=1800
     )
 
-    validate_processed_data = PythonOperator(task_id="validate_processed_data", python_callable=run_athena_validation)
+    validate_processed_data = PythonOperator(
+        task_id="validate_processed_data", python_callable=run_athena_validation, op_kwargs={"data_bucket_name": RAW_BUCKET}
+    )
 
     run_dbt_build = EcsRunTaskOperator(
         task_id="run_dbt_build",

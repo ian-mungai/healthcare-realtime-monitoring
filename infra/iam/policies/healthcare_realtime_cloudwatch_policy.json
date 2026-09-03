@@ -14,7 +14,7 @@
         "cloudwatch:UntagResource",
         "cloudwatch:ListTagsForResource"
       ],
-      "Resource": "arn:aws:cloudwatch:us-east-1:${AWS_ACCOUNT_ID}:alarm:healthcare-realtime-*"
+      "Resource": "arn:aws:cloudwatch:${AWS_REGION}:${AWS_ACCOUNT_ID}:alarm:healthcare-realtime-*"
     },
     {
       "Sid": "ReadHealthcareRealtimeCloudWatchMetrics",

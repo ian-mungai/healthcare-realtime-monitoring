@@ -56,7 +56,7 @@
         "kms:UpdateAlias",
         "kms:DeleteAlias"
       ],
-      "Resource": "arn:aws:kms:us-east-1:${AWS_ACCOUNT_ID}:key/*",
+      "Resource": "arn:aws:kms:${AWS_REGION}:${AWS_ACCOUNT_ID}:key/*",
       "Condition": {
         "StringEquals": {
           "aws:ResourceTag/Project": "healthcare_realtime_monitoring"
@@ -72,8 +72,8 @@
         "kms:DeleteAlias"
       ],
       "Resource": [
-        "arn:aws:kms:us-east-1:${AWS_ACCOUNT_ID}:alias/healthcare-realtime-*",
-        "arn:aws:kms:us-east-1:${AWS_ACCOUNT_ID}:alias/healthcare_realtime_*"
+        "arn:aws:kms:${AWS_REGION}:${AWS_ACCOUNT_ID}:alias/healthcare-realtime-*",
+        "arn:aws:kms:${AWS_REGION}:${AWS_ACCOUNT_ID}:alias/healthcare_realtime_*"
       ]
     }
   ]
