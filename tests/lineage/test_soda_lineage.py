@@ -30,4 +30,4 @@ def test_soda_has_no_output_dataset_contract() -> None:
 
 
 def test_soda_lineage_s3_path() -> None:
-    assert S3_LINEAGE_EVENT_PATH == "s3://imungai-healthcare-realtime/lineage/openlineage/soda/event"
+    assert S3_LINEAGE_EVENT_PATH == "s3://<project-data-bucket>/lineage/openlineage/soda/event"

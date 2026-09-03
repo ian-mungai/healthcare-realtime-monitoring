@@ -32,8 +32,8 @@
         "sqs:ListMessageMoveTasks"
       ],
       "Resource": [
-        "arn:aws:sqs:us-east-1:${AWS_ACCOUNT_ID}:healthcare-realtime-*",
-        "arn:aws:sqs:us-east-1:${AWS_ACCOUNT_ID}:healthcare_realtime_*"
+        "arn:aws:sqs:${AWS_REGION}:${AWS_ACCOUNT_ID}:healthcare-realtime-*",
+        "arn:aws:sqs:${AWS_REGION}:${AWS_ACCOUNT_ID}:healthcare_realtime_*"
       ]
     }
   ]

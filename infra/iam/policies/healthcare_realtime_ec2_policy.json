@@ -79,10 +79,10 @@
         "ec2:CreateVpcEndpoint"
       ],
       "Resource": [
-        "arn:aws:ec2:us-east-1:${AWS_ACCOUNT_ID}:vpc-endpoint/*",
-        "arn:aws:ec2:us-east-1:${AWS_ACCOUNT_ID}:vpc/*",
-        "arn:aws:ec2:us-east-1:${AWS_ACCOUNT_ID}:subnet/*",
-        "arn:aws:ec2:us-east-1:${AWS_ACCOUNT_ID}:security-group/*"
+        "arn:aws:ec2:${AWS_REGION}:${AWS_ACCOUNT_ID}:vpc-endpoint/*",
+        "arn:aws:ec2:${AWS_REGION}:${AWS_ACCOUNT_ID}:vpc/*",
+        "arn:aws:ec2:${AWS_REGION}:${AWS_ACCOUNT_ID}:subnet/*",
+        "arn:aws:ec2:${AWS_REGION}:${AWS_ACCOUNT_ID}:security-group/*"
       ],
       "Condition": {
         "ForAnyValue:StringEquals": {
@@ -99,7 +99,7 @@
         "ec2:DeleteVpcEndpoints",
         "ec2:ModifyVpcEndpoint"
       ],
-      "Resource": "arn:aws:ec2:us-east-1:${AWS_ACCOUNT_ID}:vpc-endpoint/*"
+      "Resource": "arn:aws:ec2:${AWS_REGION}:${AWS_ACCOUNT_ID}:vpc-endpoint/*"
     }
   ]
 }

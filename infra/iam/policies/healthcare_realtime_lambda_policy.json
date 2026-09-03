@@ -29,8 +29,8 @@
         "lambda:GetPolicy"
       ],
       "Resource": [
-        "arn:aws:lambda:us-east-1:${AWS_ACCOUNT_ID}:function:healthcare_realtime_*",
-        "arn:aws:lambda:us-east-1:${AWS_ACCOUNT_ID}:function:healthcare-realtime-*"
+        "arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:function:healthcare_realtime_*",
+        "arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:function:healthcare-realtime-*"
       ]
     },
     {
@@ -62,7 +62,7 @@
         "lambda:TagResource",
         "lambda:UntagResource"
       ],
-      "Resource": "arn:aws:lambda:us-east-1:${AWS_ACCOUNT_ID}:event-source-mapping:*"
+      "Resource": "arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:event-source-mapping:*"
     }
   ]
 }

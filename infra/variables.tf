@@ -1,7 +1,16 @@
 variable "aws_region" {
   description = "AWS region"
   type        = string
-  default     = "us-east-1"
+}
+
+variable "data_bucket_name" {
+  description = "Globally unique S3 bucket name for healthcare data."
+  type        = string
+}
+
+variable "mwaa_source_bucket_name" {
+  description = "Globally unique S3 bucket name for MWAA Serverless source artifacts."
+  type        = string
 }
 
 variable "realtime_alert_email" {

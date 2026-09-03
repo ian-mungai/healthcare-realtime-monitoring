@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-os.environ["KINESIS_STREAM_ARN"] = "arn:aws:kinesis:us-east-1:123456789012:stream/healthcare_realtime_vitals"
+os.environ["KINESIS_STREAM_ARN"] = "arn:aws:kinesis:example-region-1:123456789012:stream/healthcare_realtime_vitals"
 
 from services.vitals_replay import handler
 
@@ -39,7 +39,7 @@ def test_parse_failure_message_requires_batch_info() -> None:
 
 
 def test_parse_failure_message_rejects_unexpected_stream() -> None:
-    record = build_sqs_record(stream_arn="arn:aws:kinesis:us-east-1:828591411593:stream/unexpected")
+    record = build_sqs_record(stream_arn="arn:aws:kinesis:example-region-1:123456789012:stream/unexpected")
 
     with pytest.raises(ValueError, match="Unexpected Kinesis stream ARN"):
         handler.parse_failure_message(record)

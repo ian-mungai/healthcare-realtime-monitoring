@@ -6,8 +6,8 @@ healthcare_realtime:
       type: athena
       database: awsdatacatalog
       schema: healthcare_realtime_dbt
-      region_name: us-east-1
-      s3_staging_dir: s3://imungai-healthcare-realtime/athena_results/dbt/
-      s3_data_dir: s3://imungai-healthcare-realtime/dbt/
+      region_name: "{{ env_var('AWS_REGION') }}"
+      s3_staging_dir: "s3://{{ env_var('DATA_BUCKET_NAME') }}/athena_results/dbt/"
+      s3_data_dir: "s3://{{ env_var('DATA_BUCKET_NAME') }}/dbt/"
       s3_data_naming: schema_table_unique
       threads: 4

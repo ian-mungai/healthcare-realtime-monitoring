@@ -26,4 +26,4 @@ def test_dbt_output_datasets() -> None:
 
 
 def test_dbt_lineage_s3_path() -> None:
-    assert S3_LINEAGE_EVENT_PATH == "s3://imungai-healthcare-realtime/lineage/openlineage/dbt/event"
+    assert S3_LINEAGE_EVENT_PATH == "s3://<project-data-bucket>/lineage/openlineage/dbt/event"

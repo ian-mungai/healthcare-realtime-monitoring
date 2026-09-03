@@ -19,7 +19,7 @@
         "sns:SetSubscriptionAttributes",
         "sns:Publish"
       ],
-      "Resource": "arn:aws:sns:us-east-1:${AWS_ACCOUNT_ID}:healthcare-realtime-*"
+      "Resource": "arn:aws:sns:${AWS_REGION}:${AWS_ACCOUNT_ID}:healthcare-realtime-*"
     },
     {
       "Sid": "ListSnsResources",

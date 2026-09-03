@@ -23,10 +23,10 @@
         "logs:ListTagsForResource"
       ],
       "Resource": [
-        "arn:aws:logs:us-east-1:${AWS_ACCOUNT_ID}:log-group:*healthcare*realtime*",
-        "arn:aws:logs:us-east-1:${AWS_ACCOUNT_ID}:log-group:*healthcare*realtime*:*",
-        "arn:aws:logs:us-east-1:${AWS_ACCOUNT_ID}:log-group:/aws-glue/*",
-        "arn:aws:logs:us-east-1:${AWS_ACCOUNT_ID}:log-group:/aws-glue/*:*"
+        "arn:aws:logs:${AWS_REGION}:${AWS_ACCOUNT_ID}:log-group:*healthcare*realtime*",
+        "arn:aws:logs:${AWS_REGION}:${AWS_ACCOUNT_ID}:log-group:*healthcare*realtime*:*",
+        "arn:aws:logs:${AWS_REGION}:${AWS_ACCOUNT_ID}:log-group:/aws-glue/*",
+        "arn:aws:logs:${AWS_REGION}:${AWS_ACCOUNT_ID}:log-group:/aws-glue/*:*"
       ]
     },
     {
@@ -43,8 +43,8 @@
         "logs:UntagResource"
       ],
       "Resource": [
-        "arn:aws:logs:us-east-1:${AWS_ACCOUNT_ID}:log-group:*healthcare*realtime*",
-        "arn:aws:logs:us-east-1:${AWS_ACCOUNT_ID}:log-group:*healthcare*realtime*:*"
+        "arn:aws:logs:${AWS_REGION}:${AWS_ACCOUNT_ID}:log-group:*healthcare*realtime*",
+        "arn:aws:logs:${AWS_REGION}:${AWS_ACCOUNT_ID}:log-group:*healthcare*realtime*:*"
       ]
     }
   ]

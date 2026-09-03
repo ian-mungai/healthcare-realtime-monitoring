@@ -308,6 +308,17 @@ resource "aws_ecs_task_definition" "dbt" {
         "/app"
       ]
 
+      environment = [
+        {
+          name  = "AWS_REGION"
+          value = data.aws_region.current.region
+        },
+        {
+          name  = "DATA_BUCKET_NAME"
+          value = var.data_bucket_name
+        }
+      ]
+
       logConfiguration = {
         logDriver = "awslogs"
 
