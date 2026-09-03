@@ -2,14 +2,21 @@ import json
 import os
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from services.fhir_webhook.app.kinesis.client import KinesisPublisherError, KinesisPublishResult
 from services.fhir_webhook.app.lambda_handler import lambda_handler
 
 TEST_SECRET = "test_webhook_secret"
 
-os.environ["FHIR_WEBHOOK_SECRET"] = TEST_SECRET
 os.environ["KINESIS_STREAM_NAME"] = "healthcare_realtime_vitals"
 os.environ["AWS_REGION"] = "us-east-1"
+
+
+@pytest.fixture(autouse=True)
+def webhook_secret():
+    with patch("services.fhir_webhook.app.security.get_webhook_secret", return_value=TEST_SECRET):
+        yield
 
 
 def test_health():

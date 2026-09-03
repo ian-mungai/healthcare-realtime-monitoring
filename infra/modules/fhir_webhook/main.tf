@@ -55,6 +55,19 @@ data "aws_iam_policy_document" "fhir_webhook" {
       "arn:${data.aws_partition.current.partition}:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"
     ]
   }
+
+  statement {
+    sid    = "ReadFHIRWebhookSecret"
+    effect = "Allow"
+
+    actions = [
+      "secretsmanager:GetSecretValue"
+    ]
+
+    resources = [
+      "arn:${data.aws_partition.current.partition}:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:${var.webhook_secret_id}-*"
+    ]
+  }
 }
 
 resource "aws_iam_role_policy" "fhir_webhook" {
@@ -78,8 +91,8 @@ resource "aws_lambda_function" "fhir_webhook" {
 
   environment {
     variables = {
-      FHIR_WEBHOOK_SECRET = var.webhook_secret
-      KINESIS_STREAM_NAME = var.kinesis_stream_name
+      FHIR_WEBHOOK_SECRET_ID = var.webhook_secret_id
+      KINESIS_STREAM_NAME    = var.kinesis_stream_name
     }
   }
 
