@@ -436,9 +436,14 @@ resource "aws_cloudwatch_metric_alarm" "kinesis_write_throttling" {
   tags = var.tags
 }
 
-resource "aws_cloudwatch_metric_alarm" "firehose_delivery_failure" {
-  alarm_name          = "healthcare-realtime-firehose-delivery-failure"
-  alarm_description   = "Firehose delivery to S3 has excessive data freshness."
+moved {
+  from = aws_cloudwatch_metric_alarm.firehose_delivery_failure
+  to   = aws_cloudwatch_metric_alarm.firehose_data_freshness
+}
+
+resource "aws_cloudwatch_metric_alarm" "firehose_data_freshness" {
+  alarm_name          = "healthcare-realtime-firehose-data-freshness"
+  alarm_description   = "Firehose data delivered to S3 is more than 15 minutes old."
   namespace           = "AWS/Firehose"
   metric_name         = "DeliveryToS3.DataFreshness"
   statistic           = "Maximum"

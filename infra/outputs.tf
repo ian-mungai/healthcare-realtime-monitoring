@@ -211,6 +211,11 @@ output "realtime_iterator_age_alarm_name" {
   value       = module.realtime_observability.iterator_age_alarm_name
 }
 
+output "realtime_replay_dlq_alarm_name" {
+  description = "Name of the terminal replay DLQ alarm."
+  value       = module.realtime_observability.replay_dlq_alarm_name
+}
+
 output "realtime_alert_topic_arn" {
   description = "ARN of the realtime CloudWatch alarm SNS topic."
   value       = module.realtime_observability.alert_topic_arn
@@ -219,6 +224,11 @@ output "realtime_alert_topic_arn" {
 output "realtime_alert_topic_name" {
   description = "Name of the realtime CloudWatch alarm SNS topic."
   value       = module.realtime_observability.alert_topic_name
+}
+
+output "realtime_alert_kms_key_arn" {
+  description = "ARN of the KMS key encrypting realtime alert notifications."
+  value       = module.realtime_observability.alert_kms_key_arn
 }
 
 output "hapi_fhir_base_url" {
