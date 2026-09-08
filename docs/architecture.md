@@ -82,7 +82,7 @@ Kinesis Data Firehose writes immutable raw events to the data bucket. Glue class
 raw event arrival -> Glue processing -> Athena validation -> dbt build -> Soda contracts
 ```
 
-dbt produces the staging, fact, and dimension models used for analytical reporting. Great Expectations validates the processed table independently; Soda validates the analytical contracts. Every major analytical step emits OpenLineage lifecycle events with a shared run identity where applicable.
+dbt produces the staging, fact, and dimension models used for analytical reporting. The deployed workflow uses Athena validation, dbt tests, and Soda contracts as its automated quality gates. Great Expectations is invoked separately for ad hoc and pre-release validation of the processed table; it is not an MWAA Serverless workflow task. Each executed analytical validation emits OpenLineage lifecycle events with a shared run identity where applicable.
 
 ## Failure and recovery model
 

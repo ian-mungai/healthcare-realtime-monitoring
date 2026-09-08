@@ -49,12 +49,7 @@ def test_compound_uniqueness_key():
 def test_validate_runs_suite_once_and_emits_complete_lineage(monkeypatch):
     validation_result = SimpleNamespace(
         success=True,
-        statistics={
-            "evaluated_expectations": 15,
-            "successful_expectations": 15,
-            "unsuccessful_expectations": 0,
-            "success_percent": 100.0,
-        },
+        statistics={"evaluated_expectations": 15, "successful_expectations": 15, "unsuccessful_expectations": 0, "success_percent": 100.0},
         results=[],
     )
     validate_calls = 0
@@ -71,15 +66,10 @@ def test_validate_runs_suite_once_and_emits_complete_lineage(monkeypatch):
     monkeypatch.setattr(validate_processed_observations, "build_validator", lambda context: validator)
     monkeypatch.setattr(validate_processed_observations, "add_expectations", lambda current_validator: None)
     monkeypatch.setattr(
-        validate_processed_observations,
-        "emit_great_expectations_lineage",
-        lambda state, run_id=None: lineage_calls.append((state, run_id)) or "quality-run-id",
+        validate_processed_observations, "emit_great_expectations_lineage", lambda state, run_id=None: lineage_calls.append((state, run_id)) or "quality-run-id"
     )
 
     validate_processed_observations.validate()
 
     assert validate_calls == 1
-    assert lineage_calls == [
-        (RunState.START, None),
-        (RunState.COMPLETE, "quality-run-id"),
-    ]
+    assert lineage_calls == [(RunState.START, None), (RunState.COMPLETE, "quality-run-id")]

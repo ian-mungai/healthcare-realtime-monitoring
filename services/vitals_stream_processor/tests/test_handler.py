@@ -51,11 +51,7 @@ def test_to_dynamodb_item_converts_floats() -> None:
 
 @patch("services.vitals_stream_processor.handler.latest_vitals_table")
 def test_write_latest_vitals_merges_partial_updates_with_equal_timestamps(latest_vitals_table) -> None:
-    payload = {
-        "patient_id": "1000",
-        "event_timestamp": "2026-08-31T22:42:19Z",
-        "spo2": 97.0,
-    }
+    payload = {"patient_id": "1000", "event_timestamp": "2026-08-31T22:42:19Z", "spo2": 97.0}
 
     assert write_latest_vitals(payload) is True
 
@@ -69,10 +65,7 @@ def test_write_latest_vitals_merges_partial_updates_with_equal_timestamps(latest
 
 @patch("services.vitals_stream_processor.handler.latest_vitals_table")
 def test_write_latest_vitals_ignores_stale_updates(latest_vitals_table) -> None:
-    error_response = {
-        "Error": {"Code": "ConditionalCheckFailedException", "Message": "stale"},
-        "ResponseMetadata": {"HTTPStatusCode": 400},
-    }
+    error_response = {"Error": {"Code": "ConditionalCheckFailedException", "Message": "stale"}, "ResponseMetadata": {"HTTPStatusCode": 400}}
     latest_vitals_table.update_item.side_effect = ClientError(cast(Any, error_response), "UpdateItem")
 
     assert write_latest_vitals({"patient_id": "1000", "event_timestamp": "2026-08-31T22:42:19Z", "heart_rate": 82.0}) is False

@@ -327,9 +327,7 @@ def write_metrics(spark, metrics_path: str, run_started_at: str, candidate_count
 
 
 def main():
-    args = getResolvedOptions(
-        sys.argv, ["JOB_NAME", "RAW_PATH", "QUARANTINE_PATH", "METRICS_PATH", "DATABASE_NAME", "TABLE_NAME", "DATA_BUCKET_NAME"]
-    )
+    args = getResolvedOptions(sys.argv, ["JOB_NAME", "RAW_PATH", "QUARANTINE_PATH", "METRICS_PATH", "DATABASE_NAME", "TABLE_NAME", "DATA_BUCKET_NAME"])
     run_started_at = datetime.now(UTC).isoformat()
     spark_context = SparkContext()
     glue_context = GlueContext(spark_context)
