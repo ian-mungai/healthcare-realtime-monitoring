@@ -113,6 +113,7 @@ module "observability" {
   glue_job_name                 = module.glue.job_name
 
   ecs_cluster_name = "healthcare-realtime-data-jobs"
+  alarm_topic_arn  = module.realtime_observability.alert_topic_arn
 
   tags = {
     Project     = "healthcare_realtime_monitoring"
