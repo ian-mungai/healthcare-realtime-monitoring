@@ -1,4 +1,17 @@
-from dashboard.state import has_new_event, measurement_delta, merge_vitals, news2_parameter_score, parse_patient_ids, patient_priority
+from datetime import UTC, datetime
+
+from dashboard.state import (
+    event_age_seconds,
+    freshness_status,
+    has_new_event,
+    is_stale_event,
+    measurement_delta,
+    merge_vitals,
+    news2_parameter_score,
+    parse_event_timestamp,
+    parse_patient_ids,
+    patient_priority,
+)
 
 
 def test_merge_vitals_preserves_measurements_missing_from_partial_update() -> None:
@@ -19,6 +32,29 @@ def test_has_new_event_compares_event_timestamps() -> None:
     assert has_new_event(current, {"event_timestamp": "2026-09-03T16:00:01Z"}) is True
     assert has_new_event(current, {"event_timestamp": "2026-09-03T16:00:00Z"}) is False
     assert has_new_event(current, {}) is False
+
+
+def test_event_ordering_ignores_out_of_order_updates() -> None:
+    current = {"event_timestamp": "2026-09-03T16:00:02Z"}
+
+    assert is_stale_event(current, {"event_timestamp": "2026-09-03T16:00:01Z"}) is True
+    assert is_stale_event(current, {"event_timestamp": "2026-09-03T16:00:02Z"}) is False
+    assert is_stale_event(current, {"event_timestamp": "2026-09-03T16:00:03Z"}) is False
+
+
+def test_event_age_and_freshness_status_reflect_each_patient_feed() -> None:
+    now = datetime(2026, 9, 3, 16, 1, tzinfo=UTC)
+    vitals = {"event_timestamp": "2026-09-03T16:00:30Z"}
+
+    assert event_age_seconds(vitals, now) == 30
+    assert freshness_status(10, fresh_threshold_seconds=15, delayed_threshold_seconds=60) == "Current"
+    assert freshness_status(30, fresh_threshold_seconds=15, delayed_threshold_seconds=60) == "Delayed"
+    assert freshness_status(61, fresh_threshold_seconds=15, delayed_threshold_seconds=60) == "Stale"
+    assert freshness_status(None, fresh_threshold_seconds=15, delayed_threshold_seconds=60) == "No data"
+
+
+def test_parse_event_timestamp_rejects_invalid_values() -> None:
+    assert parse_event_timestamp("not-a-timestamp") is None
 
 
 def test_parse_patient_ids_ignores_empty_values_and_whitespace() -> None:

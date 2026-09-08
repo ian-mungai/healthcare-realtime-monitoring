@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -7,6 +8,44 @@ def merge_vitals(current: dict[str, Any], update: dict[str, Any]) -> dict[str, A
 
 def has_new_event(current: dict[str, Any], update: dict[str, Any]) -> bool:
     return bool(update.get("event_timestamp") and update.get("event_timestamp") != current.get("event_timestamp"))
+
+
+def parse_event_timestamp(value: Any) -> datetime | None:
+    if not value:
+        return None
+    try:
+        timestamp = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return timestamp if timestamp.tzinfo else timestamp.replace(tzinfo=UTC)
+
+
+def is_stale_event(current: dict[str, Any], update: dict[str, Any]) -> bool:
+    current_timestamp = parse_event_timestamp(current.get("event_timestamp"))
+    update_timestamp = parse_event_timestamp(update.get("event_timestamp"))
+    return bool(current_timestamp and update_timestamp and update_timestamp < current_timestamp)
+
+
+def event_age_seconds(vitals: dict[str, Any], now: datetime | None = None) -> float | None:
+    event_timestamp = parse_event_timestamp(vitals.get("event_timestamp"))
+    if not event_timestamp:
+        return None
+    current_time = now or datetime.now(UTC)
+    return max((current_time - event_timestamp).total_seconds(), 0.0)
+
+
+def freshness_status(
+    age_seconds: float | None,
+    fresh_threshold_seconds: float,
+    delayed_threshold_seconds: float,
+) -> str:
+    if age_seconds is None:
+        return "No data"
+    if age_seconds <= fresh_threshold_seconds:
+        return "Current"
+    if age_seconds <= delayed_threshold_seconds:
+        return "Delayed"
+    return "Stale"
 
 
 def parse_patient_ids(value: str) -> tuple[str, ...]:
