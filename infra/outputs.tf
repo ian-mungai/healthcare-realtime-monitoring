@@ -131,11 +131,6 @@ output "cloudwatch_dashboard_name" {
   value       = module.observability.dashboard_name
 }
 
-output "pipeline_failure_alarm_name" {
-  description = "Pipeline task failure CloudWatch alarm."
-  value       = module.observability.pipeline_failure_alarm_name
-}
-
 output "latest_vitals_table_name" {
   description = "DynamoDB latest vitals table name."
   value       = module.realtime_vitals.latest_vitals_table_name
@@ -174,16 +169,6 @@ output "realtime_websocket_url" {
 output "realtime_websocket_api_id" {
   description = "Realtime vitals WebSocket API ID."
   value       = module.realtime_websocket.api_id
-}
-
-output "live_processing_latency_alarm_name" {
-  description = "Live processing latency CloudWatch alarm."
-  value       = module.observability.live_processing_latency_alarm_name
-}
-
-output "websocket_delivery_failure_alarm_name" {
-  description = "WebSocket delivery failure CloudWatch alarm."
-  value       = module.observability.websocket_delivery_failure_alarm_name
 }
 
 output "vitals_api_endpoint" {
