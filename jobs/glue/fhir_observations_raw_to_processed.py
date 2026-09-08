@@ -29,6 +29,8 @@ FLATTENED_MEASUREMENTS = {
     "diastolic_bp": ("8462-4", "mmHg"),
 }
 
+ANALYTICAL_VITAL_RANGES = {"heart_rate": (20, 250), "respiratory_rate": (4, 80), "spo2": (50, 100), "systolic_bp": (50, 260), "diastolic_bp": (30, 180)}
+
 SUPPORTED_LOINC_CODES = list(MEASUREMENT_NAMES.keys())
 
 RAW_CHOICE_RESOLUTION_SPECS = [
@@ -238,11 +240,11 @@ def add_measurement_metadata(df: DataFrame) -> DataFrame:
 
 def add_quality_result(df: DataFrame) -> DataFrame:
     range_valid = (
-        ((F.col("loinc_code") == "8867-4") & F.col("value").between(20, 250))
-        | ((F.col("loinc_code") == "9279-1") & F.col("value").between(4, 80))
-        | ((F.col("loinc_code") == "2708-6") & F.col("value").between(50, 100))
-        | ((F.col("loinc_code") == "8480-6") & F.col("value").between(50, 260))
-        | ((F.col("loinc_code") == "8462-4") & F.col("value").between(30, 180))
+        ((F.col("loinc_code") == "8867-4") & F.col("value").between(*ANALYTICAL_VITAL_RANGES["heart_rate"]))
+        | ((F.col("loinc_code") == "9279-1") & F.col("value").between(*ANALYTICAL_VITAL_RANGES["respiratory_rate"]))
+        | ((F.col("loinc_code") == "2708-6") & F.col("value").between(*ANALYTICAL_VITAL_RANGES["spo2"]))
+        | ((F.col("loinc_code") == "8480-6") & F.col("value").between(*ANALYTICAL_VITAL_RANGES["systolic_bp"]))
+        | ((F.col("loinc_code") == "8462-4") & F.col("value").between(*ANALYTICAL_VITAL_RANGES["diastolic_bp"]))
     )
 
     return df.withColumn(

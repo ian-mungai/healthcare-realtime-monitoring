@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.0",
+  "blood_pressure_panel": {
+    "loinc_code": "85354-9",
+    "display": "Blood pressure systolic and diastolic"
+  },
+  "vital_signs": [
+    {
+      "field": "heart_rate",
+      "analytical_name": "heart_rate",
+      "loinc_code": "8867-4",
+      "display": "Heart rate",
+      "unit": "beats/minute",
+      "ucum_code": "/min",
+      "realtime_range": [20, 250],
+      "analytical_range": [20, 250]
+    },
+    {
+      "field": "respiratory_rate",
+      "analytical_name": "respiratory_rate",
+      "loinc_code": "9279-1",
+      "display": "Respiratory rate",
+      "unit": "breaths/minute",
+      "ucum_code": "/min",
+      "realtime_range": [4, 80],
+      "analytical_range": [4, 80]
+    },
+    {
+      "field": "spo2",
+      "analytical_name": "spo2",
+      "loinc_code": "2708-6",
+      "display": "Oxygen saturation in Arterial blood",
+      "unit": "%",
+      "ucum_code": "%",
+      "realtime_range": [50, 100],
+      "analytical_range": [50, 100]
+    },
+    {
+      "field": "systolic_bp",
+      "analytical_name": "systolic_blood_pressure",
+      "loinc_code": "8480-6",
+      "display": "Systolic blood pressure",
+      "unit": "mmHg",
+      "ucum_code": "mm[Hg]",
+      "realtime_range": [50, 300],
+      "analytical_range": [50, 260]
+    },
+    {
+      "field": "diastolic_bp",
+      "analytical_name": "diastolic_blood_pressure",
+      "loinc_code": "8462-4",
+      "display": "Diastolic blood pressure",
+      "unit": "mmHg",
+      "ucum_code": "mm[Hg]",
+      "realtime_range": [20, 200],
+      "analytical_range": [30, 180]
+    }
+  ]
+}
