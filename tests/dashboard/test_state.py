@@ -18,12 +18,7 @@ def test_merge_vitals_preserves_measurements_missing_from_partial_update() -> No
     current = {"patient_id": "1000", "heart_rate": 82.0, "spo2": 97.0}
     update = {"patient_id": "1000", "respiratory_rate": 18.0}
 
-    assert merge_vitals(current, update) == {
-        "patient_id": "1000",
-        "heart_rate": 82.0,
-        "spo2": 97.0,
-        "respiratory_rate": 18.0,
-    }
+    assert merge_vitals(current, update) == {"patient_id": "1000", "heart_rate": 82.0, "spo2": 97.0, "respiratory_rate": 18.0}
 
 
 def test_has_new_event_compares_event_timestamps() -> None:

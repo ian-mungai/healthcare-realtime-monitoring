@@ -34,11 +34,7 @@ def event_age_seconds(vitals: dict[str, Any], now: datetime | None = None) -> fl
     return max((current_time - event_timestamp).total_seconds(), 0.0)
 
 
-def freshness_status(
-    age_seconds: float | None,
-    fresh_threshold_seconds: float,
-    delayed_threshold_seconds: float,
-) -> str:
+def freshness_status(age_seconds: float | None, fresh_threshold_seconds: float, delayed_threshold_seconds: float) -> str:
     if age_seconds is None:
         return "No data"
     if age_seconds <= fresh_threshold_seconds:

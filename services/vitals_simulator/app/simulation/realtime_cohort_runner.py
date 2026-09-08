@@ -99,16 +99,10 @@ def load_settings() -> SimulatorSettings:
         bp_interval_seconds=parse_optional_positive_int(os.getenv("SIMULATOR_BP_INTERVAL_SECONDS"), DEFAULT_BP_INTERVAL_SECONDS) or DEFAULT_BP_INTERVAL_SECONDS,
         max_cycles=parse_optional_positive_int(os.getenv("SIMULATOR_MAX_CYCLES"), DEFAULT_MAX_CYCLES),
         replay=parse_bool(os.getenv("SIMULATOR_REPLAY"), False),
-        publish_max_attempts=parse_optional_positive_int(
-            os.getenv("SIMULATOR_PUBLISH_MAX_ATTEMPTS"), DEFAULT_PUBLISH_MAX_ATTEMPTS
-        )
+        publish_max_attempts=parse_optional_positive_int(os.getenv("SIMULATOR_PUBLISH_MAX_ATTEMPTS"), DEFAULT_PUBLISH_MAX_ATTEMPTS)
         or DEFAULT_PUBLISH_MAX_ATTEMPTS,
-        publish_retry_backoff_seconds=parse_positive_float(
-            os.getenv("SIMULATOR_PUBLISH_RETRY_BACKOFF_SECONDS"), DEFAULT_PUBLISH_RETRY_BACKOFF_SECONDS
-        ),
-        max_consecutive_failed_cycles=parse_optional_positive_int(
-            os.getenv("SIMULATOR_MAX_CONSECUTIVE_FAILED_CYCLES"), DEFAULT_MAX_CONSECUTIVE_FAILED_CYCLES
-        )
+        publish_retry_backoff_seconds=parse_positive_float(os.getenv("SIMULATOR_PUBLISH_RETRY_BACKOFF_SECONDS"), DEFAULT_PUBLISH_RETRY_BACKOFF_SECONDS),
+        max_consecutive_failed_cycles=parse_optional_positive_int(os.getenv("SIMULATOR_MAX_CONSECUTIVE_FAILED_CYCLES"), DEFAULT_MAX_CONSECUTIVE_FAILED_CYCLES)
         or DEFAULT_MAX_CONSECUTIVE_FAILED_CYCLES,
     )
 
@@ -211,14 +205,7 @@ def run_cycle(
 ) -> CyclePublishResult:
     futures = {
         executor.submit(
-            publish_patient_cycle,
-            simulation,
-            cycle_index,
-            replay_index,
-            available_cycles,
-            cycle_timestamp,
-            publish_max_attempts,
-            publish_retry_backoff_seconds,
+            publish_patient_cycle, simulation, cycle_index, replay_index, available_cycles, cycle_timestamp, publish_max_attempts, publish_retry_backoff_seconds
         ): simulation
         for simulation in simulations
     }
@@ -250,9 +237,7 @@ def run_cycle(
         published_count += 1
         observation_count += published.published_count
     return CyclePublishResult(
-        published_count=published_count,
-        observation_count=observation_count,
-        failures=tuple(sorted(failures, key=lambda failure: failure.patient_id)),
+        published_count=published_count, observation_count=observation_count, failures=tuple(sorted(failures, key=lambda failure: failure.patient_id))
     )
 
 
@@ -326,9 +311,7 @@ def run_realtime_cohort(settings: SimulatorSettings | None = None) -> int:
             )
             if consecutive_failed_cycles >= settings.max_consecutive_failed_cycles:
                 raise RuntimeError(
-                    "Simulator stopped after "
-                    f"{consecutive_failed_cycles} consecutive degraded cycles "
-                    f"(threshold={settings.max_consecutive_failed_cycles})"
+                    f"Simulator stopped after {consecutive_failed_cycles} consecutive degraded cycles (threshold={settings.max_consecutive_failed_cycles})"
                 )
             if shutdown_event.is_set():
                 break
