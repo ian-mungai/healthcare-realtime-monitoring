@@ -33,6 +33,8 @@ FHIR R4 `Observation` resources are transformed into versioned realtime payloads
 
 Supported LOINC codes are:
 
+The machine-readable source of truth is [`config/vital_signs.json`](../config/vital_signs.json). Independently deployed components retain local constants, and contract tests verify that their LOINC codes, units, names, and validation ranges match this catalog.
+
 | LOINC | Measurement | Analytical range |
 | --- | --- | --- |
 | `8867-4` | Heart rate | 20-250 |
