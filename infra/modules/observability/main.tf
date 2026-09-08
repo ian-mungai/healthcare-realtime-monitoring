@@ -205,34 +205,7 @@ resource "aws_cloudwatch_dashboard" "healthcare_realtime" {
         type   = "metric"
         x      = 0
         y      = 2
-        width  = 12
-        height = 6
-
-        properties = {
-          title  = "Pipeline Task Success / Failure"
-          region = var.aws_region
-
-          metrics = [
-            [
-              "HealthcareRealtime/Pipeline",
-              "TaskSuccess"
-            ],
-            [
-              ".",
-              "TaskFailure"
-            ]
-          ]
-
-          period = 300
-          stat   = "Sum"
-          view   = "timeSeries"
-        }
-      },
-      {
-        type   = "metric"
-        x      = 12
-        y      = 2
-        width  = 12
+        width  = 24
         height = 6
 
         properties = {
@@ -440,22 +413,6 @@ resource "aws_cloudwatch_dashboard" "healthcare_realtime" {
   })
 }
 
-resource "aws_cloudwatch_metric_alarm" "pipeline_task_failure" {
-  alarm_name          = "healthcare-realtime-pipeline-task-failure"
-  alarm_description   = "A healthcare realtime pipeline task reported a failure."
-  namespace           = "HealthcareRealtime/Pipeline"
-  metric_name         = "TaskFailure"
-  statistic           = "Sum"
-  period              = 300
-  evaluation_periods  = 1
-  threshold           = 1
-  comparison_operator = "GreaterThanOrEqualToThreshold"
-
-  treat_missing_data = "notBreaching"
-
-  tags = var.tags
-}
-
 resource "aws_cloudwatch_metric_alarm" "kinesis_write_throttling" {
   alarm_name          = "healthcare-realtime-kinesis-write-throttling"
   alarm_description   = "Kinesis write throughput is being throttled."
@@ -472,6 +429,9 @@ resource "aws_cloudwatch_metric_alarm" "kinesis_write_throttling" {
   }
 
   treat_missing_data = "notBreaching"
+
+  alarm_actions = [var.alarm_topic_arn]
+  ok_actions    = [var.alarm_topic_arn]
 
   tags = var.tags
 }
@@ -493,44 +453,8 @@ resource "aws_cloudwatch_metric_alarm" "firehose_delivery_failure" {
 
   treat_missing_data = "notBreaching"
 
-  tags = var.tags
-}
-
-resource "aws_cloudwatch_metric_alarm" "live_processing_latency" {
-  alarm_name        = "healthcare-realtime-live-processing-latency"
-  alarm_description = "Near-real-time vital processing latency exceeded the 15-second, three-publication-interval threshold."
-
-  namespace   = "HealthcareRealtime/Live"
-  metric_name = "ProcessingLatencyMilliseconds"
-  statistic   = "Average"
-
-  period              = 60
-  evaluation_periods  = 2
-  datapoints_to_alarm = 2
-  threshold           = 15000
-
-  comparison_operator = "GreaterThanOrEqualToThreshold"
-
-  treat_missing_data = "notBreaching"
-
-  tags = var.tags
-}
-resource "aws_cloudwatch_metric_alarm" "websocket_delivery_failure" {
-  alarm_name        = "healthcare-realtime-websocket-delivery-failure"
-  alarm_description = "One or more realtime WebSocket vital deliveries failed."
-
-  namespace   = "HealthcareRealtime/Live"
-  metric_name = "WebSocketDeliveryFailures"
-  statistic   = "Sum"
-
-  period              = 60
-  evaluation_periods  = 1
-  datapoints_to_alarm = 1
-  threshold           = 1
-
-  comparison_operator = "GreaterThanOrEqualToThreshold"
-
-  treat_missing_data = "notBreaching"
+  alarm_actions = [var.alarm_topic_arn]
+  ok_actions    = [var.alarm_topic_arn]
 
   tags = var.tags
 }

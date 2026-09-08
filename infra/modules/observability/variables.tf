@@ -40,3 +40,8 @@ variable "soda_task_definition_family" {
   type        = string
   default     = "healthcare_realtime_soda"
 }
+
+variable "alarm_topic_arn" {
+  description = "SNS topic ARN used for CloudWatch alarm and recovery notifications."
+  type        = string
+}
