@@ -5,6 +5,7 @@ import statistics
 import time
 from datetime import UTC, datetime
 from typing import Any
+from uuid import uuid4
 
 import boto3
 
@@ -23,9 +24,10 @@ def parse_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def build_payload(patient_number: int, sequence_number: int) -> dict[str, Any]:
+def build_payload(patient_number: int, sequence_number: int, run_id: str) -> dict[str, Any]:
     return {
         "schema_version": "1.0",
+        "observation_id": f"load-test-{run_id}-{patient_number:02d}-{sequence_number:08d}",
         "patient_id": f"{PATIENT_PREFIX}{patient_number:02d}",
         "source": "load_test",
         "event_timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
@@ -37,11 +39,11 @@ def build_payload(patient_number: int, sequence_number: int) -> dict[str, Any]:
     }
 
 
-def build_records(patients: int, sequence_number: int) -> list[dict[str, Any]]:
+def build_records(patients: int, sequence_number: int, run_id: str) -> list[dict[str, Any]]:
     records = []
 
     for patient_number in range(1, patients + 1):
-        payload = build_payload(patient_number, sequence_number)
+        payload = build_payload(patient_number, sequence_number, run_id)
 
         records.append({"Data": json.dumps(payload).encode("utf-8"), "PartitionKey": payload["patient_id"]})
 
@@ -92,8 +94,10 @@ def run_load_test(patients: int, events_per_second: float, duration_seconds: int
     failed_writes = 0
     batch_latencies_ms: list[float] = []
     sequence_number = 0
+    run_id = uuid4().hex
 
     print("Healthcare Realtime Load Test")
+    print(f"Run ID: {run_id}")
     print(f"Stream: {stream_name}")
     print(f"Patients: {patients}")
     print(f"Events/second/patient: {events_per_second}")
@@ -111,7 +115,7 @@ def run_load_test(patients: int, events_per_second: float, duration_seconds: int
         if sleep_seconds > 0:
             time.sleep(sleep_seconds)
 
-        records = build_records(patients, sequence_number)
+        records = build_records(patients, sequence_number, run_id)
 
         try:
             successful, failed, latency_ms = put_batch(kinesis_client, stream_name, records)

@@ -132,13 +132,7 @@ def validate_task_contract(task) -> None:
     if task.depends_on_past:
         raise ValueError(f"MWAA Serverless generation does not support depends_on_past=True for task {task.task_id}")
 
-    for callback_name in (
-        "on_execute_callback",
-        "on_retry_callback",
-        "on_skipped_callback",
-        "on_success_callback",
-        "on_failure_callback",
-    ):
+    for callback_name in ("on_execute_callback", "on_retry_callback", "on_skipped_callback", "on_success_callback", "on_failure_callback"):
         if getattr(task, callback_name):
             raise ValueError(f"MWAA Serverless generation does not support {callback_name} for task {task.task_id}")
 

@@ -142,10 +142,7 @@ def test_cycle_simulation_start_makes_effective_time_equal_publication_time():
 
 def test_publish_patient_cycle_retries_same_event_after_retryable_failure(monkeypatch):
     simulation = PatientSimulation(
-        context=build_context("1001"),
-        bidmc_record_number=1,
-        readings=[VitalReading("bidmc01n", 0, 80.0, 18.0, 98.0)],
-        bp_cadence=None,
+        context=build_context("1001"), bidmc_record_number=1, readings=[VitalReading("bidmc01n", 0, 80.0, 18.0, 98.0)], bp_cadence=None
     )
     event = object()
     calls = []
@@ -177,10 +174,7 @@ def test_publish_patient_cycle_retries_same_event_after_retryable_failure(monkey
 
 def test_publish_patient_cycle_does_not_retry_permanent_failure(monkeypatch):
     simulation = PatientSimulation(
-        context=build_context("1001"),
-        bidmc_record_number=1,
-        readings=[VitalReading("bidmc01n", 0, 80.0, 18.0, 98.0)],
-        bp_cadence=None,
+        context=build_context("1001"), bidmc_record_number=1, readings=[VitalReading("bidmc01n", 0, 80.0, 18.0, 98.0)], bp_cadence=None
     )
     calls = []
 
@@ -209,47 +203,27 @@ def test_publish_patient_cycle_does_not_retry_permanent_failure(monkeypatch):
 
 def test_run_cycle_isolates_one_failed_patient(monkeypatch):
     simulations = [
-        PatientSimulation(context=build_context(str(1001 + index)), bidmc_record_number=index + 1, readings=[], bp_cadence=None)
-        for index in range(10)
+        PatientSimulation(context=build_context(str(1001 + index)), bidmc_record_number=index + 1, readings=[], bp_cadence=None) for index in range(10)
     ]
 
     def publish(simulation, *_args):
         if simulation.context.hapi_patient_id == "1004":
             raise FHIRRetryableError("temporary failure")
-        return PublishedSimulatorEvent(
-            "bidmc01n",
-            0,
-            simulation.context.hapi_patient_id,
-            simulation.context.hapi_encounter_id,
-            3,
-            [],
-        )
+        return PublishedSimulatorEvent("bidmc01n", 0, simulation.context.hapi_patient_id, simulation.context.hapi_encounter_id, 3, [])
 
     monkeypatch.setattr(realtime_cohort_runner, "publish_patient_cycle", publish)
 
     with ThreadPoolExecutor(max_workers=10) as executor:
-        result = run_cycle(
-            executor,
-            simulations,
-            cycle_index=0,
-            replay_index=0,
-            available_cycles=1,
-            cycle_timestamp=datetime(2026, 9, 8, 16, 0, tzinfo=UTC),
-        )
+        result = run_cycle(executor, simulations, cycle_index=0, replay_index=0, available_cycles=1, cycle_timestamp=datetime(2026, 9, 8, 16, 0, tzinfo=UTC))
 
     assert result.published_count == 9
     assert result.observation_count == 27
-    assert result.failures == (
-        PatientCycleFailure("1004", 4, "FHIRRetryableError", "temporary failure", True),
-    )
+    assert result.failures == (PatientCycleFailure("1004", 4, "FHIRRetryableError", "temporary failure", True),)
 
 
 def test_realtime_cohort_stops_only_at_consecutive_failure_threshold(monkeypatch):
     simulation = PatientSimulation(
-        context=build_context("1001"),
-        bidmc_record_number=1,
-        readings=[VitalReading("bidmc01n", 0, 80.0, 18.0, 98.0)],
-        bp_cadence=None,
+        context=build_context("1001"), bidmc_record_number=1, readings=[VitalReading("bidmc01n", 0, 80.0, 18.0, 98.0)], bp_cadence=None
     )
     failure = PatientCycleFailure("1001", 1, "FHIRRetryableError", "temporary failure", True)
     cycle_calls = []
@@ -262,13 +236,7 @@ def test_realtime_cohort_stops_only_at_consecutive_failure_threshold(monkeypatch
         return CyclePublishResult(0, 0, (failure,))
 
     monkeypatch.setattr(realtime_cohort_runner, "run_cycle", degraded_cycle)
-    settings = SimulatorSettings(
-        interval_seconds=1,
-        bp_interval_seconds=300,
-        max_cycles=None,
-        replay=True,
-        max_consecutive_failed_cycles=2,
-    )
+    settings = SimulatorSettings(interval_seconds=1, bp_interval_seconds=300, max_cycles=None, replay=True, max_consecutive_failed_cycles=2)
 
     with pytest.raises(RuntimeError, match="2 consecutive degraded cycles"):
         realtime_cohort_runner.run_realtime_cohort(settings)

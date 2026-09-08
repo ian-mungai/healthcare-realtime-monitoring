@@ -74,10 +74,7 @@ def websocket_subscription_url(patient_id: str) -> str:
 
 
 def websocket_worker(
-    patient_id: str,
-    message_queue: queue.Queue[dict[str, Any]],
-    connection_state: dict[str, dict[str, Any]],
-    connection_state_lock: threading.Lock,
+    patient_id: str, message_queue: queue.Queue[dict[str, Any]], connection_state: dict[str, dict[str, Any]], connection_state_lock: threading.Lock
 ) -> None:
     subscription_url = websocket_subscription_url(patient_id)
 
@@ -135,9 +132,7 @@ def start_websocket_workers() -> None:
         st.session_state.message_queue = queue.Queue()
 
     if "connection_state" not in st.session_state:
-        st.session_state.connection_state = {
-            patient_id: {"connected": False, "error": None} for patient_id in PATIENT_IDS
-        }
+        st.session_state.connection_state = {patient_id: {"connected": False, "error": None} for patient_id in PATIENT_IDS}
 
     if "connection_state_lock" not in st.session_state:
         st.session_state.connection_state_lock = threading.Lock()
@@ -149,12 +144,7 @@ def start_websocket_workers() -> None:
     for patient_id in PATIENT_IDS:
         websocket_thread = threading.Thread(
             target=websocket_worker,
-            args=(
-                patient_id,
-                st.session_state.message_queue,
-                st.session_state.connection_state,
-                st.session_state.connection_state_lock,
-            ),
+            args=(patient_id, st.session_state.message_queue, st.session_state.connection_state, st.session_state.connection_state_lock),
             daemon=True,
             name=f"vitals-websocket-{patient_id}",
         )
@@ -364,10 +354,7 @@ def render_vital_chart(
     base_line = (
         alt.Chart(chart_data)
         .encode(
-            x=alt.X(
-                "timestamp:T",
-                axis=alt.Axis(title="Time (HH:MM:SS)", format="%H:%M:%S", labelAngle=0, tickCount=6),
-            ),
+            x=alt.X("timestamp:T", axis=alt.Axis(title="Time (HH:MM:SS)", format="%H:%M:%S", labelAngle=0, tickCount=6)),
             y=alt.Y("Value:Q", title=y_title, scale=alt.Scale(domain=list(y_domain), zero=False)),
             color=alt.Color(
                 "patient_id:N",
@@ -385,10 +372,7 @@ def render_vital_chart(
     )
     if selected_patient:
         context_lines = base_line.transform_filter(alt.datum.patient_id != selected_patient).mark_line(strokeWidth=1.5, opacity=0.25)
-        selected_line = base_line.transform_filter(alt.datum.patient_id == selected_patient).mark_line(
-            strokeWidth=3.5,
-            point=alt.OverlayMarkDef(size=42),
-        )
+        selected_line = base_line.transform_filter(alt.datum.patient_id == selected_patient).mark_line(strokeWidth=3.5, point=alt.OverlayMarkDef(size=42))
         patient_lines = context_lines + selected_line
     else:
         patient_lines = base_line.mark_line(strokeWidth=2, opacity=0.85)
@@ -397,10 +381,7 @@ def render_vital_chart(
     reference_lines = (
         alt.Chart(reference_data)
         .mark_rule(color="#6b7280", strokeDash=[4, 4], opacity=0.45)
-        .encode(
-            y=alt.Y("Reference:Q", scale=alt.Scale(domain=list(y_domain), zero=False)),
-            tooltip=[alt.Tooltip("Reference:Q", title="NEWS2 boundary")],
-        )
+        .encode(y=alt.Y("Reference:Q", scale=alt.Scale(domain=list(y_domain), zero=False)), tooltip=[alt.Tooltip("Reference:Q", title="NEWS2 boundary")])
     )
 
     st.altair_chart(reference_lines + patient_lines, width="stretch")
@@ -444,15 +425,7 @@ def render_trend_charts(selected_patient: str | None) -> None:
 
     with blood_pressure_column:
         st.markdown("#### Systolic Blood Pressure")
-        render_vital_chart(
-            dataframe,
-            "systolic_bp",
-            "Systolic Blood Pressure",
-            "mmHg",
-            (40, 240),
-            (90, 100, 110, 220),
-            selected_patient,
-        )
+        render_vital_chart(dataframe, "systolic_bp", "Systolic Blood Pressure", "mmHg", (40, 240), (90, 100, 110, 220), selected_patient)
 
     st.markdown("#### Diastolic Blood Pressure")
     render_vital_chart(dataframe, "diastolic_bp", "Diastolic Blood Pressure", "mmHg", (30, 140), (), selected_patient)
@@ -567,31 +540,20 @@ def render_dashboard() -> None:
             st.rerun()
 
         heart_rate_column, spo2_column, respiratory_column, blood_pressure_column = st.columns(4)
-        heart_rate_column.metric(
-            label=f"Heart Rate · {heart_rate_status(vitals.get('heart_rate'))}", value=f"{format_value(vitals.get('heart_rate'))} bpm"
-        )
+        heart_rate_column.metric(label=f"Heart Rate · {heart_rate_status(vitals.get('heart_rate'))}", value=f"{format_value(vitals.get('heart_rate'))} bpm")
         spo2_column.metric(label=f"SpO₂ · {spo2_status(vitals.get('spo2'))}", value=f"{format_value(vitals.get('spo2'))} %")
         respiratory_column.metric(
             label=f"Respiratory Rate · {respiratory_rate_status(vitals.get('respiratory_rate'))}",
             value=f"{format_value(vitals.get('respiratory_rate'))} breaths/min",
         )
-        blood_pressure_column.metric(
-            label="Blood Pressure",
-            value=f"{format_value(vitals.get('systolic_bp'))}/{format_value(vitals.get('diastolic_bp'))} mmHg",
-        )
-        st.caption(
-            f"Last updated {format_event_time(vitals.get('event_timestamp'))} · "
-            f"Data age {format_value(patient_ages[selected_patient])} sec"
-        )
+        blood_pressure_column.metric(label="Blood Pressure", value=f"{format_value(vitals.get('systolic_bp'))}/{format_value(vitals.get('diastolic_bp'))} mmHg")
+        st.caption(f"Last updated {format_event_time(vitals.get('event_timestamp'))} · Data age {format_value(patient_ages[selected_patient])} sec")
         st.divider()
 
     freshness_column, latency_column = st.columns(2)
     freshness_column.metric(label="Delayed or stale", value=f"{delayed_patient_count + stale_patient_count}/{len(PATIENT_IDS)}")
     latencies = list(st.session_state.websocket_latency_ms.values())
-    latency_column.metric(
-        label="WebSocket Processing Latency",
-        value=f"{format_value(sum(latencies) / len(latencies) if latencies else None)} ms",
-    )
+    latency_column.metric(label="WebSocket Processing Latency", value=f"{format_value(sum(latencies) / len(latencies) if latencies else None)} ms")
 
     st.divider()
 
