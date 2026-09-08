@@ -16,17 +16,26 @@ import streamlit as st
 import websocket
 
 from dashboard.aws_auth import get_sigv4_headers
-from dashboard.state import has_new_event, measurement_delta, merge_vitals, parse_patient_ids, patient_priority
+from dashboard.state import (
+    event_age_seconds,
+    freshness_status,
+    has_new_event,
+    is_stale_event,
+    measurement_delta,
+    merge_vitals,
+    parse_patient_ids,
+    patient_priority,
+)
 
-PATIENT_ID = os.getenv("PATIENT_ID", "137506799")
 PATIENT_IDS = parse_patient_ids(os.getenv("PATIENT_IDS", "1000,1002,1004,1006,1008,1010,1012,1014,1016,1018"))
 API_ENDPOINT = os.environ["VITALS_API_ENDPOINT"].rstrip("/")
 WEBSOCKET_URL = os.environ["VITALS_WEBSOCKET_URL"]
-WEBSOCKET_SUBSCRIPTION_URL = f"{WEBSOCKET_URL}?{urlencode({'patient_id': PATIENT_ID})}"
 
 REFRESH_INTERVAL_SECONDS = 0.5
 API_REFRESH_INTERVAL_SECONDS = 2.0
 HISTORY_SIZE = 60
+FRESH_EVENT_AGE_SECONDS = 15.0
+DELAYED_EVENT_AGE_SECONDS = 60.0
 
 st.set_page_config(page_title="Healthcare Realtime Monitoring", page_icon="🩺", layout="wide")
 
@@ -60,37 +69,52 @@ def get_cohort_vitals() -> dict[str, dict[str, Any]]:
     return cohort
 
 
-def websocket_worker(message_queue: queue.Queue[dict[str, Any]], connection_state: dict[str, Any]) -> None:
+def websocket_subscription_url(patient_id: str) -> str:
+    return f"{WEBSOCKET_URL}?{urlencode({'patient_id': patient_id})}"
+
+
+def websocket_worker(
+    patient_id: str,
+    message_queue: queue.Queue[dict[str, Any]],
+    connection_state: dict[str, dict[str, Any]],
+    connection_state_lock: threading.Lock,
+) -> None:
+    subscription_url = websocket_subscription_url(patient_id)
+
+    def update_connection_state(connected: bool, error: str | None = None) -> None:
+        with connection_state_lock:
+            connection_state[patient_id] = {"connected": connected, "error": error}
+
     def on_open(_ws: websocket.WebSocketApp) -> None:
-        connection_state["connected"] = True
-        connection_state["error"] = None
+        update_connection_state(connected=True)
 
     def on_message(_ws: websocket.WebSocketApp, message: str) -> None:
         try:
             payload = json.loads(message)
 
-            if payload.get("patient_id") != PATIENT_ID:
+            if payload.get("patient_id") != patient_id:
                 return
 
             payload["_received_at"] = datetime.now(UTC).isoformat()
             message_queue.put(payload)
 
         except json.JSONDecodeError as error:
-            connection_state["error"] = f"Invalid WebSocket message: {error}"
+            update_connection_state(connected=False, error=f"Invalid WebSocket message: {error}")
 
     def on_error(_ws: websocket.WebSocketApp, error: Any) -> None:
-        connection_state["connected"] = False
-        connection_state["error"] = str(error)
+        update_connection_state(connected=False, error=str(error))
 
     def on_close(_ws: websocket.WebSocketApp, _close_status_code: int | None, _close_message: str | None) -> None:
-        connection_state["connected"] = False
+        with connection_state_lock:
+            previous_error = connection_state.get(patient_id, {}).get("error")
+        update_connection_state(connected=False, error=previous_error)
 
     while True:
         try:
-            signed_headers = get_sigv4_headers(WEBSOCKET_SUBSCRIPTION_URL)
+            signed_headers = get_sigv4_headers(subscription_url)
 
             ws = websocket.WebSocketApp(
-                WEBSOCKET_SUBSCRIPTION_URL,
+                subscription_url,
                 header=[f"{key}: {value}" for key, value in signed_headers.items()],
                 on_open=on_open,
                 on_message=on_message,
@@ -101,26 +125,42 @@ def websocket_worker(message_queue: queue.Queue[dict[str, Any]], connection_stat
             ws.run_forever()
 
         except Exception as error:
-            connection_state["connected"] = False
-            connection_state["error"] = str(error)
+            update_connection_state(connected=False, error=str(error))
 
         time.sleep(3)
 
 
-def start_websocket_thread() -> None:
+def start_websocket_workers() -> None:
     if "message_queue" not in st.session_state:
         st.session_state.message_queue = queue.Queue()
 
     if "connection_state" not in st.session_state:
-        st.session_state.connection_state = {"connected": False, "error": None}
+        st.session_state.connection_state = {
+            patient_id: {"connected": False, "error": None} for patient_id in PATIENT_IDS
+        }
 
-    if "websocket_thread" in st.session_state:
+    if "connection_state_lock" not in st.session_state:
+        st.session_state.connection_state_lock = threading.Lock()
+
+    if "websocket_threads" in st.session_state:
         return
 
-    websocket_thread = threading.Thread(target=websocket_worker, args=(st.session_state.message_queue, st.session_state.connection_state), daemon=True)
-
-    websocket_thread.start()
-    st.session_state.websocket_thread = websocket_thread
+    websocket_threads = {}
+    for patient_id in PATIENT_IDS:
+        websocket_thread = threading.Thread(
+            target=websocket_worker,
+            args=(
+                patient_id,
+                st.session_state.message_queue,
+                st.session_state.connection_state,
+                st.session_state.connection_state_lock,
+            ),
+            daemon=True,
+            name=f"vitals-websocket-{patient_id}",
+        )
+        websocket_thread.start()
+        websocket_threads[patient_id] = websocket_thread
+    st.session_state.websocket_threads = websocket_threads
 
 
 def append_history(patient_id: str, vitals: dict[str, Any]) -> None:
@@ -159,7 +199,10 @@ def load_initial_state() -> None:
     if "cohort_history" not in st.session_state:
         st.session_state.cohort_history = {patient_id: deque(maxlen=HISTORY_SIZE) for patient_id in PATIENT_IDS}
 
-    if "vitals" in st.session_state:
+    if "websocket_latency_ms" not in st.session_state:
+        st.session_state.websocket_latency_ms = {}
+
+    if "initial_state_loaded" in st.session_state:
         return
 
     try:
@@ -168,19 +211,10 @@ def load_initial_state() -> None:
         for patient_id, patient_vitals in cohort_vitals.items():
             append_history(patient_id, patient_vitals)
 
-        vitals = cohort_vitals.get(PATIENT_ID)
-
-        if vitals:
-            st.session_state.vitals = vitals
-
-        else:
-            st.session_state.vitals = {"patient_id": PATIENT_ID}
-
-    except requests.RequestException as error:
-        st.session_state.vitals = {"patient_id": PATIENT_ID}
-
+    except Exception as error:
         st.session_state.initial_load_error = str(error)
 
+    st.session_state.initial_state_loaded = True
     st.session_state.last_api_refresh_monotonic = time.monotonic()
 
 
@@ -195,42 +229,47 @@ def refresh_vitals_from_api() -> None:
         cohort_vitals = get_cohort_vitals()
         for patient_id, patient_vitals in cohort_vitals.items():
             current = st.session_state.cohort_vitals.get(patient_id, {})
+            if is_stale_event(current, patient_vitals):
+                continue
             st.session_state.cohort_vitals[patient_id] = merge_vitals(current, patient_vitals)
             if has_new_event(current, patient_vitals):
                 append_history(patient_id, st.session_state.cohort_vitals[patient_id])
 
-        latest_vitals = cohort_vitals.get(PATIENT_ID)
-        if latest_vitals and has_new_event(st.session_state.vitals, latest_vitals):
-            st.session_state.vitals = merge_vitals(st.session_state.vitals, latest_vitals)
         st.session_state.pop("api_refresh_error", None)
-    except requests.RequestException as error:
+    except Exception as error:
         st.session_state.api_refresh_error = str(error)
 
 
 def process_websocket_messages() -> None:
-    latest_payload = None
+    latest_payloads: dict[str, dict[str, Any]] = {}
 
     while True:
         try:
-            latest_payload = st.session_state.message_queue.get_nowait()
+            payload = st.session_state.message_queue.get_nowait()
+            patient_id = payload.get("patient_id")
+            if patient_id not in PATIENT_IDS:
+                continue
+            current_payload = latest_payloads.get(patient_id, {})
+            if not is_stale_event(current_payload, payload):
+                latest_payloads[patient_id] = payload
 
         except queue.Empty:
             break
 
-    if not latest_payload:
-        return
+    for patient_id, payload in latest_payloads.items():
+        received_at = payload.pop("_received_at", None)
+        current = st.session_state.cohort_vitals.get(patient_id, {})
+        if is_stale_event(current, payload):
+            continue
+        merged_vitals = merge_vitals(current, payload)
+        st.session_state.cohort_vitals[patient_id] = merged_vitals
+        if has_new_event(current, payload):
+            append_history(patient_id, merged_vitals)
 
-    received_at = latest_payload.pop("_received_at", None)
-
-    st.session_state.vitals = merge_vitals(st.session_state.vitals, latest_payload)
-    st.session_state.cohort_vitals[PATIENT_ID] = st.session_state.vitals
-    append_history(PATIENT_ID, st.session_state.vitals)
-
-    if received_at and latest_payload.get("event_timestamp"):
-        received_time = datetime.fromisoformat(received_at)
-        event_time = datetime.fromisoformat(latest_payload["event_timestamp"].replace("Z", "+00:00"))
-
-        st.session_state.live_latency_ms = max((received_time - event_time).total_seconds() * 1000, 0.0)
+        if received_at and payload.get("event_timestamp"):
+            received_time = datetime.fromisoformat(received_at)
+            event_time = datetime.fromisoformat(payload["event_timestamp"].replace("Z", "+00:00"))
+            st.session_state.websocket_latency_ms[patient_id] = max((received_time - event_time).total_seconds() * 1000, 0.0)
 
 
 def format_value(value: Any, decimals: int = 0) -> str:
@@ -433,10 +472,19 @@ def format_delta(value: float | None, unit: str = "") -> str:
     return f"{value:+.0f}{suffix}"
 
 
-def render_patient_cards() -> None:
+def patient_freshness(age_seconds: float | None) -> tuple[str, str]:
+    status = freshness_status(age_seconds, FRESH_EVENT_AGE_SECONDS, DELAYED_EVENT_AGE_SECONDS)
+    return status, {"No data": "gray", "Current": "green", "Delayed": "orange", "Stale": "red"}[status]
+
+
+def render_patient_cards(patient_ages: dict[str, float | None]) -> None:
     ranked_patients = sorted(
         PATIENT_IDS,
-        key=lambda patient_id: (-patient_priority(st.session_state.cohort_vitals.get(patient_id, {}))[0], patient_id),
+        key=lambda patient_id: (
+            patient_freshness(patient_ages[patient_id])[0] not in {"Stale", "No data"},
+            -patient_priority(st.session_state.cohort_vitals.get(patient_id, {}))[0],
+            patient_id,
+        ),
     )
     st.subheader("Patient Watchlist")
 
@@ -447,9 +495,10 @@ def render_patient_cards() -> None:
             previous = previous_snapshot(patient_id)
             _, priority = patient_priority(vitals)
             priority_color = {"Urgent": "red", "Review": "orange", "Stable": "green", "No data": "gray"}[priority]
+            freshness, freshness_color = patient_freshness(patient_ages[patient_id])
 
             with column, st.container(border=True):
-                st.markdown(f"**Patient {patient_id}** · :{priority_color}[{priority}]")
+                st.markdown(f"**Patient {patient_id}** · :{priority_color}[{priority}] · :{freshness_color}[{freshness}]")
                 st.markdown(
                     f"HR **{format_value(vitals.get('heart_rate'))}** bpm  \n"
                     f"SpO₂ **{format_value(vitals.get('spo2'))}**%  \n"
@@ -459,32 +508,27 @@ def render_patient_cards() -> None:
                 st.caption(
                     "Change: "
                     f"HR {format_delta(measurement_delta(vitals, previous, 'heart_rate'))} · "
-                    f"SpO₂ {format_delta(measurement_delta(vitals, previous, 'spo2'))}"
+                    f"SpO₂ {format_delta(measurement_delta(vitals, previous, 'spo2'))} · "
+                    f"Data age {format_value(patient_ages[patient_id])} sec"
                 )
                 if st.button("View trends", key=f"focus-{patient_id}", width="stretch"):
                     st.session_state.selected_patient_id = patient_id
                     st.rerun()
 
 
-def freshest_event_age_seconds() -> float | None:
-    event_times = []
-    for vitals in st.session_state.cohort_vitals.values():
-        try:
-            event_times.append(datetime.fromisoformat(str(vitals["event_timestamp"]).replace("Z", "+00:00")))
-        except (KeyError, ValueError):
-            continue
-    if not event_times:
-        return None
-    return max((datetime.now(UTC) - max(event_times)).total_seconds(), 0.0)
-
-
 def render_dashboard() -> None:
     if "selected_patient_id" not in st.session_state:
         st.session_state.selected_patient_id = None
     selected_patient = st.session_state.selected_patient_id
-    connection_state = st.session_state.connection_state
     priorities = [patient_priority(st.session_state.cohort_vitals.get(patient_id, {}))[1] for patient_id in PATIENT_IDS]
-    event_age = freshest_event_age_seconds()
+    patient_ages = {patient_id: event_age_seconds(st.session_state.cohort_vitals.get(patient_id, {})) for patient_id in PATIENT_IDS}
+    freshness_states = {patient_id: patient_freshness(patient_ages[patient_id])[0] for patient_id in PATIENT_IDS}
+    with st.session_state.connection_state_lock:
+        connection_state = dict(st.session_state.connection_state)
+    websocket_connections = sum(1 for state in connection_state.values() if state.get("connected"))
+    current_patient_count = list(freshness_states.values()).count("Current")
+    delayed_patient_count = list(freshness_states.values()).count("Delayed")
+    stale_patient_count = len(PATIENT_IDS) - current_patient_count - delayed_patient_count
 
     st.title("Patient Monitoring")
 
@@ -494,22 +538,23 @@ def render_dashboard() -> None:
         st.caption(f"Adult acute-care cohort · {len(PATIENT_IDS)} patients")
 
     with header_right:
-        if event_age is not None and event_age <= 15:
+        if stale_patient_count == 0 and delayed_patient_count == 0:
             st.success("Live")
-        elif event_age is not None and event_age <= 60:
+        elif stale_patient_count == 0:
             st.warning("Delayed")
         else:
             st.error("Stale")
 
     st.divider()
 
-    tracked_column, urgent_column, review_column, stable_column = st.columns(4)
+    tracked_column, urgent_column, review_column, freshness_column, websocket_column = st.columns(5)
     tracked_column.metric("Patients", len(PATIENT_IDS))
     urgent_column.metric("Urgent", priorities.count("Urgent"))
     review_column.metric("Review", priorities.count("Review"))
-    stable_column.metric("Stable", priorities.count("Stable"))
+    freshness_column.metric("Current", f"{current_patient_count}/{len(PATIENT_IDS)}")
+    websocket_column.metric("Live connections", f"{websocket_connections}/{len(PATIENT_IDS)}")
 
-    render_patient_cards()
+    render_patient_cards(patient_ages)
 
     st.divider()
 
@@ -534,19 +579,27 @@ def render_dashboard() -> None:
             label="Blood Pressure",
             value=f"{format_value(vitals.get('systolic_bp'))}/{format_value(vitals.get('diastolic_bp'))} mmHg",
         )
-        st.caption(f"Last updated {format_event_time(vitals.get('event_timestamp'))}")
+        st.caption(
+            f"Last updated {format_event_time(vitals.get('event_timestamp'))} · "
+            f"Data age {format_value(patient_ages[selected_patient])} sec"
+        )
         st.divider()
 
-    feed_column, latency_column = st.columns(2)
-    feed_column.metric(label="Cohort Data Age", value=f"{format_value(event_age)} sec")
-    latency_column.metric(label="WebSocket Processing Latency", value=f"{format_value(st.session_state.get('live_latency_ms'))} ms")
+    freshness_column, latency_column = st.columns(2)
+    freshness_column.metric(label="Delayed or stale", value=f"{delayed_patient_count + stale_patient_count}/{len(PATIENT_IDS)}")
+    latencies = list(st.session_state.websocket_latency_ms.values())
+    latency_column.metric(
+        label="WebSocket Processing Latency",
+        value=f"{format_value(sum(latencies) / len(latencies) if latencies else None)} ms",
+    )
 
     st.divider()
 
     render_trend_charts(selected_patient)
 
-    if connection_state.get("error"):
-        st.warning(f"WebSocket error: {connection_state['error']}")
+    websocket_errors = [patient_id for patient_id, state in connection_state.items() if state.get("error")]
+    if websocket_errors:
+        st.warning(f"WebSocket reconnecting for {len(websocket_errors)} patient connection(s).")
 
     if st.session_state.get("initial_load_error"):
         st.warning(f"Initial state request failed: {st.session_state.initial_load_error}")
@@ -557,7 +610,7 @@ def render_dashboard() -> None:
     st.caption("Synthetic/research data for demonstration only. This dashboard is not intended for clinical decision-making.")
 
 
-start_websocket_thread()
+start_websocket_workers()
 load_initial_state()
 process_websocket_messages()
 refresh_vitals_from_api()
