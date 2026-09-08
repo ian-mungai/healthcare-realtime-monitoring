@@ -1,5 +1,11 @@
+data "aws_caller_identity" "current" {}
+
+data "aws_partition" "current" {}
+
 locals {
   metric_namespace = "HealthcareRealtime/Live"
+  alert_topic_name = "healthcare-realtime-alerts-${var.environment}"
+  alert_topic_arn  = "arn:${data.aws_partition.current.partition}:sns:${var.aws_region}:${data.aws_caller_identity.current.account_id}:${local.alert_topic_name}"
 }
 
 resource "aws_cloudwatch_dashboard" "realtime" {
@@ -125,6 +131,30 @@ resource "aws_cloudwatch_dashboard" "realtime" {
               "IteratorAge",
               "FunctionName",
               var.lambda_function_name
+            ]
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 18
+        width  = 24
+        height = 6
+
+        properties = {
+          title  = "Terminal Replay DLQ"
+          view   = "timeSeries"
+          region = var.aws_region
+          stat   = "Maximum"
+          period = 60
+
+          metrics = [
+            [
+              "AWS/SQS",
+              "ApproximateNumberOfMessagesVisible",
+              "QueueName",
+              var.replay_dlq_name
             ]
           ]
         }
@@ -285,10 +315,175 @@ resource "aws_cloudwatch_metric_alarm" "iterator_age" {
   tags = var.tags
 }
 
-resource "aws_sns_topic" "realtime_alerts" {
-  name = "healthcare-realtime-alerts-${var.environment}"
+resource "aws_cloudwatch_metric_alarm" "replay_dlq_messages" {
+  alarm_name        = "healthcare-realtime-replay-dlq-messages-${var.environment}"
+  alarm_description = "The terminal replay DLQ contains records requiring operator investigation."
+
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 1
+  datapoints_to_alarm = 1
+
+  namespace   = "AWS/SQS"
+  metric_name = "ApproximateNumberOfMessagesVisible"
+
+  dimensions = {
+    QueueName = var.replay_dlq_name
+  }
+
+  statistic = "Maximum"
+  period    = 60
+  threshold = 1
+
+  treat_missing_data = "notBreaching"
+
+  alarm_actions = [aws_sns_topic.realtime_alerts.arn]
+  ok_actions    = [aws_sns_topic.realtime_alerts.arn]
 
   tags = var.tags
+}
+
+data "aws_iam_policy_document" "realtime_alerts_kms" {
+  statement {
+    sid    = "EnableAccountAdministration"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+
+    actions   = ["kms:*"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "AllowSNSKeyUse"
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["sns.amazonaws.com"]
+    }
+
+    actions = [
+      "kms:Decrypt",
+      "kms:GenerateDataKey*"
+    ]
+
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "kms:EncryptionContext:aws:sns:topicArn"
+      values   = [local.alert_topic_arn]
+    }
+  }
+
+  statement {
+    sid    = "AllowCloudWatchAlarmPublishing"
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudwatch.amazonaws.com"]
+    }
+
+    actions = [
+      "kms:Decrypt",
+      "kms:GenerateDataKey*"
+    ]
+
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+
+    condition {
+      test     = "ArnLike"
+      variable = "aws:SourceArn"
+      values   = ["arn:${data.aws_partition.current.partition}:cloudwatch:${var.aws_region}:${data.aws_caller_identity.current.account_id}:alarm:*"]
+    }
+  }
+}
+
+resource "aws_kms_key" "realtime_alerts" {
+  description             = "Encrypts healthcare realtime alert notifications."
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+  policy                  = data.aws_iam_policy_document.realtime_alerts_kms.json
+
+  tags = var.tags
+}
+
+resource "aws_kms_alias" "realtime_alerts" {
+  name          = "alias/healthcare-realtime-alerts-${var.environment}"
+  target_key_id = aws_kms_key.realtime_alerts.key_id
+}
+
+resource "aws_sns_topic" "realtime_alerts" {
+  name              = local.alert_topic_name
+  kms_master_key_id = aws_kms_key.realtime_alerts.arn
+
+  tags = var.tags
+}
+
+data "aws_iam_policy_document" "realtime_alerts_topic" {
+  statement {
+    sid    = "AllowAccountManagement"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+
+    actions = [
+      "SNS:AddPermission",
+      "SNS:DeleteTopic",
+      "SNS:GetTopicAttributes",
+      "SNS:ListSubscriptionsByTopic",
+      "SNS:Publish",
+      "SNS:Receive",
+      "SNS:RemovePermission",
+      "SNS:SetTopicAttributes",
+      "SNS:Subscribe"
+    ]
+
+    resources = [aws_sns_topic.realtime_alerts.arn]
+  }
+
+  statement {
+    sid    = "AllowCloudWatchAlarmPublishing"
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudwatch.amazonaws.com"]
+    }
+
+    actions   = ["SNS:Publish"]
+    resources = [aws_sns_topic.realtime_alerts.arn]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+
+    condition {
+      test     = "ArnLike"
+      variable = "aws:SourceArn"
+      values   = ["arn:${data.aws_partition.current.partition}:cloudwatch:${var.aws_region}:${data.aws_caller_identity.current.account_id}:alarm:*"]
+    }
+  }
+}
+
+resource "aws_sns_topic_policy" "realtime_alerts" {
+  arn    = aws_sns_topic.realtime_alerts.arn
+  policy = data.aws_iam_policy_document.realtime_alerts_topic.json
 }
 
 resource "aws_sns_topic_subscription" "realtime_alert_email" {

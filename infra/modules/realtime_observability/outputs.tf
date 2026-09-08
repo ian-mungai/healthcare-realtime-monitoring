@@ -28,6 +28,11 @@ output "iterator_age_alarm_name" {
   value       = aws_cloudwatch_metric_alarm.iterator_age.alarm_name
 }
 
+output "replay_dlq_alarm_name" {
+  description = "Name of the terminal replay DLQ alarm."
+  value       = aws_cloudwatch_metric_alarm.replay_dlq_messages.alarm_name
+}
+
 output "alert_topic_arn" {
   description = "ARN of the realtime alert SNS topic."
   value       = aws_sns_topic.realtime_alerts.arn
@@ -36,4 +41,9 @@ output "alert_topic_arn" {
 output "alert_topic_name" {
   description = "Name of the realtime alert SNS topic."
   value       = aws_sns_topic.realtime_alerts.name
+}
+
+output "alert_kms_key_arn" {
+  description = "ARN of the KMS key encrypting realtime alert notifications."
+  value       = aws_kms_key.realtime_alerts.arn
 }

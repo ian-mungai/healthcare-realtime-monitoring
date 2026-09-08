@@ -22,3 +22,8 @@ variable "alert_email" {
   description = "Email address subscribed to realtime CloudWatch alarm notifications."
   type        = string
 }
+
+variable "replay_dlq_name" {
+  description = "Name of the terminal realtime replay dead-letter queue."
+  type        = string
+}
