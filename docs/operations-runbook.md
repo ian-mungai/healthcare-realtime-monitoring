@@ -73,6 +73,20 @@ Use temporary Postman variables for endpoints and authorization. Do not export c
 5. Correct the underlying data or deployment cause, then use the replay workflow only with a reviewed sequence range and a bounded replay attempt.
 6. Verify fresh current-state records, dashboard updates, and alarm recovery before closing the incident.
 
+### Simulator publication failures
+
+The simulator isolates FHIR publication failures by patient. Retryable failures use bounded exponential backoff and reuse the same deterministic observation identifiers, so a partial retry does not create duplicate observations. Permanent failures are not retried.
+
+Each cycle emits a structured summary with `status`, `patients_succeeded`, `patients_failed`, `failed_patient_ids`, and `consecutive_failed_cycles`. A single degraded cycle does not stop healthy patient streams. The task exits after three consecutive degraded cycles so a sustained HAPI or networking failure remains visible rather than running indefinitely in a failed state.
+
+The deployed defaults are controlled by:
+
+- `SIMULATOR_PUBLISH_MAX_ATTEMPTS=2`
+- `SIMULATOR_PUBLISH_RETRY_BACKOFF_SECONDS=2`
+- `SIMULATOR_MAX_CONSECUTIVE_FAILED_CYCLES=3`
+
+For a degraded cycle, inspect the associated `patient_publish_failed` entry and correct the underlying FHIR, database, or networking problem. Restart the short-lived simulator task only after HAPI is healthy.
+
 ## Demo Shutdown and Cost Control
 
 Stop the simulator immediately after validation or a recorded demo:

@@ -235,6 +235,18 @@ resource "aws_ecs_task_definition" "vitals_simulator" {
         {
           name  = "SIMULATOR_REPLAY"
           value = "true"
+        },
+        {
+          name  = "SIMULATOR_PUBLISH_MAX_ATTEMPTS"
+          value = "2"
+        },
+        {
+          name  = "SIMULATOR_PUBLISH_RETRY_BACKOFF_SECONDS"
+          value = "2"
+        },
+        {
+          name  = "SIMULATOR_MAX_CONSECUTIVE_FAILED_CYCLES"
+          value = "3"
         }
       ]
 
