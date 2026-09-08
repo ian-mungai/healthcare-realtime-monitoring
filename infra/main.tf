@@ -252,6 +252,7 @@ module "realtime_observability" {
   lambda_function_name = module.realtime_processor.lambda_function_name
   environment          = "development"
   alert_email          = var.realtime_alert_email
+  replay_dlq_name      = module.realtime_failure_handling.vitals_replay_dlq_name
 
   tags = {
     Project     = "healthcare_realtime_monitoring"

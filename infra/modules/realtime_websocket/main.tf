@@ -89,6 +89,13 @@ resource "aws_apigatewayv2_api" "vitals_websocket" {
   tags = var.tags
 }
 
+resource "aws_cloudwatch_log_group" "websocket_access" {
+  name              = "/aws/apigateway/healthcare-realtime-vitals-websocket"
+  retention_in_days = 14
+
+  tags = var.tags
+}
+
 resource "aws_apigatewayv2_integration" "websocket_handler" {
   api_id             = aws_apigatewayv2_api.vitals_websocket.id
   integration_type   = "AWS_PROXY"
@@ -121,4 +128,18 @@ resource "aws_apigatewayv2_stage" "development" {
   api_id      = aws_apigatewayv2_api.vitals_websocket.id
   name        = "development"
   auto_deploy = true
+
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.websocket_access.arn
+    format = jsonencode({
+      requestId      = "$context.requestId"
+      connectionId   = "$context.connectionId"
+      eventType      = "$context.eventType"
+      sourceIp       = "$context.identity.sourceIp"
+      requestTime    = "$context.requestTime"
+      routeKey       = "$context.routeKey"
+      status         = "$context.status"
+      responseLength = "$context.responseLength"
+    })
+  }
 }

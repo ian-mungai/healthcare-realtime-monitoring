@@ -8,7 +8,7 @@ output "kinesis_throttling_alarm_name" {
   value       = aws_cloudwatch_metric_alarm.kinesis_write_throttling.alarm_name
 }
 
-output "firehose_delivery_failure_alarm_name" {
+output "firehose_data_freshness_alarm_name" {
   description = "Firehose delivery freshness alarm name."
-  value       = aws_cloudwatch_metric_alarm.firehose_delivery_failure.alarm_name
+  value       = aws_cloudwatch_metric_alarm.firehose_data_freshness.alarm_name
 }
