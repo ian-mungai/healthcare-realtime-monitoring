@@ -32,6 +32,8 @@ The Terraform plan should show no unexpected changes. Resolve infrastructure dri
 
 Wait until the task reports `RUNNING`. The script starts one Fargate simulator task and refuses to create another one while an existing task is active.
 
+In the simulator log stream, healthy cycles report `status=healthy`, `patients_succeeded=10`, and `patients_failed=0`. Investigate any `status=degraded` cycle before using the run as release evidence.
+
 ## Start the dashboard
 
 Retrieve the target endpoints without copying them into documentation or screenshots:
