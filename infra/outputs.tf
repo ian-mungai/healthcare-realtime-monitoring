@@ -8,6 +8,16 @@ output "kinesis_stream_arn" {
   value       = module.kinesis.stream_arn
 }
 
+output "load_test_kinesis_stream_name" {
+  description = "Isolated Kinesis stream used by the realtime load test."
+  value       = module.load_test_kinesis.stream_name
+}
+
+output "load_test_results_table_name" {
+  description = "Isolated DynamoDB table used to verify load-test processing."
+  value       = module.realtime_vitals.load_test_results_table_name
+}
+
 output "raw_s3_bucket_name" {
   description = "S3 bucket used for healthcare realtime data"
   value       = module.raw_s3.bucket_name

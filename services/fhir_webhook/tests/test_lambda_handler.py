@@ -4,13 +4,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from services.fhir_webhook.app import lambda_handler as webhook_lambda_handler
 from services.fhir_webhook.app.kinesis.client import KinesisPublisherError, KinesisPublishResult
-from services.fhir_webhook.app.lambda_handler import lambda_handler
 
 TEST_SECRET = "test_webhook_secret"
 
 os.environ["KINESIS_STREAM_NAME"] = "healthcare_realtime_vitals"
 os.environ["AWS_REGION"] = "example-region-1"
+
+
+def lambda_handler(event, context):
+    event.setdefault("headers", {}).setdefault("x-webhook-secret", TEST_SECRET)
+    return webhook_lambda_handler.lambda_handler(event, context)
 
 
 @pytest.fixture(autouse=True)
@@ -51,6 +56,33 @@ def test_empty_bundle_handshake():
 
     assert response["statusCode"] == 200
     assert json.loads(response["body"])["status"] == "handshake_accepted"
+
+
+def test_unauthenticated_request_is_rejected_before_body_parsing():
+    response = webhook_lambda_handler.lambda_handler({"routeKey": "POST /webhooks/fhir", "body": "not-json", "headers": {}}, None)
+
+    assert response["statusCode"] == 401
+    assert json.loads(response["body"])["detail"] == "Invalid webhook secret"
+
+
+@pytest.mark.parametrize(
+    "route",
+    [
+        "GET /health",
+        "GET /webhooks/fhir",
+        "HEAD /webhooks/fhir",
+        "GET /webhooks/fhir/metadata",
+        "POST /webhooks/fhir",
+        "PUT /webhooks/fhir/{resource_type}/{resource_id}",
+    ],
+)
+@pytest.mark.parametrize("secret", [None, "incorrect"])
+def test_all_supported_routes_require_secret_before_decoding(route, secret):
+    headers = {} if secret is None else {"x-webhook-secret": secret}
+    with patch.object(webhook_lambda_handler, "decode_body") as decode:
+        response = webhook_lambda_handler.lambda_handler({"routeKey": route, "headers": headers, "body": ""}, None)
+    assert response["statusCode"] == 401
+    decode.assert_not_called()
 
 
 @patch("services.fhir_webhook.app.lambda_handler.KinesisPublisher")

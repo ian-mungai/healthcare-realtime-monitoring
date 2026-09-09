@@ -60,6 +60,22 @@ def validate_update_path(event: dict, payload: dict) -> str | None:
 def lambda_handler(event: dict, context) -> dict:
     route_key = event.get("routeKey")
 
+    supported_routes = {"GET /health", "GET /webhooks/fhir", "HEAD /webhooks/fhir", FHIR_METADATA_ROUTE, FHIR_WEBHOOK_ROUTE, FHIR_UPDATE_ROUTE}
+
+    if route_key not in supported_routes:
+        return build_response(404, {"detail": "Route not found"})
+
+    headers = event.get("headers") or {}
+    received_secret = get_header(headers, WEBHOOK_SECRET_HEADER)
+
+    try:
+        secret_valid = validate_webhook_secret(received_secret)
+    except RuntimeError:
+        return build_response(500, {"detail": "Webhook secret is not configured"})
+
+    if not secret_valid:
+        return build_response(401, {"detail": "Invalid webhook secret"})
+
     if route_key == "GET /health":
         return build_response(200, {"status": "healthy", "service": "fhir_webhook"})
 
@@ -72,11 +88,7 @@ def lambda_handler(event: dict, context) -> dict:
     if route_key == FHIR_METADATA_ROUTE:
         return build_response(200, build_capability_statement(), "application/fhir+json")
 
-    if route_key not in {FHIR_WEBHOOK_ROUTE, FHIR_UPDATE_ROUTE}:
-        return build_response(404, {"detail": "Route not found"})
-
     body = decode_body(event)
-
     if route_key == FHIR_WEBHOOK_ROUTE and not body.strip():
         return build_response(200, {"status": "handshake_accepted"})
 
@@ -90,17 +102,6 @@ def lambda_handler(event: dict, context) -> dict:
 
     if route_key == FHIR_WEBHOOK_ROUTE and payload.get("resourceType") == "Bundle" and not payload.get("entry"):
         return build_response(200, {"status": "handshake_accepted"})
-
-    headers = event.get("headers") or {}
-    received_secret = get_header(headers, WEBHOOK_SECRET_HEADER)
-
-    try:
-        secret_valid = validate_webhook_secret(received_secret)
-    except RuntimeError:
-        return build_response(500, {"detail": "Webhook secret is not configured"})
-
-    if not secret_valid:
-        return build_response(401, {"detail": "Invalid webhook secret"})
 
     if route_key == FHIR_UPDATE_ROUTE:
         path_error = validate_update_path(event, payload)

@@ -18,6 +18,12 @@ variable "lambda_zip_path" {
   type        = string
 }
 
+variable "patient_access_policy" {
+  description = "JSON map of IAM principal ARN patterns to authorized patient ID patterns."
+  type        = string
+  sensitive   = true
+}
+
 variable "tags" {
   description = "Tags applied to realtime WebSocket resources."
   type        = map(string)

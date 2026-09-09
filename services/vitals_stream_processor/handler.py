@@ -19,13 +19,16 @@ else:
 
 AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
 LATEST_VITALS_TABLE = os.getenv("LATEST_VITALS_TABLE", "healthcare-realtime-latest-vitals")
+LOAD_TEST_RESULTS_TABLE = os.getenv("LOAD_TEST_RESULTS_TABLE", "healthcare-realtime-load-test-results")
 CONNECTIONS_TABLE = os.getenv("CONNECTIONS_TABLE", "healthcare-realtime-websocket-connections")
 WEBSOCKET_ENDPOINT = os.getenv("WEBSOCKET_ENDPOINT", "")
 
 METRIC_NAMESPACE = "HealthcareRealtime/Live"
+LOAD_TEST_METRIC_NAMESPACE = "HealthcareRealtime/LoadTest"
 
 dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
 latest_vitals_table = dynamodb.Table(LATEST_VITALS_TABLE)
+load_test_results_table = dynamodb.Table(LOAD_TEST_RESULTS_TABLE)
 connections_table = dynamodb.Table(CONNECTIONS_TABLE)
 
 cloudwatch = boto3.client("cloudwatch", region_name=AWS_REGION)
@@ -92,6 +95,20 @@ def write_latest_vitals(payload: dict[str, Any]) -> bool:
     return True
 
 
+def write_load_test_result(payload: dict[str, Any]) -> None:
+    observation_id = payload.get("observation_id")
+
+    if not observation_id:
+        raise ValueError("observation_id is required")
+
+    processed_at = datetime.now(UTC)
+    item = to_dynamodb_item(payload)
+    item["processed_at"] = processed_at.isoformat().replace("+00:00", "Z")
+    item["expires_at"] = int(processed_at.timestamp()) + 86400
+
+    load_test_results_table.put_item(Item=item)
+
+
 def get_patient_connections(patient_id: str) -> list[str]:
     connection_ids: list[str] = []
     query_parameters: dict[str, Any] = {
@@ -119,11 +136,11 @@ def delete_connection(connection_id: str) -> None:
     connections_table.delete_item(Key={"connection_id": connection_id})
 
 
-def emit_metrics(metric_data: list[dict[str, Any]]) -> None:
+def emit_metrics(metric_data: list[dict[str, Any]], namespace: str = METRIC_NAMESPACE) -> None:
     if not metric_data:
         return
 
-    cloudwatch.put_metric_data(Namespace=METRIC_NAMESPACE, MetricData=metric_data)
+    cloudwatch.put_metric_data(Namespace=namespace, MetricData=metric_data)
 
 
 def calculate_latency_ms(event_timestamp: str) -> float:
@@ -207,14 +224,19 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, list[dict[s
 
             validate_vitals_payload(payload)
 
-            if not write_latest_vitals(payload):
+            is_load_test = payload.get("source") == "load_test"
+
+            if is_load_test:
+                write_load_test_result(payload)
+            elif not write_latest_vitals(payload):
                 continue
 
             deliveries, delivery_failures, active_connections = push_vitals(payload)
 
             metric_data = build_metric_data(payload, deliveries, delivery_failures, active_connections)
 
-            emit_metrics(metric_data)
+            metric_namespace = LOAD_TEST_METRIC_NAMESPACE if is_load_test else METRIC_NAMESPACE
+            emit_metrics(metric_data, namespace=metric_namespace)
 
         except Exception as error:
             print(f"Failed Kinesis record {sequence_number}: {error}")
