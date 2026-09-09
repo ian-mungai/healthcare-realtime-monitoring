@@ -11,12 +11,12 @@ def test_glue_script_exists() -> None:
     assert GLUE_SCRIPT.is_file()
 
 
-def test_glue_supports_legacy_wrapped_fhir_records() -> None:
+def test_glue_excludes_retired_wrapped_fhir_records() -> None:
     source = read_glue_script()
 
-    assert "resource_type" in source
-    assert "payload.resourceType" in source
-    assert "resource_id" in source
+    assert "transform_wrapped_fhir_records" not in source
+    assert "payload.resourceType" not in source
+    assert "resource_type" not in source
 
 
 def test_glue_supports_flattened_vitals_records() -> None:

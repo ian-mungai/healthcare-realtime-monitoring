@@ -85,12 +85,15 @@ terraform -chdir=infra validate
 
 ## Infrastructure workflow
 
-Terraform configuration is intentionally environment-neutral. Review planned changes before every deployment:
+Terraform uses a partial S3 backend configuration with native state locking. Copy the portable example and provide a private, versioned state bucket created for your environment:
 
 ```zsh
-terraform -chdir=infra init
+cp infra/backend.hcl.example infra/backend.hcl
+terraform -chdir=infra init -backend-config=backend.hcl
 terraform -chdir=infra plan -var-file=development.tfvars
 ```
+
+For an existing clone with local state, use `terraform -chdir=infra init -backend-config=backend.hcl -migrate-state` once and confirm the migration prompt. The local `backend.hcl` file is ignored by Git.
 
 The detailed deployment, recovery, cost-control, and operational checks are in the [operations runbook](docs/operations-runbook.md).
 
