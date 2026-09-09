@@ -1,23 +1,32 @@
 import ast
 import json
 from pathlib import Path
-from typing import Any
 
 import yaml
+
+from services.vital_signs import (
+    ANALYTICAL_VITAL_RANGES,
+    BLOOD_PRESSURE_PANEL_CODE,
+    DIASTOLIC_CODE,
+    FLATTENED_MEASUREMENTS,
+    LOINC_VITAL_FIELDS,
+    MEASUREMENT_NAMES,
+    REALTIME_VITAL_RANGES,
+    SUPPORTED_LOINC_CODES,
+    SYSTOLIC_CODE,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 CATALOG = json.loads((ROOT / "config/vital_signs.json").read_text())
 VITALS = CATALOG["vital_signs"]
 
 
-def literal_assignment(relative_path: str, name: str) -> Any:
+def imported_names(relative_path: str, module: str) -> set[str]:
     tree = ast.parse((ROOT / relative_path).read_text())
-    for node in tree.body:
-        if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == name for target in node.targets):
-            return ast.literal_eval(node.value)
-        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id == name and node.value is not None:
-            return ast.literal_eval(node.value)
-    raise AssertionError(f"Assignment {name} was not found in {relative_path}")
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module == module:
+            return {name.name for name in node.names}
+    raise AssertionError(f"Import from {module} was not found in {relative_path}")
 
 
 def loinc_contract_values(relative_path: str) -> set[str]:
@@ -46,47 +55,34 @@ def test_python_service_definitions_match_catalog() -> None:
     by_field = {vital["field"]: vital for vital in VITALS}
     code_by_field = {field: vital["loinc_code"] for field, vital in by_field.items()}
 
-    assert literal_assignment("services/vitals_stream_processor/schema.py", "VITAL_RANGES") == {
-        field: tuple(vital["realtime_range"]) for field, vital in by_field.items()
-    }
-    assert literal_assignment("services/fhir_webhook/app/vitals.py", "LOINC_VITAL_FIELDS") == {
-        code_by_field[field]: field for field in ("heart_rate", "respiratory_rate", "spo2")
-    }
-    assert literal_assignment("services/fhir_webhook/app/vitals.py", "BLOOD_PRESSURE_CODE") == CATALOG["blood_pressure_panel"]["loinc_code"]
-    assert literal_assignment("services/fhir_webhook/app/vitals.py", "SYSTOLIC_CODE") == code_by_field["systolic_bp"]
-    assert literal_assignment("services/fhir_webhook/app/vitals.py", "DIASTOLIC_CODE") == code_by_field["diastolic_bp"]
-    assert literal_assignment("services/vitals_simulator/app/synthea/blood_pressure.py", "SYSTOLIC_CODE") == code_by_field["systolic_bp"]
-    assert literal_assignment("services/vitals_simulator/app/synthea/blood_pressure.py", "DIASTOLIC_CODE") == code_by_field["diastolic_bp"]
+    assert REALTIME_VITAL_RANGES == {field: tuple(vital["realtime_range"]) for field, vital in by_field.items()}
+    assert LOINC_VITAL_FIELDS == {code_by_field[field]: field for field in ("heart_rate", "respiratory_rate", "spo2")}
+    assert BLOOD_PRESSURE_PANEL_CODE == CATALOG["blood_pressure_panel"]["loinc_code"]
+    assert SYSTOLIC_CODE == code_by_field["systolic_bp"]
+    assert DIASTOLIC_CODE == code_by_field["diastolic_bp"]
 
-    simulator_definitions = {
-        "heart_rate": literal_assignment("services/vitals_simulator/app/fhir/observation.py", "HEART_RATE"),
-        "respiratory_rate": literal_assignment("services/vitals_simulator/app/fhir/observation.py", "RESPIRATORY_RATE"),
-        "spo2": literal_assignment("services/vitals_simulator/app/fhir/observation.py", "SPO2"),
-        "systolic_bp": literal_assignment("services/vitals_simulator/app/fhir/observation.py", "SYSTOLIC_BP"),
-        "diastolic_bp": literal_assignment("services/vitals_simulator/app/fhir/observation.py", "DIASTOLIC_BP"),
+    consumers = {
+        "services/fhir_webhook/app/vitals.py": {"LOINC_VITAL_FIELDS", "BLOOD_PRESSURE_PANEL_CODE", "SYSTOLIC_CODE", "DIASTOLIC_CODE"},
+        "services/vitals_simulator/app/fhir/observation.py": {"VITAL_SIGNS_BY_FIELD", "BLOOD_PRESSURE_PANEL"},
+        "services/vitals_simulator/app/synthea/blood_pressure.py": {"BLOOD_PRESSURE_PANEL_CODE", "SYSTOLIC_CODE", "DIASTOLIC_CODE"},
     }
-    for field, definition in simulator_definitions.items():
-        assert definition["loinc_code"] == by_field[field]["loinc_code"]
-        assert definition["display"] == by_field[field]["display"]
-        if "unit" in definition:
-            assert definition["unit"] == by_field[field]["unit"]
-            assert definition["ucum_code"] == by_field[field]["ucum_code"]
+    for relative_path, expected_imports in consumers.items():
+        assert expected_imports <= imported_names(relative_path, "services.vital_signs")
+    assert 'import_module("services.vital_signs")' in (ROOT / "services/vitals_stream_processor/schema.py").read_text()
 
 
 def test_glue_and_great_expectations_definitions_match_catalog() -> None:
     code_by_field = {vital["field"]: vital["loinc_code"] for vital in VITALS}
     expected_codes = set(code_by_field.values())
 
-    assert literal_assignment("jobs/glue/fhir_observations_raw_to_processed.py", "MEASUREMENT_NAMES") == {
-        vital["loinc_code"]: vital["analytical_name"] for vital in VITALS
-    }
-    assert literal_assignment("jobs/glue/fhir_observations_raw_to_processed.py", "FLATTENED_MEASUREMENTS") == {
-        vital["field"]: (vital["loinc_code"], vital["unit"]) for vital in VITALS
-    }
-    assert literal_assignment("jobs/glue/fhir_observations_raw_to_processed.py", "ANALYTICAL_VITAL_RANGES") == {
-        vital["field"]: tuple(vital["analytical_range"]) for vital in VITALS
-    }
-    assert set(literal_assignment("data_quality/great_expectations/validate_processed_observations.py", "VALID_LOINC_CODES")) == expected_codes
+    assert MEASUREMENT_NAMES == {vital["loinc_code"]: vital["analytical_name"] for vital in VITALS}
+    assert FLATTENED_MEASUREMENTS == {vital["field"]: (vital["loinc_code"], vital["unit"]) for vital in VITALS}
+    assert ANALYTICAL_VITAL_RANGES == {vital["field"]: tuple(vital["analytical_range"]) for vital in VITALS}
+    assert set(SUPPORTED_LOINC_CODES) == expected_codes
+    assert {"ANALYTICAL_VITAL_RANGES", "FLATTENED_MEASUREMENTS", "MEASUREMENT_NAMES", "SUPPORTED_LOINC_CODES"} <= imported_names(
+        "jobs/glue/fhir_observations_raw_to_processed.py", "services.vital_signs"
+    )
+    assert {"SUPPORTED_LOINC_CODES"} <= imported_names("data_quality/great_expectations/validate_processed_observations.py", "services.vital_signs")
 
 
 def test_dbt_and_soda_contracts_match_catalog() -> None:

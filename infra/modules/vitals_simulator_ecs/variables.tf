@@ -39,6 +39,11 @@ variable "image_tag" {
   type        = string
 }
 
+variable "alarm_topic_arn" {
+  description = "SNS topic ARN receiving simulator operational alarms."
+  type        = string
+}
+
 variable "tags" {
   description = "Tags applied to vitals simulator resources."
   type        = map(string)

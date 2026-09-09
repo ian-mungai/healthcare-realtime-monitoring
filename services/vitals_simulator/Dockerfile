@@ -11,6 +11,8 @@ RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r /tmp/requirements.txt
 
 COPY services/__init__.py ./services/__init__.py
+COPY services/vital_signs.py ./services/vital_signs.py
 COPY services/vitals_simulator ./services/vitals_simulator
+COPY config/vital_signs.json ./config/vital_signs.json
 
 CMD ["python", "-m", "services.vitals_simulator.app.simulation.realtime_cohort_runner"]

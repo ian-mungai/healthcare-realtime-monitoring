@@ -2,9 +2,7 @@ import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-BLOOD_PRESSURE_PANEL_CODE = "85354-9"
-SYSTOLIC_CODE = "8480-6"
-DIASTOLIC_CODE = "8462-4"
+from services.vital_signs import BLOOD_PRESSURE_PANEL_CODE, DIASTOLIC_CODE, SYSTOLIC_CODE
 
 BLOOD_PRESSURE_DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "blood_pressure_readings.json"
 

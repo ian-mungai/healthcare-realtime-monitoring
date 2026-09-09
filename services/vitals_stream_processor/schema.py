@@ -1,15 +1,15 @@
 from datetime import UTC, datetime
+from importlib import import_module
 from typing import Any
+
+try:
+    vital_signs = import_module("services.vital_signs")
+except ModuleNotFoundError:
+    vital_signs = import_module("vital_signs")
 
 SCHEMA_VERSION = "1.0"
 
-VITAL_RANGES: dict[str, tuple[float, float]] = {
-    "heart_rate": (20, 250),
-    "spo2": (50, 100),
-    "respiratory_rate": (4, 80),
-    "systolic_bp": (50, 300),
-    "diastolic_bp": (20, 200),
-}
+VITAL_RANGES: dict[str, tuple[float, float]] = vital_signs.REALTIME_VITAL_RANGES
 
 
 def validate_event_timestamp(value: Any) -> None:
