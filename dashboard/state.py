@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from math import isfinite
 from typing import Any
 
 VITAL_FIELDS = ("heart_rate", "spo2", "respiratory_rate", "systolic_bp", "diastolic_bp")
@@ -109,10 +110,15 @@ def parse_patient_ids(value: str) -> tuple[str, ...]:
     return tuple(patient_id.strip() for patient_id in value.split(",") if patient_id.strip())
 
 
-def news2_parameter_score(field: str, value: Any) -> int:
+def vital_warning_parameter_score(field: str, value: Any) -> int | None:
     if value is None:
-        return 0
-    measurement = float(value)
+        return None
+    try:
+        measurement = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not isfinite(measurement):
+        return None
     if field == "heart_rate":
         if measurement <= 40 or measurement >= 131:
             return 3
@@ -145,19 +151,20 @@ def news2_parameter_score(field: str, value: Any) -> int:
 
 
 def patient_priority(vitals: dict[str, Any]) -> tuple[int, str]:
-    if not any(vitals.get(field) is not None for field in ("heart_rate", "spo2", "respiratory_rate", "systolic_bp")):
+    fields = ("heart_rate", "spo2", "respiratory_rate", "systolic_bp")
+    present_fields = [field for field in fields if vitals.get(field) is not None]
+    if not present_fields:
         return -1, "No data"
-    score = max(
-        news2_parameter_score("heart_rate", vitals.get("heart_rate")),
-        news2_parameter_score("spo2", vitals.get("spo2")),
-        news2_parameter_score("respiratory_rate", vitals.get("respiratory_rate")),
-        news2_parameter_score("systolic_bp", vitals.get("systolic_bp")),
-    )
-    if score == 3:
-        return score, "Urgent"
-    if score:
-        return score, "Review"
-    return score, "Stable"
+
+    parameter_scores = [vital_warning_parameter_score(field, vitals.get(field)) for field in present_fields]
+    valid_scores = [score for score in parameter_scores if score is not None]
+    total_score = sum(valid_scores)
+
+    if total_score >= 7 or any(score == 3 for score in valid_scores):
+        return total_score, "Urgent"
+    if len(valid_scores) != len(parameter_scores) or total_score:
+        return max(total_score, 1), "Review"
+    return 0, "Stable"
 
 
 def measurement_delta(current: dict[str, Any], previous: dict[str, Any] | None, field: str) -> float | None:
