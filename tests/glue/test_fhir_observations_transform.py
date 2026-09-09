@@ -83,9 +83,13 @@ def test_glue_has_deterministic_legacy_identifier_strategy() -> None:
 def test_glue_preserves_measurement_merge_key() -> None:
     source = read_glue_script()
 
-    assert 'dropDuplicates(["observation_id", "loinc_code"])' in source
+    assert 'Window.partitionBy("observation_id", "loinc_code")' in source
+    assert 'F.col("received_at").desc_nulls_last()' in source
+    assert "F.row_number().over(latest_record)" in source
     assert "target.observation_id = source.observation_id" in source
     assert "target.loinc_code = source.loinc_code" in source
+    assert "target.received_at IS NULL OR source.received_at > target.received_at" in source
+    assert "WHEN MATCHED THEN UPDATE SET *" not in source
 
 
 def test_glue_emits_start_lineage_event() -> None:

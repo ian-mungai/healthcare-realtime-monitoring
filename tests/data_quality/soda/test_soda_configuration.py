@@ -25,6 +25,16 @@ def test_soda_contract_files_are_valid_yaml() -> None:
         assert "columns" in contract
 
 
+def test_fact_contract_checks_compound_grain_uniqueness() -> None:
+    with (CONTRACTS_DIR / "fact_observations.yml").open(encoding="utf-8") as file:
+        contract = yaml.safe_load(file)
+
+    duplicate_check = next(check["duplicate"] for check in contract["checks"] if "duplicate" in check)
+
+    assert duplicate_check["columns"] == ["observation_id", "loinc_code"]
+    assert duplicate_check["threshold"]["must_be"] == 0
+
+
 def test_soda_example_configuration_is_valid_yaml() -> None:
     with EXAMPLE_CONFIG.open(encoding="utf-8") as file:
         config = yaml.safe_load(file)

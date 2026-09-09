@@ -57,7 +57,7 @@ Glue classifies every analytical measurement candidate before writing it. Record
 
 Rejected records are appended to `s3://<project-data-bucket>/quarantine/fhir_observations/` with `rejection_reason` and `quarantined_at`. The external Glue table `healthcare_realtime.quarantined_fhir_observations` exposes those JSON records to Athena. Per-run counts are appended under `metrics/glue/`.
 
-Great Expectations validates the processed Iceberg table for required fields, allowed LOINC codes, and uniqueness of `observation_id` plus `loinc_code`. Every automated dbt build applies model-level not-null, uniqueness, and accepted-value tests, including a singular test for the `fact_observations` compound grain. Soda contracts independently verify that the staging, fact, and dimension tables are nonempty and satisfy their column constraints.
+Great Expectations validates the processed Iceberg table for required fields, allowed LOINC codes, and uniqueness of `observation_id` plus `loinc_code`. Every automated dbt build applies model-level not-null, uniqueness, and accepted-value tests, including a singular test for the `fact_observations` compound grain. Soda contracts independently verify that the staging, fact, and dimension tables are nonempty, satisfy their column constraints, and preserve the fact-table compound grain.
 
 Verified quality checkpoint on 2026-09-03:
 

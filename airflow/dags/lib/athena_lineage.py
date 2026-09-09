@@ -17,14 +17,27 @@ ATHENA_POLL_INTERVAL_SECONDS = int(os.getenv("ATHENA_POLL_INTERVAL_SECONDS", "5"
 ATHENA_TERMINAL_STATES = {"SUCCEEDED", "FAILED", "CANCELLED"}
 
 ATHENA_VALIDATION_QUERY = f"""
-SELECT COUNT(*) AS invalid_row_count
-FROM {ATHENA_DATABASE}.{ATHENA_TABLE}
-WHERE observation_id IS NULL
-OR patient_id IS NULL
-OR patient_id = ''
-OR loinc_code IS NULL
-OR value IS NULL
-OR effective_datetime IS NULL
+WITH invalid_rows AS (
+    SELECT 1 AS violation
+    FROM {ATHENA_DATABASE}.{ATHENA_TABLE}
+    WHERE observation_id IS NULL
+    OR patient_id IS NULL
+    OR patient_id = ''
+    OR loinc_code IS NULL
+    OR value IS NULL
+    OR effective_datetime IS NULL
+),
+duplicate_grains AS (
+    SELECT observation_id, loinc_code
+    FROM {ATHENA_DATABASE}.{ATHENA_TABLE}
+    WHERE observation_id IS NOT NULL
+    AND loinc_code IS NOT NULL
+    GROUP BY observation_id, loinc_code
+    HAVING COUNT(*) > 1
+)
+SELECT
+    (SELECT COUNT(*) FROM invalid_rows)
+    + (SELECT COUNT(*) FROM duplicate_grains) AS invalid_row_count
 """
 
 
@@ -77,7 +90,7 @@ def run_athena_validation(data_bucket_name: str = "<project-data-bucket>") -> st
         invalid_row_count = get_invalid_row_count(athena_client, query_execution_id)
 
         if invalid_row_count > 0:
-            raise RuntimeError(f"Processed Iceberg table contains {invalid_row_count} invalid rows")
+            raise RuntimeError(f"Processed Iceberg table contains {invalid_row_count} quality violations")
 
         emit_athena_lineage_event(RunState.COMPLETE, lineage_run_id)
         return query_execution_id
