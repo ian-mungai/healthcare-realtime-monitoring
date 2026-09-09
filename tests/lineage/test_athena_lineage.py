@@ -101,6 +101,16 @@ def test_get_invalid_row_count_returns_count() -> None:
     athena_client.get_query_results.assert_called_once_with(QueryExecutionId="query-123")
 
 
+def test_athena_validation_query_checks_compound_grain_uniqueness() -> None:
+    from airflow.dags.lib.athena_lineage import ATHENA_VALIDATION_QUERY
+
+    normalized_query = " ".join(ATHENA_VALIDATION_QUERY.split()).upper()
+
+    assert "GROUP BY OBSERVATION_ID, LOINC_CODE" in normalized_query
+    assert "HAVING COUNT(*) > 1" in normalized_query
+    assert "SELECT COUNT(*) FROM DUPLICATE_GRAINS" in normalized_query
+
+
 def test_get_invalid_row_count_rejects_missing_count() -> None:
     from airflow.dags.lib.athena_lineage import get_invalid_row_count
 
@@ -147,7 +157,7 @@ def test_run_athena_validation_invalid_rows_emits_start_fail(mock_boto_client: M
     }
     mock_boto_client.return_value = athena_client
 
-    with pytest.raises(RuntimeError, match="Processed Iceberg table contains 4 invalid rows"):
+    with pytest.raises(RuntimeError, match="Processed Iceberg table contains 4 quality violations"):
         run_athena_validation()
 
     assert mock_emit.call_count == 2

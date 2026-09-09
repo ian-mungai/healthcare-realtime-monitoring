@@ -9,6 +9,7 @@ from openlineage.client.event_v2 import RunState
 from pyspark.context import SparkContext
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
+from pyspark.sql.window import Window
 
 from lineage.openlineage.glue_lineage import emit_s3_glue_lineage
 
@@ -191,11 +192,25 @@ def iceberg_table_exists(spark, database_name: str, table_name: str) -> bool:
     return result.count() > 0
 
 
+def deduplicate_latest_records(df: DataFrame) -> DataFrame:
+    latest_record = Window.partitionBy("observation_id", "loinc_code").orderBy(
+        F.col("received_at").desc_nulls_last(),
+        F.col("effective_datetime").desc_nulls_last(),
+        F.col("source").desc_nulls_last(),
+        F.col("value").desc_nulls_last(),
+        F.col("patient_id").desc_nulls_last(),
+        F.col("unit").desc_nulls_last(),
+        F.col("observation_type").desc_nulls_last(),
+    )
+
+    return df.withColumn("_deduplication_rank", F.row_number().over(latest_record)).filter(F.col("_deduplication_rank") == 1).drop("_deduplication_rank")
+
+
 def merge_processed_records(spark, valid_df: DataFrame, database_name: str, table_name: str) -> None:
     if valid_df.limit(1).count() == 0:
         return
 
-    deduplicated_df = valid_df.dropDuplicates(["observation_id", "loinc_code"])
+    deduplicated_df = deduplicate_latest_records(valid_df)
     target_table = f"glue_catalog.{database_name}.{table_name}"
 
     if not iceberg_table_exists(spark, database_name, table_name):
@@ -211,7 +226,7 @@ def merge_processed_records(spark, valid_df: DataFrame, database_name: str, tabl
         USING incoming_fhir_measurements AS source
         ON target.observation_id = source.observation_id
         AND target.loinc_code = source.loinc_code
-        WHEN MATCHED THEN UPDATE SET *
+        WHEN MATCHED AND (target.received_at IS NULL OR source.received_at > target.received_at) THEN UPDATE SET *
         WHEN NOT MATCHED THEN INSERT *
         """
     )
