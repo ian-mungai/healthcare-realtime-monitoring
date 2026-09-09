@@ -25,11 +25,31 @@ pythonpath = [
     "."
 ]
 
+[tool.coverage.run]
+source = [
+    "dashboard",
+    "data_quality",
+    "jobs",
+    "lineage",
+    "scripts",
+    "services",
+]
+omit = [
+    "*/tests/*",
+    "scripts/synthea_loader/synthea/*",
+]
+
+[tool.coverage.report]
+fail_under = 59
+show_missing = true
+skip_covered = true
+
 [tool.mypy]
 python_version = "3.12"
 ignore_missing_imports = true
 explicit_package_bases = true
 exclude = [
+    "^airflow/",
     "^build/",
     "^tmp/",
     "^\\.venv/",

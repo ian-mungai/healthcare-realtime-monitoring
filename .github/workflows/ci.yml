@@ -49,37 +49,20 @@ jobs:
         run: |
           python -m mypy .
 
-      - name: Project tests
+      - name: Python tests with coverage
         run: |
-          python -m pytest tests -v
-
-      - name: FHIR loader unit tests
-        run: |
-          python -m pytest scripts/synthea_loader/tests/test_load_fhir.py -v
-
-      - name: FHIR webhook tests
-        run: |
-          python -m pytest services/fhir_webhook/tests -v
-
-      - name: Vitals simulator tests
-        run: |
-          python -m pytest services/vitals_simulator/tests -v
-
-      - name: Vitals stream processor tests
-        run: |
-          python -m pytest services/vitals_stream_processor/tests -v
-
-      - name: Vitals replay tests
-        run: |
-          python -m pytest services/vitals_replay/tests -v
-
-      - name: Vitals API tests
-        run: |
-          python -m pytest services/vitals_api/tests -v
-
-      - name: WebSocket handler tests
-        run: |
-          python -m pytest services/websocket_handler/tests -v
+          python -m pytest \
+            tests \
+            scripts/synthea_loader/tests/test_load_fhir.py \
+            services/fhir_webhook/tests \
+            services/vitals_simulator/tests \
+            services/vitals_stream_processor/tests \
+            services/vitals_replay/tests \
+            services/vitals_api/tests \
+            services/websocket_handler/tests \
+            --cov \
+            --cov-report=term-missing \
+            -v
 
   terraform:
     name: Terraform Checks
