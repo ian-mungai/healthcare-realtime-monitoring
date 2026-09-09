@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib.util
+import os
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +32,36 @@ def load_dag():
 
 def serialize_dependencies(task) -> list[str]:
     return sorted(task.upstream_task_ids)
+
+
+def normalize_task_definition(task_definition: str) -> str:
+    family = task_definition.rsplit("/", maxsplit=1)[-1]
+    name, separator, revision = family.rpartition(":")
+
+    if separator and revision.isdigit():
+        family = name
+
+    if not family:
+        raise ValueError("ECS task definition family must not be empty")
+
+    return family
+
+
+def serverless_start_date() -> datetime:
+    value = os.environ.get("MWAA_SERVERLESS_START_DATE")
+
+    if not value:
+        raise ValueError("MWAA_SERVERLESS_START_DATE is required for MWAA Serverless generation")
+
+    start_date = datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+    if start_date.tzinfo is None:
+        raise ValueError("MWAA_SERVERLESS_START_DATE must include a timezone")
+
+    if start_date <= datetime.now(UTC):
+        raise ValueError("MWAA_SERVERLESS_START_DATE must be in the future")
+
+    return start_date
 
 
 def serialize_s3_sensor(task: S3KeySensor) -> dict[str, Any]:
@@ -87,7 +119,7 @@ def serialize_ecs_operator(task: EcsRunTaskOperator) -> dict[str, Any]:
     return {
         "operator": "airflow.providers.amazon.aws.operators.ecs.EcsRunTaskOperator",
         "cluster": task.cluster,
-        "task_definition": task.task_definition,
+        "task_definition": normalize_task_definition(task.task_definition),
         "launch_type": task.launch_type,
         "overrides": task.overrides,
         "wait_for_completion": task.wait_for_completion,
@@ -127,6 +159,9 @@ def validate_dag_contract(dag) -> None:
     if dag.default_args.get("depends_on_past", False):
         raise ValueError("MWAA Serverless generation requires depends_on_past=False")
 
+    if not dag.schedule:
+        raise ValueError("MWAA Serverless generation requires a schedule")
+
 
 def validate_task_contract(task) -> None:
     if task.depends_on_past:
@@ -140,13 +175,23 @@ def validate_task_contract(task) -> None:
 def build_workflow_definition() -> dict[str, Any]:
     dag = load_dag()
     validate_dag_contract(dag)
+    start_date = serverless_start_date()
 
     for task in dag.topological_sort():
         validate_task_contract(task)
 
     tasks = {task.task_id: serialize_task(task) for task in dag.topological_sort()}
 
-    return {dag.dag_id: {"dag_id": dag.dag_id, "tasks": tasks}}
+    return {
+        dag.dag_id: {
+            "dag_id": dag.dag_id,
+            "description": dag.description,
+            "schedule": dag.schedule,
+            "start_date": start_date.isoformat(),
+            "max_active_runs": dag.max_active_runs,
+            "tasks": tasks,
+        }
+    }
 
 
 def main() -> None:

@@ -100,6 +100,12 @@ jobs:
         run: |
           terraform fmt -check -recursive infra
 
+      - name: Build Lambda packages
+        run: |
+          for builder in scripts/lambda/build_*.sh; do
+            "$builder"
+          done
+
       - name: Build Glue lineage package
         run: |
           ./scripts/glue/build_lineage_package.sh
@@ -108,15 +114,55 @@ jobs:
         run: |
           ./airflow/serverless/build_code_package.sh
 
+      - name: Validate deployment packages
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          expected = {
+              Path("build/lambda/fhir_webhook.zip"): {
+                  "services/fhir_webhook/app/lambda_handler.py",
+              },
+              Path("build/lambda/vitals_stream_processor.zip"): {
+                  "handler.py",
+                  "schema.py",
+              },
+              Path("build/lambda/websocket_handler.zip"): {"handler.py"},
+              Path("build/lambda/vitals_api.zip"): {"handler.py"},
+              Path("build/lambda/vitals_replay.zip"): {"handler.py"},
+              Path("tmp/healthcare_realtime_lineage.zip"): {
+                  "lineage/openlineage/client.py",
+                  "lineage/openlineage/glue_lineage.py",
+              },
+              Path("tmp/healthcare_realtime_mwaa_serverless_code.zip"): {
+                  "lib/athena_lineage.py",
+                  "lineage/openlineage/client.py",
+                  "lineage/openlineage/athena_lineage.py",
+              },
+          }
+
+          for path, required_members in expected.items():
+              assert path.is_file() and path.stat().st_size > 0, f"Missing or empty package: {path}"
+              with ZipFile(path) as archive:
+                  bad_member = archive.testzip()
+                  assert bad_member is None, f"Corrupt member in {path}: {bad_member}"
+                  members = set(archive.namelist())
+                  assert required_members <= members, f"Missing required members in {path}: {required_members - members}"
+                  assert not any("__pycache__" in member or member.endswith(".pyc") for member in members)
+
+          print("Deployment package validation passed.")
+          PY
+
       - name: Generate MWAA Serverless workflow
         env:
-          AIRFLOW_ENABLE_TASK_CALLBACKS: "false"
+          MWAA_SERVERLESS_START_DATE: "2099-01-01T00:00:00+00:00"
           AIRFLOW__DBT__ECS_SECURITY_GROUP: "sg-ci-placeholder"
           AIRFLOW__DBT__ECS_SUBNETS: "subnet-ci-a,subnet-ci-b"
           AIRFLOW__SODA__ECS_SECURITY_GROUP: "sg-ci-placeholder"
           AIRFLOW__SODA__ECS_SUBNETS: "subnet-ci-a,subnet-ci-b"
-          DBT_ECS_TASK_DEFINITION: "healthcare_realtime_dbt"
-          SODA_ECS_TASK_DEFINITION: "healthcare_realtime_soda"
+          DBT_ECS_TASK_DEFINITION: "arn:aws:ecs:example-region-1:111111111111:task-definition/healthcare_realtime_dbt:42"
+          SODA_ECS_TASK_DEFINITION: "healthcare_realtime_soda:17"
           DATA_JOBS_ECS_CLUSTER: "healthcare-realtime-data-jobs"
           RAW_BUCKET: "ci-project-data-bucket"
         run: |
@@ -126,13 +172,16 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re
           import yaml
 
           path = Path("airflow/serverless/generated/healthcare_realtime_pipeline.yaml")
           workflow = yaml.safe_load(path.read_text())
-          tasks = workflow["healthcare_realtime_pipeline"]["tasks"]
+          definition = workflow["healthcare_realtime_pipeline"]
+          tasks = definition["tasks"]
 
+          assert definition["schedule"] == "0 2 * * *"
+          assert definition["start_date"] == "2099-01-01T00:00:00+00:00"
+          assert definition["max_active_runs"] == 1
           assert len(tasks) == 6
           assert tasks["validate_processed_data"]["operator"] == "airflow.providers.standard.operators.python.PythonOperator"
           assert tasks["validate_processed_data"]["python_callable"] == "lib.athena_lineage.run_athena_validation"
@@ -140,8 +189,10 @@ jobs:
           assert tasks["run_soda_checks"]["task_definition"] == "healthcare_realtime_soda"
 
           content = path.read_text()
-          assert not re.search(r"task-definition/.+:\d+", content)
-          assert not re.search(r"\b\d{12}\b", content)
+          assert "111111111111" not in content
+          assert "task-definition/" not in content
+          assert "healthcare_realtime_dbt:42" not in content
+          assert "healthcare_realtime_soda:17" not in content
 
           print("MWAA Serverless workflow validation passed.")
           PY
@@ -154,6 +205,11 @@ jobs:
         working-directory: infra
         run: |
           terraform validate
+
+      - name: Terraform Plan
+        working-directory: infra
+        run: |
+          terraform test -filter=tests/ci_plan.tftest.hcl
 
   synthea_changes:
     name: Detect Synthea Changes
