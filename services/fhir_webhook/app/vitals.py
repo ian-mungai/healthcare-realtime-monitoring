@@ -1,14 +1,9 @@
 from typing import Any
 
 from services.fhir_webhook.app.models import FHIRWebhookEvent
+from services.vital_signs import BLOOD_PRESSURE_PANEL_CODE, DIASTOLIC_CODE, LOINC_VITAL_FIELDS, SYSTOLIC_CODE
 
 SCHEMA_VERSION = "1.0"
-
-LOINC_VITAL_FIELDS = {"8867-4": "heart_rate", "9279-1": "respiratory_rate", "2708-6": "spo2"}
-
-BLOOD_PRESSURE_CODE = "85354-9"
-SYSTOLIC_CODE = "8480-6"
-DIASTOLIC_CODE = "8462-4"
 
 
 def get_loinc_code(code: dict[str, Any]) -> str | None:
@@ -64,7 +59,7 @@ def transform_fhir_vitals(event: FHIRWebhookEvent) -> dict[str, Any]:
 
         payload[LOINC_VITAL_FIELDS[loinc_code]] = value
 
-    elif loinc_code == BLOOD_PRESSURE_CODE:
+    elif loinc_code == BLOOD_PRESSURE_PANEL_CODE:
         for component in observation.get("component", []):
             component_code = get_loinc_code(component.get("code", {}))
             value = component.get("valueQuantity", {}).get("value")

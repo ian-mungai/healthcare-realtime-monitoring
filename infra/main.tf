@@ -186,6 +186,7 @@ module "vitals_simulator_ecs" {
 
   data_bucket_name = module.raw_s3.bucket_name
   image_tag        = var.vitals_simulator_image_tag
+  alarm_topic_arn  = module.realtime_observability.alert_topic_arn
 
   tags = {
     Project     = "healthcare_realtime_monitoring"

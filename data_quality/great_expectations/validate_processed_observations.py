@@ -4,14 +4,14 @@ import great_expectations as gx
 from openlineage.client.event_v2 import RunState
 
 from lineage.openlineage.great_expectations_lineage import emit_great_expectations_lineage
+from services.vital_signs import SUPPORTED_LOINC_CODES
 
 AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
 ATHENA_DATABASE = os.getenv("ATHENA_DATABASE", "healthcare_realtime")
 ATHENA_TABLE = os.getenv("ATHENA_TABLE", "processed_fhir_observations")
 DATA_BUCKET_NAME = os.getenv("DATA_BUCKET_NAME", "<project-data-bucket>")
 ATHENA_OUTPUT = os.getenv("ATHENA_OUTPUT", f"s3://{DATA_BUCKET_NAME}/athena_results/")
-
-VALID_LOINC_CODES = ["8867-4", "2708-6", "8480-6", "8462-4", "9279-1"]
+VALID_LOINC_CODES = list(SUPPORTED_LOINC_CODES)
 
 
 def build_connection_string() -> str:

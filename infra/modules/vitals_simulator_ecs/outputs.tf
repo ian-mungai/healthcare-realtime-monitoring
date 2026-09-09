@@ -43,6 +43,16 @@ output "log_group_name" {
   value       = aws_cloudwatch_log_group.vitals_simulator.name
 }
 
+output "patient_publish_failure_alarm_name" {
+  description = "CloudWatch alarm monitoring simulator patient publication failures."
+  value       = aws_cloudwatch_metric_alarm.patient_publish_failures.alarm_name
+}
+
+output "cycle_overrun_alarm_name" {
+  description = "CloudWatch alarm monitoring repeated simulator cycle overruns."
+  value       = aws_cloudwatch_metric_alarm.cycle_overruns.alarm_name
+}
+
 output "ecs_cluster_arn" {
   description = "ARN of the shared ECS cluster used by the vitals simulator."
   value       = var.ecs_cluster_arn
