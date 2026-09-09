@@ -76,7 +76,7 @@ The serving model is deliberately cohort-first: the dashboard keeps all simulate
 
 ## Analytical path
 
-Kinesis Data Firehose writes immutable raw events to the data bucket. Glue classifies, quarantines, deduplicates, and merges accepted measurements into an Iceberg table. The MWAA Serverless workflow coordinates Glue, Athena validation, dbt, and Soda in sequence:
+Kinesis Data Firehose writes immutable flattened vital events to the data bucket. Glue reads that current event contract, classifies each measurement, exposes rejected rows through an Athena-readable quarantine table, and deduplicates and merges accepted measurements into an Iceberg table. Reviewed quarantine rows can be corrected and republished through the controlled replay utility. The MWAA Serverless workflow coordinates Glue, Athena validation, dbt, and Soda in sequence:
 
 ```text
 raw event arrival -> Glue processing -> Athena validation -> dbt build -> Soda contracts

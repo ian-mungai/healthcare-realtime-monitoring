@@ -9,7 +9,6 @@ from openlineage.client.event_v2 import RunState
 from pyspark.context import SparkContext
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
-from pyspark.sql.types import StructType
 
 from lineage.openlineage.glue_lineage import emit_s3_glue_lineage
 
@@ -46,27 +45,6 @@ RAW_CHOICE_RESOLUTION_SPECS = [
 ]
 
 
-def extract_patient_id(reference_column):
-    return F.regexp_extract(reference_column, r"Patient/(.+)", 1)
-
-
-def struct_field_exists(schema: StructType, field_path: str) -> bool:
-    current_type = schema
-
-    for field_name in field_path.split("."):
-        if not isinstance(current_type, StructType):
-            return False
-
-        field = next((item for item in current_type.fields if item.name == field_name), None)
-
-        if field is None:
-            return False
-
-        current_type = field.dataType
-
-    return True
-
-
 def column_exists(df: DataFrame, field_name: str) -> bool:
     return field_name in df.columns
 
@@ -82,78 +60,6 @@ def create_empty_measurement_dataframe(df: DataFrame) -> DataFrame:
         F.lit(None).cast("timestamp").alias("received_at"),
         F.lit(None).cast("string").alias("source"),
     )
-
-
-def transform_simple_observations(df: DataFrame) -> DataFrame:
-    required_fields = ("resource_id", "received_at", "payload.code", "payload.subject.reference", "payload.effectiveDateTime", "payload.valueQuantity")
-
-    if not all(struct_field_exists(df.schema, field_path) for field_path in required_fields if field_path.startswith("payload.")):
-        return create_empty_measurement_dataframe(df)
-
-    if not column_exists(df, "resource_id") or not column_exists(df, "received_at"):
-        return create_empty_measurement_dataframe(df)
-
-    return (
-        df.withColumn("parent_loinc_code", F.col("payload.code.coding")[0]["code"])
-        .filter((F.col("parent_loinc_code") != "85354-9") | F.col("parent_loinc_code").isNull())
-        .withColumn("patient_id", extract_patient_id(F.col("payload.subject.reference")))
-        .withColumn("loinc_code", F.col("parent_loinc_code"))
-        .withColumn("value", F.col("payload.valueQuantity.value").cast("double"))
-        .withColumn("unit", F.col("payload.valueQuantity.unit"))
-        .withColumn("effective_datetime", F.to_timestamp(F.col("payload.effectiveDateTime")))
-        .select(
-            F.col("resource_id").alias("observation_id"),
-            "patient_id",
-            "loinc_code",
-            "value",
-            "unit",
-            "effective_datetime",
-            F.to_timestamp("received_at").alias("received_at"),
-            F.lit("fhir_webhook").alias("source"),
-        )
-    )
-
-
-def transform_blood_pressure_observations(df: DataFrame) -> DataFrame:
-    required_fields = ("payload.code", "payload.subject.reference", "payload.effectiveDateTime", "payload.component")
-
-    if not all(struct_field_exists(df.schema, field_path) for field_path in required_fields):
-        return create_empty_measurement_dataframe(df)
-
-    if not column_exists(df, "resource_id") or not column_exists(df, "received_at"):
-        return create_empty_measurement_dataframe(df)
-
-    return (
-        df.withColumn("parent_loinc_code", F.col("payload.code.coding")[0]["code"])
-        .filter(F.col("parent_loinc_code") == "85354-9")
-        .withColumn("patient_id", extract_patient_id(F.col("payload.subject.reference")))
-        .withColumn("component", F.explode_outer("payload.component"))
-        .withColumn("loinc_code", F.col("component.code.coding")[0]["code"])
-        .withColumn("value", F.col("component.valueQuantity.value").cast("double"))
-        .withColumn("unit", F.col("component.valueQuantity.unit"))
-        .withColumn("effective_datetime", F.to_timestamp(F.col("payload.effectiveDateTime")))
-        .select(
-            F.col("resource_id").alias("observation_id"),
-            "patient_id",
-            "loinc_code",
-            "value",
-            "unit",
-            "effective_datetime",
-            F.to_timestamp("received_at").alias("received_at"),
-            F.lit("fhir_webhook").alias("source"),
-        )
-    )
-
-
-def transform_wrapped_fhir_records(df: DataFrame) -> DataFrame:
-    if not column_exists(df, "resource_type") or not struct_field_exists(df.schema, "payload.resourceType"):
-        return create_empty_measurement_dataframe(df)
-
-    observations = df.filter((F.col("resource_type") == "Observation") & (F.col("payload.resourceType") == "Observation"))
-    simple = transform_simple_observations(observations)
-    blood_pressure = transform_blood_pressure_observations(observations)
-
-    return simple.unionByName(blood_pressure)
 
 
 def build_legacy_flattened_observation_id(df: DataFrame):
@@ -215,10 +121,7 @@ def transform_flattened_records(df: DataFrame) -> DataFrame:
 
 
 def build_measurement_candidates(df: DataFrame) -> DataFrame:
-    wrapped = transform_wrapped_fhir_records(df)
-    flattened = transform_flattened_records(df)
-
-    return wrapped.unionByName(flattened)
+    return transform_flattened_records(df)
 
 
 def add_measurement_metadata(df: DataFrame) -> DataFrame:

@@ -23,6 +23,7 @@ BIDMC measurements -> FHIR Observation -> Kinesis -> realtime serving
 | `healthcare_realtime_dbt.dim_observation_type` | Athena / dbt | LOINC observation-type summary |
 | `healthcare-realtime-latest-vitals` | DynamoDB | Latest accepted realtime state by patient |
 | `quarantine/fhir_observations/` | Amazon S3 | Rejected analytical records with reasons |
+| `healthcare_realtime.quarantined_fhir_observations` | Glue Catalog / Athena | Queryable view of quarantined records |
 | `metrics/glue/` | Amazon S3 | Per-run candidate, valid, and rejected counts |
 
 Formal business owners and data stewards are not currently encoded in repository metadata. Until that is added, the repository owner operates the portfolio datasets and infrastructure.
@@ -54,7 +55,7 @@ Glue classifies every analytical measurement candidate before writing it. Record
 - missing values or effective timestamps; or
 - physiological range violations.
 
-Rejected records are appended to `s3://<project-data-bucket>/quarantine/fhir_observations/` with `rejection_reason` and `quarantined_at`. Per-run counts are appended under `metrics/glue/`.
+Rejected records are appended to `s3://<project-data-bucket>/quarantine/fhir_observations/` with `rejection_reason` and `quarantined_at`. The external Glue table `healthcare_realtime.quarantined_fhir_observations` exposes those JSON records to Athena. Per-run counts are appended under `metrics/glue/`.
 
 Great Expectations validates the processed Iceberg table for required fields, allowed LOINC codes, and uniqueness of `observation_id` plus `loinc_code`. Every automated dbt build applies model-level not-null, uniqueness, and accepted-value tests, including a singular test for the `fact_observations` compound grain. Soda contracts independently verify that the staging, fact, and dimension tables are nonempty and satisfy their column constraints.
 
@@ -75,6 +76,8 @@ Realtime state is keyed by `patient_id`. DynamoDB accepts an update only when it
 Kinesis batch item failures are sent to the encrypted `healthcare-realtime-vitals-failures-development` SQS queue. The replay Lambda retrieves the original Kinesis sequence range and republishes it with an incremented `_replay_attempt`.
 
 Automatic replay is limited to one attempt. After five failed SQS receives, the message moves to `healthcare-realtime-vitals-replay-dlq-development`. Both queues retain messages for 14 days and use SQS-managed server-side encryption. Operators must inspect and correct records in the replay DLQ before any manual redrive.
+
+Analytical quarantine recovery is separate from SQS transport recovery. Operators query the quarantine table, export a bounded set with `scripts/quarantine/manage_quarantine.py`, correct and validate the JSONL file, then explicitly confirm publication to Kinesis. Corrected records retain their analytical identity so Iceberg replay remains idempotent.
 
 ## Lineage
 
