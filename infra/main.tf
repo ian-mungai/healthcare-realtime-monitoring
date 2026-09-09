@@ -235,7 +235,7 @@ module "vitals_api" {
   latest_vitals_table_name = module.realtime_vitals.latest_vitals_table_name
   latest_vitals_table_arn  = module.realtime_vitals.latest_vitals_table_arn
 
-  lambda_zip_path = "${path.module}/../build/lambda/vitals_api.zip"
+  lambda_zip_path = "${path.root}/../build/lambda/vitals_api.zip"
 
   tags = {
     Project     = "healthcare_realtime_monitoring"
