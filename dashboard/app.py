@@ -379,7 +379,9 @@ def render_vital_chart(
     reference_lines = (
         alt.Chart(reference_data)
         .mark_rule(color="#6b7280", strokeDash=[4, 4], opacity=0.45)
-        .encode(y=alt.Y("Reference:Q", scale=alt.Scale(domain=list(y_domain), zero=False)), tooltip=[alt.Tooltip("Reference:Q", title="NEWS2 boundary")])
+        .encode(
+            y=alt.Y("Reference:Q", scale=alt.Scale(domain=list(y_domain), zero=False)), tooltip=[alt.Tooltip("Reference:Q", title="Vital warning boundary")]
+        )
     )
 
     st.altair_chart(reference_lines + patient_lines, width="stretch")
@@ -464,12 +466,14 @@ def render_patient_cards(patient_ages: dict[str, float | None]) -> None:
         for column, patient_id in zip(columns, ranked_patients[row_start : row_start + 5], strict=False):
             vitals = st.session_state.cohort_vitals.get(patient_id, {})
             previous = previous_snapshot(patient_id)
-            _, priority = patient_priority(vitals)
+            warning_score, priority = patient_priority(vitals)
             priority_color = {"Urgent": "red", "Review": "orange", "Stable": "green", "No data": "gray"}[priority]
             freshness, freshness_color = patient_freshness(patient_ages[patient_id])
 
             with column, st.container(border=True):
+                score_label = "--" if warning_score < 0 else str(warning_score)
                 st.markdown(f"**Patient {patient_id}** · :{priority_color}[{priority}] · :{freshness_color}[{freshness}]")
+                st.caption(f"Vital warning score: {score_label}")
                 st.markdown(
                     f"HR **{format_value(vitals.get('heart_rate'))}** bpm  \n"
                     f"SpO₂ **{format_value(vitals.get('spo2'))}**%  \n"

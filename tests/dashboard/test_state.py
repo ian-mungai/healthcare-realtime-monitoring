@@ -7,10 +7,10 @@ from dashboard.state import (
     is_stale_event,
     measurement_delta,
     merge_vitals,
-    news2_parameter_score,
     parse_event_timestamp,
     parse_patient_ids,
     patient_priority,
+    vital_warning_parameter_score,
 )
 
 
@@ -83,18 +83,25 @@ def test_parse_patient_ids_ignores_empty_values_and_whitespace() -> None:
     assert parse_patient_ids("1000, 1002,,1004 ") == ("1000", "1002", "1004")
 
 
-def test_news2_parameter_score_uses_adult_scale_one_boundaries() -> None:
-    assert news2_parameter_score("heart_rate", 90) == 0
-    assert news2_parameter_score("heart_rate", 131) == 3
-    assert news2_parameter_score("spo2", 95) == 1
-    assert news2_parameter_score("respiratory_rate", 25) == 3
-    assert news2_parameter_score("systolic_bp", 100) == 2
+def test_vital_warning_parameter_score_uses_adult_warning_boundaries() -> None:
+    assert vital_warning_parameter_score("heart_rate", 90) == 0
+    assert vital_warning_parameter_score("heart_rate", 131) == 3
+    assert vital_warning_parameter_score("spo2", 95) == 1
+    assert vital_warning_parameter_score("respiratory_rate", 25) == 3
+    assert vital_warning_parameter_score("systolic_bp", 100) == 2
 
 
-def test_patient_priority_uses_highest_individual_parameter_score() -> None:
+def test_patient_priority_uses_summed_vital_warning_score() -> None:
     assert patient_priority({"heart_rate": 82, "spo2": 98, "respiratory_rate": 18, "systolic_bp": 119}) == (0, "Stable")
     assert patient_priority({"heart_rate": 82, "spo2": 90, "respiratory_rate": 18, "systolic_bp": 119}) == (3, "Urgent")
+    assert patient_priority({"heart_rate": 115, "spo2": 93, "respiratory_rate": 23, "systolic_bp": 100}) == (8, "Urgent")
     assert patient_priority({}) == (-1, "No data")
+
+
+def test_vital_warning_score_handles_malformed_measurements() -> None:
+    assert vital_warning_parameter_score("heart_rate", "not-a-number") is None
+    assert vital_warning_parameter_score("spo2", float("nan")) is None
+    assert patient_priority({"heart_rate": "not-a-number"}) == (1, "Review")
 
 
 def test_measurement_delta_compares_snapshots() -> None:
