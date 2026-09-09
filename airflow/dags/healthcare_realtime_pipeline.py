@@ -7,7 +7,6 @@ from airflow.providers.amazon.aws.sensors.glue import GlueJobSensor
 from airflow.providers.amazon.aws.sensors.s3 import S3KeySensor
 from airflow.providers.standard.operators.python import PythonOperator
 from lib.athena_lineage import run_athena_validation
-from lib.cloudwatch_metrics import task_failure_callback, task_success_callback
 
 from airflow import DAG
 
@@ -21,14 +20,8 @@ DBT_ECS_SUBNETS = [subnet.strip() for subnet in os.getenv("AIRFLOW__DBT__ECS_SUB
 SODA_ECS_TASK_DEFINITION = os.getenv("SODA_ECS_TASK_DEFINITION", "healthcare_realtime_soda")
 SODA_ECS_SECURITY_GROUP = os.getenv("AIRFLOW__SODA__ECS_SECURITY_GROUP", "")
 SODA_ECS_SUBNETS = [subnet.strip() for subnet in os.getenv("AIRFLOW__SODA__ECS_SUBNETS", "").split(",") if subnet.strip()]
-AIRFLOW_PIPELINE_SCHEDULE = os.getenv("AIRFLOW_PIPELINE_SCHEDULE", "*/15 * * * *")
-AIRFLOW_ENABLE_TASK_CALLBACKS = os.getenv("AIRFLOW_ENABLE_TASK_CALLBACKS", "true").lower() in {"1", "true", "yes", "on"}
-
+AIRFLOW_PIPELINE_SCHEDULE = os.getenv("AIRFLOW_PIPELINE_SCHEDULE", "0 2 * * *")
 DEFAULT_ARGS = {"owner": "healthcare_realtime", "depends_on_past": False, "retries": 2, "retry_delay": timedelta(minutes=1)}
-
-if AIRFLOW_ENABLE_TASK_CALLBACKS:
-    DEFAULT_ARGS["on_success_callback"] = task_success_callback
-    DEFAULT_ARGS["on_failure_callback"] = task_failure_callback
 
 with DAG(
     dag_id="healthcare_realtime_pipeline",
