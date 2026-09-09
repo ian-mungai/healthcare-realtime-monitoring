@@ -1,5 +1,6 @@
 import base64
 import json
+from functools import lru_cache
 
 from services.fhir_webhook.app.kinesis.client import KinesisPublisher, KinesisPublisherError
 from services.fhir_webhook.app.parser import InvalidFHIRPayloadError, parse_fhir_payload
@@ -8,6 +9,11 @@ from services.fhir_webhook.app.security import WEBHOOK_SECRET_HEADER, validate_w
 FHIR_WEBHOOK_ROUTE = "POST /webhooks/fhir"
 FHIR_UPDATE_ROUTE = "PUT /webhooks/fhir/{resource_type}/{resource_id}"
 FHIR_METADATA_ROUTE = "GET /webhooks/fhir/metadata"
+
+
+@lru_cache(maxsize=1)
+def get_kinesis_publisher() -> KinesisPublisher:
+    return KinesisPublisher()
 
 
 def build_response(status_code: int, body: dict | None = None, content_type: str = "application/json") -> dict:
@@ -114,7 +120,7 @@ def lambda_handler(event: dict, context) -> dict:
         return build_response(400, {"detail": str(error)})
 
     try:
-        publisher = KinesisPublisher()
+        publisher = get_kinesis_publisher()
         result = publisher.publish(webhook_event)
     except ValueError as error:
         return build_response(400, {"detail": str(error)})

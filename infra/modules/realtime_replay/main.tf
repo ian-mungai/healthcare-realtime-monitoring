@@ -14,6 +14,7 @@ data "aws_iam_policy_document" "lambda_assume_role" {
       "sts:AssumeRole"
     ]
   }
+
 }
 
 resource "aws_iam_role" "lambda" {
@@ -24,6 +25,19 @@ resource "aws_iam_role" "lambda" {
 }
 
 data "aws_iam_policy_document" "lambda" {
+  statement {
+    sid    = "WriteTerminalReplayRecords"
+    effect = "Allow"
+
+    actions = [
+      "sqs:SendMessage"
+    ]
+
+    resources = [
+      var.replay_dlq_arn
+    ]
+  }
+
   statement {
     sid    = "ReadAndReplayVitalsKinesisRecords"
     effect = "Allow"
@@ -92,6 +106,7 @@ resource "aws_lambda_function" "vitals_replay" {
     variables = {
       KINESIS_STREAM_ARN  = var.kinesis_stream_arn
       MAX_REPLAY_ATTEMPTS = "1"
+      REPLAY_DLQ_URL      = var.replay_dlq_url
     }
   }
 

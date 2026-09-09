@@ -10,6 +10,7 @@ from botocore.exceptions import ClientError
 
 from services.vitals_stream_processor.handler import (
     calculate_latency_ms,
+    claim_observation,
     decode_kinesis_record,
     get_patient_connections,
     lambda_handler,
@@ -52,16 +53,28 @@ def test_to_dynamodb_item_converts_floats() -> None:
 
 @patch("services.vitals_stream_processor.handler.latest_vitals_table")
 def test_write_latest_vitals_merges_partial_updates_with_equal_timestamps(latest_vitals_table) -> None:
-    payload = {"patient_id": "1000", "event_timestamp": "2026-08-31T22:42:19Z", "spo2": 97.0}
+    payload = {"patient_id": "1000", "event_timestamp": "2026-08-31T22:42:19Z", "spo2": 97.0, "_replay_attempt": 1}
 
     assert write_latest_vitals(payload) is True
 
     arguments = latest_vitals_table.update_item.call_args.kwargs
     assert arguments["Key"] == {"patient_id": "1000"}
-    assert arguments["ConditionExpression"] == "attribute_not_exists(#event_epoch) OR #event_epoch <= :incoming_event_epoch"
+    assert arguments["ConditionExpression"] == "(attribute_not_exists(#event_epoch_0) OR #event_epoch_0 <= :incoming_event_epoch)"
     assert "patient_id" not in arguments["ExpressionAttributeNames"].values()
     assert "spo2" in arguments["ExpressionAttributeNames"].values()
+    assert "spo2_event_timestamp" in arguments["ExpressionAttributeNames"].values()
+    assert "REMOVE" in arguments["UpdateExpression"]
+    assert "_replay_attempt" in arguments["ExpressionAttributeNames"].values()
+    assert Decimal("1") not in arguments["ExpressionAttributeValues"].values()
     assert Decimal("97.0") in arguments["ExpressionAttributeValues"].values()
+
+
+@patch("services.vitals_stream_processor.handler.idempotency_table")
+def test_claim_observation_rejects_duplicate_observation_id(idempotency_table) -> None:
+    error_response = {"Error": {"Code": "ConditionalCheckFailedException", "Message": "duplicate"}, "ResponseMetadata": {"HTTPStatusCode": 400}}
+    idempotency_table.put_item.side_effect = ClientError(cast(Any, error_response), "PutItem")
+
+    assert claim_observation({"observation_id": "observation-1"}) is False
 
 
 @patch("services.vitals_stream_processor.handler.latest_vitals_table")
@@ -97,7 +110,8 @@ def test_write_load_test_result_records_processing_time_and_expiry(load_test_res
 @patch("services.vitals_stream_processor.handler.emit_metrics")
 @patch("services.vitals_stream_processor.handler.push_vitals")
 @patch("services.vitals_stream_processor.handler.write_latest_vitals")
-def test_lambda_handler_processes_record(write_latest_vitals, push_vitals, emit_metrics) -> None:
+@patch("services.vitals_stream_processor.handler.claim_observation", return_value=True)
+def test_lambda_handler_processes_record(claim_observation, write_latest_vitals, push_vitals, emit_metrics) -> None:
     payload = {
         "schema_version": "1.0",
         "observation_id": "observation_123",
@@ -121,7 +135,8 @@ def test_lambda_handler_processes_record(write_latest_vitals, push_vitals, emit_
 @patch("services.vitals_stream_processor.handler.push_vitals")
 @patch("services.vitals_stream_processor.handler.write_latest_vitals")
 @patch("services.vitals_stream_processor.handler.write_load_test_result")
-def test_lambda_handler_isolates_load_test_record(write_load_test_result, write_latest_vitals, push_vitals, emit_metrics) -> None:
+@patch("services.vitals_stream_processor.handler.claim_observation", return_value=True)
+def test_lambda_handler_isolates_load_test_record(claim_observation, write_load_test_result, write_latest_vitals, push_vitals, emit_metrics) -> None:
     payload = {
         "schema_version": "1.0",
         "observation_id": "load-test-run-01-00000001",
@@ -149,15 +164,57 @@ def test_lambda_handler_isolates_load_test_record(write_load_test_result, write_
     assert result == {"batchItemFailures": []}
 
 
+@patch("services.vitals_stream_processor.handler.release_observation_claim")
+@patch("services.vitals_stream_processor.handler.claim_observation", return_value=True)
 @patch("services.vitals_stream_processor.handler.write_latest_vitals")
-def test_lambda_handler_reports_failed_record(write_latest_vitals) -> None:
+def test_lambda_handler_reports_failed_record(write_latest_vitals, claim_observation, release_observation_claim) -> None:
     write_latest_vitals.side_effect = RuntimeError("DynamoDB failure")
 
-    event = {"Records": [build_kinesis_record({"patient_id": "137506799", "heart_rate": 94.0}, sequence_number="12345")]}
+    payload = {
+        "schema_version": "1.0",
+        "observation_id": "observation-1",
+        "patient_id": "137506799",
+        "source": "bidmc",
+        "event_timestamp": "2026-08-31T22:42:19Z",
+        "heart_rate": 94.0,
+    }
+    event = {"Records": [build_kinesis_record(payload, sequence_number="12345")]}
 
     result = lambda_handler(event, None)
 
     assert result == {"batchItemFailures": [{"itemIdentifier": "12345"}]}
+    release_observation_claim.assert_called_once_with("observation-1")
+
+
+@patch("services.vitals_stream_processor.handler.emit_metrics")
+def test_lambda_handler_drops_permanently_invalid_record(emit_metrics) -> None:
+    event = {"Records": [build_kinesis_record({"patient_id": "137506799", "heart_rate": 94.0}, sequence_number="12345")]}
+
+    result = lambda_handler(event, None)
+
+    assert result == {"batchItemFailures": []}
+    metric_data = emit_metrics.call_args.args[0]
+    assert metric_data == [{"MetricName": "PermanentRecordsRejected", "Value": 1, "Unit": "Count"}]
+
+
+@patch("services.vitals_stream_processor.handler.emit_metrics")
+@patch("services.vitals_stream_processor.handler.claim_observation", return_value=False)
+def test_lambda_handler_batches_duplicate_metrics_once(claim_observation, emit_metrics) -> None:
+    payload = {
+        "schema_version": "1.0",
+        "observation_id": "observation-1",
+        "patient_id": "137506799",
+        "source": "bidmc",
+        "event_timestamp": "2026-08-31T22:42:19Z",
+        "heart_rate": 94.0,
+    }
+
+    result = lambda_handler({"Records": [build_kinesis_record(payload, "1"), build_kinesis_record(payload, "2")]}, None)
+
+    assert result == {"batchItemFailures": []}
+    emit_metrics.assert_called_once()
+    metric_names = [metric["MetricName"] for metric in emit_metrics.call_args.args[0]]
+    assert metric_names.count("DuplicatesSkipped") == 2
 
 
 @patch("services.vitals_stream_processor.handler.connections_table")
@@ -206,8 +263,8 @@ def test_get_patient_connections_returns_empty_list(connections_table) -> None:
 
 
 @patch("services.vitals_stream_processor.handler.get_patient_connections")
-@patch("services.vitals_stream_processor.handler.boto3.client")
-def test_push_vitals_sends_to_patient_connections(boto_client, get_patient_connections_mock, monkeypatch) -> None:
+@patch("services.vitals_stream_processor.handler.get_api_gateway_client")
+def test_push_vitals_sends_to_patient_connections(get_api_gateway_client, get_patient_connections_mock, monkeypatch) -> None:
     from services.vitals_stream_processor import handler
 
     monkeypatch.setattr(handler, "WEBSOCKET_ENDPOINT", "https://example.execute-api.example-region-1.amazonaws.com/development")
@@ -215,7 +272,7 @@ def test_push_vitals_sends_to_patient_connections(boto_client, get_patient_conne
     get_patient_connections_mock.return_value = ["connection-1", "connection-2"]
 
     api_gateway = MagicMock()
-    boto_client.return_value = api_gateway
+    get_api_gateway_client.return_value = api_gateway
 
     payload = {"patient_id": "137506799", "heart_rate": 96.0}
 
@@ -230,14 +287,14 @@ def test_push_vitals_sends_to_patient_connections(boto_client, get_patient_conne
 
 
 @patch("services.vitals_stream_processor.handler.get_patient_connections")
-@patch("services.vitals_stream_processor.handler.boto3.client")
-def test_push_vitals_uses_payload_patient_id(boto_client, get_patient_connections_mock, monkeypatch) -> None:
+@patch("services.vitals_stream_processor.handler.get_api_gateway_client")
+def test_push_vitals_uses_payload_patient_id(get_api_gateway_client, get_patient_connections_mock, monkeypatch) -> None:
     from services.vitals_stream_processor import handler
 
     monkeypatch.setattr(handler, "WEBSOCKET_ENDPOINT", "https://example.execute-api.example-region-1.amazonaws.com/development")
 
     get_patient_connections_mock.return_value = []
-    boto_client.return_value = MagicMock()
+    get_api_gateway_client.return_value = MagicMock()
 
     payload = {"patient_id": "999999999", "heart_rate": 150.0}
 
@@ -252,8 +309,8 @@ def test_push_vitals_uses_payload_patient_id(boto_client, get_patient_connection
 
 @patch("services.vitals_stream_processor.handler.delete_connection")
 @patch("services.vitals_stream_processor.handler.get_patient_connections")
-@patch("services.vitals_stream_processor.handler.boto3.client")
-def test_push_vitals_deletes_stale_connection(boto_client, get_patient_connections_mock, delete_connection, monkeypatch) -> None:
+@patch("services.vitals_stream_processor.handler.get_api_gateway_client")
+def test_push_vitals_deletes_stale_connection(get_api_gateway_client, get_patient_connections_mock, delete_connection, monkeypatch) -> None:
     from services.vitals_stream_processor import handler
 
     monkeypatch.setattr(handler, "WEBSOCKET_ENDPOINT", "https://example.execute-api.example-region-1.amazonaws.com/development")
@@ -265,7 +322,7 @@ def test_push_vitals_deletes_stale_connection(boto_client, get_patient_connectio
     gone_error = {"Error": {"Code": "GoneException", "Message": "Gone"}, "ResponseMetadata": {"HTTPStatusCode": 410}}
     api_gateway.post_to_connection.side_effect = ClientError(cast(Any, gone_error), "PostToConnection")
 
-    boto_client.return_value = api_gateway
+    get_api_gateway_client.return_value = api_gateway
 
     payload = {"patient_id": "137506799", "heart_rate": 96.0}
 
@@ -280,8 +337,8 @@ def test_push_vitals_deletes_stale_connection(boto_client, get_patient_connectio
 
 @patch("services.vitals_stream_processor.handler.delete_connection")
 @patch("services.vitals_stream_processor.handler.get_patient_connections")
-@patch("services.vitals_stream_processor.handler.boto3.client")
-def test_push_vitals_counts_non_410_delivery_failure(boto_client, get_patient_connections_mock, delete_connection, monkeypatch) -> None:
+@patch("services.vitals_stream_processor.handler.get_api_gateway_client")
+def test_push_vitals_counts_non_410_delivery_failure(get_api_gateway_client, get_patient_connections_mock, delete_connection, monkeypatch) -> None:
     from services.vitals_stream_processor import handler
 
     monkeypatch.setattr(handler, "WEBSOCKET_ENDPOINT", "https://example.execute-api.example-region-1.amazonaws.com/development")
@@ -293,7 +350,7 @@ def test_push_vitals_counts_non_410_delivery_failure(boto_client, get_patient_co
     internal_error = {"Error": {"Code": "InternalServerErrorException", "Message": "Internal error"}, "ResponseMetadata": {"HTTPStatusCode": 500}}
     api_gateway.post_to_connection.side_effect = ClientError(cast(Any, internal_error), "PostToConnection")
 
-    boto_client.return_value = api_gateway
+    get_api_gateway_client.return_value = api_gateway
 
     payload = {"patient_id": "137506799", "heart_rate": 96.0}
 
@@ -306,8 +363,8 @@ def test_push_vitals_counts_non_410_delivery_failure(boto_client, get_patient_co
     assert active_connections == 1
 
 
-@patch("services.vitals_stream_processor.handler.boto3.client")
-def test_push_vitals_requires_patient_id(boto_client, monkeypatch) -> None:
+@patch("services.vitals_stream_processor.handler.get_api_gateway_client")
+def test_push_vitals_requires_patient_id(get_api_gateway_client, monkeypatch) -> None:
     from services.vitals_stream_processor import handler
 
     monkeypatch.setattr(handler, "WEBSOCKET_ENDPOINT", "https://example.execute-api.example-region-1.amazonaws.com/development")
@@ -317,7 +374,7 @@ def test_push_vitals_requires_patient_id(boto_client, monkeypatch) -> None:
     with pytest.raises(ValueError, match="patient_id is required"):
         push_vitals(payload)
 
-    boto_client.assert_not_called()
+    get_api_gateway_client.assert_not_called()
 
 
 def test_calculate_latency_ms() -> None:

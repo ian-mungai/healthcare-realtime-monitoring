@@ -1,13 +1,56 @@
 from datetime import UTC, datetime
 from typing import Any
 
+VITAL_FIELDS = ("heart_rate", "spo2", "respiratory_rate", "systolic_bp", "diastolic_bp")
+
+
+def vital_timestamp_key(field: str) -> str:
+    return f"{field}_event_timestamp"
+
 
 def merge_vitals(current: dict[str, Any], update: dict[str, Any]) -> dict[str, Any]:
-    return {**current, **update}
+    merged = dict(current)
+    update_event_timestamp = update.get("event_timestamp")
+    legacy_current_timestamp = current.get("event_timestamp")
+
+    if legacy_current_timestamp:
+        for field in VITAL_FIELDS:
+            if current.get(field) is not None:
+                merged.setdefault(vital_timestamp_key(field), legacy_current_timestamp)
+
+    for key, value in update.items():
+        if key not in VITAL_FIELDS and not key.endswith("_event_timestamp") and key != "event_timestamp":
+            merged[key] = value
+
+    for field in VITAL_FIELDS:
+        if field not in update:
+            continue
+
+        timestamp_key = vital_timestamp_key(field)
+        current_timestamp = parse_event_timestamp(current.get(timestamp_key) or current.get("event_timestamp"))
+        update_timestamp_value = update.get(timestamp_key) or update_event_timestamp
+        update_timestamp = parse_event_timestamp(update_timestamp_value)
+
+        if current_timestamp and update_timestamp and update_timestamp < current_timestamp:
+            continue
+
+        merged[field] = update[field]
+        if update_timestamp_value:
+            merged[timestamp_key] = update_timestamp_value
+
+    field_timestamps = [
+        (parsed, merged.get(vital_timestamp_key(field))) for field in VITAL_FIELDS if (parsed := parse_event_timestamp(merged.get(vital_timestamp_key(field))))
+    ]
+    if field_timestamps:
+        merged["event_timestamp"] = max(field_timestamps, key=lambda entry: entry[0])[1]
+    elif update_event_timestamp:
+        merged["event_timestamp"] = update_event_timestamp
+
+    return merged
 
 
 def has_new_event(current: dict[str, Any], update: dict[str, Any]) -> bool:
-    return bool(update.get("event_timestamp") and update.get("event_timestamp") != current.get("event_timestamp"))
+    return merge_vitals(current, update) != current
 
 
 def parse_event_timestamp(value: Any) -> datetime | None:
@@ -21,17 +64,35 @@ def parse_event_timestamp(value: Any) -> datetime | None:
 
 
 def is_stale_event(current: dict[str, Any], update: dict[str, Any]) -> bool:
-    current_timestamp = parse_event_timestamp(current.get("event_timestamp"))
-    update_timestamp = parse_event_timestamp(update.get("event_timestamp"))
-    return bool(current_timestamp and update_timestamp and update_timestamp < current_timestamp)
+    updated_fields = [field for field in VITAL_FIELDS if field in update]
+    if not updated_fields:
+        current_timestamp = parse_event_timestamp(current.get("event_timestamp"))
+        update_timestamp = parse_event_timestamp(update.get("event_timestamp"))
+        return bool(current_timestamp and update_timestamp and update_timestamp < current_timestamp)
+
+    stale_fields = 0
+    for field in updated_fields:
+        current_timestamp = parse_event_timestamp(current.get(vital_timestamp_key(field)) or current.get("event_timestamp"))
+        update_timestamp = parse_event_timestamp(update.get(vital_timestamp_key(field)) or update.get("event_timestamp"))
+        stale_fields += int(bool(current_timestamp and update_timestamp and update_timestamp < current_timestamp))
+
+    return stale_fields == len(updated_fields)
 
 
 def event_age_seconds(vitals: dict[str, Any], now: datetime | None = None) -> float | None:
-    event_timestamp = parse_event_timestamp(vitals.get("event_timestamp"))
-    if not event_timestamp:
-        return None
+    event_timestamps = [
+        timestamp
+        for field in VITAL_FIELDS
+        if vitals.get(field) is not None
+        if (timestamp := parse_event_timestamp(vitals.get(vital_timestamp_key(field)) or vitals.get("event_timestamp")))
+    ]
+    if not event_timestamps:
+        legacy_timestamp = parse_event_timestamp(vitals.get("event_timestamp"))
+        if not legacy_timestamp:
+            return None
+        event_timestamps = [legacy_timestamp]
     current_time = now or datetime.now(UTC)
-    return max((current_time - event_timestamp).total_seconds(), 0.0)
+    return max(max((current_time - timestamp).total_seconds(), 0.0) for timestamp in event_timestamps)
 
 
 def freshness_status(age_seconds: float | None, fresh_threshold_seconds: float, delayed_threshold_seconds: float) -> str:

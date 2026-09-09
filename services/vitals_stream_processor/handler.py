@@ -1,8 +1,10 @@
 import base64
+import binascii
 import json
 import os
 from datetime import UTC, datetime
 from decimal import Decimal
+from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
 import boto3
@@ -21,6 +23,8 @@ AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
 LATEST_VITALS_TABLE = os.getenv("LATEST_VITALS_TABLE", "healthcare-realtime-latest-vitals")
 LOAD_TEST_RESULTS_TABLE = os.getenv("LOAD_TEST_RESULTS_TABLE", "healthcare-realtime-load-test-results")
 CONNECTIONS_TABLE = os.getenv("CONNECTIONS_TABLE", "healthcare-realtime-websocket-connections")
+IDEMPOTENCY_TABLE = os.getenv("IDEMPOTENCY_TABLE", "healthcare-realtime-processed-observations")
+IDEMPOTENCY_TTL_SECONDS = int(os.getenv("IDEMPOTENCY_TTL_SECONDS", "604800"))
 WEBSOCKET_ENDPOINT = os.getenv("WEBSOCKET_ENDPOINT", "")
 
 METRIC_NAMESPACE = "HealthcareRealtime/Live"
@@ -30,8 +34,12 @@ dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
 latest_vitals_table = dynamodb.Table(LATEST_VITALS_TABLE)
 load_test_results_table = dynamodb.Table(LOAD_TEST_RESULTS_TABLE)
 connections_table = dynamodb.Table(CONNECTIONS_TABLE)
+idempotency_table = dynamodb.Table(IDEMPOTENCY_TABLE)
 
 cloudwatch = boto3.client("cloudwatch", region_name=AWS_REGION)
+
+VITAL_FIELDS = ("heart_rate", "spo2", "respiratory_rate", "systolic_bp", "diastolic_bp")
+PERMANENT_RECORD_ERRORS = (ValueError, KeyError, TypeError, binascii.Error)
 
 
 def decode_kinesis_record(record: dict[str, Any]) -> dict[str, Any]:
@@ -53,6 +61,27 @@ def event_timestamp_epoch_ms(event_timestamp: str) -> int:
     return int(event_time.timestamp() * 1000)
 
 
+def claim_observation(payload: dict[str, Any]) -> bool:
+    observation_id = payload["observation_id"]
+    expires_at = int(datetime.now(UTC).timestamp()) + IDEMPOTENCY_TTL_SECONDS
+
+    try:
+        idempotency_table.put_item(
+            Item={"observation_id": observation_id, "expires_at": expires_at}, ConditionExpression="attribute_not_exists(observation_id)"
+        )
+    except ClientError as error:
+        if error.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            print(f"Skipping duplicate observation {observation_id}")
+            return False
+        raise
+
+    return True
+
+
+def release_observation_claim(observation_id: str) -> None:
+    idempotency_table.delete_item(Key={"observation_id": observation_id})
+
+
 def write_latest_vitals(payload: dict[str, Any]) -> bool:
     patient_id = payload.get("patient_id")
     event_timestamp = payload.get("event_timestamp")
@@ -66,28 +95,41 @@ def write_latest_vitals(payload: dict[str, Any]) -> bool:
     incoming_epoch_ms = event_timestamp_epoch_ms(event_timestamp)
 
     item = to_dynamodb_item(payload)
-    update_values = {key: value for key, value in item.items() if key != "patient_id"}
-    update_values["_event_timestamp_epoch_ms"] = incoming_epoch_ms
+    update_values: dict[str, Any] = {key: item[key] for key in ("schema_version", "source", "source_record_id") if key in item}
+    present_vitals = [field for field in VITAL_FIELDS if field in item]
+
+    for field in present_vitals:
+        update_values[field] = item[field]
+        update_values[f"{field}_event_timestamp"] = event_timestamp
+        update_values[f"_{field}_event_timestamp_epoch_ms"] = incoming_epoch_ms
 
     expression_names = {f"#field_{index}": key for index, key in enumerate(update_values)}
     expression_values = {f":value_{index}": value for index, value in enumerate(update_values.values())}
     update_expression = "SET " + ", ".join(f"#field_{index} = :value_{index}" for index in range(len(update_values)))
+    legacy_fields = ("event_timestamp", "_event_timestamp_epoch_ms", "_replay_attempt")
+    for index, field in enumerate(legacy_fields):
+        expression_names[f"#legacy_field_{index}"] = field
+    update_expression += " REMOVE " + ", ".join(f"#legacy_field_{index}" for index in range(len(legacy_fields)))
 
-    expression_names["#event_epoch"] = "_event_timestamp_epoch_ms"
     expression_values[":incoming_event_epoch"] = incoming_epoch_ms
+    freshness_conditions = []
+    for index, field in enumerate(present_vitals):
+        epoch_name = f"#event_epoch_{index}"
+        expression_names[epoch_name] = f"_{field}_event_timestamp_epoch_ms"
+        freshness_conditions.append(f"(attribute_not_exists({epoch_name}) OR {epoch_name} <= :incoming_event_epoch)")
 
     try:
         latest_vitals_table.update_item(
             Key={"patient_id": patient_id},
             UpdateExpression=update_expression,
-            ConditionExpression="attribute_not_exists(#event_epoch) OR #event_epoch <= :incoming_event_epoch",
+            ConditionExpression=" AND ".join(freshness_conditions),
             ExpressionAttributeNames=expression_names,
             ExpressionAttributeValues=expression_values,
         )
 
     except ClientError as error:
         if error.response["Error"]["Code"] == "ConditionalCheckFailedException":
-            print(f"Ignoring duplicate or stale vital event for patient {patient_id} at {event_timestamp}")
+            print(f"Ignoring stale vital event for patient {patient_id} at {event_timestamp}")
             return False
 
         raise
@@ -154,6 +196,11 @@ def calculate_latency_ms(event_timestamp: str) -> float:
     return max((current_time - event_time).total_seconds() * 1000, 0.0)
 
 
+@lru_cache(maxsize=1)
+def get_api_gateway_client() -> Any:
+    return boto3.client("apigatewaymanagementapi", region_name=AWS_REGION, endpoint_url=WEBSOCKET_ENDPOINT)
+
+
 def push_vitals(payload: dict[str, Any]) -> tuple[int, int, int]:
     if not WEBSOCKET_ENDPOINT:
         print("WebSocket endpoint is not configured")
@@ -164,7 +211,7 @@ def push_vitals(payload: dict[str, Any]) -> tuple[int, int, int]:
     if not patient_id:
         raise ValueError("patient_id is required")
 
-    api_gateway = boto3.client("apigatewaymanagementapi", endpoint_url=WEBSOCKET_ENDPOINT)
+    api_gateway = get_api_gateway_client()
 
     connection_ids = get_patient_connections(patient_id)
     message = json.dumps(payload).encode("utf-8")
@@ -215,9 +262,11 @@ def build_metric_data(payload: dict[str, Any], deliveries: int, delivery_failure
 
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, list[dict[str, str]]]:
     batch_item_failures: list[dict[str, str]] = []
+    metrics_by_namespace: dict[str, list[dict[str, Any]]] = {}
 
     for record in event.get("Records", []):
         sequence_number = record["kinesis"]["sequenceNumber"]
+        claimed_observation_id: str | None = None
 
         try:
             payload = decode_kinesis_record(record)
@@ -225,22 +274,48 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, list[dict[s
             validate_vitals_payload(payload)
 
             is_load_test = payload.get("source") == "load_test"
+            metric_namespace = LOAD_TEST_METRIC_NAMESPACE if is_load_test else METRIC_NAMESPACE
+
+            if not claim_observation(payload):
+                metrics_by_namespace.setdefault(metric_namespace, []).extend(
+                    [{"MetricName": "RecordsProcessed", "Value": 1, "Unit": "Count"}, {"MetricName": "DuplicatesSkipped", "Value": 1, "Unit": "Count"}]
+                )
+                continue
+
+            claimed_observation_id = payload["observation_id"]
 
             if is_load_test:
                 write_load_test_result(payload)
             elif not write_latest_vitals(payload):
+                metrics_by_namespace.setdefault(metric_namespace, []).extend(
+                    [{"MetricName": "RecordsProcessed", "Value": 1, "Unit": "Count"}, {"MetricName": "StaleRecordsSkipped", "Value": 1, "Unit": "Count"}]
+                )
                 continue
 
             deliveries, delivery_failures, active_connections = push_vitals(payload)
 
             metric_data = build_metric_data(payload, deliveries, delivery_failures, active_connections)
 
-            metric_namespace = LOAD_TEST_METRIC_NAMESPACE if is_load_test else METRIC_NAMESPACE
-            emit_metrics(metric_data, namespace=metric_namespace)
+            metrics_by_namespace.setdefault(metric_namespace, []).extend(metric_data)
 
+        except PERMANENT_RECORD_ERRORS as error:
+            print(f"Rejected permanent Kinesis record {sequence_number}: {error}")
+            metrics_by_namespace.setdefault(METRIC_NAMESPACE, []).append({"MetricName": "PermanentRecordsRejected", "Value": 1, "Unit": "Count"})
         except Exception as error:
             print(f"Failed Kinesis record {sequence_number}: {error}")
 
+            if claimed_observation_id:
+                try:
+                    release_observation_claim(claimed_observation_id)
+                except Exception as release_error:
+                    print(f"Failed to release idempotency claim for {claimed_observation_id}: {release_error}")
+
             batch_item_failures.append({"itemIdentifier": sequence_number})
+
+    for namespace, metric_data in metrics_by_namespace.items():
+        try:
+            emit_metrics(metric_data, namespace=namespace)
+        except Exception as error:
+            print(f"Failed to emit {namespace} metrics: {error}")
 
     return {"batchItemFailures": batch_item_failures}

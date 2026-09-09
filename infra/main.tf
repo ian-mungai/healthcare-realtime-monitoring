@@ -213,6 +213,8 @@ module "realtime_processor" {
   load_test_stream_arn     = module.load_test_kinesis.stream_arn
   latest_vitals_table_name = module.realtime_vitals.latest_vitals_table_name
   latest_vitals_table_arn  = module.realtime_vitals.latest_vitals_table_arn
+  idempotency_table_name   = module.realtime_vitals.processed_observations_table_name
+  idempotency_table_arn    = module.realtime_vitals.processed_observations_table_arn
   load_test_table_name     = module.realtime_vitals.load_test_results_table_name
   load_test_table_arn      = module.realtime_vitals.load_test_results_table_arn
   lambda_zip_path          = "${path.root}/../build/lambda/vitals_stream_processor.zip"
@@ -300,6 +302,8 @@ module "realtime_replay" {
 
   kinesis_stream_arn = module.kinesis.stream_arn
   failure_queue_arn  = module.realtime_failure_handling.vitals_failures_queue_arn
+  replay_dlq_arn     = module.realtime_failure_handling.vitals_replay_dlq_arn
+  replay_dlq_url     = module.realtime_failure_handling.vitals_replay_dlq_url
   lambda_zip_path    = "${path.root}/../build/lambda/vitals_replay.zip"
 
   tags = {

@@ -13,6 +13,16 @@ variable "failure_queue_arn" {
   type        = string
 }
 
+variable "replay_dlq_arn" {
+  description = "ARN of the terminal replay dead-letter queue."
+  type        = string
+}
+
+variable "replay_dlq_url" {
+  description = "URL of the terminal replay dead-letter queue."
+  type        = string
+}
+
 variable "lambda_zip_path" {
   description = "Path to the vitals replay Lambda deployment package."
   type        = string

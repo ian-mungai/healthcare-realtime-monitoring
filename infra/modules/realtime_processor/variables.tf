@@ -23,6 +23,16 @@ variable "latest_vitals_table_arn" {
   type        = string
 }
 
+variable "idempotency_table_name" {
+  description = "DynamoDB table storing processed observation IDs."
+  type        = string
+}
+
+variable "idempotency_table_arn" {
+  description = "ARN of the processed-observation idempotency table."
+  type        = string
+}
+
 variable "load_test_table_name" {
   description = "DynamoDB table storing isolated load-test observations."
   type        = string

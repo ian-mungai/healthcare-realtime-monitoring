@@ -545,7 +545,9 @@ def render_dashboard() -> None:
             value=f"{format_value(vitals.get('respiratory_rate'))} breaths/min",
         )
         blood_pressure_column.metric(label="Blood Pressure", value=f"{format_value(vitals.get('systolic_bp'))}/{format_value(vitals.get('diastolic_bp'))} mmHg")
-        st.caption(f"Last updated {format_event_time(vitals.get('event_timestamp'))} · Data age {format_value(patient_ages[selected_patient])} sec")
+        st.caption(
+            f"Latest measurement {format_event_time(vitals.get('event_timestamp'))} · Oldest measurement age {format_value(patient_ages[selected_patient])} sec"
+        )
         st.divider()
 
     freshness_column, latency_column = st.columns(2)
