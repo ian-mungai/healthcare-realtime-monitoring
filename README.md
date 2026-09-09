@@ -85,7 +85,7 @@ terraform -chdir=infra validate
 
 ## Infrastructure workflow
 
-Terraform uses a partial S3 backend configuration with native state locking. Copy the portable example and provide a private, versioned state bucket created for your environment:
+Terraform uses a partial S3 backend configuration with native state locking. The backend stores state under the dedicated `terraform-state/development/` prefix in the project's private, versioned data bucket. Copy the portable example and provide the project bucket and region for your environment:
 
 ```zsh
 cp infra/backend.hcl.example infra/backend.hcl
