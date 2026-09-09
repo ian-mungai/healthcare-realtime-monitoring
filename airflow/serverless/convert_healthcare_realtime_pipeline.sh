@@ -18,8 +18,8 @@ SODA_SECURITY_GROUP="$(terraform -chdir=infra output -raw soda_ecs_security_grou
 DATA_JOBS_CLUSTER="$(terraform -chdir=infra output -raw dbt_ecs_cluster_name)"
 RAW_BUCKET="$(terraform -chdir=infra output -raw raw_s3_bucket_name)"
 PRIVATE_SUBNETS="$(terraform -chdir=infra output -json private_subnet_ids | "$PYTHON_BIN" -c 'import json,sys; print(",".join(json.load(sys.stdin)))')"
+MWAA_SERVERLESS_START_DATE="$("$PYTHON_BIN" -c 'from datetime import UTC, datetime, timedelta; print((datetime.now(UTC) + timedelta(minutes=10)).isoformat())')"
 
-export AIRFLOW_ENABLE_TASK_CALLBACKS=false
 export AIRFLOW__DBT__ECS_SECURITY_GROUP="$DBT_SECURITY_GROUP"
 export AIRFLOW__DBT__ECS_SUBNETS="$PRIVATE_SUBNETS"
 export AIRFLOW__SODA__ECS_SECURITY_GROUP="$SODA_SECURITY_GROUP"
@@ -27,6 +27,7 @@ export AIRFLOW__SODA__ECS_SUBNETS="$PRIVATE_SUBNETS"
 export DBT_ECS_TASK_DEFINITION="$DBT_TASK_DEFINITION"
 export SODA_ECS_TASK_DEFINITION="$SODA_TASK_DEFINITION"
 export DATA_JOBS_ECS_CLUSTER="$DATA_JOBS_CLUSTER"
+export MWAA_SERVERLESS_START_DATE
 export RAW_BUCKET
 
 PYTHONPATH="$REPO_ROOT/airflow/dags:$REPO_ROOT" \

@@ -6,6 +6,12 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BUILD_ROOT="$REPO_ROOT/tmp/mwaa_serverless_code"
 PACKAGE_PATH="$REPO_ROOT/tmp/healthcare_realtime_mwaa_serverless_code.zip"
 
+if [[ -z "${PYTHON_BIN:-}" && -x "$REPO_ROOT/.venv/bin/python" ]]; then
+  PYTHON_BIN="$REPO_ROOT/.venv/bin/python"
+else
+  PYTHON_BIN="${PYTHON_BIN:-python3}"
+fi
+
 rm -rf "$BUILD_ROOT"
 rm -f "$PACKAGE_PATH"
 
@@ -20,7 +26,7 @@ cp "$REPO_ROOT/lineage/openlineage/__init__.py" "$BUILD_ROOT/lineage/openlineage
 cp "$REPO_ROOT/lineage/openlineage/client.py" "$BUILD_ROOT/lineage/openlineage/client.py"
 cp "$REPO_ROOT/lineage/openlineage/athena_lineage.py" "$BUILD_ROOT/lineage/openlineage/athena_lineage.py"
 
-python3 -m pip install \
+"$PYTHON_BIN" -m pip install \
   --requirement "$REPO_ROOT/airflow/serverless/requirements.txt" \
   --target "$BUILD_ROOT" \
   --platform manylinux2014_x86_64 \
@@ -30,7 +36,7 @@ python3 -m pip install \
 find "$BUILD_ROOT" -type d -name "__pycache__" -prune -exec rm -rf {} +
 find "$BUILD_ROOT" -type f -name "*.pyc" -delete
 
-BUILD_ROOT="$BUILD_ROOT" PACKAGE_PATH="$PACKAGE_PATH" python3 - <<'PY'
+BUILD_ROOT="$BUILD_ROOT" PACKAGE_PATH="$PACKAGE_PATH" "$PYTHON_BIN" - <<'PY'
 import os
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
