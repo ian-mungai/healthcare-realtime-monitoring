@@ -39,7 +39,7 @@ cp infra/development.tfvars.example infra/development.tfvars
 
 ### Terraform state
 
-Create a private, versioned S3 bucket for Terraform state outside this configuration. Copy the backend example and set its bucket and region for the target environment:
+Use the project's private, versioned data bucket for Terraform state. The backend example isolates state under the `terraform-state/development/` prefix; copy it and set the project bucket and region for the target environment:
 
 ```zsh
 cp infra/backend.hcl.example infra/backend.hcl
