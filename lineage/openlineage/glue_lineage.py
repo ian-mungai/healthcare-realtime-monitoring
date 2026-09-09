@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from openlineage.client.event_v2 import Dataset, Job, Run, RunEvent, RunState
+from openlineage.client.event_v2 import InputDataset, Job, OutputDataset, Run, RunEvent, RunState
 
 from lineage.openlineage.client import build_local_openlineage_client, build_s3_openlineage_client
 from lineage.openlineage.config import data_bucket_name, lineage_event_path
@@ -10,8 +10,8 @@ NAMESPACE = "healthcare-realtime-monitoring"
 PRODUCER = "https://github.com/OpenLineage/OpenLineage"
 S3_LINEAGE_EVENT_PATH = "s3://<project-data-bucket>/lineage/openlineage/glue/event"
 
-RAW_DATASET = Dataset(namespace="s3://<project-data-bucket>", name="raw/fhir_observations")
-PROCESSED_DATASET = Dataset(namespace="aws-glue", name="healthcare_realtime.processed_fhir_observations")
+RAW_DATASET = InputDataset(namespace="s3://<project-data-bucket>", name="raw/fhir_observations")
+PROCESSED_DATASET = OutputDataset(namespace="aws-glue", name="healthcare_realtime.processed_fhir_observations")
 
 
 def build_glue_lineage_event(run_state: RunState, lineage_run_id: str) -> RunEvent:
@@ -21,7 +21,7 @@ def build_glue_lineage_event(run_state: RunState, lineage_run_id: str) -> RunEve
         run=Run(runId=lineage_run_id),
         job=Job(namespace=NAMESPACE, name="healthcare_realtime_raw_to_processed"),
         producer=PRODUCER,
-        inputs=[Dataset(namespace=f"s3://{data_bucket_name()}", name="raw/fhir_observations")],
+        inputs=[InputDataset(namespace=f"s3://{data_bucket_name()}", name="raw/fhir_observations")],
         outputs=[PROCESSED_DATASET],
     )
 

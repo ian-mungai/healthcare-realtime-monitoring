@@ -167,6 +167,8 @@ def fetch_physionet_record(record_name: str) -> tuple[Any, dict[str, Any]]:
             print(f"PhysioNet fetch failed for {record_name} (attempt {attempt}/{max_attempts}): {error}. Retrying in {delay:.1f}s")
             time.sleep(delay)
 
+    raise RuntimeError(f"PhysioNet fetch failed for {record_name}")
+
 
 def fetch_remote_bidmc_record(record_number: int) -> list[VitalReading]:
     """

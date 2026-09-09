@@ -8,11 +8,11 @@ from data_quality.soda import run_soda_with_lineage
 def test_soda_runtime_emits_complete(monkeypatch) -> None:
     lineage_events = []
 
-    monkeypatch.setattr(
-        run_soda_with_lineage,
-        "emit_s3_soda_lineage",
-        lambda state, run_id=None: lineage_events.append((state, run_id)) or "00000000-0000-0000-0000-000000000001",
-    )
+    def emit_lineage(state, run_id=None):
+        lineage_events.append((state, run_id))
+        return "00000000-0000-0000-0000-000000000001"
+
+    monkeypatch.setattr(run_soda_with_lineage, "emit_s3_soda_lineage", emit_lineage)
     monkeypatch.setattr(run_soda_with_lineage.subprocess, "run", lambda *args, **kwargs: Mock(returncode=0))
 
     assert run_soda_with_lineage.main() == 0
@@ -22,11 +22,11 @@ def test_soda_runtime_emits_complete(monkeypatch) -> None:
 def test_soda_runtime_emits_fail(monkeypatch) -> None:
     lineage_events = []
 
-    monkeypatch.setattr(
-        run_soda_with_lineage,
-        "emit_s3_soda_lineage",
-        lambda state, run_id=None: lineage_events.append((state, run_id)) or "00000000-0000-0000-0000-000000000001",
-    )
+    def emit_lineage(state, run_id=None):
+        lineage_events.append((state, run_id))
+        return "00000000-0000-0000-0000-000000000001"
+
+    monkeypatch.setattr(run_soda_with_lineage, "emit_s3_soda_lineage", emit_lineage)
     monkeypatch.setattr(run_soda_with_lineage.subprocess, "run", lambda *args, **kwargs: Mock(returncode=1))
 
     assert run_soda_with_lineage.main() == 1

@@ -15,7 +15,7 @@ def literal_assignment(relative_path: str, name: str) -> Any:
     for node in tree.body:
         if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == name for target in node.targets):
             return ast.literal_eval(node.value)
-        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id == name:
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id == name and node.value is not None:
             return ast.literal_eval(node.value)
     raise AssertionError(f"Assignment {name} was not found in {relative_path}")
 

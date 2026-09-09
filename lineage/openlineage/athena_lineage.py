@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from openlineage.client.event_v2 import Dataset, Job, Run, RunEvent, RunState
+from openlineage.client.event_v2 import InputDataset, Job, OutputDataset, Run, RunEvent, RunState
 
 from lineage.openlineage.client import build_local_openlineage_client, build_s3_openlineage_client
 from lineage.openlineage.config import lineage_event_path
@@ -10,8 +10,8 @@ NAMESPACE = "healthcare-realtime-monitoring"
 PRODUCER = "https://github.com/OpenLineage/OpenLineage"
 S3_LINEAGE_EVENT_PATH = "s3://<project-data-bucket>/lineage/openlineage/athena/event"
 
-PROCESSED_DATASET = Dataset(namespace="aws-glue", name="healthcare_realtime.processed_fhir_observations")
-VALIDATION_DATASET = Dataset(namespace="athena", name="healthcare_realtime.processed_fhir_observations_quality")
+PROCESSED_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime.processed_fhir_observations")
+VALIDATION_DATASET = OutputDataset(namespace="athena", name="healthcare_realtime.processed_fhir_observations_quality")
 
 
 def build_athena_lineage_event(run_state: RunState, lineage_run_id: str) -> RunEvent:
