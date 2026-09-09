@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from openlineage.client.event_v2 import Dataset, Job, Run, RunEvent, RunState
+from openlineage.client.event_v2 import InputDataset, Job, Run, RunEvent, RunState
 
 from lineage.openlineage.client import build_local_openlineage_client, build_s3_openlineage_client
 from lineage.openlineage.config import lineage_event_path
@@ -10,10 +10,10 @@ NAMESPACE = "healthcare-realtime-monitoring"
 PRODUCER = "https://github.com/OpenLineage/OpenLineage"
 S3_LINEAGE_EVENT_PATH = "s3://<project-data-bucket>/lineage/openlineage/soda/event"
 
-STAGING_DATASET = Dataset(namespace="aws-glue", name="healthcare_realtime_dbt.stg_fhir_observations")
-DIM_PATIENT_DATASET = Dataset(namespace="aws-glue", name="healthcare_realtime_dbt.dim_patient")
-DIM_OBSERVATION_TYPE_DATASET = Dataset(namespace="aws-glue", name="healthcare_realtime_dbt.dim_observation_type")
-FACT_OBSERVATIONS_DATASET = Dataset(namespace="aws-glue", name="healthcare_realtime_dbt.fact_observations")
+STAGING_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.stg_fhir_observations")
+DIM_PATIENT_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.dim_patient")
+DIM_OBSERVATION_TYPE_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.dim_observation_type")
+FACT_OBSERVATIONS_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.fact_observations")
 
 
 def build_soda_lineage_event(run_state: RunState, lineage_run_id: str) -> RunEvent:
