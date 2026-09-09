@@ -28,3 +28,10 @@ pythonpath = [
 [tool.mypy]
 python_version = "3.12"
 ignore_missing_imports = true
+explicit_package_bases = true
+exclude = [
+    "^build/",
+    "^tmp/",
+    "^\\.venv/",
+    "^scripts/synthea_loader/synthea/",
+]

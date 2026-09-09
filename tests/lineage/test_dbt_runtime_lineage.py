@@ -8,9 +8,11 @@ from jobs.dbt import run_dbt_with_lineage
 def test_dbt_runtime_emits_complete(monkeypatch) -> None:
     lineage_events = []
 
-    monkeypatch.setattr(
-        run_dbt_with_lineage, "emit_s3_dbt_lineage", lambda state, run_id=None: lineage_events.append((state, run_id)) or "00000000-0000-0000-0000-000000000001"
-    )
+    def emit_lineage(state, run_id=None):
+        lineage_events.append((state, run_id))
+        return "00000000-0000-0000-0000-000000000001"
+
+    monkeypatch.setattr(run_dbt_with_lineage, "emit_s3_dbt_lineage", emit_lineage)
     monkeypatch.setattr(run_dbt_with_lineage.subprocess, "run", lambda *args, **kwargs: Mock(returncode=0))
     monkeypatch.setattr(run_dbt_with_lineage.sys, "argv", ["run_dbt_with_lineage.py", "build"])
 
@@ -21,9 +23,11 @@ def test_dbt_runtime_emits_complete(monkeypatch) -> None:
 def test_dbt_runtime_emits_fail(monkeypatch) -> None:
     lineage_events = []
 
-    monkeypatch.setattr(
-        run_dbt_with_lineage, "emit_s3_dbt_lineage", lambda state, run_id=None: lineage_events.append((state, run_id)) or "00000000-0000-0000-0000-000000000001"
-    )
+    def emit_lineage(state, run_id=None):
+        lineage_events.append((state, run_id))
+        return "00000000-0000-0000-0000-000000000001"
+
+    monkeypatch.setattr(run_dbt_with_lineage, "emit_s3_dbt_lineage", emit_lineage)
     monkeypatch.setattr(run_dbt_with_lineage.subprocess, "run", lambda *args, **kwargs: Mock(returncode=1))
     monkeypatch.setattr(run_dbt_with_lineage.sys, "argv", ["run_dbt_with_lineage.py", "build"])
 
