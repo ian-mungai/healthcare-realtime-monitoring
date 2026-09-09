@@ -20,8 +20,10 @@ def lambda_handler(event, context):
 
 @pytest.fixture(autouse=True)
 def webhook_secret():
+    webhook_lambda_handler.get_kinesis_publisher.cache_clear()
     with patch("services.fhir_webhook.app.security.get_webhook_secret", return_value=TEST_SECRET):
         yield
+    webhook_lambda_handler.get_kinesis_publisher.cache_clear()
 
 
 def test_health():

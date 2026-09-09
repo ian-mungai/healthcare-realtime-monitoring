@@ -122,6 +122,20 @@ data "aws_iam_policy_document" "lambda" {
   }
 
   statement {
+    sid    = "ManageObservationIdempotency"
+    effect = "Allow"
+
+    actions = [
+      "dynamodb:DeleteItem",
+      "dynamodb:PutItem"
+    ]
+
+    resources = [
+      var.idempotency_table_arn
+    ]
+  }
+
+  statement {
     sid    = "WriteLambdaLogs"
     effect = "Allow"
 
@@ -160,6 +174,8 @@ resource "aws_lambda_function" "vitals_processor" {
       LATEST_VITALS_TABLE     = var.latest_vitals_table_name
       LOAD_TEST_RESULTS_TABLE = var.load_test_table_name
       CONNECTIONS_TABLE       = var.connections_table_name
+      IDEMPOTENCY_TABLE       = var.idempotency_table_name
+      IDEMPOTENCY_TTL_SECONDS = "604800"
       WEBSOCKET_ENDPOINT      = "https://${var.websocket_api_id}.execute-api.${var.aws_region}.amazonaws.com/${var.websocket_stage_name}"
     }
   }

@@ -1,5 +1,6 @@
 import json
 import os
+from base64 import b64encode
 from typing import Any
 
 import boto3
@@ -7,10 +8,16 @@ import boto3
 AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
 KINESIS_STREAM_ARN = os.environ["KINESIS_STREAM_ARN"]
 MAX_REPLAY_ATTEMPTS = int(os.getenv("MAX_REPLAY_ATTEMPTS", "1"))
+REPLAY_DLQ_URL = os.getenv("REPLAY_DLQ_URL", "")
 MAX_GET_RECORDS_CALLS = 10
 GET_RECORDS_LIMIT = 100
 
 kinesis = boto3.client("kinesis", region_name=AWS_REGION)
+sqs = boto3.client("sqs", region_name=AWS_REGION)
+
+
+class ReplayLimitReachedError(RuntimeError):
+    pass
 
 
 def parse_failure_message(record: dict[str, Any]) -> dict[str, str]:
@@ -80,7 +87,7 @@ def build_replay_entry(record: dict[str, Any]) -> dict[str, Any]:
     replay_attempt = int(payload.get("_replay_attempt", 0))
 
     if replay_attempt >= MAX_REPLAY_ATTEMPTS:
-        raise RuntimeError(f"Automatic replay limit reached at attempt {replay_attempt}")
+        raise ReplayLimitReachedError(f"Automatic replay limit reached at attempt {replay_attempt}")
 
     payload["_replay_attempt"] = replay_attempt + 1
 
@@ -92,12 +99,27 @@ def build_replay_entry(record: dict[str, Any]) -> dict[str, Any]:
     return entry
 
 
-def build_replay_entries(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [build_replay_entry(record) for record in records]
-
-
 def replay_records(records: list[dict[str, Any]]) -> int:
-    entries = build_replay_entries(records)
+    entries: list[dict[str, Any]] = []
+
+    for record in records:
+        try:
+            entries.append(build_replay_entry(record))
+        except (ReplayLimitReachedError, ValueError, UnicodeDecodeError) as error:
+            if not REPLAY_DLQ_URL:
+                raise RuntimeError("REPLAY_DLQ_URL is not configured") from error
+            terminal_body = {
+                "failure_type": "terminal_replay_record",
+                "reason": str(error),
+                "sequence_number": record.get("SequenceNumber"),
+                "partition_key": record.get("PartitionKey"),
+                "data_base64": b64encode(record.get("Data", b"")).decode("ascii"),
+            }
+            sqs.send_message(QueueUrl=REPLAY_DLQ_URL, MessageBody=json.dumps(terminal_body, separators=(",", ":")))
+            print(f"Sent terminal replay record {record.get('SequenceNumber')} to the replay DLQ: {error}")
+
+    if not entries:
+        return 0
 
     response = kinesis.put_records(StreamARN=KINESIS_STREAM_ARN, Records=entries)
 

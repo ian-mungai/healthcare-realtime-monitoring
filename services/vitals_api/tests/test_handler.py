@@ -27,6 +27,7 @@ def test_lambda_handler_returns_latest_vitals(get_latest_vitals_table) -> None:
             "source_record_id": "bidmc01n",
             "event_timestamp": "2026-08-28T17:00:00Z",
             "heart_rate": Decimal("96"),
+            "heart_rate_event_timestamp": "2026-08-28T17:00:02Z",
             "respiratory_rate": Decimal("20"),
             "spo2": Decimal("98"),
             "systolic_bp": Decimal("120"),
@@ -43,6 +44,7 @@ def test_lambda_handler_returns_latest_vitals(get_latest_vitals_table) -> None:
     assert result["statusCode"] == 200
     assert body["patient_id"] == "137506799"
     assert body["heart_rate"] == 96.0
+    assert body["event_timestamp"] == "2026-08-28T17:00:02Z"
     assert "_event_timestamp_epoch_ms" not in body
     assert "_replay_attempt" not in body
     assert "Access-Control-Allow-Origin" not in result["headers"]

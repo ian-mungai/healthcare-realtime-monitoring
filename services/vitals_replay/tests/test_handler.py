@@ -6,6 +6,7 @@ from unittest.mock import patch
 import pytest
 
 os.environ["KINESIS_STREAM_ARN"] = "arn:aws:kinesis:example-region-1:123456789012:stream/healthcare_realtime_vitals"
+os.environ["REPLAY_DLQ_URL"] = "https://sqs.example-region-1.amazonaws.com/123456789012/replay-dlq"
 
 from services.vitals_replay import handler
 
@@ -95,20 +96,20 @@ def test_get_failed_records_raises_when_no_source_records_exist(kinesis) -> None
         handler.get_failed_records("shardId-000000000000", "100", "101")
 
 
-def test_build_replay_entries_adds_replay_attempt_and_preserves_partition_key() -> None:
-    records = [{"SequenceNumber": "100", "Data": b'{"patient_id":"137506799"}', "PartitionKey": "137506799"}]
+def test_build_replay_entry_adds_replay_attempt_and_preserves_partition_key() -> None:
+    record = {"SequenceNumber": "100", "Data": b'{"patient_id":"137506799"}', "PartitionKey": "137506799"}
 
-    entries = handler.build_replay_entries(records)
+    entry = handler.build_replay_entry(record)
 
-    assert json.loads(entries[0]["Data"]) == {"patient_id": "137506799", "_replay_attempt": 1}
-    assert entries[0]["PartitionKey"] == "137506799"
+    assert json.loads(entry["Data"]) == {"patient_id": "137506799", "_replay_attempt": 1}
+    assert entry["PartitionKey"] == "137506799"
 
 
-def test_build_replay_entries_rejects_record_at_replay_limit() -> None:
-    records = [{"SequenceNumber": "100", "Data": b'{"patient_id":"137506799","_replay_attempt":1}', "PartitionKey": "137506799"}]
+def test_build_replay_entry_rejects_record_at_replay_limit() -> None:
+    record = {"SequenceNumber": "100", "Data": b'{"patient_id":"137506799","_replay_attempt":1}', "PartitionKey": "137506799"}
 
-    with pytest.raises(RuntimeError, match="Automatic replay limit reached"):
-        handler.build_replay_entries(records)
+    with pytest.raises(handler.ReplayLimitReachedError, match="Automatic replay limit reached"):
+        handler.build_replay_entry(record)
 
 
 @patch("services.vitals_replay.handler.kinesis")
@@ -124,6 +125,22 @@ def test_replay_records_puts_records_back_to_stream(kinesis) -> None:
     kinesis.put_records.assert_called_once_with(
         StreamARN=handler.KINESIS_STREAM_ARN, Records=[{"Data": b'{"patient_id":"137506799","_replay_attempt":1}', "PartitionKey": "137506799"}]
     )
+
+
+@patch("services.vitals_replay.handler.sqs")
+@patch("services.vitals_replay.handler.kinesis")
+def test_replay_records_isolates_exhausted_record(kinesis, sqs) -> None:
+    kinesis.put_records.return_value = {"FailedRecordCount": 0, "Records": [{"SequenceNumber": "200"}]}
+    records = [
+        {"SequenceNumber": "100", "Data": b'{"patient_id":"recoverable"}', "PartitionKey": "recoverable"},
+        {"SequenceNumber": "101", "Data": b'{"patient_id":"poison","_replay_attempt":1}', "PartitionKey": "poison"},
+    ]
+
+    assert handler.replay_records(records) == 1
+
+    assert kinesis.put_records.call_args.kwargs["Records"][0]["PartitionKey"] == "recoverable"
+    terminal_body = json.loads(sqs.send_message.call_args.kwargs["MessageBody"])
+    assert terminal_body["sequence_number"] == "101"
 
 
 @patch("services.vitals_replay.handler.kinesis")

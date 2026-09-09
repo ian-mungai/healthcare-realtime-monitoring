@@ -12,6 +12,9 @@ else:
         from authorization import get_principal_arn, is_patient_authorized
 
 CONNECTIONS_TABLE = os.getenv("CONNECTIONS_TABLE", "healthcare-realtime-websocket-connections")
+AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
+dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
+connections_table = dynamodb.Table(CONNECTIONS_TABLE)
 
 
 def build_response(status_code: int, message: str) -> dict[str, Any]:
@@ -19,7 +22,7 @@ def build_response(status_code: int, message: str) -> dict[str, Any]:
 
 
 def get_connections_table() -> Any:
-    return boto3.resource("dynamodb").Table(CONNECTIONS_TABLE)
+    return connections_table
 
 
 def handle_connect(event: dict[str, Any], connection_id: str) -> dict[str, Any]:
