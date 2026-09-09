@@ -15,9 +15,12 @@ trap cleanup EXIT
 
 mkdir -p "${BUILD_DIR}"
 mkdir -p "${STAGING_DIR}/services"
+mkdir -p "${STAGING_DIR}/config"
 
 cp "${REPO_ROOT}/services/__init__.py" "${STAGING_DIR}/services/__init__.py"
+cp "${REPO_ROOT}/services/vital_signs.py" "${STAGING_DIR}/services/vital_signs.py"
 cp -R "${REPO_ROOT}/services/fhir_webhook" "${STAGING_DIR}/services/fhir_webhook"
+cp "${REPO_ROOT}/config/vital_signs.json" "${STAGING_DIR}/config/vital_signs.json"
 
 rm -rf "${STAGING_DIR}/services/fhir_webhook/tests"
 
@@ -29,7 +32,7 @@ rm -f "${OUTPUT_FILE}"
 
 (
     cd "${STAGING_DIR}"
-    find services -type f -print | LC_ALL=C sort | zip -X -q "${OUTPUT_FILE}" -@
+    find services config -type f -print | LC_ALL=C sort | zip -X -q "${OUTPUT_FILE}" -@
 )
 
 echo "FHIR webhook Lambda package created:"

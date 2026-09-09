@@ -20,7 +20,9 @@ from services.vitals_simulator.app.simulation.realtime_cohort_runner import (
     parse_bool,
     parse_optional_positive_int,
     parse_positive_float,
+    parse_ratio,
     run_cycle,
+    wait_for_next_cycle,
 )
 
 
@@ -85,6 +87,11 @@ def test_parse_positive_float_rejects_zero():
         parse_positive_float("0", 1.0)
 
 
+def test_parse_ratio_rejects_values_above_one():
+    with pytest.raises(ValueError, match="less than or equal to one"):
+        parse_ratio("1.1", 0.5)
+
+
 def test_simulator_settings_support_unlimited_replay():
     settings = SimulatorSettings(interval_seconds=1.0, bp_interval_seconds=300, max_cycles=None, replay=True)
     assert settings.max_cycles is None
@@ -92,15 +99,17 @@ def test_simulator_settings_support_unlimited_replay():
 
 
 def test_load_settings_reads_publication_resilience_controls(monkeypatch):
-    monkeypatch.setenv("SIMULATOR_PUBLISH_MAX_ATTEMPTS", "4")
-    monkeypatch.setenv("SIMULATOR_PUBLISH_RETRY_BACKOFF_SECONDS", "1.5")
+    monkeypatch.setenv("SIMULATOR_FHIR_MAX_ATTEMPTS", "4")
+    monkeypatch.setenv("SIMULATOR_FHIR_RETRY_BACKOFF_SECONDS", "1.5")
     monkeypatch.setenv("SIMULATOR_MAX_CONSECUTIVE_FAILED_CYCLES", "6")
+    monkeypatch.setenv("SIMULATOR_FAILURE_RATIO_THRESHOLD", "0.7")
 
     settings = load_settings()
 
-    assert settings.publish_max_attempts == 4
-    assert settings.publish_retry_backoff_seconds == 1.5
+    assert settings.fhir_max_attempts == 4
+    assert settings.fhir_retry_backoff_seconds == 1.5
     assert settings.max_consecutive_failed_cycles == 6
+    assert settings.failure_ratio_threshold == 0.7
 
 
 def test_get_replay_reading_first_epoch_preserves_offset():
@@ -140,20 +149,24 @@ def test_cycle_simulation_start_makes_effective_time_equal_publication_time():
     assert simulation_start.isoformat() == "2026-09-03T16:55:38+00:00"
 
 
-def test_publish_patient_cycle_retries_same_event_after_retryable_failure(monkeypatch):
+def test_publish_patient_cycle_delegates_retries_to_hapi_client(monkeypatch):
     simulation = PatientSimulation(
         context=build_context("1001"), bidmc_record_number=1, readings=[VitalReading("bidmc01n", 0, 80.0, 18.0, 98.0)], bp_cadence=None
     )
     event = object()
     calls = []
+    client_settings = []
 
     monkeypatch.setattr(realtime_cohort_runner, "build_simulator_event", lambda **_kwargs: event)
-    monkeypatch.setattr(realtime_cohort_runner, "HAPIFHIRClient", object)
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            client_settings.append(kwargs)
+
+    monkeypatch.setattr(realtime_cohort_runner, "HAPIFHIRClient", FakeClient)
 
     def publish(current_event, _client):
         calls.append(current_event)
-        if len(calls) == 1:
-            raise FHIRRetryableError("temporary failure")
         return PublishedSimulatorEvent("bidmc01n", 0, "1001", "encounter-1001", 3, [])
 
     monkeypatch.setattr(realtime_cohort_runner, "publish_simulator_event", publish)
@@ -164,12 +177,13 @@ def test_publish_patient_cycle_retries_same_event_after_retryable_failure(monkey
         replay_index=0,
         available_cycles=1,
         cycle_timestamp=datetime(2026, 9, 8, 16, 0, tzinfo=UTC),
-        publish_max_attempts=2,
-        publish_retry_backoff_seconds=0,
+        fhir_max_attempts=2,
+        fhir_retry_backoff_seconds=0.5,
     )
 
     assert result.published_count == 3
-    assert calls == [event, event]
+    assert calls == [event]
+    assert client_settings == [{"max_retries": 2, "retry_delay_seconds": 0.5}]
 
 
 def test_publish_patient_cycle_does_not_retry_permanent_failure(monkeypatch):
@@ -179,7 +193,7 @@ def test_publish_patient_cycle_does_not_retry_permanent_failure(monkeypatch):
     calls = []
 
     monkeypatch.setattr(realtime_cohort_runner, "build_simulator_event", lambda **_kwargs: object())
-    monkeypatch.setattr(realtime_cohort_runner, "HAPIFHIRClient", object)
+    monkeypatch.setattr(realtime_cohort_runner, "HAPIFHIRClient", lambda **_kwargs: object())
 
     def publish(_event, _client):
         calls.append(1)
@@ -194,11 +208,19 @@ def test_publish_patient_cycle_does_not_retry_permanent_failure(monkeypatch):
             replay_index=0,
             available_cycles=1,
             cycle_timestamp=datetime(2026, 9, 8, 16, 0, tzinfo=UTC),
-            publish_max_attempts=3,
-            publish_retry_backoff_seconds=0,
+            fhir_max_attempts=3,
+            fhir_retry_backoff_seconds=0.5,
         )
 
     assert len(calls) == 1
+
+
+def test_wait_for_next_cycle_reports_overrun(monkeypatch, capsys):
+    monkeypatch.setattr(realtime_cohort_runner.time, "monotonic", lambda: 15.5)
+    monkeypatch.setattr(realtime_cohort_runner.shutdown_event, "wait", lambda timeout: False)
+
+    assert wait_for_next_cycle(cycle_started=10.0, interval_seconds=5.0) == 0.5
+    assert "cycle_overrun overrun_seconds=0.500" in capsys.readouterr().out
 
 
 def test_run_cycle_isolates_one_failed_patient(monkeypatch):
@@ -238,7 +260,32 @@ def test_realtime_cohort_stops_only_at_consecutive_failure_threshold(monkeypatch
     monkeypatch.setattr(realtime_cohort_runner, "run_cycle", degraded_cycle)
     settings = SimulatorSettings(interval_seconds=1, bp_interval_seconds=300, max_cycles=None, replay=True, max_consecutive_failed_cycles=2)
 
-    with pytest.raises(RuntimeError, match="2 consecutive degraded cycles"):
+    with pytest.raises(RuntimeError, match="2 consecutive systemic failure cycles"):
         realtime_cohort_runner.run_realtime_cohort(settings)
 
     assert len(cycle_calls) == 2
+
+
+def test_realtime_cohort_disables_permanent_failure_and_continues(monkeypatch):
+    simulations = [
+        PatientSimulation(
+            context=build_context(patient_id), bidmc_record_number=index, readings=[VitalReading(f"bidmc0{index}n", 0, 80.0, 18.0, 98.0)], bp_cadence=None
+        )
+        for index, patient_id in enumerate(("1001", "1002"), start=1)
+    ]
+    failure = PatientCycleFailure("1001", 1, "FHIRPermanentError", "invalid observation", False)
+    active_patient_sets = []
+
+    monkeypatch.setattr(realtime_cohort_runner, "load_patient_simulations", lambda _interval: simulations)
+    monkeypatch.setattr(realtime_cohort_runner, "wait_for_next_cycle", lambda *_args: 0.0)
+
+    def run_test_cycle(**kwargs):
+        active_patient_sets.append({simulation.context.hapi_patient_id for simulation in kwargs["simulations"]})
+        failures = (failure,) if len(active_patient_sets) == 1 else ()
+        return CyclePublishResult(1, 3, failures)
+
+    monkeypatch.setattr(realtime_cohort_runner, "run_cycle", run_test_cycle)
+    settings = SimulatorSettings(interval_seconds=1, bp_interval_seconds=300, max_cycles=2, replay=True)
+
+    assert realtime_cohort_runner.run_realtime_cohort(settings) == 2
+    assert active_patient_sets == [{"1001", "1002"}, {"1002"}]

@@ -57,6 +57,70 @@ resource "aws_cloudwatch_log_group" "vitals_simulator" {
   tags = var.tags
 }
 
+resource "aws_cloudwatch_log_metric_filter" "patient_publish_failures" {
+  name           = "healthcare-realtime-simulator-patient-publish-failures"
+  log_group_name = aws_cloudwatch_log_group.vitals_simulator.name
+  pattern        = "\"patient_publish_failed\""
+
+  metric_transformation {
+    name      = "PatientPublishFailures"
+    namespace = "HealthcareRealtime/Simulator"
+    value     = "1"
+  }
+}
+
+resource "aws_cloudwatch_log_metric_filter" "cycle_overruns" {
+  name           = "healthcare-realtime-simulator-cycle-overruns"
+  log_group_name = aws_cloudwatch_log_group.vitals_simulator.name
+  pattern        = "\"cycle_overrun\""
+
+  metric_transformation {
+    name      = "CycleOverruns"
+    namespace = "HealthcareRealtime/Simulator"
+    value     = "1"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "patient_publish_failures" {
+  alarm_name          = "healthcare-realtime-simulator-patient-publish-failures"
+  alarm_description   = "One or more simulator patients failed FHIR publication."
+  namespace           = "HealthcareRealtime/Simulator"
+  metric_name         = "PatientPublishFailures"
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  treat_missing_data  = "notBreaching"
+
+  alarm_actions = [var.alarm_topic_arn]
+  ok_actions    = [var.alarm_topic_arn]
+
+  tags = var.tags
+
+  depends_on = [aws_cloudwatch_log_metric_filter.patient_publish_failures]
+}
+
+resource "aws_cloudwatch_metric_alarm" "cycle_overruns" {
+  alarm_name          = "healthcare-realtime-simulator-cycle-overruns"
+  alarm_description   = "Simulator processing repeatedly exceeded its configured cycle interval."
+  namespace           = "HealthcareRealtime/Simulator"
+  metric_name         = "CycleOverruns"
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 3
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  treat_missing_data  = "notBreaching"
+
+  alarm_actions = [var.alarm_topic_arn]
+  ok_actions    = [var.alarm_topic_arn]
+
+  tags = var.tags
+
+  depends_on = [aws_cloudwatch_log_metric_filter.cycle_overruns]
+}
+
 resource "aws_iam_role" "task_execution" {
   name               = "healthcare_realtime_vitals_simulator_execution_role"
   assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume_role.json
@@ -237,16 +301,20 @@ resource "aws_ecs_task_definition" "vitals_simulator" {
           value = "true"
         },
         {
-          name  = "SIMULATOR_PUBLISH_MAX_ATTEMPTS"
+          name  = "SIMULATOR_FHIR_MAX_ATTEMPTS"
           value = "2"
         },
         {
-          name  = "SIMULATOR_PUBLISH_RETRY_BACKOFF_SECONDS"
+          name  = "SIMULATOR_FHIR_RETRY_BACKOFF_SECONDS"
           value = "2"
         },
         {
           name  = "SIMULATOR_MAX_CONSECUTIVE_FAILED_CYCLES"
           value = "3"
+        },
+        {
+          name  = "SIMULATOR_FAILURE_RATIO_THRESHOLD"
+          value = "0.5"
         }
       ]
 

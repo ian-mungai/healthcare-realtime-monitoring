@@ -22,6 +22,7 @@ DEFAULT_MAX_CYCLES = 10
 DEFAULT_PUBLISH_MAX_ATTEMPTS = 2
 DEFAULT_PUBLISH_RETRY_BACKOFF_SECONDS = 2.0
 DEFAULT_MAX_CONSECUTIVE_FAILED_CYCLES = 3
+DEFAULT_FAILURE_RATIO_THRESHOLD = 0.5
 
 shutdown_event = Event()
 
@@ -32,9 +33,10 @@ class SimulatorSettings:
     bp_interval_seconds: int
     max_cycles: int | None
     replay: bool
-    publish_max_attempts: int = DEFAULT_PUBLISH_MAX_ATTEMPTS
-    publish_retry_backoff_seconds: float = DEFAULT_PUBLISH_RETRY_BACKOFF_SECONDS
+    fhir_max_attempts: int = DEFAULT_PUBLISH_MAX_ATTEMPTS
+    fhir_retry_backoff_seconds: float = DEFAULT_PUBLISH_RETRY_BACKOFF_SECONDS
     max_consecutive_failed_cycles: int = DEFAULT_MAX_CONSECUTIVE_FAILED_CYCLES
+    failure_ratio_threshold: float = DEFAULT_FAILURE_RATIO_THRESHOLD
 
 
 @dataclass
@@ -82,6 +84,13 @@ def parse_positive_float(value: str | None, default: float) -> float:
     return parsed
 
 
+def parse_ratio(value: str | None, default: float) -> float:
+    parsed = parse_positive_float(value, default)
+    if parsed > 1:
+        raise ValueError("Ratio configuration values must be less than or equal to one")
+    return parsed
+
+
 def parse_bool(value: str | None, default: bool) -> bool:
     if value is None or value.strip() == "":
         return default
@@ -99,11 +108,16 @@ def load_settings() -> SimulatorSettings:
         bp_interval_seconds=parse_optional_positive_int(os.getenv("SIMULATOR_BP_INTERVAL_SECONDS"), DEFAULT_BP_INTERVAL_SECONDS) or DEFAULT_BP_INTERVAL_SECONDS,
         max_cycles=parse_optional_positive_int(os.getenv("SIMULATOR_MAX_CYCLES"), DEFAULT_MAX_CYCLES),
         replay=parse_bool(os.getenv("SIMULATOR_REPLAY"), False),
-        publish_max_attempts=parse_optional_positive_int(os.getenv("SIMULATOR_PUBLISH_MAX_ATTEMPTS"), DEFAULT_PUBLISH_MAX_ATTEMPTS)
+        fhir_max_attempts=parse_optional_positive_int(
+            os.getenv("SIMULATOR_FHIR_MAX_ATTEMPTS") or os.getenv("SIMULATOR_PUBLISH_MAX_ATTEMPTS"), DEFAULT_PUBLISH_MAX_ATTEMPTS
+        )
         or DEFAULT_PUBLISH_MAX_ATTEMPTS,
-        publish_retry_backoff_seconds=parse_positive_float(os.getenv("SIMULATOR_PUBLISH_RETRY_BACKOFF_SECONDS"), DEFAULT_PUBLISH_RETRY_BACKOFF_SECONDS),
+        fhir_retry_backoff_seconds=parse_positive_float(
+            os.getenv("SIMULATOR_FHIR_RETRY_BACKOFF_SECONDS") or os.getenv("SIMULATOR_PUBLISH_RETRY_BACKOFF_SECONDS"), DEFAULT_PUBLISH_RETRY_BACKOFF_SECONDS
+        ),
         max_consecutive_failed_cycles=parse_optional_positive_int(os.getenv("SIMULATOR_MAX_CONSECUTIVE_FAILED_CYCLES"), DEFAULT_MAX_CONSECUTIVE_FAILED_CYCLES)
         or DEFAULT_MAX_CONSECUTIVE_FAILED_CYCLES,
+        failure_ratio_threshold=parse_ratio(os.getenv("SIMULATOR_FAILURE_RATIO_THRESHOLD"), DEFAULT_FAILURE_RATIO_THRESHOLD),
     )
 
 
@@ -160,8 +174,8 @@ def publish_patient_cycle(
     replay_index: int,
     available_cycles: int,
     cycle_timestamp: datetime,
-    publish_max_attempts: int = DEFAULT_PUBLISH_MAX_ATTEMPTS,
-    publish_retry_backoff_seconds: float = DEFAULT_PUBLISH_RETRY_BACKOFF_SECONDS,
+    fhir_max_attempts: int = DEFAULT_PUBLISH_MAX_ATTEMPTS,
+    fhir_retry_backoff_seconds: float = DEFAULT_PUBLISH_RETRY_BACKOFF_SECONDS,
 ) -> PublishedSimulatorEvent:
     source_reading = simulation.readings[cycle_index]
     reading = get_replay_reading(source_reading, replay_index, available_cycles)
@@ -173,24 +187,8 @@ def publish_patient_cycle(
         simulation_start=simulation_start,
         bp_cadence=simulation.bp_cadence,
     )
-    for attempt in range(1, publish_max_attempts + 1):
-        try:
-            return publish_simulator_event(event, HAPIFHIRClient())
-        except FHIRRetryableError as error:
-            if attempt == publish_max_attempts:
-                raise
-            delay_seconds = publish_retry_backoff_seconds * (2 ** (attempt - 1))
-            print(
-                "patient_publish_retry "
-                f"patient_id={simulation.context.hapi_patient_id} "
-                f"attempt={attempt}/{publish_max_attempts} "
-                f"delay_seconds={delay_seconds:g} "
-                f"error={str(error)!r}"
-            )
-            if shutdown_event.wait(timeout=delay_seconds):
-                raise FHIRRetryableError("Patient publication interrupted by shutdown") from error
-
-    raise RuntimeError("Patient publication ended without a result")
+    client = HAPIFHIRClient(max_retries=fhir_max_attempts, retry_delay_seconds=fhir_retry_backoff_seconds)
+    return publish_simulator_event(event, client)
 
 
 def run_cycle(
@@ -200,12 +198,12 @@ def run_cycle(
     replay_index: int,
     available_cycles: int,
     cycle_timestamp: datetime,
-    publish_max_attempts: int = DEFAULT_PUBLISH_MAX_ATTEMPTS,
-    publish_retry_backoff_seconds: float = DEFAULT_PUBLISH_RETRY_BACKOFF_SECONDS,
+    fhir_max_attempts: int = DEFAULT_PUBLISH_MAX_ATTEMPTS,
+    fhir_retry_backoff_seconds: float = DEFAULT_PUBLISH_RETRY_BACKOFF_SECONDS,
 ) -> CyclePublishResult:
     futures = {
         executor.submit(
-            publish_patient_cycle, simulation, cycle_index, replay_index, available_cycles, cycle_timestamp, publish_max_attempts, publish_retry_backoff_seconds
+            publish_patient_cycle, simulation, cycle_index, replay_index, available_cycles, cycle_timestamp, fhir_max_attempts, fhir_retry_backoff_seconds
         ): simulation
         for simulation in simulations
     }
@@ -241,10 +239,14 @@ def run_cycle(
     )
 
 
-def wait_for_next_cycle(cycle_started: float, interval_seconds: float) -> None:
+def wait_for_next_cycle(cycle_started: float, interval_seconds: float) -> float:
     elapsed = time.monotonic() - cycle_started
+    overrun_seconds = max(0.0, elapsed - interval_seconds)
+    if overrun_seconds:
+        print(f"cycle_overrun overrun_seconds={overrun_seconds:.3f} elapsed_seconds={elapsed:.3f} interval_seconds={interval_seconds:g}")
     sleep_seconds = max(0.0, interval_seconds - elapsed)
     shutdown_event.wait(timeout=sleep_seconds)
+    return overrun_seconds
 
 
 def run_realtime_cohort(settings: SimulatorSettings | None = None) -> int:
@@ -255,6 +257,7 @@ def run_realtime_cohort(settings: SimulatorSettings | None = None) -> int:
     total_published_events = 0
     completed_cycles = 0
     consecutive_failed_cycles = 0
+    disabled_patient_ids: set[str] = set()
     print("Healthcare Realtime Persistent Cohort")
     print(f"Patients: {len(simulations)}")
     print(f"Available BIDMC cycles: {available_cycles}")
@@ -262,9 +265,10 @@ def run_realtime_cohort(settings: SimulatorSettings | None = None) -> int:
     print(f"BP interval: {settings.bp_interval_seconds} seconds")
     print(f"Maximum cycles: {settings.max_cycles if settings.max_cycles is not None else 'unlimited'}")
     print(f"Replay: {settings.replay}")
-    print(f"Publish attempts: {settings.publish_max_attempts}")
-    print(f"Publish retry backoff: {settings.publish_retry_backoff_seconds} seconds")
+    print(f"FHIR attempts: {settings.fhir_max_attempts}")
+    print(f"FHIR retry backoff: {settings.fhir_retry_backoff_seconds} seconds")
     print(f"Maximum consecutive degraded cycles: {settings.max_consecutive_failed_cycles}")
+    print(f"Retryable failure ratio threshold: {settings.failure_ratio_threshold:g}")
     print()
     with ThreadPoolExecutor(max_workers=COHORT_SIZE) as executor:
         while not shutdown_event.is_set():
@@ -276,19 +280,28 @@ def run_realtime_cohort(settings: SimulatorSettings | None = None) -> int:
                 if not settings.replay:
                     break
                 print(f"Starting replay epoch {replay_index + 1}.")
+            active_simulations = [simulation for simulation in simulations if simulation.context.hapi_patient_id not in disabled_patient_ids]
+            if not active_simulations:
+                raise RuntimeError("Simulator stopped because no active patients remain")
             cycle_started = time.monotonic()
             cycle_timestamp = utc_now()
             cycle_result = run_cycle(
                 executor=executor,
-                simulations=simulations,
+                simulations=active_simulations,
                 cycle_index=source_cycle_index,
                 replay_index=replay_index,
                 available_cycles=available_cycles,
                 cycle_timestamp=cycle_timestamp,
-                publish_max_attempts=settings.publish_max_attempts,
-                publish_retry_backoff_seconds=settings.publish_retry_backoff_seconds,
+                fhir_max_attempts=settings.fhir_max_attempts,
+                fhir_retry_backoff_seconds=settings.fhir_retry_backoff_seconds,
             )
-            if cycle_result.failures:
+            permanent_failures = [failure for failure in cycle_result.failures if not failure.retryable]
+            for failure in permanent_failures:
+                disabled_patient_ids.add(failure.patient_id)
+                print(f"patient_disabled patient_id={failure.patient_id} bidmc_record={failure.bidmc_record_number} reason={failure.error_type}")
+            retryable_failure_count = sum(failure.retryable for failure in cycle_result.failures)
+            retryable_failure_ratio = retryable_failure_count / len(active_simulations)
+            if retryable_failure_ratio >= settings.failure_ratio_threshold:
                 consecutive_failed_cycles += 1
             else:
                 consecutive_failed_cycles = 0
@@ -305,13 +318,16 @@ def run_realtime_cohort(settings: SimulatorSettings | None = None) -> int:
                 f"offset={effective_offset}s "
                 f"patients_succeeded={cycle_result.published_count} "
                 f"patients_failed={len(cycle_result.failures)} "
+                f"patients_disabled={len(disabled_patient_ids)} "
+                f"retryable_failure_ratio={retryable_failure_ratio:.3f} "
                 f"observations={cycle_result.observation_count} "
                 f"failed_patient_ids={','.join(failure.patient_id for failure in cycle_result.failures) or 'none'} "
                 f"consecutive_failed_cycles={consecutive_failed_cycles}"
             )
             if consecutive_failed_cycles >= settings.max_consecutive_failed_cycles:
                 raise RuntimeError(
-                    f"Simulator stopped after {consecutive_failed_cycles} consecutive degraded cycles (threshold={settings.max_consecutive_failed_cycles})"
+                    f"Simulator stopped after {consecutive_failed_cycles} consecutive systemic failure cycles "
+                    f"(ratio_threshold={settings.failure_ratio_threshold:g})"
                 )
             if shutdown_event.is_set():
                 break

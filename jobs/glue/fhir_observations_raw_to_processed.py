@@ -12,26 +12,7 @@ from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 
 from lineage.openlineage.glue_lineage import emit_s3_glue_lineage
-
-MEASUREMENT_NAMES = {
-    "8867-4": "heart_rate",
-    "9279-1": "respiratory_rate",
-    "2708-6": "spo2",
-    "8480-6": "systolic_blood_pressure",
-    "8462-4": "diastolic_blood_pressure",
-}
-
-FLATTENED_MEASUREMENTS = {
-    "heart_rate": ("8867-4", "beats/minute"),
-    "respiratory_rate": ("9279-1", "breaths/minute"),
-    "spo2": ("2708-6", "%"),
-    "systolic_bp": ("8480-6", "mmHg"),
-    "diastolic_bp": ("8462-4", "mmHg"),
-}
-
-ANALYTICAL_VITAL_RANGES = {"heart_rate": (20, 250), "respiratory_rate": (4, 80), "spo2": (50, 100), "systolic_bp": (50, 260), "diastolic_bp": (30, 180)}
-
-SUPPORTED_LOINC_CODES = list(MEASUREMENT_NAMES.keys())
+from services.vital_signs import ANALYTICAL_VITAL_RANGES, FLATTENED_MEASUREMENTS, MEASUREMENT_NAMES, SUPPORTED_LOINC_CODES
 
 RAW_CHOICE_RESOLUTION_SPECS = [
     ("heart_rate", "cast:double"),
@@ -143,13 +124,13 @@ def add_measurement_metadata(df: DataFrame) -> DataFrame:
 
 
 def add_quality_result(df: DataFrame) -> DataFrame:
-    range_valid = (
-        ((F.col("loinc_code") == "8867-4") & F.col("value").between(*ANALYTICAL_VITAL_RANGES["heart_rate"]))
-        | ((F.col("loinc_code") == "9279-1") & F.col("value").between(*ANALYTICAL_VITAL_RANGES["respiratory_rate"]))
-        | ((F.col("loinc_code") == "2708-6") & F.col("value").between(*ANALYTICAL_VITAL_RANGES["spo2"]))
-        | ((F.col("loinc_code") == "8480-6") & F.col("value").between(*ANALYTICAL_VITAL_RANGES["systolic_bp"]))
-        | ((F.col("loinc_code") == "8462-4") & F.col("value").between(*ANALYTICAL_VITAL_RANGES["diastolic_bp"]))
-    )
+    range_conditions = [
+        (F.col("loinc_code") == loinc_code) & F.col("value").between(*ANALYTICAL_VITAL_RANGES[field_name])
+        for field_name, (loinc_code, _unit) in FLATTENED_MEASUREMENTS.items()
+    ]
+    range_valid = range_conditions[0]
+    for condition in range_conditions[1:]:
+        range_valid = range_valid | condition
 
     return df.withColumn(
         "rejection_reason",

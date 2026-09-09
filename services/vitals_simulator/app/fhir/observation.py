@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from services.vital_signs import BLOOD_PRESSURE_PANEL, VITAL_SIGNS_BY_FIELD
 from services.vitals_simulator.app.bidmc.source import VitalReading
 from services.vitals_simulator.app.synthea.blood_pressure import BloodPressureReading
 
@@ -8,12 +9,12 @@ FHIR_OBSERVATION_CATEGORY_SYSTEM = "http://terminology.hl7.org/CodeSystem/observ
 LOINC_SYSTEM = "http://loinc.org"
 UCUM_SYSTEM = "http://unitsofmeasure.org"
 
-HEART_RATE = {"loinc_code": "8867-4", "display": "Heart rate", "unit": "beats/minute", "ucum_code": "/min"}
-RESPIRATORY_RATE = {"loinc_code": "9279-1", "display": "Respiratory rate", "unit": "breaths/minute", "ucum_code": "/min"}
-SPO2 = {"loinc_code": "2708-6", "display": "Oxygen saturation in Arterial blood", "unit": "%", "ucum_code": "%"}
-BLOOD_PRESSURE = {"loinc_code": "85354-9", "display": "Blood pressure systolic and diastolic"}
-SYSTOLIC_BP = {"loinc_code": "8480-6", "display": "Systolic blood pressure"}
-DIASTOLIC_BP = {"loinc_code": "8462-4", "display": "Diastolic blood pressure"}
+HEART_RATE = VITAL_SIGNS_BY_FIELD["heart_rate"]
+RESPIRATORY_RATE = VITAL_SIGNS_BY_FIELD["respiratory_rate"]
+SPO2 = VITAL_SIGNS_BY_FIELD["spo2"]
+BLOOD_PRESSURE = BLOOD_PRESSURE_PANEL
+SYSTOLIC_BP = VITAL_SIGNS_BY_FIELD["systolic_bp"]
+DIASTOLIC_BP = VITAL_SIGNS_BY_FIELD["diastolic_bp"]
 
 
 def normalize_measurement(value: float | None, decimals: int = 1) -> float | None:

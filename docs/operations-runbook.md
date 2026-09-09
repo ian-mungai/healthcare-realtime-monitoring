@@ -141,15 +141,16 @@ Review the validated count, then publish the corrected rows by repeating the rep
 
 ### Simulator publication failures
 
-The simulator isolates FHIR publication failures by patient. Retryable failures use bounded exponential backoff and reuse the same deterministic observation identifiers, so a partial retry does not create duplicate observations. Permanent failures are not retried.
+The simulator isolates FHIR publication failures by patient. The HAPI client owns the single bounded retry policy and reuses deterministic observation identifiers, so partial retries do not create duplicate observations. Patients with permanent failures are disabled for the remainder of the task while healthy patient streams continue.
 
-Each cycle emits a structured summary with `status`, `patients_succeeded`, `patients_failed`, `failed_patient_ids`, and `consecutive_failed_cycles`. A single degraded cycle does not stop healthy patient streams. The task exits after three consecutive degraded cycles so a sustained HAPI or networking failure remains visible rather than running indefinitely in a failed state.
+Each cycle emits a structured summary with `status`, patient counts, disabled patients, the retryable failure ratio, and consecutive systemic failure cycles. The task exits only when retryable failures meet the configured cohort ratio for three consecutive cycles. Cycle overruns and patient publication failures publish CloudWatch metrics from structured log entries and notify through the project alert topic.
 
 The deployed defaults are controlled by:
 
-- `SIMULATOR_PUBLISH_MAX_ATTEMPTS=2`
-- `SIMULATOR_PUBLISH_RETRY_BACKOFF_SECONDS=2`
+- `SIMULATOR_FHIR_MAX_ATTEMPTS=2`
+- `SIMULATOR_FHIR_RETRY_BACKOFF_SECONDS=2`
 - `SIMULATOR_MAX_CONSECUTIVE_FAILED_CYCLES=3`
+- `SIMULATOR_FAILURE_RATIO_THRESHOLD=0.5`
 
 For a degraded cycle, inspect the associated `patient_publish_failed` entry and correct the underlying FHIR, database, or networking problem. Restart the short-lived simulator task only after HAPI is healthy.
 
