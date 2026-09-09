@@ -14,6 +14,10 @@ else:
         from authorization import is_patient_authorized
 
 LATEST_VITALS_TABLE = os.getenv("LATEST_VITALS_TABLE", "healthcare-realtime-latest-vitals")
+AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
+VITAL_FIELDS = ("heart_rate", "spo2", "respiratory_rate", "systolic_bp", "diastolic_bp")
+dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
+latest_vitals_table = dynamodb.Table(LATEST_VITALS_TABLE)
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -29,7 +33,14 @@ def build_response(status_code: int, body: dict[str, Any]) -> dict[str, Any]:
 
 
 def get_latest_vitals_table() -> Any:
-    return boto3.resource("dynamodb").Table(LATEST_VITALS_TABLE)
+    return latest_vitals_table
+
+
+def latest_measurement_timestamp(item: dict[str, Any]) -> str | None:
+    timestamp_values = [value for key, value in item.items() if key.endswith("_event_timestamp") and not key.startswith("_")]
+    if timestamp_values:
+        return max(timestamp_values)
+    return item.get("event_timestamp")
 
 
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
@@ -50,4 +61,12 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         return build_response(404, {"message": f"No latest vitals found for patient {patient_id}"})
 
     public_item = {key: value for key, value in item.items() if not key.startswith("_")}
+    legacy_timestamp = public_item.get("event_timestamp")
+    if legacy_timestamp:
+        for field in VITAL_FIELDS:
+            if public_item.get(field) is not None:
+                public_item.setdefault(f"{field}_event_timestamp", legacy_timestamp)
+    event_timestamp = latest_measurement_timestamp(public_item)
+    if event_timestamp:
+        public_item["event_timestamp"] = event_timestamp
     return build_response(200, public_item)

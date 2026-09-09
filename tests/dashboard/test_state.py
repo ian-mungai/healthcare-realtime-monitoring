@@ -21,6 +21,33 @@ def test_merge_vitals_preserves_measurements_missing_from_partial_update() -> No
     assert merge_vitals(current, update) == {"patient_id": "1000", "heart_rate": 82.0, "spo2": 97.0, "respiratory_rate": 18.0}
 
 
+def test_merge_vitals_tracks_freshness_per_measurement() -> None:
+    current = {
+        "patient_id": "1000",
+        "heart_rate": 82.0,
+        "heart_rate_event_timestamp": "2026-09-03T16:00:00Z",
+        "spo2": 97.0,
+        "spo2_event_timestamp": "2026-09-03T15:30:00Z",
+    }
+    update = {"patient_id": "1000", "event_timestamp": "2026-09-03T16:01:00Z", "heart_rate": 84.0}
+
+    merged = merge_vitals(current, update)
+
+    assert merged["heart_rate_event_timestamp"] == "2026-09-03T16:01:00Z"
+    assert merged["spo2_event_timestamp"] == "2026-09-03T15:30:00Z"
+    assert event_age_seconds(merged, datetime(2026, 9, 3, 16, 1, tzinfo=UTC)) == 1860
+
+
+def test_merge_vitals_migrates_legacy_shared_timestamp() -> None:
+    current = {"event_timestamp": "2026-09-03T15:30:00Z", "heart_rate": 82.0, "spo2": 97.0}
+    update = {"event_timestamp": "2026-09-03T16:01:00Z", "heart_rate": 84.0}
+
+    merged = merge_vitals(current, update)
+
+    assert merged["heart_rate_event_timestamp"] == "2026-09-03T16:01:00Z"
+    assert merged["spo2_event_timestamp"] == "2026-09-03T15:30:00Z"
+
+
 def test_has_new_event_compares_event_timestamps() -> None:
     current = {"event_timestamp": "2026-09-03T16:00:00Z"}
 
