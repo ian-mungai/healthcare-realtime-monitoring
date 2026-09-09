@@ -41,6 +41,10 @@ jobs:
         run: |
           ruff check .
 
+      - name: Ruff format
+        run: |
+          ruff format --check .
+
       - name: Project tests
         run: |
           python -m pytest tests -v
