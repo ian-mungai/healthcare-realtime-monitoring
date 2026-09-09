@@ -16,6 +16,21 @@ export AWS_REGION="<aws-region>"
 
 Never place credentials, signed headers, account identifiers, endpoint identifiers, or secret values in shell history, screenshots, or public evidence.
 
+### Patient access policy
+
+Before deployment, configure `realtime_patient_access_policy` in the ignored `infra/development.tfvars` file. Each key is an IAM principal ARN pattern and each value lists the patient ID patterns that principal may read or subscribe to:
+
+```hcl
+realtime_patient_access_policy = {
+  "arn:aws:iam::<aws-account-id>:user/<dashboard-user>"      = ["<patient-id-1>", "<patient-id-2>"]
+  "arn:aws:sts::<aws-account-id>:assumed-role/<role-name>/*" = ["<patient-id-1>", "<patient-id-2>", "load_test_patient_*"]
+}
+```
+
+The default empty policy denies all patient access. Use an exact IAM user ARN or a narrowly scoped assumed-role session pattern; do not use a wildcard principal. Add `load_test_patient_*` only for principals that run the isolated load test.
+
+All supported FHIR webhook routes require `X-Webhook-Secret`, including health, metadata, and subscription handshake requests. The Lambda refreshes its cached Secrets Manager value within five minutes, so secret rotation does not require a cold start.
+
 Create the local Terraform input file from its tracked template, then replace every placeholder with values for the target AWS environment:
 
 ```zsh

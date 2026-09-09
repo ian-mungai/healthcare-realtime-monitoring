@@ -8,6 +8,11 @@ variable "kinesis_stream_arn" {
   type        = string
 }
 
+variable "load_test_stream_arn" {
+  description = "ARN of the isolated load-test Kinesis stream."
+  type        = string
+}
+
 variable "latest_vitals_table_name" {
   description = "DynamoDB table storing latest patient vitals."
   type        = string
@@ -15,6 +20,16 @@ variable "latest_vitals_table_name" {
 
 variable "latest_vitals_table_arn" {
   description = "ARN of the latest vitals DynamoDB table."
+  type        = string
+}
+
+variable "load_test_table_name" {
+  description = "DynamoDB table storing isolated load-test observations."
+  type        = string
+}
+
+variable "load_test_table_arn" {
+  description = "ARN of the isolated load-test observations table."
   type        = string
 }
 

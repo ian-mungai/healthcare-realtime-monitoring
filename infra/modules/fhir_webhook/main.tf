@@ -91,8 +91,9 @@ resource "aws_lambda_function" "fhir_webhook" {
 
   environment {
     variables = {
-      FHIR_WEBHOOK_SECRET_ID = var.webhook_secret_id
-      KINESIS_STREAM_NAME    = var.kinesis_stream_name
+      FHIR_WEBHOOK_SECRET_ID                = var.webhook_secret_id
+      FHIR_WEBHOOK_SECRET_CACHE_TTL_SECONDS = "300"
+      KINESIS_STREAM_NAME                   = var.kinesis_stream_name
     }
   }
 

@@ -74,7 +74,8 @@ resource "aws_lambda_function" "websocket_handler" {
 
   environment {
     variables = {
-      CONNECTIONS_TABLE = var.connections_table_name
+      CONNECTIONS_TABLE     = var.connections_table_name
+      PATIENT_ACCESS_POLICY = var.patient_access_policy
     }
   }
 

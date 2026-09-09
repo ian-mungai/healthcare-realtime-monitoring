@@ -111,6 +111,8 @@ The dashboard uses AWS IAM credentials from the selected profile to sign REST an
 
 Use the [demo guide](docs/demo-guide.md) for a complete live walkthrough, including startup, dashboard validation, Postman REST and WebSocket checks, CloudWatch review, and shutdown.
 
+Use the [load-testing guide](docs/load-testing.md) to run an isolated test that measures Kinesis-to-DynamoDB processing and WebSocket delivery latency without writing test events into the analytical lakehouse.
+
 ## Data governance
 
 The [data governance guide](docs/data-governance.md) documents datasets, schema controls, quality gates, deduplication, retention, replay, and evidence expectations.

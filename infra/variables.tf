@@ -18,6 +18,13 @@ variable "realtime_alert_email" {
   type        = string
 }
 
+variable "realtime_patient_access_policy" {
+  description = "Map of IAM principal ARN patterns to authorized patient ID patterns for realtime APIs."
+  type        = map(list(string))
+  sensitive   = true
+  default     = {}
+}
+
 variable "vitals_simulator_image_tag" {
   description = "Immutable ECR image tag used by the realtime vitals simulator."
   type        = string

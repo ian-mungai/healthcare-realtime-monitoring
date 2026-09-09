@@ -8,6 +8,16 @@ output "latest_vitals_table_arn" {
   value       = aws_dynamodb_table.latest_vitals.arn
 }
 
+output "load_test_results_table_name" {
+  description = "DynamoDB table containing isolated load-test observations."
+  value       = aws_dynamodb_table.load_test_results.name
+}
+
+output "load_test_results_table_arn" {
+  description = "ARN of the isolated load-test results table."
+  value       = aws_dynamodb_table.load_test_results.arn
+}
+
 output "websocket_connections_table_name" {
   description = "DynamoDB table containing active WebSocket connection IDs."
   value       = aws_dynamodb_table.websocket_connections.name

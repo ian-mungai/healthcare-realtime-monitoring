@@ -12,6 +12,21 @@ module "kinesis" {
   }
 }
 
+module "load_test_kinesis" {
+  source = "./modules/kinesis"
+
+  stream_name            = "healthcare_realtime_vitals_load_test"
+  retention_period_hours = 24
+  stream_mode            = "ON_DEMAND"
+
+  tags = {
+    Project     = "healthcare_realtime_monitoring"
+    Environment = "development"
+    ManagedBy   = "terraform"
+    Purpose     = "load-testing"
+  }
+}
+
 module "raw_s3" {
   source = "./modules/raw_s3"
 
@@ -195,8 +210,11 @@ module "realtime_processor" {
   aws_region = var.aws_region
 
   kinesis_stream_arn       = module.kinesis.stream_arn
+  load_test_stream_arn     = module.load_test_kinesis.stream_arn
   latest_vitals_table_name = module.realtime_vitals.latest_vitals_table_name
   latest_vitals_table_arn  = module.realtime_vitals.latest_vitals_table_arn
+  load_test_table_name     = module.realtime_vitals.load_test_results_table_name
+  load_test_table_arn      = module.realtime_vitals.load_test_results_table_arn
   lambda_zip_path          = "${path.root}/../build/lambda/vitals_stream_processor.zip"
   connections_table_name   = module.realtime_vitals.websocket_connections_table_name
   connections_table_arn    = module.realtime_vitals.websocket_connections_table_arn
@@ -219,6 +237,7 @@ module "realtime_websocket" {
   connections_table_name = module.realtime_vitals.websocket_connections_table_name
   connections_table_arn  = module.realtime_vitals.websocket_connections_table_arn
   lambda_zip_path        = "${path.root}/../build/lambda/websocket_handler.zip"
+  patient_access_policy  = jsonencode(var.realtime_patient_access_policy)
 
   tags = {
     Project     = "healthcare_realtime_monitoring"
@@ -235,7 +254,8 @@ module "vitals_api" {
   latest_vitals_table_name = module.realtime_vitals.latest_vitals_table_name
   latest_vitals_table_arn  = module.realtime_vitals.latest_vitals_table_arn
 
-  lambda_zip_path = "${path.root}/../build/lambda/vitals_api.zip"
+  lambda_zip_path       = "${path.root}/../build/lambda/vitals_api.zip"
+  patient_access_policy = jsonencode(var.realtime_patient_access_policy)
 
   tags = {
     Project     = "healthcare_realtime_monitoring"
