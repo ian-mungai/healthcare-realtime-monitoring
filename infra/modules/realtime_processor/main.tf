@@ -39,7 +39,8 @@ data "aws_iam_policy_document" "lambda" {
     ]
 
     resources = [
-      var.kinesis_stream_arn
+      var.kinesis_stream_arn,
+      var.load_test_stream_arn
     ]
   }
 
@@ -115,7 +116,8 @@ data "aws_iam_policy_document" "lambda" {
     ]
 
     resources = [
-      var.latest_vitals_table_arn
+      var.latest_vitals_table_arn,
+      var.load_test_table_arn
     ]
   }
 
@@ -155,13 +157,39 @@ resource "aws_lambda_function" "vitals_processor" {
 
   environment {
     variables = {
-      LATEST_VITALS_TABLE = var.latest_vitals_table_name
-      CONNECTIONS_TABLE   = var.connections_table_name
-      WEBSOCKET_ENDPOINT  = "https://${var.websocket_api_id}.execute-api.${var.aws_region}.amazonaws.com/${var.websocket_stage_name}"
+      LATEST_VITALS_TABLE     = var.latest_vitals_table_name
+      LOAD_TEST_RESULTS_TABLE = var.load_test_table_name
+      CONNECTIONS_TABLE       = var.connections_table_name
+      WEBSOCKET_ENDPOINT      = "https://${var.websocket_api_id}.execute-api.${var.aws_region}.amazonaws.com/${var.websocket_stage_name}"
     }
   }
 
   tags = var.tags
+}
+
+resource "aws_lambda_event_source_mapping" "load_test_kinesis" {
+  event_source_arn  = var.load_test_stream_arn
+  function_name     = aws_lambda_function.vitals_processor.arn
+  starting_position = "LATEST"
+
+  batch_size                         = 10
+  maximum_batching_window_in_seconds = 0
+  parallelization_factor             = 3
+
+  function_response_types = [
+    "ReportBatchItemFailures"
+  ]
+
+  destination_config {
+    on_failure {
+      destination_arn = var.failure_queue_arn
+    }
+  }
+
+  bisect_batch_on_function_error = true
+  maximum_retry_attempts         = 3
+  maximum_record_age_in_seconds  = 3600
+  enabled                        = true
 }
 resource "aws_lambda_event_source_mapping" "vitals_kinesis" {
   event_source_arn  = var.kinesis_stream_arn

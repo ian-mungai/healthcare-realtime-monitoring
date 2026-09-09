@@ -3,6 +3,12 @@ data_bucket_name        = "<globally-unique-data-bucket>"
 mwaa_source_bucket_name = "<globally-unique-mwaa-source-bucket>"
 realtime_alert_email    = "<alert-email>"
 
+# Keep real account IDs and identity names only in the ignored development.tfvars file.
+realtime_patient_access_policy = {
+  "arn:aws:iam::<aws-account-id>:user/<dashboard-user>"      = ["<patient-id-1>", "<patient-id-2>"]
+  "arn:aws:sts::<aws-account-id>:assumed-role/<role-name>/*" = ["<patient-id-1>", "<patient-id-2>", "load_test_patient_*"]
+}
+
 # Use immutable image tags produced by this repository's image build workflow.
 vitals_simulator_image_tag = "sha-<commit>-<variant>"
 dbt_image_tag              = "<dbt-image-tag>"

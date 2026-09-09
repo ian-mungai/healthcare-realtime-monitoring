@@ -15,6 +15,7 @@ trap cleanup EXIT
 
 mkdir -p "${BUILD_DIR}"
 cp "${REPO_ROOT}/services/vitals_api/handler.py" "${STAGING_DIR}/handler.py"
+cp "${REPO_ROOT}/services/realtime_authorization.py" "${STAGING_DIR}/authorization.py"
 
 find "${STAGING_DIR}" -type f -exec touch -t 198001010000 {} +
 rm -f "${OUTPUT_FILE}"

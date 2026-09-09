@@ -1,7 +1,15 @@
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import boto3
+
+if TYPE_CHECKING:
+    from services.realtime_authorization import get_principal_arn, is_patient_authorized
+else:
+    try:
+        from services.realtime_authorization import get_principal_arn, is_patient_authorized
+    except ModuleNotFoundError:
+        from authorization import get_principal_arn, is_patient_authorized
 
 CONNECTIONS_TABLE = os.getenv("CONNECTIONS_TABLE", "healthcare-realtime-websocket-connections")
 
@@ -21,7 +29,10 @@ def handle_connect(event: dict[str, Any], connection_id: str) -> dict[str, Any]:
     if not patient_id:
         return build_response(400, "patient_id is required")
 
-    get_connections_table().put_item(Item={"connection_id": connection_id, "patient_id": patient_id})
+    if not is_patient_authorized(event, patient_id):
+        return build_response(403, "Access to this patient is not authorized")
+
+    get_connections_table().put_item(Item={"connection_id": connection_id, "patient_id": patient_id, "principal_arn": get_principal_arn(event)})
 
     return build_response(200, "Connected")
 

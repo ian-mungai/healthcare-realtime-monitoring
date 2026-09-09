@@ -74,7 +74,8 @@ resource "aws_lambda_function" "vitals_api" {
 
   environment {
     variables = {
-      LATEST_VITALS_TABLE = var.latest_vitals_table_name
+      LATEST_VITALS_TABLE   = var.latest_vitals_table_name
+      PATIENT_ACCESS_POLICY = var.patient_access_policy
     }
   }
 

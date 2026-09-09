@@ -16,6 +16,7 @@ from services.vitals_stream_processor.handler import (
     push_vitals,
     to_dynamodb_item,
     write_latest_vitals,
+    write_load_test_result,
 )
 
 
@@ -71,6 +72,28 @@ def test_write_latest_vitals_ignores_stale_updates(latest_vitals_table) -> None:
     assert write_latest_vitals({"patient_id": "1000", "event_timestamp": "2026-08-31T22:42:19Z", "heart_rate": 82.0}) is False
 
 
+@patch("services.vitals_stream_processor.handler.load_test_results_table")
+def test_write_load_test_result_records_processing_time_and_expiry(load_test_results_table) -> None:
+    payload = {
+        "schema_version": "1.0",
+        "observation_id": "load-test-run-01-00000001",
+        "patient_id": "load_test_patient_01",
+        "source": "load_test",
+        "event_timestamp": "2026-09-09T12:00:00Z",
+        "heart_rate": 82.0,
+    }
+    current_time = datetime(2026, 9, 9, 12, 0, 1, tzinfo=UTC)
+
+    with patch("services.vitals_stream_processor.handler.datetime") as mocked_datetime:
+        mocked_datetime.now.return_value = current_time
+        write_load_test_result(payload)
+
+    item = load_test_results_table.put_item.call_args.kwargs["Item"]
+    assert item["observation_id"] == payload["observation_id"]
+    assert item["processed_at"] == "2026-09-09T12:00:01Z"
+    assert item["expires_at"] == int(current_time.timestamp()) + 86400
+
+
 @patch("services.vitals_stream_processor.handler.emit_metrics")
 @patch("services.vitals_stream_processor.handler.push_vitals")
 @patch("services.vitals_stream_processor.handler.write_latest_vitals")
@@ -91,6 +114,38 @@ def test_lambda_handler_processes_record(write_latest_vitals, push_vitals, emit_
     push_vitals.assert_called_once_with(payload)
     emit_metrics.assert_called_once()
 
+    assert result == {"batchItemFailures": []}
+
+
+@patch("services.vitals_stream_processor.handler.emit_metrics")
+@patch("services.vitals_stream_processor.handler.push_vitals")
+@patch("services.vitals_stream_processor.handler.write_latest_vitals")
+@patch("services.vitals_stream_processor.handler.write_load_test_result")
+def test_lambda_handler_isolates_load_test_record(write_load_test_result, write_latest_vitals, push_vitals, emit_metrics) -> None:
+    payload = {
+        "schema_version": "1.0",
+        "observation_id": "load-test-run-01-00000001",
+        "patient_id": "load_test_patient_01",
+        "source": "load_test",
+        "event_timestamp": "2026-09-09T12:00:00Z",
+        "heart_rate": 82.0,
+    }
+    push_vitals.return_value = (1, 0, 1)
+
+    result = lambda_handler({"Records": [build_kinesis_record(payload)]}, None)
+
+    write_load_test_result.assert_called_once_with(payload)
+    write_latest_vitals.assert_not_called()
+    push_vitals.assert_called_once_with(payload)
+    metric_data = emit_metrics.call_args.args[0]
+    assert {metric["MetricName"] for metric in metric_data} == {
+        "RecordsProcessed",
+        "WebSocketDeliveries",
+        "WebSocketDeliveryFailures",
+        "ActiveConnections",
+        "ProcessingLatencyMilliseconds",
+    }
+    assert emit_metrics.call_args.kwargs == {"namespace": "HealthcareRealtime/LoadTest"}
     assert result == {"batchItemFailures": []}
 
 
