@@ -79,6 +79,82 @@ resource "aws_glue_catalog_database" "healthcare_realtime" {
   name = var.database_name
 }
 
+resource "aws_glue_catalog_table" "quarantined_fhir_observations" {
+  name          = "quarantined_fhir_observations"
+  database_name = aws_glue_catalog_database.healthcare_realtime.name
+  table_type    = "EXTERNAL_TABLE"
+
+  parameters = {
+    classification = "json"
+    EXTERNAL       = "TRUE"
+  }
+
+  storage_descriptor {
+    location      = var.quarantine_path
+    input_format  = "org.apache.hadoop.mapred.TextInputFormat"
+    output_format = "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+
+    ser_de_info {
+      serialization_library = "org.openx.data.jsonserde.JsonSerDe"
+    }
+
+    columns {
+      name = "observation_id"
+      type = "string"
+    }
+
+    columns {
+      name = "patient_id"
+      type = "string"
+    }
+
+    columns {
+      name = "observation_type"
+      type = "string"
+    }
+
+    columns {
+      name = "loinc_code"
+      type = "string"
+    }
+
+    columns {
+      name = "value"
+      type = "double"
+    }
+
+    columns {
+      name = "unit"
+      type = "string"
+    }
+
+    columns {
+      name = "effective_datetime"
+      type = "string"
+    }
+
+    columns {
+      name = "received_at"
+      type = "string"
+    }
+
+    columns {
+      name = "source"
+      type = "string"
+    }
+
+    columns {
+      name = "rejection_reason"
+      type = "string"
+    }
+
+    columns {
+      name = "quarantined_at"
+      type = "string"
+    }
+  }
+}
+
 resource "aws_s3_object" "glue_script" {
   bucket = var.bucket_name
   key    = var.script_key

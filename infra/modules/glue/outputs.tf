@@ -12,3 +12,8 @@ output "role_arn" {
   description = "Glue service role ARN"
   value       = aws_iam_role.glue.arn
 }
+
+output "quarantine_table_name" {
+  description = "Glue Catalog table exposing quarantined FHIR observations."
+  value       = aws_glue_catalog_table.quarantined_fhir_observations.name
+}

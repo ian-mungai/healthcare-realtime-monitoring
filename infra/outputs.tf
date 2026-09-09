@@ -48,6 +48,11 @@ output "glue_database_name" {
   value       = module.glue.database_name
 }
 
+output "quarantine_table_name" {
+  description = "Athena-readable Glue table for quarantined FHIR observations."
+  value       = module.glue.quarantine_table_name
+}
+
 output "glue_role_arn" {
   description = "Glue service role ARN"
   value       = module.glue.role_arn

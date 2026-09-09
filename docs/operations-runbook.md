@@ -37,6 +37,28 @@ Create the local Terraform input file from its tracked template, then replace ev
 cp infra/development.tfvars.example infra/development.tfvars
 ```
 
+### Terraform state
+
+Create a private, versioned S3 bucket for Terraform state outside this configuration. Copy the backend example and set its bucket and region for the target environment:
+
+```zsh
+cp infra/backend.hcl.example infra/backend.hcl
+```
+
+For a new checkout, initialize with the remote backend:
+
+```zsh
+terraform -chdir=infra init -backend-config=backend.hcl
+```
+
+For an existing deployment that still has local state, migrate it once:
+
+```zsh
+terraform -chdir=infra init -backend-config=backend.hcl -migrate-state
+```
+
+Confirm that the state object exists in the configured bucket before removing any local state backup. S3 versioning provides recovery and Terraform's `use_lockfile` setting provides native locking.
+
 ## CI and Deployment Gate
 
 The CI workflow runs Python tests, linting, Terraform format and validation, generated-workflow validation, and container builds on pull requests and updates to `main`.
@@ -87,6 +109,35 @@ Use temporary Postman variables for endpoints and authorization. Do not export c
 4. For processing failures, inspect the encrypted failure queue and replay dead-letter queue before redriving any message.
 5. Correct the underlying data or deployment cause, then use the replay workflow only with a reviewed sequence range and a bounded replay attempt.
 6. Verify fresh current-state records, dashboard updates, and alarm recovery before closing the incident.
+
+### Analytical quarantine recovery
+
+Inspect rejected rows through Athena before replaying anything:
+
+```sql
+SELECT rejection_reason, count(*) AS rejected_rows
+FROM healthcare_realtime.quarantined_fhir_observations
+GROUP BY rejection_reason
+ORDER BY rejected_rows DESC;
+```
+
+Export a bounded reason group to local JSONL, correct the rejected fields, and validate the file without publishing:
+
+```zsh
+export DATA_BUCKET="$(terraform -chdir=infra output -raw raw_s3_bucket_name)"
+export VITALS_STREAM="$(terraform -chdir=infra output -raw kinesis_stream_name)"
+
+.venv/bin/python scripts/quarantine/manage_quarantine.py --region "$AWS_REGION" export \
+  --bucket "$DATA_BUCKET" \
+  --rejection-reason "<rejection-reason>" \
+  --output tmp/quarantine-review.jsonl
+
+.venv/bin/python scripts/quarantine/manage_quarantine.py --region "$AWS_REGION" replay \
+  --input tmp/quarantine-review.jsonl \
+  --stream-name "$VITALS_STREAM"
+```
+
+Review the validated count, then publish the corrected rows by repeating the replay command with `--confirm-replay`. Replayed rows retain the original observation ID, use `source=quarantine_replay`, pass through Firehose and Glue again, and remain idempotent at the analytical `(observation_id, loinc_code)` grain.
 
 ### Simulator publication failures
 
