@@ -37,8 +37,6 @@ HISTORY_SIZE = 60
 FRESH_EVENT_AGE_SECONDS = 15.0
 DELAYED_EVENT_AGE_SECONDS = 60.0
 
-st.set_page_config(page_title="Healthcare Realtime Monitoring", page_icon="🩺", layout="wide")
-
 
 def get_initial_vitals(patient_id: str) -> dict[str, Any] | None:
     url = f"{API_ENDPOINT}/patients/{patient_id}/vitals"
@@ -572,11 +570,16 @@ def render_dashboard() -> None:
     st.caption("Synthetic/research data for demonstration only. This dashboard is not intended for clinical decision-making.")
 
 
-start_websocket_workers()
-load_initial_state()
-process_websocket_messages()
-refresh_vitals_from_api()
-render_dashboard()
+def main() -> None:
+    st.set_page_config(page_title="Healthcare Realtime Monitoring", page_icon="🩺", layout="wide")
+    start_websocket_workers()
+    load_initial_state()
+    process_websocket_messages()
+    refresh_vitals_from_api()
+    render_dashboard()
+    time.sleep(REFRESH_INTERVAL_SECONDS)
+    st.rerun()
 
-time.sleep(REFRESH_INTERVAL_SECONDS)
-st.rerun()
+
+if __name__ == "__main__":
+    main()

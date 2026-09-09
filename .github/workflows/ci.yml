@@ -87,6 +87,12 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r airflow/serverless/requirements_dev.txt
 
+      - name: Airflow workflow tests
+        env:
+          PYTHONPATH: "${{ github.workspace }}/airflow/serverless:${{ github.workspace }}/airflow/dags:${{ github.workspace }}"
+        run: |
+          python -m unittest discover -s airflow/serverless/tests -v
+
       - name: Terraform Format
         run: |
           terraform fmt -check -recursive infra
