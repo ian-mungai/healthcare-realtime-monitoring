@@ -35,7 +35,7 @@ def test_merge_vitals_tracks_freshness_per_measurement() -> None:
 
     assert merged["heart_rate_event_timestamp"] == "2026-09-03T16:01:00Z"
     assert merged["spo2_event_timestamp"] == "2026-09-03T15:30:00Z"
-    assert event_age_seconds(merged, datetime(2026, 9, 3, 16, 1, tzinfo=UTC)) == 1860
+    assert event_age_seconds(merged, datetime(2026, 9, 3, 16, 1, tzinfo=UTC)) == 0
 
 
 def test_merge_vitals_migrates_legacy_shared_timestamp() -> None:
@@ -73,6 +73,18 @@ def test_event_age_and_freshness_status_reflect_each_patient_feed() -> None:
     assert freshness_status(30, fresh_threshold_seconds=15, delayed_threshold_seconds=60) == "Delayed"
     assert freshness_status(61, fresh_threshold_seconds=15, delayed_threshold_seconds=60) == "Stale"
     assert freshness_status(None, fresh_threshold_seconds=15, delayed_threshold_seconds=60) == "No data"
+
+
+def test_event_age_uses_latest_measurement_when_vitals_have_different_cadences() -> None:
+    now = datetime(2026, 9, 3, 16, 1, tzinfo=UTC)
+    vitals = {
+        "heart_rate": 82,
+        "heart_rate_event_timestamp": "2026-09-03T16:00:55Z",
+        "systolic_bp": 119,
+        "systolic_bp_event_timestamp": "2026-09-03T15:50:00Z",
+    }
+
+    assert event_age_seconds(vitals, now) == 5
 
 
 def test_parse_event_timestamp_rejects_invalid_values() -> None:

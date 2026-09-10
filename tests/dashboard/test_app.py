@@ -7,8 +7,9 @@ from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import Mock
 
-os.environ.setdefault("VITALS_API_ENDPOINT", "https://api.example.com/development")
-os.environ.setdefault("VITALS_WEBSOCKET_URL", "wss://websocket.example.com/development")
+os.environ["VITALS_API_ENDPOINT"] = "https://api.example.com/development"
+os.environ["VITALS_WEBSOCKET_URL"] = "wss://websocket.example.com/development"
+os.environ["PATIENT_IDS"] = "1000,1002,1004,1006,1008,1010,1012,1014,1016,1018"
 
 from dashboard import app
 
@@ -88,8 +89,17 @@ def test_dashboard_formatting_and_clinical_status_helpers() -> None:
     assert app.respiratory_rate_status(18) == "Normal"
     assert app.respiratory_rate_status(21) == "High"
     assert app.patient_freshness(10) == ("Current", "green")
+    assert app.patient_freshness(10.01) == ("Delayed", "orange")
     assert app.patient_freshness(90) == ("Stale", "red")
     assert app.format_event_time("invalid") == "invalid"
+
+
+def test_live_vitals_hides_readings_older_than_ten_seconds() -> None:
+    vitals = {"patient_id": "1000", "heart_rate": 82, "spo2": 98}
+
+    assert app.live_vitals(vitals, 10) == vitals
+    assert app.live_vitals(vitals, 10.01) == {"patient_id": "1000"}
+    assert app.live_vitals(vitals, None) == {"patient_id": "1000"}
 
 
 def test_history_dataframe_includes_required_columns(monkeypatch) -> None:

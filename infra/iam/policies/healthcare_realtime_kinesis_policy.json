@@ -33,7 +33,10 @@
         "kinesis:StopStreamEncryption",
         "kinesis:DeleteStream"
       ],
-      "Resource": "arn:aws:kinesis:${AWS_REGION}:${AWS_ACCOUNT_ID}:stream/healthcare_realtime_vitals"
+      "Resource": [
+        "arn:aws:kinesis:${AWS_REGION}:${AWS_ACCOUNT_ID}:stream/healthcare_realtime_vitals",
+        "arn:aws:kinesis:${AWS_REGION}:${AWS_ACCOUNT_ID}:stream/healthcare_realtime_vitals_load_test"
+      ]
     }
   ]
 }
