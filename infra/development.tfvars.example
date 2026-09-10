@@ -9,9 +9,29 @@ openlineage_collector_url = ""
 # environment variable AWS_DEPLOY_ROLE_ARN. Keep real policy ARNs in the ignored tfvars.
 enable_github_oidc           = false
 github_repository            = "<github-owner>/<repository>"
+github_oidc_subject_prefix   = "repo:<github-owner>@<owner-id>/<repository>@<repository-id>"
 github_deployment_environment = "development"
 github_deployment_policy_arns = [
-  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_deployment",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_apigateway_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_cloudformation_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_cloudwatch_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_dynamodb_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_ec2_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_ecr_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_ecs_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_elasticloadbalancing_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_firehose_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_glue_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_iam_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_kinesis_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_kms_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_lambda_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_logs_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_mwaa_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_rds_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_s3_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_sns_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_sqs_policy",
 ]
 
 # Keep real account IDs and identity names only in the ignored development.tfvars file.

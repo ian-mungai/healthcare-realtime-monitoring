@@ -9,11 +9,41 @@ Create the ignored Terraform inputs from the tracked example and set:
 ```hcl
 enable_github_oidc            = true
 github_repository             = "<github-owner>/<repository>"
+github_oidc_subject_prefix    = "repo:<github-owner>@<owner-id>/<repository>@<repository-id>"
 github_deployment_environment = "development"
 github_deployment_policy_arns = [
-  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_deployment",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_apigateway_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_cloudformation_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_cloudwatch_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_dynamodb_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_ec2_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_ecr_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_ecs_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_elasticloadbalancing_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_firehose_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_glue_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_iam_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_kinesis_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_kms_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_lambda_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_logs_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_mwaa_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_rds_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_s3_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_sns_policy",
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_sqs_policy",
 ]
 ```
+
+These are the project's existing service policies, attached directly to the deployment role. The list intentionally stays within the default quota of 20 managed policies per role and does not create a duplicate deployment policy.
+
+Read the repository's OIDC subject configuration and copy its `sub_claim_prefix` into `github_oidc_subject_prefix`:
+
+```zsh
+gh api repos/<github-owner>/<repository>/actions/oidc/customization/sub
+```
+
+When `use_immutable_subject` is enabled, the prefix contains numeric owner and repository IDs. Using it prevents a renamed or recreated repository from inheriting deployment access. Leave the variable empty only when GitHub reports the default mutable subject without a custom prefix.
 
 Bootstrap the identity once from an authenticated local shell:
 
