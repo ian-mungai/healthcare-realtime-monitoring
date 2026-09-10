@@ -503,9 +503,7 @@ def render_dashboard() -> None:
         st.session_state.selected_patient_id = None
     selected_patient = st.session_state.selected_patient_id
     patient_ages = {patient_id: event_age_seconds(st.session_state.cohort_vitals.get(patient_id, {})) for patient_id in PATIENT_IDS}
-    priorities = [
-        patient_priority(live_vitals(st.session_state.cohort_vitals.get(patient_id, {}), patient_ages[patient_id]))[1] for patient_id in PATIENT_IDS
-    ]
+    priorities = [patient_priority(live_vitals(st.session_state.cohort_vitals.get(patient_id, {}), patient_ages[patient_id]))[1] for patient_id in PATIENT_IDS]
     freshness_states = {patient_id: patient_freshness(patient_ages[patient_id])[0] for patient_id in PATIENT_IDS}
     with st.session_state.connection_state_lock:
         connection_state = dict(st.session_state.connection_state)
