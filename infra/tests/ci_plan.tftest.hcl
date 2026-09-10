@@ -69,8 +69,9 @@ run "github_oidc_plan" {
     dbt_image_tag              = "sha-ci"
     soda_image_tag             = "sha-ci"
 
-    enable_github_oidc = true
-    github_repository  = "example-owner/healthcare-realtime-monitoring"
+    enable_github_oidc         = true
+    github_repository          = "example-owner/healthcare-realtime-monitoring"
+    github_oidc_subject_prefix = "repo:example-owner@1234/healthcare-realtime-monitoring@5678"
     github_deployment_policy_arns = [
       "arn:aws:iam::111111111111:policy/healthcare_realtime_deployment"
     ]

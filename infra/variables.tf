@@ -53,6 +53,20 @@ variable "github_repository" {
   }
 }
 
+variable "github_oidc_subject_prefix" {
+  description = "Optional immutable GitHub OIDC repository subject prefix returned by the GitHub API."
+  type        = string
+  default     = ""
+
+  validation {
+    condition = var.github_oidc_subject_prefix == "" || can(regex(
+      "^repo:[A-Za-z0-9_.-]+(@[0-9]+)?/[A-Za-z0-9_.-]+(@[0-9]+)?$",
+      var.github_oidc_subject_prefix,
+    ))
+    error_message = "github_oidc_subject_prefix must be empty or use GitHub's repo:owner/repository subject-prefix format, optionally with immutable numeric IDs."
+  }
+}
+
 variable "github_deployment_environment" {
   description = "Protected GitHub environment allowed to deploy."
   type        = string
