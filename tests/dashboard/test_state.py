@@ -77,12 +77,7 @@ def test_event_age_and_freshness_status_reflect_each_patient_feed() -> None:
 
 def test_event_age_uses_latest_measurement_when_vitals_have_different_cadences() -> None:
     now = datetime(2026, 9, 3, 16, 1, tzinfo=UTC)
-    vitals = {
-        "heart_rate": 82,
-        "heart_rate_event_timestamp": "2026-09-03T16:00:55Z",
-        "systolic_bp": 119,
-        "systolic_bp_event_timestamp": "2026-09-03T15:50:00Z",
-    }
+    vitals = {"heart_rate": 82, "heart_rate_event_timestamp": "2026-09-03T16:00:55Z", "systolic_bp": 119, "systolic_bp_event_timestamp": "2026-09-03T15:50:00Z"}
 
     assert event_age_seconds(vitals, now) == 5
 
