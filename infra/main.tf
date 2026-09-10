@@ -235,6 +235,8 @@ module "realtime_processor" {
 module "realtime_websocket" {
   source = "./modules/realtime_websocket"
 
+  depends_on = [aws_api_gateway_account.cloudwatch]
+
   aws_region = var.aws_region
 
   connections_table_name = module.realtime_vitals.websocket_connections_table_name
@@ -251,6 +253,8 @@ module "realtime_websocket" {
 
 module "vitals_api" {
   source = "./modules/vitals_api"
+
+  depends_on = [aws_api_gateway_account.cloudwatch]
 
   aws_region = var.aws_region
 

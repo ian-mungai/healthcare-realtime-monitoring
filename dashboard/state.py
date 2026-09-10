@@ -93,7 +93,7 @@ def event_age_seconds(vitals: dict[str, Any], now: datetime | None = None) -> fl
             return None
         event_timestamps = [legacy_timestamp]
     current_time = now or datetime.now(UTC)
-    return max(max((current_time - timestamp).total_seconds(), 0.0) for timestamp in event_timestamps)
+    return min(max((current_time - timestamp).total_seconds(), 0.0) for timestamp in event_timestamps)
 
 
 def freshness_status(age_seconds: float | None, fresh_threshold_seconds: float, delayed_threshold_seconds: float) -> str:

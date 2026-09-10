@@ -46,6 +46,33 @@
         "arn:aws:logs:${AWS_REGION}:${AWS_ACCOUNT_ID}:log-group:*healthcare*realtime*",
         "arn:aws:logs:${AWS_REGION}:${AWS_ACCOUNT_ID}:log-group:*healthcare*realtime*:*"
       ]
+    },
+    {
+      "Sid": "ManageHealthcareRealtimeMetricFilters",
+      "Effect": "Allow",
+      "Action": [
+        "logs:DescribeMetricFilters",
+        "logs:PutMetricFilter",
+        "logs:DeleteMetricFilter"
+      ],
+      "Resource": [
+        "arn:aws:logs:${AWS_REGION}:${AWS_ACCOUNT_ID}:log-group:*healthcare*realtime*",
+        "arn:aws:logs:${AWS_REGION}:${AWS_ACCOUNT_ID}:log-group:*healthcare*realtime*:log-stream:*"
+      ]
+    },
+    {
+      "Sid": "ManageApiGatewayLogDelivery",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogDelivery",
+        "logs:GetLogDelivery",
+        "logs:UpdateLogDelivery",
+        "logs:DeleteLogDelivery",
+        "logs:ListLogDeliveries",
+        "logs:PutResourcePolicy",
+        "logs:DescribeResourcePolicies"
+      ],
+      "Resource": "*"
     }
   ]
 }
