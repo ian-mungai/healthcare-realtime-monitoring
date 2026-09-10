@@ -66,9 +66,11 @@ def get_invalid_row_count(athena_client, query_execution_id: str) -> int:
     return int(rows[1]["Data"][0]["VarCharValue"])
 
 
-def run_athena_validation(data_bucket_name: str = "<project-data-bucket>") -> str:
+def run_athena_validation(data_bucket_name: str = "<project-data-bucket>", openlineage_url: str = "") -> str:
     athena_output = os.getenv("ATHENA_OUTPUT", f"s3://{data_bucket_name}/athena_results/")
     os.environ["DATA_BUCKET_NAME"] = data_bucket_name
+    if openlineage_url:
+        os.environ["OPENLINEAGE_URL"] = openlineage_url
     lineage_run_id = str(uuid4())
     emit_athena_lineage_event(RunState.START, lineage_run_id)
 

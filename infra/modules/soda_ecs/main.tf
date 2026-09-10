@@ -255,6 +255,10 @@ resource "aws_ecs_task_definition" "soda" {
         {
           name  = "DATA_BUCKET_NAME"
           value = var.data_bucket_name
+        },
+        {
+          name  = "OPENLINEAGE_URL"
+          value = var.openlineage_collector_url
         }
       ]
 

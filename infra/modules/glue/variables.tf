@@ -28,6 +28,12 @@ variable "metrics_path" {
   type        = string
 }
 
+variable "openlineage_collector_url" {
+  description = "Optional shared OpenLineage HTTP collector base URL."
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags applied to Glue resources"
   type        = map(string)

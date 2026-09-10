@@ -98,9 +98,23 @@
       "Sid": "ListHealthcareRealtimeRoles",
       "Effect": "Allow",
       "Action": [
-        "iam:ListRoles"
+        "iam:ListRoles",
+        "iam:ListOpenIDConnectProviders"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "ManageGitHubActionsOidcProvider",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateOpenIDConnectProvider",
+        "iam:DeleteOpenIDConnectProvider",
+        "iam:GetOpenIDConnectProvider",
+        "iam:TagOpenIDConnectProvider",
+        "iam:UntagOpenIDConnectProvider",
+        "iam:UpdateOpenIDConnectProviderThumbprint"
+      ],
+      "Resource": "arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"
     },
     {
       "Sid": "ManageHealthcareRealtimeRoles",

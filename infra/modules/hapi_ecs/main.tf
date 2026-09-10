@@ -297,6 +297,14 @@ resource "aws_ecs_task_definition" "hapi" {
         {
           name  = "HAPI_FHIR_SUBSCRIPTION_RESTHOOK_ENABLED"
           value = "true"
+        },
+        {
+          name  = "HAPI_FHIR_SUBSCRIPTION_POLLING_INTERVAL_MS"
+          value = "1000"
+        },
+        {
+          name  = "HAPI_FHIR_SUBSCRIPTION_IMMEDIATELY_QUEUED"
+          value = "true"
         }
       ]
 

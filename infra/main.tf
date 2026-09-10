@@ -57,12 +57,13 @@ module "firehose" {
 module "glue" {
   source = "./modules/glue"
 
-  bucket_name     = module.raw_s3.bucket_name
-  database_name   = "healthcare_realtime"
-  job_name        = "healthcare_realtime_raw_to_processed"
-  script_key      = "scripts/glue/fhir_observations_raw_to_processed.py"
-  quarantine_path = "s3://${module.raw_s3.bucket_name}/quarantine/fhir_observations/"
-  metrics_path    = "s3://${module.raw_s3.bucket_name}/metrics/glue/"
+  bucket_name               = module.raw_s3.bucket_name
+  database_name             = "healthcare_realtime"
+  job_name                  = "healthcare_realtime_raw_to_processed"
+  script_key                = "scripts/glue/fhir_observations_raw_to_processed.py"
+  quarantine_path           = "s3://${module.raw_s3.bucket_name}/quarantine/fhir_observations/"
+  metrics_path              = "s3://${module.raw_s3.bucket_name}/metrics/glue/"
+  openlineage_collector_url = var.openlineage_collector_url
 
   tags = {
     Project     = "healthcare_realtime_monitoring"
@@ -140,10 +141,11 @@ module "observability" {
 module "dbt_ecs" {
   source = "./modules/dbt_ecs"
 
-  vpc_id             = module.network.vpc_id
-  private_subnet_ids = module.network.private_subnet_ids
-  data_bucket_name   = module.raw_s3.bucket_name
-  image_tag          = var.dbt_image_tag
+  vpc_id                    = module.network.vpc_id
+  private_subnet_ids        = module.network.private_subnet_ids
+  data_bucket_name          = module.raw_s3.bucket_name
+  image_tag                 = var.dbt_image_tag
+  openlineage_collector_url = var.openlineage_collector_url
 
   source_database_name = "healthcare_realtime"
   dbt_database_name    = "healthcare_realtime_dbt"
@@ -158,10 +160,11 @@ module "dbt_ecs" {
 module "soda_ecs" {
   source = "./modules/soda_ecs"
 
-  vpc_id             = module.network.vpc_id
-  private_subnet_ids = module.network.private_subnet_ids
-  data_bucket_name   = module.raw_s3.bucket_name
-  image_tag          = var.soda_image_tag
+  vpc_id                    = module.network.vpc_id
+  private_subnet_ids        = module.network.private_subnet_ids
+  data_bucket_name          = module.raw_s3.bucket_name
+  image_tag                 = var.soda_image_tag
+  openlineage_collector_url = var.openlineage_collector_url
 
   source_database_name = "healthcare_realtime"
   dbt_database_name    = "healthcare_realtime_dbt"

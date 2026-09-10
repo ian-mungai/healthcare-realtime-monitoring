@@ -3,7 +3,7 @@ from uuid import uuid4
 
 from openlineage.client.event_v2 import InputDataset, Job, OutputDataset, Run, RunEvent, RunState
 
-from lineage.openlineage.client import build_s3_openlineage_client
+from lineage.openlineage.client import build_runtime_openlineage_client
 from lineage.openlineage.config import lineage_event_path
 
 NAMESPACE = "healthcare-realtime-monitoring"
@@ -27,6 +27,6 @@ def emit_great_expectations_lineage(run_state: RunState, lineage_run_id: str | N
         outputs=[GX_VALIDATION_DATASET],
     )
 
-    build_s3_openlineage_client(lineage_event_path("great_expectations")).emit(event)
+    build_runtime_openlineage_client(lineage_event_path("great_expectations")).emit(event)
 
     return lineage_run_id

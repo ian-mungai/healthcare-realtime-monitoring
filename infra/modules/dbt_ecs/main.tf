@@ -316,6 +316,10 @@ resource "aws_ecs_task_definition" "dbt" {
         {
           name  = "DATA_BUCKET_NAME"
           value = var.data_bucket_name
+        },
+        {
+          name  = "OPENLINEAGE_URL"
+          value = var.openlineage_collector_url
         }
       ]
 

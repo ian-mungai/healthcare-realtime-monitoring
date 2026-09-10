@@ -43,7 +43,7 @@ flowchart LR
         REPLAY["Replay Lambda"]
         DLQ["Replay dead-letter queue"]
         CW["CloudWatch dashboards\nand alarms"]
-        LINEAGE["OpenLineage events\nin S3"]
+        LINEAGE["Shared OpenLineage collector\nor durable S3 fallback"]
     end
 
     SIM --> HAPI --> WEBHOOK --> KINESIS
@@ -82,7 +82,7 @@ Kinesis Data Firehose writes immutable flattened vital events to the data bucket
 raw event arrival -> Glue processing -> Athena validation -> dbt build -> Soda contracts
 ```
 
-dbt produces the staging, fact, and dimension models used for analytical reporting. The deployed workflow uses Athena validation, dbt tests, and Soda contracts as its automated quality gates. Great Expectations is invoked separately for ad hoc and pre-release validation of the processed table; it is not an MWAA Serverless workflow task. Each executed analytical validation emits OpenLineage lifecycle events with a shared run identity where applicable.
+dbt produces the staging, fact, and dimension models used for analytical reporting. The deployed workflow uses Athena validation, dbt tests, and Soda contracts as its automated quality gates. Great Expectations is invoked separately for ad hoc and pre-release validation of the processed table; it is not an MWAA Serverless workflow task. Each executed analytical validation emits OpenLineage lifecycle events with a shared run identity. A configured HTTP collector provides the shared lineage view; S3 remains the durable fallback when no collector is configured.
 
 ## Failure and recovery model
 
