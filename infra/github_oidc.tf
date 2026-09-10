@@ -11,6 +11,10 @@ resource "aws_iam_openid_connect_provider" "github" {
   }
 }
 
+locals {
+  github_oidc_subject_prefix = var.github_oidc_subject_prefix != "" ? var.github_oidc_subject_prefix : "repo:${var.github_repository}"
+}
+
 data "aws_iam_policy_document" "github_deployment_assume_role" {
   count = var.enable_github_oidc ? 1 : 0
 
@@ -32,7 +36,7 @@ data "aws_iam_policy_document" "github_deployment_assume_role" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repository}:environment:${var.github_deployment_environment}"]
+      values   = ["${local.github_oidc_subject_prefix}:environment:${var.github_deployment_environment}"]
     }
   }
 }
