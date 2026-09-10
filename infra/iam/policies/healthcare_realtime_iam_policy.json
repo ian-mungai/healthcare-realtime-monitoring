@@ -208,6 +208,7 @@
         "StringEquals": {
           "iam:PassedToService": [
             "lambda.amazonaws.com",
+            "apigateway.amazonaws.com",
             "firehose.amazonaws.com",
             "glue.amazonaws.com",
             "airflow.amazonaws.com",

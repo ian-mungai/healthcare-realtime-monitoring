@@ -12,6 +12,7 @@
         "apigateway:DELETE"
       ],
       "Resource": [
+        "arn:aws:apigateway:${AWS_REGION}::/account",
         "arn:aws:apigateway:${AWS_REGION}::/apis",
         "arn:aws:apigateway:${AWS_REGION}::/apis/*",
         "arn:aws:apigateway:${AWS_REGION}::/tags/*"
