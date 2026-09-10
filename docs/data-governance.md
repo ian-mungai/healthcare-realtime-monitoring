@@ -81,7 +81,7 @@ Analytical quarantine recovery is separate from SQS transport recovery. Operator
 
 ## Lineage
 
-OpenLineage events are stored under `s3://<project-data-bucket>/lineage/openlineage/`. Each job emits `START` and either `COMPLETE` or `FAIL` with a shared run ID.
+OpenLineage events are sent to the configured shared HTTP collector. When no collector URL is configured, they are stored under `s3://<project-data-bucket>/lineage/openlineage/`. Each job emits `START` and either `COMPLETE` or `FAIL` with a shared run ID.
 
 The verified lineage chain is:
 

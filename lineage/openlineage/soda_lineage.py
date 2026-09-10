@@ -3,7 +3,7 @@ from uuid import uuid4
 
 from openlineage.client.event_v2 import InputDataset, Job, Run, RunEvent, RunState
 
-from lineage.openlineage.client import build_local_openlineage_client, build_s3_openlineage_client
+from lineage.openlineage.client import build_local_openlineage_client, build_runtime_openlineage_client
 from lineage.openlineage.config import lineage_event_path
 
 NAMESPACE = "healthcare-realtime-monitoring"
@@ -36,5 +36,5 @@ def emit_local_soda_lineage(run_state: RunState, lineage_run_id: str | None = No
 
 def emit_s3_soda_lineage(run_state: RunState, lineage_run_id: str | None = None) -> str:
     lineage_run_id = lineage_run_id or str(uuid4())
-    build_s3_openlineage_client(lineage_event_path("soda")).emit(build_soda_lineage_event(run_state, lineage_run_id))
+    build_runtime_openlineage_client(lineage_event_path("soda")).emit(build_soda_lineage_event(run_state, lineage_run_id))
     return lineage_run_id

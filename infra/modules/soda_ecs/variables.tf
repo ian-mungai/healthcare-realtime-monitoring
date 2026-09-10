@@ -31,6 +31,12 @@ variable "image_tag" {
   default     = "latest"
 }
 
+variable "openlineage_collector_url" {
+  description = "Optional shared OpenLineage HTTP collector base URL."
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags applied to Soda ECS resources."
   type        = map(string)

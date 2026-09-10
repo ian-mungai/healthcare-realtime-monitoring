@@ -28,6 +28,16 @@ output "raw_s3_bucket_arn" {
   value       = module.raw_s3.bucket_arn
 }
 
+output "openlineage_collector_url" {
+  description = "Configured shared OpenLineage collector URL; empty means S3 transport is used."
+  value       = var.openlineage_collector_url
+}
+
+output "github_deployment_role_arn" {
+  description = "GitHub Actions OIDC deployment role ARN, or null when OIDC is disabled."
+  value       = var.enable_github_oidc ? aws_iam_role.github_deployment[0].arn : null
+}
+
 output "firehose_delivery_stream_name" {
   description = "Firehose stream delivering realtime vitals to S3"
   value       = module.firehose.delivery_stream_name

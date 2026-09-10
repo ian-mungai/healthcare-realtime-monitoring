@@ -56,3 +56,28 @@ run "plan" {
     error_message = "Every Lambda deployment package must produce a source code hash."
   }
 }
+
+run "github_oidc_plan" {
+  command = plan
+
+  variables {
+    aws_region                 = "example-region-1"
+    data_bucket_name           = "ci-project-data-bucket"
+    mwaa_source_bucket_name    = "ci-project-mwaa-source-bucket"
+    realtime_alert_email       = "alerts@example.com"
+    vitals_simulator_image_tag = "sha-ci"
+    dbt_image_tag              = "sha-ci"
+    soda_image_tag             = "sha-ci"
+
+    enable_github_oidc = true
+    github_repository  = "example-owner/healthcare-realtime-monitoring"
+    github_deployment_policy_arns = [
+      "arn:aws:iam::111111111111:policy/healthcare_realtime_deployment"
+    ]
+  }
+
+  assert {
+    condition     = aws_iam_role.github_deployment[0].max_session_duration == 3600
+    error_message = "GitHub OIDC deployment role must use bounded one-hour sessions."
+  }
+}

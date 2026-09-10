@@ -95,7 +95,7 @@ terraform -chdir=infra plan -var-file=development.tfvars
 
 For an existing clone with local state, use `terraform -chdir=infra init -backend-config=backend.hcl -migrate-state` once and confirm the migration prompt. The local `backend.hcl` file is ignored by Git.
 
-The detailed deployment, recovery, cost-control, and operational checks are in the [operations runbook](docs/operations-runbook.md).
+The [deployment guide](docs/deployment.md) covers GitHub OIDC and shared OpenLineage collector setup. Recovery, cost-control, and operational checks are in the [operations runbook](docs/operations-runbook.md).
 
 ## Run the dashboard
 

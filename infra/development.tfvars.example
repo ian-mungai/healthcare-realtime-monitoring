@@ -2,6 +2,17 @@ aws_region              = "<aws-region>"
 data_bucket_name        = "<globally-unique-data-bucket>"
 mwaa_source_bucket_name = "<globally-unique-mwaa-source-bucket>"
 realtime_alert_email    = "<alert-email>"
+# Leave empty to retain S3 lineage storage, or set an HTTP(S) collector base URL.
+openlineage_collector_url = ""
+
+# Bootstrap this locally once, then use the role output as the protected GitHub
+# environment variable AWS_DEPLOY_ROLE_ARN. Keep real policy ARNs in the ignored tfvars.
+enable_github_oidc           = false
+github_repository            = "<github-owner>/<repository>"
+github_deployment_environment = "development"
+github_deployment_policy_arns = [
+  "arn:aws:iam::<aws-account-id>:policy/healthcare_realtime_deployment",
+]
 
 # Keep real account IDs and identity names only in the ignored development.tfvars file.
 realtime_patient_access_policy = {

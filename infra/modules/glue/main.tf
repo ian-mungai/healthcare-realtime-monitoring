@@ -197,6 +197,7 @@ resource "aws_glue_job" "raw_to_processed" {
     "--job-bookmark-option"          = "job-bookmark-enable"
     "--QUARANTINE_PATH"              = var.quarantine_path
     "--METRICS_PATH"                 = var.metrics_path
+    "--OPENLINEAGE_URL"              = var.openlineage_collector_url
     "--extra-py-files"               = "s3://${var.bucket_name}/glue/dependencies/healthcare_realtime_lineage.zip"
     "--additional-python-modules"    = "openlineage-python[fsspec]==1.52.0,s3fs"
     "--enable-observability-metrics" = "true"
