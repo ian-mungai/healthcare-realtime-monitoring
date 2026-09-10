@@ -61,7 +61,7 @@ Confirm that the state object exists in the configured bucket before removing an
 
 ## CI and Deployment Gate
 
-The CI workflow runs Python tests, linting, Terraform format and validation, generated-workflow validation, and container builds on pull requests and updates to `main`.
+The CI workflow runs Python tests, linting, Terraform format and validation, generated-workflow validation, and container builds on pull requests and updates to `main`. Infrastructure deployment uses the manual OIDC-authenticated workflow and protected environment described in the [deployment guide](deployment.md).
 
 Before infrastructure deployment, run:
 
@@ -94,10 +94,13 @@ The start script discovers the project network and task security group at runtim
 While the simulator is running, confirm all of the following:
 
 - The cohort dashboard shows current values for all simulated patients.
+- Current-monitoring panels never display a patient reading more than 10 seconds old; historical trend charts remain available.
 - The live processing-latency and WebSocket-delivery alarms are `OK`.
 - The REST vitals endpoint returns a current record using AWS IAM authorization.
 - A Postman WebSocket connection authenticated with AWS IAM receives current patient updates.
 - The current-state table advances event timestamps for the simulated cohort.
+
+HAPI queues subscription notifications immediately and polls pending subscription work every second. If current values repeatedly cross the 10-second display ceiling, inspect HAPI logs and database load before changing the five-second simulator cadence.
 
 Use temporary Postman variables for endpoints and authorization. Do not export collections containing signed headers or private environment values.
 

@@ -22,6 +22,7 @@ class WorkflowGenerationTests(unittest.TestCase):
                 "SODA_ECS_TASK_DEFINITION": "healthcare_realtime_soda:17",
                 "DATA_JOBS_ECS_CLUSTER": "healthcare-realtime-data-jobs",
                 "MWAA_SERVERLESS_START_DATE": "2099-01-01T00:00:00+00:00",
+                "OPENLINEAGE_URL": "https://lineage.example.com",
             },
             clear=False,
         )
@@ -47,6 +48,7 @@ class WorkflowGenerationTests(unittest.TestCase):
         self.assertEqual(tasks["run_dbt_build"]["task_definition"], "healthcare_realtime_dbt")
         self.assertEqual(tasks["run_soda_checks"]["task_definition"], "healthcare_realtime_soda")
         self.assertEqual(tasks["run_dbt_build"]["dependencies"], ["validate_processed_data"])
+        self.assertEqual(tasks["validate_processed_data"]["op_kwargs"]["openlineage_url"], "https://lineage.example.com")
 
     def test_task_definition_normalization_accepts_family_revision_and_arn(self) -> None:
         self.assertEqual(generator.normalize_task_definition("family"), "family")

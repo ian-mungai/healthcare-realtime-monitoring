@@ -49,9 +49,9 @@ In the dashboard, verify that:
 
 1. The cohort view contains every configured simulated patient.
 2. Heart rate, oxygen saturation, respiratory rate, and blood pressure update while the simulator is running.
-3. The chart time axis advances with full timestamps.
-4. Selecting **View trends** focuses a patient without hiding the rest of the cohort.
-5. Returning to cohort view clears the focus while retaining all patient lines.
+3. Current-monitoring values are no more than 10 seconds old; older values are suppressed rather than presented as live.
+4. The chart time axis advances with full timestamps.
+5. Selecting **View trends** focuses a patient without hiding the rest of the cohort.
 
 ## Postman REST check
 
@@ -94,7 +94,7 @@ Confirm that the live processing-latency and WebSocket-delivery alarms are `OK`.
 
 ## Analytics and recovery evidence
 
-For an extended demonstration, show a successful MWAA workflow run and its Glue, Athena, dbt, and Soda tasks. Then confirm that Great Expectations, Soda contracts, and OpenLineage events have completed successfully.
+For an extended demonstration, show a successful MWAA workflow run and its Glue, Athena, dbt, and Soda tasks. Then confirm that Great Expectations, Soda contracts, and OpenLineage events have completed successfully. When `openlineage_collector_url` is configured, confirm the shared collector contains matching START and COMPLETE events for the same run IDs.
 
 Do not intentionally inject a production-style failure during a portfolio recording. If recovery evidence is needed, use a reviewed synthetic failure case and follow the controlled replay procedure in the [operations runbook](operations-runbook.md).
 

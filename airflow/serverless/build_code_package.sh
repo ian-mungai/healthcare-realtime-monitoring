@@ -24,6 +24,7 @@ cp "$REPO_ROOT/airflow/dags/lib/athena_lineage.py" "$BUILD_ROOT/lib/athena_linea
 cp "$REPO_ROOT/lineage/__init__.py" "$BUILD_ROOT/lineage/__init__.py"
 cp "$REPO_ROOT/lineage/openlineage/__init__.py" "$BUILD_ROOT/lineage/openlineage/__init__.py"
 cp "$REPO_ROOT/lineage/openlineage/client.py" "$BUILD_ROOT/lineage/openlineage/client.py"
+cp "$REPO_ROOT/lineage/openlineage/config.py" "$BUILD_ROOT/lineage/openlineage/config.py"
 cp "$REPO_ROOT/lineage/openlineage/athena_lineage.py" "$BUILD_ROOT/lineage/openlineage/athena_lineage.py"
 
 "$PYTHON_BIN" -m pip install \

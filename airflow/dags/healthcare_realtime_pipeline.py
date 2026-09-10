@@ -21,6 +21,7 @@ SODA_ECS_TASK_DEFINITION = os.getenv("SODA_ECS_TASK_DEFINITION", "healthcare_rea
 SODA_ECS_SECURITY_GROUP = os.getenv("AIRFLOW__SODA__ECS_SECURITY_GROUP", "")
 SODA_ECS_SUBNETS = [subnet.strip() for subnet in os.getenv("AIRFLOW__SODA__ECS_SUBNETS", "").split(",") if subnet.strip()]
 AIRFLOW_PIPELINE_SCHEDULE = os.getenv("AIRFLOW_PIPELINE_SCHEDULE", "0 2 * * *")
+OPENLINEAGE_URL = os.getenv("OPENLINEAGE_URL", "")
 DEFAULT_ARGS = {"owner": "healthcare_realtime", "depends_on_past": False, "retries": 2, "retry_delay": timedelta(minutes=1)}
 
 with DAG(
@@ -44,7 +45,7 @@ with DAG(
     )
 
     validate_processed_data = PythonOperator(
-        task_id="validate_processed_data", python_callable=run_athena_validation, op_kwargs={"data_bucket_name": RAW_BUCKET}
+        task_id="validate_processed_data", python_callable=run_athena_validation, op_kwargs={"data_bucket_name": RAW_BUCKET, "openlineage_url": OPENLINEAGE_URL}
     )
 
     run_dbt_build = EcsRunTaskOperator(

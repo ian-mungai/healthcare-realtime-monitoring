@@ -141,6 +141,7 @@ jobs:
               Path("tmp/healthcare_realtime_mwaa_serverless_code.zip"): {
                   "lib/athena_lineage.py",
                   "lineage/openlineage/client.py",
+                  "lineage/openlineage/config.py",
                   "lineage/openlineage/athena_lineage.py",
               },
           }
@@ -168,6 +169,7 @@ jobs:
           SODA_ECS_TASK_DEFINITION: "healthcare_realtime_soda:17"
           DATA_JOBS_ECS_CLUSTER: "healthcare-realtime-data-jobs"
           RAW_BUCKET: "ci-project-data-bucket"
+          OPENLINEAGE_URL: "https://lineage.example.com"
         run: |
           PYTHONPATH="$PWD/airflow/dags:$PWD" python airflow/serverless/generate_healthcare_realtime_pipeline.py
 
@@ -190,6 +192,7 @@ jobs:
           assert tasks["validate_processed_data"]["python_callable"] == "lib.athena_lineage.run_athena_validation"
           assert tasks["run_dbt_build"]["task_definition"] == "healthcare_realtime_dbt"
           assert tasks["run_soda_checks"]["task_definition"] == "healthcare_realtime_soda"
+          assert tasks["validate_processed_data"]["op_kwargs"]["openlineage_url"] == "https://lineage.example.com"
 
           content = path.read_text()
           assert "111111111111" not in content

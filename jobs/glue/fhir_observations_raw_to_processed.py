@@ -228,7 +228,9 @@ def write_metrics(spark, metrics_path: str, run_started_at: str, candidate_count
 
 
 def main():
-    args = getResolvedOptions(sys.argv, ["JOB_NAME", "RAW_PATH", "QUARANTINE_PATH", "METRICS_PATH", "DATABASE_NAME", "TABLE_NAME", "DATA_BUCKET_NAME"])
+    args = getResolvedOptions(
+        sys.argv, ["JOB_NAME", "RAW_PATH", "QUARANTINE_PATH", "METRICS_PATH", "DATABASE_NAME", "TABLE_NAME", "DATA_BUCKET_NAME", "OPENLINEAGE_URL"]
+    )
     run_started_at = datetime.now(UTC).isoformat()
     spark_context = SparkContext()
     glue_context = GlueContext(spark_context)
@@ -236,6 +238,8 @@ def main():
     job = Job(glue_context)
     job.init(args["JOB_NAME"], args)
     os.environ["DATA_BUCKET_NAME"] = args["DATA_BUCKET_NAME"]
+    if args["OPENLINEAGE_URL"]:
+        os.environ["OPENLINEAGE_URL"] = args["OPENLINEAGE_URL"]
     lineage_run_id = emit_s3_glue_lineage(RunState.START)
 
     try:
