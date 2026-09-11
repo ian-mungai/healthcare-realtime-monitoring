@@ -40,6 +40,31 @@ module "raw_s3" {
   }
 }
 
+module "openlineage_collector" {
+  source = "./modules/openlineage_collector"
+
+  depends_on = [aws_api_gateway_account.cloudwatch]
+
+  enabled            = var.enable_openlineage_collector
+  vpc_id             = module.network.vpc_id
+  private_subnet_ids = module.network.private_subnet_ids
+  ecs_cluster_arn    = module.hapi_ecs.cluster_arn
+  image_tag          = var.openlineage_collector_image_tag
+  desired_count      = var.openlineage_collector_desired_count
+  stage_name         = "development"
+
+  tags = {
+    Project     = "healthcare_realtime_monitoring"
+    Environment = "development"
+    ManagedBy   = "terraform"
+  }
+}
+
+locals {
+  effective_openlineage_collector_url = var.enable_openlineage_collector ? module.openlineage_collector.collector_url : var.openlineage_collector_url
+  openlineage_collector_invoke_arn    = var.enable_openlineage_collector ? module.openlineage_collector.invoke_arn : ""
+}
+
 module "firehose" {
   source = "./modules/firehose"
 
@@ -57,13 +82,14 @@ module "firehose" {
 module "glue" {
   source = "./modules/glue"
 
-  bucket_name               = module.raw_s3.bucket_name
-  database_name             = "healthcare_realtime"
-  job_name                  = "healthcare_realtime_raw_to_processed"
-  script_key                = "scripts/glue/fhir_observations_raw_to_processed.py"
-  quarantine_path           = "s3://${module.raw_s3.bucket_name}/quarantine/fhir_observations/"
-  metrics_path              = "s3://${module.raw_s3.bucket_name}/metrics/glue/"
-  openlineage_collector_url = var.openlineage_collector_url
+  bucket_name                      = module.raw_s3.bucket_name
+  database_name                    = "healthcare_realtime"
+  job_name                         = "healthcare_realtime_raw_to_processed"
+  script_key                       = "scripts/glue/fhir_observations_raw_to_processed.py"
+  quarantine_path                  = "s3://${module.raw_s3.bucket_name}/quarantine/fhir_observations/"
+  metrics_path                     = "s3://${module.raw_s3.bucket_name}/metrics/glue/"
+  openlineage_collector_url        = local.effective_openlineage_collector_url
+  openlineage_collector_invoke_arn = local.openlineage_collector_invoke_arn
 
   tags = {
     Project     = "healthcare_realtime_monitoring"
@@ -106,6 +132,8 @@ module "mwaa" {
   glue_job_name      = module.glue.job_name
   glue_database_name = module.glue.database_name
 
+  openlineage_collector_invoke_arn = local.openlineage_collector_invoke_arn
+
   subnet_ids = module.network.private_subnet_ids
 
   security_group_ids = [
@@ -141,11 +169,12 @@ module "observability" {
 module "dbt_ecs" {
   source = "./modules/dbt_ecs"
 
-  vpc_id                    = module.network.vpc_id
-  private_subnet_ids        = module.network.private_subnet_ids
-  data_bucket_name          = module.raw_s3.bucket_name
-  image_tag                 = var.dbt_image_tag
-  openlineage_collector_url = var.openlineage_collector_url
+  vpc_id                           = module.network.vpc_id
+  private_subnet_ids               = module.network.private_subnet_ids
+  data_bucket_name                 = module.raw_s3.bucket_name
+  image_tag                        = var.dbt_image_tag
+  openlineage_collector_url        = local.effective_openlineage_collector_url
+  openlineage_collector_invoke_arn = local.openlineage_collector_invoke_arn
 
   source_database_name = "healthcare_realtime"
   dbt_database_name    = "healthcare_realtime_dbt"
@@ -160,11 +189,12 @@ module "dbt_ecs" {
 module "soda_ecs" {
   source = "./modules/soda_ecs"
 
-  vpc_id                    = module.network.vpc_id
-  private_subnet_ids        = module.network.private_subnet_ids
-  data_bucket_name          = module.raw_s3.bucket_name
-  image_tag                 = var.soda_image_tag
-  openlineage_collector_url = var.openlineage_collector_url
+  vpc_id                           = module.network.vpc_id
+  private_subnet_ids               = module.network.private_subnet_ids
+  data_bucket_name                 = module.raw_s3.bucket_name
+  image_tag                        = var.soda_image_tag
+  openlineage_collector_url        = local.effective_openlineage_collector_url
+  openlineage_collector_invoke_arn = local.openlineage_collector_invoke_arn
 
   source_database_name = "healthcare_realtime"
   dbt_database_name    = "healthcare_realtime_dbt"

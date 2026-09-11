@@ -26,13 +26,41 @@ variable "realtime_patient_access_policy" {
 }
 
 variable "openlineage_collector_url" {
-  description = "Optional shared OpenLineage HTTP collector base URL. Empty retains durable S3 event storage."
+  description = "Optional external OpenLineage HTTP collector base URL. Empty retains durable S3 event storage when the managed collector is disabled."
   type        = string
   default     = ""
 
   validation {
     condition     = var.openlineage_collector_url == "" || can(regex("^https?://[^/]+", var.openlineage_collector_url))
     error_message = "openlineage_collector_url must be empty or an absolute HTTP or HTTPS URL."
+  }
+}
+
+variable "enable_openlineage_collector" {
+  description = "Deploy the managed IAM-authorized Marquez collector."
+  type        = bool
+  default     = false
+}
+
+variable "openlineage_collector_image_tag" {
+  description = "Immutable ECR tag for the hardened Marquez collector image."
+  type        = string
+  default     = "sha-bootstrap"
+
+  validation {
+    condition     = !var.enable_openlineage_collector || startswith(var.openlineage_collector_image_tag, "sha-")
+    error_message = "openlineage_collector_image_tag must use an immutable sha-* tag when the managed collector is enabled."
+  }
+}
+
+variable "openlineage_collector_desired_count" {
+  description = "Number of managed Marquez ECS tasks to run. Use zero for cost-controlled shutdown."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = contains([0, 1], var.openlineage_collector_desired_count)
+    error_message = "openlineage_collector_desired_count must be zero or one."
   }
 }
 

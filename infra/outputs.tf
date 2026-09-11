@@ -30,7 +30,17 @@ output "raw_s3_bucket_arn" {
 
 output "openlineage_collector_url" {
   description = "Configured shared OpenLineage collector URL; empty means S3 transport is used."
-  value       = var.openlineage_collector_url
+  value       = local.effective_openlineage_collector_url
+}
+
+output "openlineage_collector_ecr_repository_url" {
+  description = "ECR repository containing the hardened Marquez image."
+  value       = module.openlineage_collector.ecr_repository_url
+}
+
+output "openlineage_collector_service_name" {
+  description = "Managed Marquez ECS service name, or null when disabled."
+  value       = module.openlineage_collector.service_name
 }
 
 output "github_deployment_role_arn" {

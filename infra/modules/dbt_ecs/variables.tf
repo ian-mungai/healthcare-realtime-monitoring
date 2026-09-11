@@ -37,6 +37,12 @@ variable "openlineage_collector_url" {
   default     = ""
 }
 
+variable "openlineage_collector_invoke_arn" {
+  description = "Optional execute-api ARN for the managed OpenLineage ingestion route."
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags applied to dbt ECS resources."
   type        = map(string)
