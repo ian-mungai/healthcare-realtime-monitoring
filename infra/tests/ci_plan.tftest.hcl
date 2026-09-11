@@ -82,3 +82,31 @@ run "github_oidc_plan" {
     error_message = "GitHub OIDC deployment role must use bounded one-hour sessions."
   }
 }
+
+run "openlineage_collector_plan" {
+  command = plan
+
+  variables {
+    aws_region                 = "example-region-1"
+    data_bucket_name           = "ci-project-data-bucket"
+    mwaa_source_bucket_name    = "ci-project-mwaa-source-bucket"
+    realtime_alert_email       = "alerts@example.com"
+    vitals_simulator_image_tag = "sha-ci"
+    dbt_image_tag              = "sha-ci"
+    soda_image_tag             = "sha-ci"
+
+    enable_openlineage_collector        = true
+    openlineage_collector_image_tag     = "sha-ci"
+    openlineage_collector_desired_count = 1
+  }
+
+  assert {
+    condition     = module.openlineage_collector.image_tag_mutability == "IMMUTABLE"
+    error_message = "The managed Marquez repository must reject mutable image tags."
+  }
+
+  assert {
+    condition     = module.openlineage_collector.ingestion_authorization_type == "AWS_IAM"
+    error_message = "The managed OpenLineage ingestion route must require AWS IAM authorization."
+  }
+}

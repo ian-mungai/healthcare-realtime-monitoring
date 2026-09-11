@@ -13,19 +13,21 @@
       "Resource": "*"
     },
     {
-      "Sid": "CreateHealthcareRealtimeHapiDatabase",
+      "Sid": "CreateHealthcareRealtimeDatabases",
       "Effect": "Allow",
       "Action": [
         "rds:CreateDBInstance"
       ],
       "Resource": [
         "arn:aws:rds:${AWS_REGION}:${AWS_ACCOUNT_ID}:db:healthcare-realtime-hapi",
+        "arn:aws:rds:${AWS_REGION}:${AWS_ACCOUNT_ID}:db:healthcare-realtime-marquez",
         "arn:aws:rds:${AWS_REGION}:${AWS_ACCOUNT_ID}:subgrp:healthcare-realtime-hapi",
+        "arn:aws:rds:${AWS_REGION}:${AWS_ACCOUNT_ID}:subgrp:healthcare-realtime-marquez",
         "arn:aws:rds:${AWS_REGION}:${AWS_ACCOUNT_ID}:pg:default.postgres16"
       ]
     },
     {
-      "Sid": "ManageHealthcareRealtimeHapiDatabase",
+      "Sid": "ManageHealthcareRealtimeDatabases",
       "Effect": "Allow",
       "Action": [
         "rds:ModifyDBInstance",
@@ -34,10 +36,22 @@
         "rds:RemoveTagsFromResource",
         "rds:ListTagsForResource"
       ],
-      "Resource": "arn:aws:rds:${AWS_REGION}:${AWS_ACCOUNT_ID}:db:healthcare-realtime-hapi"
+      "Resource": [
+        "arn:aws:rds:${AWS_REGION}:${AWS_ACCOUNT_ID}:db:healthcare-realtime-hapi",
+        "arn:aws:rds:${AWS_REGION}:${AWS_ACCOUNT_ID}:db:healthcare-realtime-marquez"
+      ]
     },
     {
-      "Sid": "ManageHealthcareRealtimeHapiDbSubnetGroup",
+      "Sid": "ManageMarquezDatabaseRuntime",
+      "Effect": "Allow",
+      "Action": [
+        "rds:StartDBInstance",
+        "rds:StopDBInstance"
+      ],
+      "Resource": "arn:aws:rds:${AWS_REGION}:${AWS_ACCOUNT_ID}:db:healthcare-realtime-marquez"
+    },
+    {
+      "Sid": "ManageHealthcareRealtimeDbSubnetGroups",
       "Effect": "Allow",
       "Action": [
         "rds:CreateDBSubnetGroup",
@@ -47,7 +61,10 @@
         "rds:RemoveTagsFromResource",
         "rds:ListTagsForResource"
       ],
-      "Resource": "arn:aws:rds:${AWS_REGION}:${AWS_ACCOUNT_ID}:subgrp:healthcare-realtime-hapi"
+      "Resource": [
+        "arn:aws:rds:${AWS_REGION}:${AWS_ACCOUNT_ID}:subgrp:healthcare-realtime-hapi",
+        "arn:aws:rds:${AWS_REGION}:${AWS_ACCOUNT_ID}:subgrp:healthcare-realtime-marquez"
+      ]
     }
   ]
 }

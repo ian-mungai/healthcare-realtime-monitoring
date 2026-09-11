@@ -2,7 +2,11 @@ aws_region              = "<aws-region>"
 data_bucket_name        = "<globally-unique-data-bucket>"
 mwaa_source_bucket_name = "<globally-unique-mwaa-source-bucket>"
 realtime_alert_email    = "<alert-email>"
-# Leave empty to retain S3 lineage storage, or set an HTTP(S) collector base URL.
+# Bootstrap with the managed collector disabled, push its image, then enable it.
+enable_openlineage_collector    = false
+openlineage_collector_image_tag = "sha-<commit>"
+openlineage_collector_desired_count = 1
+# Leave empty when using the managed collector. Set only for an external collector.
 openlineage_collector_url = ""
 
 # Bootstrap this locally once, then use the role output as the protected GitHub

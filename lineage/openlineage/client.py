@@ -7,13 +7,55 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import boto3
+from botocore.auth import SigV4Auth
+from botocore.awsrequest import AWSRequest
 from openlineage.client import OpenLineageClient
 from openlineage.client.serde import Serde
 from openlineage.client.transport import Transport
 from openlineage.client.transport.file import FileConfig, FileTransport
 from openlineage.client.transport.http import HttpConfig, HttpTransport
+from requests import PreparedRequest, Session
+from requests.auth import AuthBase
 
 LOCAL_LINEAGE_DIRECTORY = Path("lineage/events")
+
+
+class AwsSigV4RequestsAuth(AuthBase):
+    def __init__(self, region: str) -> None:
+        self.region = region
+        self.session = boto3.Session()
+
+    def __call__(self, request: PreparedRequest) -> PreparedRequest:
+        credentials = self.session.get_credentials()
+        if credentials is None:
+            raise RuntimeError("AWS credentials are required for the managed OpenLineage collector")
+
+        aws_request = AWSRequest(method=request.method, url=request.url, data=request.body, headers=dict(request.headers))
+        SigV4Auth(credentials.get_frozen_credentials(), "execute-api", self.region).add_auth(aws_request)
+        request.headers.update(dict(aws_request.headers.items()))
+        return request
+
+
+def execute_api_region(hostname: str | None) -> str | None:
+    if not hostname:
+        return None
+
+    labels = hostname.split(".")
+    try:
+        execute_api_index = labels.index("execute-api")
+    except ValueError:
+        return None
+
+    if execute_api_index + 2 >= len(labels) or labels[execute_api_index + 2] != "amazonaws":
+        return None
+
+    return labels[execute_api_index + 1]
+
+
+def build_sigv4_session(region: str) -> Session:
+    session = Session()
+    session.auth = AwsSigV4RequestsAuth(region)
+    return session
 
 
 class S3Transport(Transport):
@@ -58,4 +100,6 @@ def build_runtime_openlineage_client(event_path: str) -> OpenLineageClient:
     if not endpoint:
         raise ValueError("OPENLINEAGE_ENDPOINT must not be empty")
 
-    return OpenLineageClient(transport=HttpTransport(HttpConfig(url=collector_url.rstrip("/"), endpoint=endpoint)))
+    region = execute_api_region(parsed.hostname)
+    session = build_sigv4_session(region) if region else None
+    return OpenLineageClient(transport=HttpTransport(HttpConfig(url=collector_url.rstrip("/"), endpoint=endpoint, session=session)))
