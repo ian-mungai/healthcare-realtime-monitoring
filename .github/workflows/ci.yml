@@ -324,6 +324,14 @@ jobs:
             -t healthcare-realtime-soda:test \
             .
 
+      - name: Build Marquez image
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            -f deploy/marquez/Dockerfile \
+            -t healthcare-realtime-marquez:test \
+            deploy/marquez
+
       - name: Build vitals simulator image
         run: |
           docker build \

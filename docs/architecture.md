@@ -43,7 +43,7 @@ flowchart LR
         REPLAY["Replay Lambda"]
         DLQ["Replay dead-letter queue"]
         CW["CloudWatch dashboards\nand alarms"]
-        LINEAGE["Shared OpenLineage collector\nor durable S3 fallback"]
+        LINEAGE["IAM-authorized Marquez collector\nor durable S3 fallback"]
     end
 
     SIM --> HAPI --> WEBHOOK --> KINESIS
@@ -82,7 +82,7 @@ Kinesis Data Firehose writes immutable flattened vital events to the data bucket
 raw event arrival -> Glue processing -> Athena validation -> dbt build -> Soda contracts
 ```
 
-dbt produces the staging, fact, and dimension models used for analytical reporting. The deployed workflow uses Athena validation, dbt tests, and Soda contracts as its automated quality gates. Great Expectations is invoked separately for ad hoc and pre-release validation of the processed table; it is not an MWAA Serverless workflow task. Each executed analytical validation emits OpenLineage lifecycle events with a shared run identity. A configured HTTP collector provides the shared lineage view; S3 remains the durable fallback when no collector is configured.
+dbt produces the staging, fact, and dimension models used for analytical reporting. The deployed workflow uses Athena validation, dbt tests, and Soda contracts as its automated quality gates. Great Expectations is invoked separately for ad hoc and pre-release validation of the processed table; it is not an MWAA Serverless workflow task. Each executed analytical validation emits OpenLineage lifecycle events with a shared run identity. The managed collector runs Marquez on private ECS and RDS resources behind an IAM-authorized API Gateway route. Emitters sign requests using temporary workload credentials; S3 remains the durable fallback when the collector is disabled.
 
 ## Failure and recovery model
 
@@ -95,6 +95,7 @@ This design prefers controlled replay over blind redrive: an operator should ide
 - HAPI FHIR runs behind an application load balancer; the service and database remain in the project VPC.
 - The webhook secret resides in AWS Secrets Manager and is retrieved at runtime. It is not embedded in Terraform configuration or public artifacts.
 - REST and WebSocket clients authenticate with AWS IAM. Postman testing uses temporary authorization generated for the target environment.
+- The Marquez service and database are private. Only SigV4-authenticated requests can traverse API Gateway to its internal load balancer.
 - Workloads use narrowly scoped task and function roles. IAM policy templates require target account, region, bucket, and alert values when rendered.
 - The raw data bucket blocks public access, enables versioning, and uses server-side encryption. Kinesis, SQS, DynamoDB recovery, and encrypted failure queues protect the durable paths.
 

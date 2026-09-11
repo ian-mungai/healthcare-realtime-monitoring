@@ -186,6 +186,19 @@
       }
     },
     {
+      "Sid": "CreateApiGatewayServiceLinkedRole",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateServiceLinkedRole"
+      ],
+      "Resource": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/aws-service-role/ops.apigateway.amazonaws.com/AWSServiceRoleForAPIGateway",
+      "Condition": {
+        "StringEquals": {
+          "iam:AWSServiceName": "ops.apigateway.amazonaws.com"
+        }
+      }
+    },
+    {
       "Sid": "CreateMwaaServerlessServiceLinkedRole",
       "Effect": "Allow",
       "Action": [

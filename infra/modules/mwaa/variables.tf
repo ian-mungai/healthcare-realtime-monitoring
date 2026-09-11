@@ -23,6 +23,12 @@ variable "glue_database_name" {
   type        = string
 }
 
+variable "openlineage_collector_invoke_arn" {
+  description = "Optional execute-api ARN for the managed OpenLineage ingestion route."
+  type        = string
+  default     = ""
+}
+
 variable "subnet_ids" {
   description = "Private subnet IDs available to MWAA Serverless"
   type        = list(string)

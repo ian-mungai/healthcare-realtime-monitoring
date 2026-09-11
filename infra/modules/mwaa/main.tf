@@ -144,6 +144,17 @@ data "aws_iam_policy_document" "mwaa_s3_access" {
       "arn:aws:s3:::${var.data_bucket_name}/lineage/openlineage/athena/*"
     ]
   }
+
+  dynamic "statement" {
+    for_each = var.openlineage_collector_invoke_arn == "" ? [] : [var.openlineage_collector_invoke_arn]
+
+    content {
+      sid       = "PublishOpenLineageEvents"
+      effect    = "Allow"
+      actions   = ["execute-api:Invoke"]
+      resources = [statement.value]
+    }
+  }
 }
 
 resource "aws_iam_role_policy" "mwaa_s3_access" {

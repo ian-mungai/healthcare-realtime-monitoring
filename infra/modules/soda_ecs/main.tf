@@ -172,6 +172,18 @@ data "aws_iam_policy_document" "task" {
       "arn:aws:s3:::${var.data_bucket_name}/lineage/openlineage/soda/*"
     ]
   }
+
+  dynamic "statement" {
+    for_each = var.openlineage_collector_invoke_arn == "" ? [] : [var.openlineage_collector_invoke_arn]
+
+    content {
+      sid       = "PublishOpenLineageEvents"
+      effect    = "Allow"
+      actions   = ["execute-api:Invoke"]
+      resources = [statement.value]
+    }
+  }
+
   statement {
     sid    = "ReadHealthcareData"
     effect = "Allow"

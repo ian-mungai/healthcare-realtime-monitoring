@@ -29,7 +29,33 @@ def test_runtime_client_uses_shared_http_collector(monkeypatch) -> None:
     config = http_transport.call_args.args[0]
     assert config.url == "https://lineage.example.com"
     assert config.endpoint == "api/v1/lineage"
+    assert config.session is None
     openlineage_client.assert_called_once_with(transport=transport)
+
+
+def test_runtime_client_sigv4_signs_managed_collector(monkeypatch) -> None:
+    transport = Mock()
+    http_transport = Mock(return_value=transport)
+    openlineage_client = Mock()
+    session = Mock()
+    build_sigv4_session = Mock(return_value=session)
+    monkeypatch.setenv("OPENLINEAGE_URL", "https://collector-id.execute-api.us-east-1.amazonaws.com/development")
+    monkeypatch.setattr(client, "HttpTransport", http_transport)
+    monkeypatch.setattr(client, "OpenLineageClient", openlineage_client)
+    monkeypatch.setattr(client, "build_sigv4_session", build_sigv4_session)
+
+    client.build_runtime_openlineage_client("s3://project-bucket/lineage/event")
+
+    config = http_transport.call_args.args[0]
+    assert config.session is session
+    build_sigv4_session.assert_called_once_with("us-east-1")
+    openlineage_client.assert_called_once_with(transport=transport)
+
+
+def test_execute_api_region_rejects_non_aws_hosts() -> None:
+    assert client.execute_api_region("collector-id.execute-api.us-east-1.amazonaws.com") == "us-east-1"
+    assert client.execute_api_region("lineage.example.com") is None
+    assert client.execute_api_region(None) is None
 
 
 def test_runtime_client_rejects_invalid_collector_configuration(monkeypatch) -> None:

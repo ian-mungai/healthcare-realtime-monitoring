@@ -71,10 +71,71 @@ Run the **Deploy** workflow manually with `action=plan`. Review its Terraform ou
 
 ## Shared OpenLineage collector
 
-Set the collector base URL in the ignored Terraform inputs:
+The managed collector runs Marquez on private ECS and PostgreSQL RDS resources. An internal load balancer is reachable only through an IAM-authorized API Gateway endpoint, so no custom domain or public Marquez port is required. S3 remains the fallback when the collector is disabled.
 
-```hcl
-openlineage_collector_url = "https://<openlineage-collector>"
+Bootstrap the ECR repository while the collector remains disabled:
+
+```zsh
+export AWS_PROFILE="${AWS_PROFILE:-healthcare_realtime}"
+export AWS_REGION="${AWS_REGION:-us-east-1}"
+
+terraform -chdir=infra plan \
+  -var-file=development.tfvars \
+  -target=module.openlineage_collector.aws_ecr_repository.marquez \
+  -target=module.openlineage_collector.aws_ecr_lifecycle_policy.marquez \
+  -out=tfplan-openlineage-ecr
+terraform -chdir=infra apply tfplan-openlineage-ecr
 ```
 
-Glue, Athena, dbt, Soda, and Great Expectations then emit to the shared HTTP endpoint `api/v1/lineage`. If the URL is empty, the project retains its existing durable S3 transport. Use HTTPS for a remote collector; plain HTTP is intended only for an isolated local collector.
+Build and push the pinned Marquez image:
+
+```zsh
+export MARQUEZ_REPOSITORY_URL="$(terraform -chdir=infra output -raw openlineage_collector_ecr_repository_url)"
+export MARQUEZ_IMAGE_TAG="sha-$(git rev-parse --short=12 HEAD)"
+
+aws ecr get-login-password --region "$AWS_REGION" |
+  docker login --username AWS --password-stdin "${MARQUEZ_REPOSITORY_URL%%/*}"
+
+docker buildx build \
+  --platform linux/amd64 \
+  --file deploy/marquez/Dockerfile \
+  --tag "${MARQUEZ_REPOSITORY_URL}:${MARQUEZ_IMAGE_TAG}" \
+  --push \
+  deploy/marquez
+```
+
+Enable the managed collector in the ignored Terraform inputs:
+
+```hcl
+enable_openlineage_collector        = true
+openlineage_collector_image_tag     = "sha-<commit>"
+openlineage_collector_desired_count = 1
+openlineage_collector_url           = ""
+```
+
+Update the protected GitHub `TERRAFORM_VARIABLES_JSON` secret with the same values before using the Deploy workflow. Then create and review a full Terraform plan. The plan creates Marquez ECS, encrypted RDS, an internal load balancer, and the IAM-authorized API route; it also updates Glue, MWAA, dbt, and Soda with the collector URL and route-specific `execute-api:Invoke` permission.
+
+After apply, run the analytical workflow. Confirm the collector has namespaces and jobs using the project's SigV4 session:
+
+```zsh
+export OPENLINEAGE_URL="$(terraform -chdir=infra output -raw openlineage_collector_url)"
+
+.venv/bin/python - <<'PY'
+import os
+from urllib.parse import urlparse
+
+from lineage.openlineage.client import build_sigv4_session, execute_api_region
+
+url = os.environ["OPENLINEAGE_URL"].rstrip("/")
+region = execute_api_region(urlparse(url).hostname)
+if region is None:
+    raise SystemExit("Expected the managed API Gateway collector URL")
+response = build_sigv4_session(region).get(f"{url}/api/v1/namespaces", timeout=10)
+response.raise_for_status()
+print(response.json())
+PY
+```
+
+For cost-controlled shutdown, set `openlineage_collector_desired_count = 0` and apply. Stop the Marquez RDS instance from AWS when the analytical workflow is not being demonstrated; AWS automatically restarts a stopped RDS instance after seven days. Restore the database and desired count before running the pipeline.
+
+To use an externally managed collector instead, leave `enable_openlineage_collector = false` and set `openlineage_collector_url` to its HTTPS base URL. External collectors are not automatically assigned AWS SigV4 authentication.

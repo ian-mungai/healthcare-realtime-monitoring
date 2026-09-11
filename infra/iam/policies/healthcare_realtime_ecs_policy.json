@@ -34,7 +34,9 @@
         "ecs:CreateService",
         "ecs:UpdateService",
         "ecs:DeleteService",
+        "ecs:DescribeServiceDeployments",
         "ecs:DescribeServices",
+        "ecs:ListServiceDeployments",
         "ecs:ListServices",
         "ecs:TagResource",
         "ecs:UntagResource"
@@ -43,6 +45,14 @@
         "arn:aws:ecs:${AWS_REGION}:${AWS_ACCOUNT_ID}:service/healthcare-realtime-data-jobs/*",
         "arn:aws:ecs:${AWS_REGION}:${AWS_ACCOUNT_ID}:service/healthcare-realtime-services/*"
       ]
+    },
+    {
+      "Sid": "DescribeMarquezServiceDeployments",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:DescribeServiceDeployments"
+      ],
+      "Resource": "arn:aws:ecs:${AWS_REGION}:${AWS_ACCOUNT_ID}:service-deployment/healthcare-realtime-services/healthcare_realtime_marquez/*"
     },
     {
       "Sid": "ManageHealthcareRealtimeDataJobTaskDefinitions",

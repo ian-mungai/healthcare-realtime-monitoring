@@ -9,7 +9,7 @@ This repository uses synthetic Synthea data and waveform-derived measurements fo
 - FHIR R4 observation ingestion through HAPI FHIR and a protected webhook.
 - Kinesis-based realtime processing with latest-state delivery over IAM-authorized REST and WebSocket APIs.
 - A Streamlit cohort dashboard designed to surface changes across multiple simulated patients.
-- Durable raw landing, Glue/Iceberg processing, Athena validation, dbt models, Soda contracts, and OpenLineage events.
+- Durable raw landing, Glue/Iceberg processing, Athena validation, dbt models, Soda contracts, and OpenLineage events collected by IAM-protected Marquez or stored in S3.
 - Bounded replay through encrypted SQS failure queues and a replay Lambda.
 - Terraform-managed AWS infrastructure, CloudWatch dashboards, alarms, and workload-scoped IAM roles.
 

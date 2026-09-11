@@ -9,12 +9,15 @@
         "apigateway:POST",
         "apigateway:PUT",
         "apigateway:PATCH",
-        "apigateway:DELETE"
+        "apigateway:DELETE",
+        "apigateway:TagResource"
       ],
       "Resource": [
         "arn:aws:apigateway:${AWS_REGION}::/account",
         "arn:aws:apigateway:${AWS_REGION}::/apis",
         "arn:aws:apigateway:${AWS_REGION}::/apis/*",
+        "arn:aws:apigateway:${AWS_REGION}::/vpclinks",
+        "arn:aws:apigateway:${AWS_REGION}::/vpclinks/*",
         "arn:aws:apigateway:${AWS_REGION}::/tags/*"
       ]
     },
@@ -26,6 +29,8 @@
       ],
       "Resource": [
         "arn:aws:execute-api:${AWS_REGION}:${AWS_ACCOUNT_ID}:*/development/GET/patients/*/vitals",
+        "arn:aws:execute-api:${AWS_REGION}:${AWS_ACCOUNT_ID}:*/development/GET/api/v1/*",
+        "arn:aws:execute-api:${AWS_REGION}:${AWS_ACCOUNT_ID}:*/development/POST/api/v1/lineage",
         "arn:aws:execute-api:${AWS_REGION}:${AWS_ACCOUNT_ID}:*/development/$connect"
       ]
     }
