@@ -35,7 +35,9 @@ class WorkflowGenerationTests(unittest.TestCase):
         self.assertEqual(dag.schedule, "0 2 * * *")
         self.assertFalse(dag.catchup)
         self.assertEqual(dag.max_active_runs, 1)
-        self.assertEqual(len(dag.tasks), 6)
+        self.assertEqual(len(dag.tasks), 7)
+        self.assertEqual(dag.task_dict["run_great_expectations"].upstream_task_ids, {"validate_processed_data"})
+        self.assertEqual(dag.task_dict["run_dbt_build"].upstream_task_ids, {"run_great_expectations"})
         self.assertEqual(dag.task_dict["run_soda_checks"].upstream_task_ids, {"run_dbt_build"})
 
     def test_serverless_definition_preserves_contract_and_normalizes_ecs_families(self) -> None:
@@ -47,7 +49,12 @@ class WorkflowGenerationTests(unittest.TestCase):
         self.assertEqual(workflow["max_active_runs"], 1)
         self.assertEqual(tasks["run_dbt_build"]["task_definition"], "healthcare_realtime_dbt")
         self.assertEqual(tasks["run_soda_checks"]["task_definition"], "healthcare_realtime_soda")
-        self.assertEqual(tasks["run_dbt_build"]["dependencies"], ["validate_processed_data"])
+        self.assertEqual(tasks["run_great_expectations"]["task_definition"], "healthcare_realtime_soda")
+        self.assertEqual(
+            tasks["run_great_expectations"]["overrides"],
+            {"containerOverrides": [{"name": "soda", "command": ["python", "/app/validate_processed_observations.py"]}]},
+        )
+        self.assertEqual(tasks["run_dbt_build"]["dependencies"], ["run_great_expectations"])
         self.assertEqual(tasks["validate_processed_data"]["op_kwargs"]["openlineage_url"], "https://lineage.example.com")
 
     def test_task_definition_normalization_accepts_family_revision_and_arn(self) -> None:

@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 from dashboard.state import (
+    analytical_quarantine_fields,
     event_age_seconds,
     freshness_status,
     has_new_event,
@@ -117,3 +118,13 @@ def test_vital_warning_score_handles_malformed_measurements() -> None:
 def test_measurement_delta_compares_snapshots() -> None:
     assert measurement_delta({"heart_rate": 88}, {"heart_rate": 82}, "heart_rate") == 6
     assert measurement_delta({"heart_rate": 88}, None, "heart_rate") is None
+
+
+def test_analytical_quarantine_fields_use_catalog_ranges() -> None:
+    assert analytical_quarantine_fields({"systolic_bp": 261, "diastolic_bp": 29, "heart_rate": 82}) == ("systolic_bp", "diastolic_bp")
+    assert analytical_quarantine_fields({"systolic_bp": 260, "diastolic_bp": 30}) == ()
+
+
+def test_measurement_delta_rejects_malformed_or_non_finite_values() -> None:
+    assert measurement_delta({"heart_rate": "invalid"}, {"heart_rate": 82}, "heart_rate") is None
+    assert measurement_delta({"heart_rate": float("nan")}, {"heart_rate": 82}, "heart_rate") is None

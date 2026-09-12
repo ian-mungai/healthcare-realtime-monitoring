@@ -187,11 +187,17 @@ jobs:
           assert definition["schedule"] == "0 2 * * *"
           assert definition["start_date"] == "2099-01-01T00:00:00+00:00"
           assert definition["max_active_runs"] == 1
-          assert len(tasks) == 6
+          assert len(tasks) == 7
           assert tasks["validate_processed_data"]["operator"] == "airflow.providers.standard.operators.python.PythonOperator"
           assert tasks["validate_processed_data"]["python_callable"] == "lib.athena_lineage.run_athena_validation"
           assert tasks["run_dbt_build"]["task_definition"] == "healthcare_realtime_dbt"
           assert tasks["run_soda_checks"]["task_definition"] == "healthcare_realtime_soda"
+          assert tasks["run_great_expectations"]["task_definition"] == "healthcare_realtime_soda"
+          assert tasks["run_great_expectations"]["overrides"]["containerOverrides"][0]["command"] == [
+              "python",
+              "/app/validate_processed_observations.py",
+          ]
+          assert tasks["run_dbt_build"]["dependencies"] == ["run_great_expectations"]
           assert tasks["validate_processed_data"]["op_kwargs"]["openlineage_url"] == "https://lineage.example.com"
 
           content = path.read_text()
