@@ -59,6 +59,4 @@ def test_soda_configurations_use_environment_namespace() -> None:
 
         connection = config["connection"]
         assert connection["region_name"] == "${env.AWS_REGION}"
-        assert connection["staging_dir"] == (
-            "s3://${env.DATA_BUCKET_NAME}/athena_results/soda/"
-        )
+        assert connection["staging_dir"] == ("s3://${env.DATA_BUCKET_NAME}/athena_results/soda/")

@@ -55,9 +55,7 @@ def test_runtime_client_sigv4_signs_managed_collector(monkeypatch) -> None:
 
     config = http_transport.call_args.args[0]
     assert config.session is session
-    assert urljoin(config.url, config.endpoint) == (
-        "https://collector-id.execute-api.us-east-1.amazonaws.com/development/api/v1/lineage"
-    )
+    assert urljoin(config.url, config.endpoint) == ("https://collector-id.execute-api.us-east-1.amazonaws.com/development/api/v1/lineage")
     build_sigv4_session.assert_called_once_with("us-east-1")
     openlineage_client.assert_called_once_with(transport=transport)
 
