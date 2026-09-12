@@ -1,4 +1,5 @@
 from unittest.mock import Mock
+from urllib.parse import urljoin
 
 import pytest
 
@@ -31,7 +32,7 @@ def test_runtime_client_uses_shared_http_collector(monkeypatch, capsys) -> None:
     client.build_runtime_openlineage_client("s3://project-bucket/lineage/event")
 
     config = http_transport.call_args.args[0]
-    assert config.url == "https://lineage.example.com"
+    assert config.url == "https://lineage.example.com/"
     assert config.endpoint == "api/v1/lineage"
     assert config.session is session
     openlineage_client.assert_called_once_with(transport=transport)
@@ -54,6 +55,9 @@ def test_runtime_client_sigv4_signs_managed_collector(monkeypatch) -> None:
 
     config = http_transport.call_args.args[0]
     assert config.session is session
+    assert urljoin(config.url, config.endpoint) == (
+        "https://collector-id.execute-api.us-east-1.amazonaws.com/development/api/v1/lineage"
+    )
     build_sigv4_session.assert_called_once_with("us-east-1")
     openlineage_client.assert_called_once_with(transport=transport)
 

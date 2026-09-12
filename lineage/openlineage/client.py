@@ -106,4 +106,5 @@ def build_runtime_openlineage_client(event_path: str) -> OpenLineageClient:
         print(f"OpenLineage transport selected: SigV4 HTTP in {region}")
         session = build_sigv4_session(region)
 
-    return OpenLineageClient(transport=HttpTransport(HttpConfig(url=collector_url.rstrip("/"), endpoint=endpoint, session=session)))
+    collector_base_url = f"{collector_url.rstrip('/')}/"
+    return OpenLineageClient(transport=HttpTransport(HttpConfig(url=collector_base_url, endpoint=endpoint, session=session)))
