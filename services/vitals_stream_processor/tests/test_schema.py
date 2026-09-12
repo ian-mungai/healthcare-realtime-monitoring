@@ -5,9 +5,10 @@ from services.vitals_stream_processor.schema import PermanentRecordError, valida
 
 def valid_payload() -> dict:
     return {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "observation_id": "observation_123",
         "patient_id": "schema-test-patient",
+        "encounter_id": "encounter_456",
         "event_timestamp": "2026-08-30T20:30:00Z",
         "source": "schema_unit_test",
         "heart_rate": 80,
@@ -16,6 +17,14 @@ def valid_payload() -> dict:
 
 def test_valid_payload_passes() -> None:
     validate_vitals_payload(valid_payload())
+
+
+def test_legacy_payload_without_encounter_passes() -> None:
+    payload = valid_payload()
+    payload["schema_version"] = "1.0"
+    payload.pop("encounter_id")
+
+    validate_vitals_payload(payload)
 
 
 @pytest.mark.parametrize(
@@ -62,6 +71,23 @@ def test_missing_patient_id_fails() -> None:
     payload.pop("patient_id")
 
     with pytest.raises(ValueError, match="patient_id"):
+        validate_vitals_payload(payload)
+
+
+def test_current_schema_requires_encounter_id() -> None:
+    payload = valid_payload()
+    payload.pop("encounter_id")
+
+    with pytest.raises(PermanentRecordError, match="encounter_id is required"):
+        validate_vitals_payload(payload)
+
+
+@pytest.mark.parametrize("encounter_id", ["", "   ", 123])
+def test_encounter_id_must_be_non_empty_string(encounter_id) -> None:
+    payload = valid_payload()
+    payload["encounter_id"] = encounter_id
+
+    with pytest.raises(PermanentRecordError, match="encounter_id must be a non-empty string"):
         validate_vitals_payload(payload)
 
 

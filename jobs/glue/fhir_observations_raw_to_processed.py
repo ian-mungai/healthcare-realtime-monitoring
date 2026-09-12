@@ -22,6 +22,7 @@ RAW_CHOICE_RESOLUTION_SPECS = [
     ("diastolic_bp", "cast:double"),
     ("observation_id", "cast:string"),
     ("patient_id", "cast:string"),
+    ("encounter_id", "cast:string"),
     ("event_timestamp", "cast:string"),
     ("source", "cast:string"),
 ]
@@ -35,6 +36,7 @@ def create_empty_measurement_dataframe(df: DataFrame) -> DataFrame:
     return df.limit(0).select(
         F.lit(None).cast("string").alias("observation_id"),
         F.lit(None).cast("string").alias("patient_id"),
+        F.lit(None).cast("string").alias("encounter_id"),
         F.lit(None).cast("string").alias("loinc_code"),
         F.lit(None).cast("double").alias("value"),
         F.lit(None).cast("string").alias("unit"),
@@ -67,6 +69,7 @@ def transform_flattened_measurement(df: DataFrame, field_name: str, loinc_code: 
         return create_empty_measurement_dataframe(df)
 
     observation_id = F.col("observation_id") if column_exists(df, "observation_id") else F.lit(None).cast("string")
+    encounter_id = F.col("encounter_id") if column_exists(df, "encounter_id") else F.lit(None).cast("string")
     source = F.col("source") if column_exists(df, "source") else F.lit("fhir_webhook")
     received_at = F.to_timestamp(F.col("received_at")) if column_exists(df, "received_at") else F.to_timestamp(F.col("event_timestamp"))
 
@@ -79,6 +82,7 @@ def transform_flattened_measurement(df: DataFrame, field_name: str, loinc_code: 
         .select(
             F.col("normalized_observation_id").alias("observation_id"),
             F.col("patient_id").cast("string").alias("patient_id"),
+            encounter_id.cast("string").alias("encounter_id"),
             F.lit(loinc_code).alias("loinc_code"),
             F.col(field_name).cast("double").alias("value"),
             F.lit(unit).alias("unit"),
@@ -155,7 +159,19 @@ def split_quality_results(df: DataFrame) -> tuple[DataFrame, DataFrame]:
 
 def select_processed_columns(df: DataFrame) -> DataFrame:
     return df.select(
-        "observation_id", "patient_id", "observation_type", "loinc_code", "value", "unit", "effective_datetime", "received_at", "source", "year", "month", "day"
+        "observation_id",
+        "patient_id",
+        "encounter_id",
+        "observation_type",
+        "loinc_code",
+        "value",
+        "unit",
+        "effective_datetime",
+        "received_at",
+        "source",
+        "year",
+        "month",
+        "day",
     )
 
 
@@ -180,11 +196,20 @@ def deduplicate_latest_records(df: DataFrame) -> DataFrame:
         F.col("source").desc_nulls_last(),
         F.col("value").desc_nulls_last(),
         F.col("patient_id").desc_nulls_last(),
+        F.col("encounter_id").desc_nulls_last(),
         F.col("unit").desc_nulls_last(),
         F.col("observation_type").desc_nulls_last(),
     )
 
     return df.withColumn("_deduplication_rank", F.row_number().over(latest_record)).filter(F.col("_deduplication_rank") == 1).drop("_deduplication_rank")
+
+
+def ensure_encounter_column(spark, database_name: str, table_name: str) -> None:
+    target_table = f"glue_catalog.{database_name}.{table_name}"
+    columns = spark.sql(f"DESCRIBE TABLE {target_table}")
+
+    if columns.filter(F.col("col_name") == "encounter_id").limit(1).count() == 0:
+        spark.sql(f"ALTER TABLE {target_table} ADD COLUMN encounter_id string")
 
 
 def merge_processed_records(spark, valid_df: DataFrame, database_name: str, table_name: str) -> None:
@@ -198,6 +223,8 @@ def merge_processed_records(spark, valid_df: DataFrame, database_name: str, tabl
         deduplicated_df.writeTo(target_table).using("iceberg").tableProperty("format-version", "2").partitionedBy(F.days("effective_datetime")).create()
 
         return
+
+    ensure_encounter_column(spark, database_name, table_name)
 
     deduplicated_df.createOrReplaceTempView("incoming_fhir_measurements")
 

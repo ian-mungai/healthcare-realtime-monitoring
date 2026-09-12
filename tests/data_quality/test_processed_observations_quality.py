@@ -9,6 +9,7 @@ from data_quality.great_expectations.validate_processed_observations import VALI
 EXPECTED_COLUMNS = {
     "observation_id",
     "patient_id",
+    "encounter_id",
     "observation_type",
     "loinc_code",
     "value",
@@ -27,6 +28,7 @@ def test_expected_processed_columns():
     assert EXPECTED_COLUMNS == {
         "observation_id",
         "patient_id",
+        "encounter_id",
         "observation_type",
         "loinc_code",
         "value",

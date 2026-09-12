@@ -1,4 +1,4 @@
-dataset: healthcare_realtime_athena/awsdatacatalog/healthcare_realtime_dbt/dim_patient
+dataset: healthcare_realtime_athena/awsdatacatalog/healthcare_realtime_dbt/dim_date
 
 checks:
   - row_count:
@@ -6,24 +6,24 @@ checks:
         must_be_greater_than: 0
 
 columns:
-  - name: patient_key
+  - name: date_key
     checks:
       - missing:
       - duplicate:
 
-  - name: patient_id
+  - name: full_date
     checks:
       - missing:
       - duplicate:
 
-  - name: patient_reference
+  - name: calendar_year
     checks:
       - missing:
 
-  - name: source_system
+  - name: month_number
     checks:
       - missing:
 
-  - name: data_classification
+  - name: day_of_month
     checks:
       - missing:

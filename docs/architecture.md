@@ -84,7 +84,7 @@ Kinesis Data Firehose writes immutable flattened vital events to the data bucket
 raw event arrival -> Glue processing -> Athena validation -> Great Expectations -> dbt build -> Soda contracts
 ```
 
-dbt produces the staging, fact, and dimension models used for analytical reporting. The deployed workflow uses Athena validation, Great Expectations, dbt tests, and Soda contracts as automated quality gates. Each executed analytical validation emits OpenLineage lifecycle events with a shared run identity. The managed collector runs Marquez on private ECS and RDS resources behind explicit IAM-authorized API Gateway routes. Emitters sign requests using temporary workload credentials; S3 remains the durable fallback when the collector is disabled.
+dbt produces a keyed observation fact and conformed patient, encounter, observation-type, and date dimensions used for analytical reporting. The [analytics star schema](analytics-star-schema.md) defines its grain, keys, join paths, and bus matrix. The deployed workflow uses Athena validation, Great Expectations, dbt tests, and Soda contracts as automated quality gates. Each executed analytical validation emits OpenLineage lifecycle events with a shared run identity. The managed collector runs Marquez on private ECS and RDS resources behind explicit IAM-authorized API Gateway routes. Emitters sign requests using temporary workload credentials; S3 remains the durable fallback when the collector is disabled.
 
 ## Failure and recovery model
 

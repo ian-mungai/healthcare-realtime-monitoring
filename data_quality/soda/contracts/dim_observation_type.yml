@@ -6,6 +6,11 @@ checks:
         must_be_greater_than: 0
 
 columns:
+  - name: observation_type_key
+    checks:
+      - missing:
+      - duplicate:
+
   - name: observation_type
     checks:
       - missing:
@@ -21,7 +26,6 @@ columns:
             - "8462-4"
             - "9279-1"
 
-  - name: observation_count
+  - name: code_system
     checks:
-      - invalid:
-          valid_min: 1
+      - missing:
