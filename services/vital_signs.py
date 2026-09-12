@@ -1,17 +1,23 @@
 import json
+from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
 
-def _catalog_path() -> Path:
+def _catalog_text() -> str:
+    try:
+        return files("config").joinpath("vital_signs.json").read_text(encoding="utf-8")
+    except (ModuleNotFoundError, OSError, TypeError):
+        pass
+
     candidates = (Path(__file__).resolve().parents[1] / "config" / "vital_signs.json", Path(__file__).resolve().parent / "config" / "vital_signs.json")
     for candidate in candidates:
         if candidate.is_file():
-            return candidate
+            return candidate.read_text(encoding="utf-8")
     raise RuntimeError("Vital-sign catalog is not packaged with this runtime")
 
 
-CATALOG: dict[str, Any] = json.loads(_catalog_path().read_text(encoding="utf-8"))
+CATALOG: dict[str, Any] = json.loads(_catalog_text())
 VITAL_SIGNS: tuple[dict[str, Any], ...] = tuple(CATALOG["vital_signs"])
 VITAL_SIGNS_BY_FIELD = {vital["field"]: vital for vital in VITAL_SIGNS}
 VITAL_SIGNS_BY_LOINC = {vital["loinc_code"]: vital for vital in VITAL_SIGNS}

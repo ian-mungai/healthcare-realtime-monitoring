@@ -20,6 +20,7 @@ mkdir -p "${STAGING_DIR}/config"
 cp "${REPO_ROOT}/services/vitals_stream_processor/handler.py" "${STAGING_DIR}/handler.py"
 cp "${REPO_ROOT}/services/vitals_stream_processor/schema.py" "${STAGING_DIR}/schema.py"
 cp "${REPO_ROOT}/services/vital_signs.py" "${STAGING_DIR}/vital_signs.py"
+cp "${REPO_ROOT}/config/__init__.py" "${STAGING_DIR}/config/__init__.py"
 cp "${REPO_ROOT}/config/vital_signs.json" "${STAGING_DIR}/config/vital_signs.json"
 
 find "${STAGING_DIR}" -type d -name "__pycache__" -prune -exec rm -rf {} +
