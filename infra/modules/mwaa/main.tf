@@ -352,10 +352,6 @@ resource "aws_cloudwatch_log_metric_filter" "task_failures" {
     name      = "TaskFailure"
     namespace = "HealthcareRealtime/Pipeline"
     value     = "1"
-
-    dimensions = {
-      WorkflowName = var.workflow_name
-    }
   }
 }
 
@@ -369,10 +365,6 @@ resource "aws_cloudwatch_metric_alarm" "task_failures" {
   evaluation_periods  = 1
   threshold           = 1
   comparison_operator = "GreaterThanOrEqualToThreshold"
-
-  dimensions = {
-    WorkflowName = var.workflow_name
-  }
 
   treat_missing_data = "notBreaching"
   alarm_actions      = [var.alarm_topic_arn]
