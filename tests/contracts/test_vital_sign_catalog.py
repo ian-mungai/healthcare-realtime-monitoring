@@ -1,6 +1,10 @@
 import ast
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
+from zipfile import ZipFile
 
 import yaml
 
@@ -49,6 +53,28 @@ def test_catalog_has_unique_fields_and_loinc_codes() -> None:
     assert CATALOG["schema_version"] == "1.0"
     assert len(fields) == len(set(fields)) == 5
     assert len(loinc_codes) == len(set(loinc_codes)) == 5
+
+
+def test_catalog_loads_from_zipimport_runtime(tmp_path: Path) -> None:
+    archive = tmp_path / "glue_dependencies.zip"
+    members = ("config/__init__.py", "config/vital_signs.json", "services/__init__.py", "services/vital_signs.py")
+
+    with ZipFile(archive, "w") as package:
+        for member in members:
+            package.write(ROOT / member, member)
+
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = str(archive)
+    result = subprocess.run(
+        [sys.executable, "-c", "from services.vital_signs import SUPPORTED_LOINC_CODES; print(len(SUPPORTED_LOINC_CODES))"],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert result.stdout.strip() == "5"
 
 
 def test_python_service_definitions_match_catalog() -> None:

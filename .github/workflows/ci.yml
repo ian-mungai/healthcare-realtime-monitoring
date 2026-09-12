@@ -119,11 +119,13 @@ jobs:
 
           expected = {
               Path("build/lambda/fhir_webhook.zip"): {
+                  "config/__init__.py",
                   "config/vital_signs.json",
                   "services/fhir_webhook/app/lambda_handler.py",
                   "services/vital_signs.py",
               },
               Path("build/lambda/vitals_stream_processor.zip"): {
+                  "config/__init__.py",
                   "config/vital_signs.json",
                   "handler.py",
                   "schema.py",
@@ -133,6 +135,7 @@ jobs:
               Path("build/lambda/vitals_api.zip"): {"handler.py"},
               Path("build/lambda/vitals_replay.zip"): {"handler.py"},
               Path("tmp/healthcare_realtime_lineage.zip"): {
+                  "config/__init__.py",
                   "config/vital_signs.json",
                   "lineage/openlineage/client.py",
                   "lineage/openlineage/glue_lineage.py",
