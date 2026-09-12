@@ -15,6 +15,7 @@ zip -r "$OUTPUT_FILE" \
   lineage \
   services/__init__.py \
   services/vital_signs.py \
+  config/__init__.py \
   config/vital_signs.json \
   -x '*/__pycache__/*' \
   -x '*.pyc' \
