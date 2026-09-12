@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[3]
 
 CONTRACTS_DIR = ROOT / "data_quality" / "soda" / "contracts"
 EXAMPLE_CONFIG = ROOT / "data_quality" / "soda" / "config" / "configuration.example.yml"
+DEPLOY_CONFIG = ROOT / "deploy" / "soda" / "configuration.yml"
 
 EXPECTED_CONTRACT_FILES = {
     "dim_date.yml",
@@ -49,3 +50,15 @@ def test_soda_example_configuration_is_valid_yaml() -> None:
     assert config["name"] == "healthcare_realtime_athena"
     assert config["type"] == "athena"
     assert "connection" in config
+
+
+def test_soda_configurations_use_environment_namespace() -> None:
+    for path in (EXAMPLE_CONFIG, DEPLOY_CONFIG):
+        with path.open(encoding="utf-8") as file:
+            config = yaml.safe_load(file)
+
+        connection = config["connection"]
+        assert connection["region_name"] == "${env.AWS_REGION}"
+        assert connection["staging_dir"] == (
+            "s3://${env.DATA_BUCKET_NAME}/athena_results/soda/"
+        )
