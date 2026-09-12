@@ -2,18 +2,28 @@ version: 2
 
 models:
   - name: dim_patient
-    description: Patient-level observation summary.
+    description: Conformed patient dimension for synthetic FHIR subjects.
 
     columns:
+      - name: patient_key
+        tests:
+          - not_null
+          - unique
+
       - name: patient_id
         tests:
           - not_null
           - unique
 
   - name: dim_observation_type
-    description: Vital-sign observation type dimension.
+    description: Conformed LOINC vital-sign observation type dimension.
 
     columns:
+      - name: observation_type_key
+        tests:
+          - not_null
+          - unique
+
       - name: observation_type
         tests:
           - not_null
@@ -21,11 +31,92 @@ models:
       - name: loinc_code
         tests:
           - not_null
+          - unique
 
-  - name: fact_observations
-    description: Observation-level healthcare fact table.
+  - name: dim_encounter
+    description: Encounter analysis windows derived from the first and last observation timestamps.
 
     columns:
+      - name: encounter_key
+        tests:
+          - not_null
+          - unique
+
+      - name: patient_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_patient')
+                field: patient_key
+
+      - name: patient_id
+        tests:
+          - not_null
+
+      - name: encounter_start_at
+        tests:
+          - not_null
+
+      - name: encounter_end_at
+        tests:
+          - not_null
+
+  - name: dim_date
+    description: Role-playing observation date dimension derived from available event dates.
+
+    columns:
+      - name: date_key
+        tests:
+          - not_null
+          - unique
+
+      - name: full_date
+        tests:
+          - not_null
+          - unique
+
+  - name: fact_observations
+    description: Vital-sign measurement fact at one row per observation ID and LOINC code.
+
+    columns:
+      - name: fact_observation_key
+        tests:
+          - not_null
+          - unique
+
+      - name: patient_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_patient')
+                field: patient_key
+
+      - name: encounter_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_encounter')
+                field: encounter_key
+
+      - name: observation_type_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_observation_type')
+                field: observation_type_key
+
+      - name: date_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+
       - name: observation_id
         tests:
           - not_null
@@ -33,6 +124,9 @@ models:
       - name: patient_id
         tests:
           - not_null
+
+      - name: encounter_id
+        description: Encounter associated with the source FHIR Observation. Historical schema 1.0 rows may be null.
 
       - name: loinc_code
         tests:

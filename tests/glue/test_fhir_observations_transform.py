@@ -23,6 +23,7 @@ def test_glue_supports_flattened_vitals_records() -> None:
     source = read_glue_script()
 
     assert "observation_id" in source
+    assert "encounter_id" in source
     assert "event_timestamp" in source
     assert "heart_rate" in source
     assert "respiratory_rate" in source
@@ -49,7 +50,13 @@ def test_glue_resolves_flattened_measurement_choice_types() -> None:
 def test_glue_resolves_flattened_identity_choice_types() -> None:
     source = read_glue_script()
 
-    expected_specs = ['("observation_id", "cast:string")', '("patient_id", "cast:string")', '("event_timestamp", "cast:string")', '("source", "cast:string")']
+    expected_specs = [
+        '("observation_id", "cast:string")',
+        '("patient_id", "cast:string")',
+        '("encounter_id", "cast:string")',
+        '("event_timestamp", "cast:string")',
+        '("source", "cast:string")',
+    ]
 
     for expected_spec in expected_specs:
         assert expected_spec in source
@@ -90,6 +97,14 @@ def test_glue_preserves_measurement_merge_key() -> None:
     assert "target.loinc_code = source.loinc_code" in source
     assert "target.received_at IS NULL OR source.received_at > target.received_at" in source
     assert "WHEN MATCHED THEN UPDATE SET *" not in source
+
+
+def test_glue_evolves_existing_iceberg_table_for_encounter_context() -> None:
+    source = read_glue_script()
+
+    assert 'F.col("col_name") == "encounter_id"' in source
+    assert "ALTER TABLE {target_table} ADD COLUMN encounter_id string" in source
+    assert '"encounter_id",' in source
 
 
 def test_glue_emits_start_lineage_event() -> None:

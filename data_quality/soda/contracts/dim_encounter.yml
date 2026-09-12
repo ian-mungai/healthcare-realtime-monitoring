@@ -1,4 +1,4 @@
-dataset: healthcare_realtime_athena/awsdatacatalog/healthcare_realtime_dbt/dim_patient
+dataset: healthcare_realtime_athena/awsdatacatalog/healthcare_realtime_dbt/dim_encounter
 
 checks:
   - row_count:
@@ -6,24 +6,23 @@ checks:
         must_be_greater_than: 0
 
 columns:
-  - name: patient_key
+  - name: encounter_key
     checks:
       - missing:
       - duplicate:
+
+  - name: patient_key
+    checks:
+      - missing:
 
   - name: patient_id
     checks:
       - missing:
-      - duplicate:
 
-  - name: patient_reference
+  - name: encounter_start_at
     checks:
       - missing:
 
-  - name: source_system
-    checks:
-      - missing:
-
-  - name: data_classification
+  - name: encounter_end_at
     checks:
       - missing:

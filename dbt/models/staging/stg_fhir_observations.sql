@@ -6,6 +6,7 @@ with source as (
 select
     observation_id,
     patient_id,
+    encounter_id,
     observation_type,
     loinc_code,
     value,

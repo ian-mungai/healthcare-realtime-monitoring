@@ -120,6 +120,11 @@ resource "aws_glue_catalog_table" "quarantined_fhir_observations" {
     }
 
     columns {
+      name = "encounter_id"
+      type = "string"
+    }
+
+    columns {
       name = "observation_type"
       type = "string"
     }

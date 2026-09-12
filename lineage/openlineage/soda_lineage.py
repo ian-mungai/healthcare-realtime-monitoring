@@ -13,6 +13,8 @@ S3_LINEAGE_EVENT_PATH = "s3://<project-data-bucket>/lineage/openlineage/soda/eve
 STAGING_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.stg_fhir_observations")
 DIM_PATIENT_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.dim_patient")
 DIM_OBSERVATION_TYPE_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.dim_observation_type")
+DIM_ENCOUNTER_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.dim_encounter")
+DIM_DATE_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.dim_date")
 FACT_OBSERVATIONS_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.fact_observations")
 
 
@@ -23,7 +25,7 @@ def build_soda_lineage_event(run_state: RunState, lineage_run_id: str) -> RunEve
         run=Run(runId=lineage_run_id),
         job=Job(namespace=NAMESPACE, name="soda_athena_contract_validation"),
         producer=PRODUCER,
-        inputs=[STAGING_DATASET, DIM_PATIENT_DATASET, DIM_OBSERVATION_TYPE_DATASET, FACT_OBSERVATIONS_DATASET],
+        inputs=[STAGING_DATASET, DIM_PATIENT_DATASET, DIM_OBSERVATION_TYPE_DATASET, DIM_ENCOUNTER_DATASET, DIM_DATE_DATASET, FACT_OBSERVATIONS_DATASET],
         outputs=[],
     )
 

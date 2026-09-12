@@ -3,6 +3,8 @@ from uuid import uuid4
 from openlineage.client.event_v2 import RunState
 
 from lineage.openlineage.soda_lineage import (
+    DIM_DATE_DATASET,
+    DIM_ENCOUNTER_DATASET,
     DIM_OBSERVATION_TYPE_DATASET,
     DIM_PATIENT_DATASET,
     FACT_OBSERVATIONS_DATASET,
@@ -21,6 +23,8 @@ def test_soda_input_datasets() -> None:
     assert STAGING_DATASET.name == "healthcare_realtime_dbt.stg_fhir_observations"
     assert DIM_PATIENT_DATASET.name == "healthcare_realtime_dbt.dim_patient"
     assert DIM_OBSERVATION_TYPE_DATASET.name == "healthcare_realtime_dbt.dim_observation_type"
+    assert DIM_ENCOUNTER_DATASET.name == "healthcare_realtime_dbt.dim_encounter"
+    assert DIM_DATE_DATASET.name == "healthcare_realtime_dbt.dim_date"
     assert FACT_OBSERVATIONS_DATASET.name == "healthcare_realtime_dbt.fact_observations"
 
 

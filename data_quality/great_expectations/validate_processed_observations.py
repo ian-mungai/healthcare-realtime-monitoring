@@ -47,6 +47,8 @@ def add_expectations(validator) -> None:
 
     validator.expect_column_values_to_not_be_in_set(column="patient_id", value_set=[""])
 
+    validator.expect_column_to_exist(column="encounter_id")
+
     validator.expect_column_values_to_not_be_null(column="observation_type")
 
     validator.expect_column_values_to_not_be_null(column="loinc_code")

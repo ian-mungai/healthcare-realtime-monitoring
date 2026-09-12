@@ -3,7 +3,7 @@ from typing import Any
 from services.fhir_webhook.app.models import FHIRWebhookEvent
 from services.vital_signs import BLOOD_PRESSURE_PANEL_CODE, DIASTOLIC_CODE, LOINC_VITAL_FIELDS, SYSTOLIC_CODE
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
 
 
 def get_loinc_code(code: dict[str, Any]) -> str | None:
@@ -28,6 +28,21 @@ def get_patient_id(observation: dict[str, Any]) -> str:
     return patient_id
 
 
+def get_encounter_id(observation: dict[str, Any]) -> str:
+    encounter = observation.get("encounter")
+    reference = encounter.get("reference", "") if isinstance(encounter, dict) else ""
+
+    if not isinstance(reference, str) or not reference.startswith("Encounter/"):
+        raise ValueError("FHIR Observation encounter must reference an Encounter")
+
+    encounter_id = reference.removeprefix("Encounter/")
+
+    if not encounter_id:
+        raise ValueError("FHIR Observation encounter identifier is required")
+
+    return encounter_id
+
+
 def get_observation_id(event: FHIRWebhookEvent) -> str:
     if not event.resource_id:
         raise ValueError("FHIR Observation identifier is required")
@@ -47,6 +62,7 @@ def transform_fhir_vitals(event: FHIRWebhookEvent) -> dict[str, Any]:
         "schema_version": SCHEMA_VERSION,
         "observation_id": get_observation_id(event),
         "patient_id": get_patient_id(observation),
+        "encounter_id": get_encounter_id(observation),
         "event_timestamp": get_event_timestamp(observation, event),
         "source": "fhir_webhook",
     }

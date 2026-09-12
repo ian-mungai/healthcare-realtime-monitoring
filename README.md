@@ -120,6 +120,8 @@ Use the [load-testing guide](docs/load-testing.md) to run an isolated test that 
 
 The [data governance guide](docs/data-governance.md) documents datasets, schema controls, quality gates, deduplication, retention, replay, and evidence expectations.
 
+The [analytics star schema](docs/analytics-star-schema.md) defines the observation fact grain, conformed dimensions, key strategy, legacy encounter handling, and bus matrix.
+
 ## Portfolio safety
 
 Public artifacts must use placeholders for account IDs, buckets, endpoints, load balancers, local usernames, secrets, and signed headers. The project’s tracked examples are designed to be reproducible without revealing a deployed environment.

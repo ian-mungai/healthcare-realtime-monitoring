@@ -61,7 +61,7 @@ def test_to_dynamodb_item_converts_floats() -> None:
 
 @patch("services.vitals_stream_processor.handler.latest_vitals_table")
 def test_write_latest_vitals_merges_partial_updates_with_equal_timestamps(latest_vitals_table) -> None:
-    payload = {"patient_id": "1000", "event_timestamp": "2026-08-31T22:42:19Z", "spo2": 97.0, "_replay_attempt": 1}
+    payload = {"patient_id": "1000", "encounter_id": "encounter_456", "event_timestamp": "2026-08-31T22:42:19Z", "spo2": 97.0, "_replay_attempt": 1}
 
     assert write_latest_vitals(payload) is True
 
@@ -70,6 +70,8 @@ def test_write_latest_vitals_merges_partial_updates_with_equal_timestamps(latest
     assert arguments["ConditionExpression"] == "(attribute_not_exists(#event_epoch_0) OR #event_epoch_0 <= :incoming_event_epoch)"
     assert "patient_id" not in arguments["ExpressionAttributeNames"].values()
     assert "spo2" in arguments["ExpressionAttributeNames"].values()
+    assert "encounter_id" in arguments["ExpressionAttributeNames"].values()
+    assert "encounter_456" in arguments["ExpressionAttributeValues"].values()
     assert "spo2_event_timestamp" in arguments["ExpressionAttributeNames"].values()
     assert "REMOVE" in arguments["UpdateExpression"]
     assert "_replay_attempt" in arguments["ExpressionAttributeNames"].values()

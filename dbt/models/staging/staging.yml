@@ -13,6 +13,9 @@ models:
         tests:
           - not_null
 
+      - name: encounter_id
+        description: Encounter associated with the source FHIR Observation. Historical schema 1.0 rows may be null.
+
       - name: observation_type
         tests:
           - not_null
