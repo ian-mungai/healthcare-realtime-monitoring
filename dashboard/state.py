@@ -2,6 +2,8 @@ from datetime import UTC, datetime
 from math import isfinite
 from typing import Any
 
+from services.vital_signs import ANALYTICAL_VITAL_RANGES
+
 VITAL_FIELDS = ("heart_rate", "spo2", "respiratory_rate", "systolic_bp", "diastolic_bp")
 
 
@@ -174,7 +176,29 @@ def patient_priority(vitals: dict[str, Any]) -> tuple[int, str]:
     return 0, "Stable"
 
 
+def analytical_quarantine_fields(vitals: dict[str, Any]) -> tuple[str, ...]:
+    quarantined = []
+    for field, (minimum, maximum) in ANALYTICAL_VITAL_RANGES.items():
+        value = vitals.get(field)
+        if value is None:
+            continue
+        try:
+            measurement = float(value)
+        except (TypeError, ValueError):
+            continue
+        if isfinite(measurement) and not minimum <= measurement <= maximum:
+            quarantined.append(field)
+    return tuple(quarantined)
+
+
 def measurement_delta(current: dict[str, Any], previous: dict[str, Any] | None, field: str) -> float | None:
     if not previous or current.get(field) is None or previous.get(field) is None:
         return None
-    return float(current[field]) - float(previous[field])
+    try:
+        current_measurement = float(current[field])
+        previous_measurement = float(previous[field])
+    except (TypeError, ValueError):
+        return None
+    if not isfinite(current_measurement) or not isfinite(previous_measurement):
+        return None
+    return current_measurement - previous_measurement

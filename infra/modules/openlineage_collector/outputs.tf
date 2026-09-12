@@ -23,6 +23,15 @@ output "ingestion_authorization_type" {
   value       = var.enabled ? aws_apigatewayv2_route.lineage[0].authorization_type : null
 }
 
+output "route_keys" {
+  description = "Explicit IAM-authorized routes exposed by the managed collector."
+  value = var.enabled ? [
+    aws_apigatewayv2_route.lineage[0].route_key,
+    aws_apigatewayv2_route.read_root[0].route_key,
+    aws_apigatewayv2_route.read_proxy[0].route_key,
+  ] : []
+}
+
 output "service_name" {
   description = "Marquez ECS service name, or null when disabled."
   value       = var.enabled ? aws_ecs_service.marquez[0].name : null
@@ -43,4 +52,12 @@ output "database_endpoint" {
   description = "Private Marquez PostgreSQL endpoint, or null when disabled."
   value       = var.enabled ? aws_db_instance.marquez[0].endpoint : null
   sensitive   = true
+}
+
+output "database_recovery" {
+  description = "Managed collector database recovery controls."
+  value = var.enabled ? {
+    backup_retention_days   = aws_db_instance.marquez[0].backup_retention_period
+    final_snapshot_required = !aws_db_instance.marquez[0].skip_final_snapshot
+  } : null
 }

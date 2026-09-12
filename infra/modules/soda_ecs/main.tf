@@ -169,7 +169,8 @@ data "aws_iam_policy_document" "task" {
     ]
 
     resources = [
-      "arn:aws:s3:::${var.data_bucket_name}/lineage/openlineage/soda/*"
+      "arn:aws:s3:::${var.data_bucket_name}/lineage/openlineage/soda/*",
+      "arn:aws:s3:::${var.data_bucket_name}/lineage/openlineage/great_expectations/*"
     ]
   }
 
@@ -211,7 +212,8 @@ data "aws_iam_policy_document" "task" {
     ]
 
     resources = [
-      "arn:aws:s3:::${var.data_bucket_name}/athena_results/soda/*"
+      "arn:aws:s3:::${var.data_bucket_name}/athena_results/soda/*",
+      "arn:aws:s3:::${var.data_bucket_name}/athena_results/great_expectations/*"
     ]
   }
 }
@@ -267,6 +269,10 @@ resource "aws_ecs_task_definition" "soda" {
         {
           name  = "DATA_BUCKET_NAME"
           value = var.data_bucket_name
+        },
+        {
+          name  = "ATHENA_OUTPUT"
+          value = "s3://${var.data_bucket_name}/athena_results/great_expectations/"
         },
         {
           name  = "OPENLINEAGE_URL"

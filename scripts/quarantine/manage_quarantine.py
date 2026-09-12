@@ -7,10 +7,10 @@ from typing import Any
 
 import boto3
 
+from services.vital_signs import VITAL_SIGNS_BY_LOINC
+
 AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
 DEFAULT_PREFIX = "quarantine/fhir_observations/"
-
-LOINC_TO_VITAL = {"8867-4": "heart_rate", "9279-1": "respiratory_rate", "2708-6": "spo2", "8480-6": "systolic_bp", "8462-4": "diastolic_bp"}
 
 
 def iter_quarantine_records(s3_client: Any, bucket: str, prefix: str) -> Iterable[dict[str, Any]]:
@@ -65,9 +65,10 @@ def build_replay_payload(record: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(f"Quarantine record is missing required fields: {', '.join(missing)}")
 
     loinc_code = str(record["loinc_code"])
-    vital_name = LOINC_TO_VITAL.get(loinc_code)
-    if vital_name is None:
+    vital_definition = VITAL_SIGNS_BY_LOINC.get(loinc_code)
+    if vital_definition is None:
         raise ValueError(f"Unsupported quarantine LOINC code: {loinc_code}")
+    vital_name = vital_definition["field"]
 
     value = record["value"]
     if isinstance(value, bool) or not isinstance(value, int | float):

@@ -34,6 +34,7 @@ flowchart LR
         RAW["Versioned S3\nraw FHIR events"]
         GLUE["Glue + Iceberg\nprocessed observations"]
         ATHENA["Athena quality validation"]
+        GX["Great Expectations\nprocessed-table validation"]
         DBT["dbt ECS task\nsilver and gold models"]
         SODA["Soda ECS task\ndata contracts"]
     end
@@ -51,9 +52,10 @@ flowchart LR
     LATEST --> REST --> CLIENT
     PROCESSOR --> WS --> CLIENT
 
-    KINESIS --> FIREHOSE --> RAW --> GLUE --> ATHENA --> DBT --> SODA
+    KINESIS --> FIREHOSE --> RAW --> GLUE --> ATHENA --> GX --> DBT --> SODA
     GLUE --> LINEAGE
     ATHENA --> LINEAGE
+    GX --> LINEAGE
     DBT --> LINEAGE
     SODA --> LINEAGE
 
@@ -76,13 +78,13 @@ The serving model is deliberately cohort-first: the dashboard keeps all simulate
 
 ## Analytical path
 
-Kinesis Data Firehose writes immutable flattened vital events to the data bucket. Glue reads that current event contract, classifies each measurement, exposes rejected rows through an Athena-readable quarantine table, and deduplicates and merges accepted measurements into an Iceberg table. Reviewed quarantine rows can be corrected and republished through the controlled replay utility. The MWAA Serverless workflow coordinates Glue, Athena validation, dbt, and Soda in sequence:
+Kinesis Data Firehose writes immutable flattened vital events to the data bucket. Glue reads that current event contract, classifies each measurement, exposes rejected rows through an Athena-readable quarantine table, and deduplicates and merges accepted measurements into an Iceberg table. Reviewed quarantine rows can be corrected and republished through the controlled replay utility. The native Airflow DAG and MWAA Serverless workflow coordinate Glue, Athena validation, Great Expectations, dbt, and Soda in sequence:
 
 ```text
-raw event arrival -> Glue processing -> Athena validation -> dbt build -> Soda contracts
+raw event arrival -> Glue processing -> Athena validation -> Great Expectations -> dbt build -> Soda contracts
 ```
 
-dbt produces the staging, fact, and dimension models used for analytical reporting. The deployed workflow uses Athena validation, dbt tests, and Soda contracts as its automated quality gates. Great Expectations is invoked separately for ad hoc and pre-release validation of the processed table; it is not an MWAA Serverless workflow task. Each executed analytical validation emits OpenLineage lifecycle events with a shared run identity. The managed collector runs Marquez on private ECS and RDS resources behind an IAM-authorized API Gateway route. Emitters sign requests using temporary workload credentials; S3 remains the durable fallback when the collector is disabled.
+dbt produces the staging, fact, and dimension models used for analytical reporting. The deployed workflow uses Athena validation, Great Expectations, dbt tests, and Soda contracts as automated quality gates. Each executed analytical validation emits OpenLineage lifecycle events with a shared run identity. The managed collector runs Marquez on private ECS and RDS resources behind explicit IAM-authorized API Gateway routes. Emitters sign requests using temporary workload credentials; S3 remains the durable fallback when the collector is disabled.
 
 ## Failure and recovery model
 

@@ -17,6 +17,7 @@ import websocket
 
 from dashboard.aws_auth import get_sigv4_headers
 from dashboard.state import (
+    analytical_quarantine_fields,
     event_age_seconds,
     freshness_status,
     has_new_event,
@@ -48,6 +49,13 @@ LIVE_VITAL_MAX_AGES = {
     "diastolic_bp": BLOOD_PRESSURE_MAX_LIVE_DATA_AGE_SECONDS,
 }
 WARNING_VITAL_MAX_AGES = dict.fromkeys(LIVE_VITAL_MAX_AGES, MAX_LIVE_DATA_AGE_SECONDS)
+VITAL_DISPLAY_NAMES = {
+    "heart_rate": "Heart rate",
+    "spo2": "SpO₂",
+    "respiratory_rate": "Respiratory rate",
+    "systolic_bp": "Systolic BP",
+    "diastolic_bp": "Diastolic BP",
+}
 
 
 def get_initial_vitals(patient_id: str) -> dict[str, Any] | None:
@@ -486,6 +494,13 @@ def warning_vitals(vitals: dict[str, Any], now: datetime | None = None) -> dict[
     return filter_vitals_by_age(vitals, WARNING_VITAL_MAX_AGES, now)
 
 
+def analytical_quarantine_label(vitals: dict[str, Any]) -> str | None:
+    fields = analytical_quarantine_fields(vitals)
+    if not fields:
+        return None
+    return ", ".join(VITAL_DISPLAY_NAMES[field] for field in fields)
+
+
 def render_patient_cards(patient_ages: dict[str, float | None]) -> None:
     ranked_patients = sorted(
         PATIENT_IDS,
@@ -508,6 +523,7 @@ def render_patient_cards(patient_ages: dict[str, float | None]) -> None:
             freshness, freshness_color = patient_freshness(patient_ages[patient_id])
             blood_pressure_age = measurement_age_seconds(raw_vitals, "systolic_bp")
             blood_pressure_timestamp = raw_vitals.get(vital_timestamp_key("systolic_bp")) or raw_vitals.get("event_timestamp")
+            quarantine_label = analytical_quarantine_label(vitals)
 
             with column, st.container(border=True):
                 score_label = "--" if warning_score < 0 else str(warning_score)
@@ -526,6 +542,8 @@ def render_patient_cards(patient_ages: dict[str, float | None]) -> None:
                     f"Data age {format_value(patient_ages[patient_id])} sec"
                 )
                 st.caption(f"BP measured {format_event_time(blood_pressure_timestamp)} · age {format_value(blood_pressure_age)} sec")
+                if quarantine_label:
+                    st.caption(f":orange[Analytics quarantine · {quarantine_label}]")
                 if st.button("View trends", key=f"focus-{patient_id}", width="stretch"):
                     st.session_state.selected_patient_id = patient_id
                     st.rerun()
@@ -578,6 +596,7 @@ def render_dashboard() -> None:
         vitals = live_vitals(raw_vitals)
         blood_pressure_age = measurement_age_seconds(raw_vitals, "systolic_bp")
         blood_pressure_timestamp = raw_vitals.get(vital_timestamp_key("systolic_bp")) or raw_vitals.get("event_timestamp")
+        quarantine_label = analytical_quarantine_label(vitals)
         focus_heading, clear_action = st.columns([5, 1])
         focus_heading.subheader(f"Focused Review · Patient {selected_patient}")
         if clear_action.button("Clear focus", width="stretch"):
@@ -596,6 +615,8 @@ def render_dashboard() -> None:
             f"Latest measurement {format_event_time(vitals.get('event_timestamp'))} · Latest measurement age {format_value(patient_ages[selected_patient])} sec"
         )
         st.caption(f"Blood pressure measured {format_event_time(blood_pressure_timestamp)} · age {format_value(blood_pressure_age)} sec")
+        if quarantine_label:
+            st.warning(f"Analytics quarantine: {quarantine_label} is outside the accepted analytical range. The realtime measurement remains visible.")
         st.divider()
 
     freshness_column, latency_column = st.columns(2)

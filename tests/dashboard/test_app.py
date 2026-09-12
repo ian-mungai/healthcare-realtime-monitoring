@@ -130,6 +130,11 @@ def test_warning_vitals_require_contemporaneous_blood_pressure() -> None:
     assert app.warning_vitals(vitals, now) == {"patient_id": "1000", "heart_rate": 82, "heart_rate_event_timestamp": "2026-09-11T11:59:55Z"}
 
 
+def test_analytical_quarantine_label_identifies_out_of_range_vitals() -> None:
+    assert app.analytical_quarantine_label({"systolic_bp": 261, "diastolic_bp": 29}) == "Systolic BP, Diastolic BP"
+    assert app.analytical_quarantine_label({"systolic_bp": 260, "diastolic_bp": 30}) is None
+
+
 def test_history_dataframe_includes_required_columns(monkeypatch) -> None:
     state = SessionState(cohort_history={"1000": [{"timestamp": datetime(2026, 9, 9, 12, tzinfo=UTC), "patient_id": "1000", "heart_rate": 82}]})
     monkeypatch.setattr(app.st, "session_state", state)

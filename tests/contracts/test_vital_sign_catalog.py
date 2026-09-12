@@ -83,6 +83,7 @@ def test_glue_and_great_expectations_definitions_match_catalog() -> None:
         "jobs/glue/fhir_observations_raw_to_processed.py", "services.vital_signs"
     )
     assert {"SUPPORTED_LOINC_CODES"} <= imported_names("data_quality/great_expectations/validate_processed_observations.py", "services.vital_signs")
+    assert {"VITAL_SIGNS_BY_LOINC"} <= imported_names("scripts/quarantine/manage_quarantine.py", "services.vital_signs")
 
 
 def test_dbt_and_soda_contracts_match_catalog() -> None:
