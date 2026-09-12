@@ -21,10 +21,12 @@ from dashboard.state import (
     freshness_status,
     has_new_event,
     is_stale_event,
+    measurement_age_seconds,
     measurement_delta,
     merge_vitals,
     parse_patient_ids,
     patient_priority,
+    vital_timestamp_key,
 )
 
 PATIENT_IDS = parse_patient_ids(os.getenv("PATIENT_IDS", "1000,1002,1004,1006,1008,1010,1012,1014,1016,1018"))
@@ -35,8 +37,17 @@ REFRESH_INTERVAL_SECONDS = 0.5
 API_REFRESH_INTERVAL_SECONDS = 2.0
 HISTORY_SIZE = 60
 MAX_LIVE_DATA_AGE_SECONDS = 10.0
+BLOOD_PRESSURE_MAX_LIVE_DATA_AGE_SECONDS = float(os.getenv("BLOOD_PRESSURE_MAX_LIVE_DATA_AGE_SECONDS", "310"))
 FRESH_EVENT_AGE_SECONDS = MAX_LIVE_DATA_AGE_SECONDS
 DELAYED_EVENT_AGE_SECONDS = 60.0
+LIVE_VITAL_MAX_AGES = {
+    "heart_rate": MAX_LIVE_DATA_AGE_SECONDS,
+    "spo2": MAX_LIVE_DATA_AGE_SECONDS,
+    "respiratory_rate": MAX_LIVE_DATA_AGE_SECONDS,
+    "systolic_bp": BLOOD_PRESSURE_MAX_LIVE_DATA_AGE_SECONDS,
+    "diastolic_bp": BLOOD_PRESSURE_MAX_LIVE_DATA_AGE_SECONDS,
+}
+WARNING_VITAL_MAX_AGES = dict.fromkeys(LIVE_VITAL_MAX_AGES, MAX_LIVE_DATA_AGE_SECONDS)
 
 
 def get_initial_vitals(patient_id: str) -> dict[str, Any] | None:
@@ -451,10 +462,28 @@ def patient_freshness(age_seconds: float | None) -> tuple[str, str]:
     return status, {"No data": "gray", "Current": "green", "Delayed": "orange", "Stale": "red"}[status]
 
 
-def live_vitals(vitals: dict[str, Any], age_seconds: float | None) -> dict[str, Any]:
-    if age_seconds is None or age_seconds > MAX_LIVE_DATA_AGE_SECONDS:
-        return {"patient_id": vitals.get("patient_id")}
-    return vitals
+def filter_vitals_by_age(vitals: dict[str, Any], maximum_ages: dict[str, float], now: datetime | None = None) -> dict[str, Any]:
+    filtered = {"patient_id": vitals.get("patient_id")}
+    for field, maximum_age in maximum_ages.items():
+        age_seconds = measurement_age_seconds(vitals, field, now)
+        if vitals.get(field) is None or age_seconds is None or age_seconds > maximum_age:
+            continue
+        filtered[field] = vitals[field]
+        timestamp_key = vital_timestamp_key(field)
+        if timestamp := vitals.get(timestamp_key) or vitals.get("event_timestamp"):
+            filtered[timestamp_key] = timestamp
+
+    if len(filtered) > 1 and vitals.get("event_timestamp"):
+        filtered["event_timestamp"] = vitals["event_timestamp"]
+    return filtered
+
+
+def live_vitals(vitals: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
+    return filter_vitals_by_age(vitals, LIVE_VITAL_MAX_AGES, now)
+
+
+def warning_vitals(vitals: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
+    return filter_vitals_by_age(vitals, WARNING_VITAL_MAX_AGES, now)
 
 
 def render_patient_cards(patient_ages: dict[str, float | None]) -> None:
@@ -462,7 +491,7 @@ def render_patient_cards(patient_ages: dict[str, float | None]) -> None:
         PATIENT_IDS,
         key=lambda patient_id: (
             patient_freshness(patient_ages[patient_id])[0] not in {"Stale", "No data"},
-            -patient_priority(st.session_state.cohort_vitals.get(patient_id, {}))[0],
+            -patient_priority(warning_vitals(st.session_state.cohort_vitals.get(patient_id, {})))[0],
             patient_id,
         ),
     )
@@ -471,11 +500,14 @@ def render_patient_cards(patient_ages: dict[str, float | None]) -> None:
     for row_start in range(0, len(ranked_patients), 5):
         columns = st.columns(5)
         for column, patient_id in zip(columns, ranked_patients[row_start : row_start + 5], strict=False):
-            vitals = live_vitals(st.session_state.cohort_vitals.get(patient_id, {}), patient_ages[patient_id])
+            raw_vitals = st.session_state.cohort_vitals.get(patient_id, {})
+            vitals = live_vitals(raw_vitals)
             previous = previous_snapshot(patient_id)
-            warning_score, priority = patient_priority(vitals)
+            warning_score, priority = patient_priority(warning_vitals(raw_vitals))
             priority_color = {"Urgent": "red", "Review": "orange", "Stable": "green", "No data": "gray"}[priority]
             freshness, freshness_color = patient_freshness(patient_ages[patient_id])
+            blood_pressure_age = measurement_age_seconds(raw_vitals, "systolic_bp")
+            blood_pressure_timestamp = raw_vitals.get(vital_timestamp_key("systolic_bp")) or raw_vitals.get("event_timestamp")
 
             with column, st.container(border=True):
                 score_label = "--" if warning_score < 0 else str(warning_score)
@@ -493,6 +525,7 @@ def render_patient_cards(patient_ages: dict[str, float | None]) -> None:
                     f"SpO₂ {format_delta(measurement_delta(vitals, previous, 'spo2'))} · "
                     f"Data age {format_value(patient_ages[patient_id])} sec"
                 )
+                st.caption(f"BP measured {format_event_time(blood_pressure_timestamp)} · age {format_value(blood_pressure_age)} sec")
                 if st.button("View trends", key=f"focus-{patient_id}", width="stretch"):
                     st.session_state.selected_patient_id = patient_id
                     st.rerun()
@@ -503,7 +536,7 @@ def render_dashboard() -> None:
         st.session_state.selected_patient_id = None
     selected_patient = st.session_state.selected_patient_id
     patient_ages = {patient_id: event_age_seconds(st.session_state.cohort_vitals.get(patient_id, {})) for patient_id in PATIENT_IDS}
-    priorities = [patient_priority(live_vitals(st.session_state.cohort_vitals.get(patient_id, {}), patient_ages[patient_id]))[1] for patient_id in PATIENT_IDS]
+    priorities = [patient_priority(warning_vitals(st.session_state.cohort_vitals.get(patient_id, {})))[1] for patient_id in PATIENT_IDS]
     freshness_states = {patient_id: patient_freshness(patient_ages[patient_id])[0] for patient_id in PATIENT_IDS}
     with st.session_state.connection_state_lock:
         connection_state = dict(st.session_state.connection_state)
@@ -541,7 +574,10 @@ def render_dashboard() -> None:
     st.divider()
 
     if selected_patient:
-        vitals = live_vitals(st.session_state.cohort_vitals.get(selected_patient, {}), patient_ages[selected_patient])
+        raw_vitals = st.session_state.cohort_vitals.get(selected_patient, {})
+        vitals = live_vitals(raw_vitals)
+        blood_pressure_age = measurement_age_seconds(raw_vitals, "systolic_bp")
+        blood_pressure_timestamp = raw_vitals.get(vital_timestamp_key("systolic_bp")) or raw_vitals.get("event_timestamp")
         focus_heading, clear_action = st.columns([5, 1])
         focus_heading.subheader(f"Focused Review · Patient {selected_patient}")
         if clear_action.button("Clear focus", width="stretch"):
@@ -559,6 +595,7 @@ def render_dashboard() -> None:
         st.caption(
             f"Latest measurement {format_event_time(vitals.get('event_timestamp'))} · Latest measurement age {format_value(patient_ages[selected_patient])} sec"
         )
+        st.caption(f"Blood pressure measured {format_event_time(blood_pressure_timestamp)} · age {format_value(blood_pressure_age)} sec")
         st.divider()
 
     freshness_column, latency_column = st.columns(2)

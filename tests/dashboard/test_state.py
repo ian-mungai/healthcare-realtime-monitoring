@@ -5,6 +5,7 @@ from dashboard.state import (
     freshness_status,
     has_new_event,
     is_stale_event,
+    measurement_age_seconds,
     measurement_delta,
     merge_vitals,
     parse_event_timestamp,
@@ -80,6 +81,8 @@ def test_event_age_uses_latest_measurement_when_vitals_have_different_cadences()
     vitals = {"heart_rate": 82, "heart_rate_event_timestamp": "2026-09-03T16:00:55Z", "systolic_bp": 119, "systolic_bp_event_timestamp": "2026-09-03T15:50:00Z"}
 
     assert event_age_seconds(vitals, now) == 5
+    assert measurement_age_seconds(vitals, "heart_rate", now) == 5
+    assert measurement_age_seconds(vitals, "systolic_bp", now) == 660
 
 
 def test_parse_event_timestamp_rejects_invalid_values() -> None:

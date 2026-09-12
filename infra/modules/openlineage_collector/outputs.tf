@@ -28,6 +28,17 @@ output "service_name" {
   value       = var.enabled ? aws_ecs_service.marquez[0].name : null
 }
 
+output "alarm_names" {
+  description = "CloudWatch alarms monitoring the managed collector, empty during intentional shutdown."
+  value = concat(
+    aws_cloudwatch_metric_alarm.no_lineage_events[*].alarm_name,
+    aws_cloudwatch_metric_alarm.task_count[*].alarm_name,
+    aws_cloudwatch_metric_alarm.unhealthy_targets[*].alarm_name,
+    aws_cloudwatch_metric_alarm.target_5xx[*].alarm_name,
+    aws_cloudwatch_metric_alarm.api_5xx[*].alarm_name,
+  )
+}
+
 output "database_endpoint" {
   description = "Private Marquez PostgreSQL endpoint, or null when disabled."
   value       = var.enabled ? aws_db_instance.marquez[0].endpoint : null

@@ -94,12 +94,40 @@ def test_dashboard_formatting_and_clinical_status_helpers() -> None:
     assert app.format_event_time("invalid") == "invalid"
 
 
-def test_live_vitals_hides_readings_older_than_ten_seconds() -> None:
-    vitals = {"patient_id": "1000", "heart_rate": 82, "spo2": 98}
+def test_live_vitals_applies_measurement_specific_freshness() -> None:
+    now = datetime(2026, 9, 11, 12, tzinfo=UTC)
+    vitals = {
+        "patient_id": "1000",
+        "event_timestamp": "2026-09-11T11:59:55Z",
+        "heart_rate": 82,
+        "heart_rate_event_timestamp": "2026-09-11T11:59:55Z",
+        "spo2": 98,
+        "spo2_event_timestamp": "2026-09-11T11:59:49Z",
+        "systolic_bp": 119,
+        "systolic_bp_event_timestamp": "2026-09-11T11:55:00Z",
+        "diastolic_bp": 73,
+        "diastolic_bp_event_timestamp": "2026-09-11T11:54:49Z",
+    }
 
-    assert app.live_vitals(vitals, 10) == vitals
-    assert app.live_vitals(vitals, 10.01) == {"patient_id": "1000"}
-    assert app.live_vitals(vitals, None) == {"patient_id": "1000"}
+    filtered = app.live_vitals(vitals, now)
+
+    assert filtered["heart_rate"] == 82
+    assert filtered["systolic_bp"] == 119
+    assert "spo2" not in filtered
+    assert "diastolic_bp" not in filtered
+
+
+def test_warning_vitals_require_contemporaneous_blood_pressure() -> None:
+    now = datetime(2026, 9, 11, 12, tzinfo=UTC)
+    vitals = {
+        "patient_id": "1000",
+        "heart_rate": 82,
+        "heart_rate_event_timestamp": "2026-09-11T11:59:55Z",
+        "systolic_bp": 90,
+        "systolic_bp_event_timestamp": "2026-09-11T11:55:00Z",
+    }
+
+    assert app.warning_vitals(vitals, now) == {"patient_id": "1000", "heart_rate": 82, "heart_rate_event_timestamp": "2026-09-11T11:59:55Z"}
 
 
 def test_history_dataframe_includes_required_columns(monkeypatch) -> None:

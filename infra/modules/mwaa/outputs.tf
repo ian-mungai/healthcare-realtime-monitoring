@@ -21,3 +21,8 @@ output "execution_role_arn" {
 output "source_bucket_name" {
   value = aws_s3_bucket.mwaa.bucket
 }
+
+output "task_failure_alarm_name" {
+  description = "CloudWatch alarm raised when an MWAA Serverless task fails."
+  value       = aws_cloudwatch_metric_alarm.task_failures.alarm_name
+}

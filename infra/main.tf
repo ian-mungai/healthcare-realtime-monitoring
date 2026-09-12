@@ -52,6 +52,7 @@ module "openlineage_collector" {
   image_tag          = var.openlineage_collector_image_tag
   desired_count      = var.openlineage_collector_desired_count
   stage_name         = "development"
+  alarm_topic_arn    = module.realtime_observability.alert_topic_arn
 
   tags = {
     Project     = "healthcare_realtime_monitoring"
@@ -133,6 +134,7 @@ module "mwaa" {
   glue_database_name = module.glue.database_name
 
   openlineage_collector_invoke_arn = local.openlineage_collector_invoke_arn
+  alarm_topic_arn                  = module.realtime_observability.alert_topic_arn
 
   subnet_ids = module.network.private_subnet_ids
 

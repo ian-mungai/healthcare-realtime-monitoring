@@ -47,6 +47,11 @@ variable "stage_name" {
   default     = "development"
 }
 
+variable "alarm_topic_arn" {
+  description = "SNS topic ARN used for managed OpenLineage collector alarms."
+  type        = string
+}
+
 variable "tags" {
   description = "Tags applied to OpenLineage collector resources."
   type        = map(string)

@@ -3,7 +3,7 @@ from uuid import uuid4
 
 from openlineage.client.event_v2 import InputDataset, Job, OutputDataset, Run, RunEvent, RunState
 
-from lineage.openlineage.client import build_local_openlineage_client, build_runtime_openlineage_client
+from lineage.openlineage.client import build_local_openlineage_client, emit_runtime_lineage_event
 from lineage.openlineage.config import lineage_event_path
 
 NAMESPACE = "healthcare-realtime-monitoring"
@@ -37,5 +37,5 @@ def emit_local_dbt_lineage(run_state: RunState, lineage_run_id: str | None = Non
 
 def emit_s3_dbt_lineage(run_state: RunState, lineage_run_id: str | None = None) -> str:
     lineage_run_id = lineage_run_id or str(uuid4())
-    build_runtime_openlineage_client(lineage_event_path("dbt")).emit(build_dbt_lineage_event(run_state, lineage_run_id))
+    emit_runtime_lineage_event(lineage_event_path("dbt"), lambda: build_dbt_lineage_event(run_state, lineage_run_id), "dbt", run_state.value)
     return lineage_run_id
