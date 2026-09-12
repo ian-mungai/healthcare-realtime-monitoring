@@ -48,6 +48,16 @@ with DAG(
         task_id="validate_processed_data", python_callable=run_athena_validation, op_kwargs={"data_bucket_name": RAW_BUCKET, "openlineage_url": OPENLINEAGE_URL}
     )
 
+    run_great_expectations = EcsRunTaskOperator(
+        task_id="run_great_expectations",
+        cluster=DATA_JOBS_ECS_CLUSTER,
+        task_definition=SODA_ECS_TASK_DEFINITION,
+        launch_type="FARGATE",
+        overrides={"containerOverrides": [{"name": "soda", "command": ["python", "/app/validate_processed_observations.py"]}]},
+        wait_for_completion=True,
+        network_configuration={"awsvpcConfiguration": {"subnets": SODA_ECS_SUBNETS, "securityGroups": [SODA_ECS_SECURITY_GROUP], "assignPublicIp": "DISABLED"}},
+    )
+
     run_dbt_build = EcsRunTaskOperator(
         task_id="run_dbt_build",
         cluster=DATA_JOBS_ECS_CLUSTER,
@@ -68,4 +78,4 @@ with DAG(
         network_configuration={"awsvpcConfiguration": {"subnets": SODA_ECS_SUBNETS, "securityGroups": [SODA_ECS_SECURITY_GROUP], "assignPublicIp": "DISABLED"}},
     )
 
-    check_raw_data >> run_glue_job >> wait_for_glue_job >> validate_processed_data >> run_dbt_build >> run_soda_checks
+    check_raw_data >> run_glue_job >> wait_for_glue_job >> validate_processed_data >> run_great_expectations >> run_dbt_build >> run_soda_checks

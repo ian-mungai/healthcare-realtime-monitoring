@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 
 from openlineage.client.event_v2 import RunState
@@ -19,6 +20,7 @@ EXPECTED_COLUMNS = {
     "month",
     "day",
 }
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_expected_processed_columns():
@@ -44,6 +46,14 @@ def test_valid_loinc_codes():
 
 def test_compound_uniqueness_key():
     assert ("observation_id", "loinc_code") == ("observation_id", "loinc_code")
+
+
+def test_quality_container_packages_great_expectations_runner():
+    dockerfile = (ROOT / "deploy/soda/Dockerfile").read_text(encoding="utf-8")
+
+    assert '"great-expectations==${GREAT_EXPECTATIONS_VERSION}"' in dockerfile
+    assert "COPY data_quality/great_expectations/validate_processed_observations.py /app/validate_processed_observations.py" in dockerfile
+    assert 'CMD ["python", "/app/run_soda_with_lineage.py"]' in dockerfile
 
 
 def test_validate_runs_suite_once_and_emits_complete_lineage(monkeypatch):

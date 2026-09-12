@@ -166,12 +166,13 @@ resource "aws_db_instance" "marquez" {
   publicly_accessible = false
   multi_az            = false
 
-  backup_retention_period    = 1
+  backup_retention_period    = 7
   auto_minor_version_upgrade = true
   apply_immediately          = true
 
-  deletion_protection = true
-  skip_final_snapshot = true
+  deletion_protection       = true
+  skip_final_snapshot       = false
+  final_snapshot_identifier = "healthcare-realtime-marquez-final"
 
   tags = var.tags
 }
@@ -439,11 +440,20 @@ resource "aws_apigatewayv2_route" "lineage" {
   authorization_type = "AWS_IAM"
 }
 
-resource "aws_apigatewayv2_route" "api" {
+resource "aws_apigatewayv2_route" "read_root" {
   count = var.enabled ? 1 : 0
 
   api_id             = aws_apigatewayv2_api.marquez[0].id
-  route_key          = "$default"
+  route_key          = "GET /"
+  target             = "integrations/${aws_apigatewayv2_integration.marquez[0].id}"
+  authorization_type = "AWS_IAM"
+}
+
+resource "aws_apigatewayv2_route" "read_proxy" {
+  count = var.enabled ? 1 : 0
+
+  api_id             = aws_apigatewayv2_api.marquez[0].id
+  route_key          = "GET /{proxy+}"
   target             = "integrations/${aws_apigatewayv2_integration.marquez[0].id}"
   authorization_type = "AWS_IAM"
 }

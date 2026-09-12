@@ -116,6 +116,19 @@ run "openlineage_collector_plan" {
   }
 
   assert {
+    condition     = !contains(module.openlineage_collector.route_keys, "$default")
+    error_message = "The managed collector must expose explicit routes instead of a full-API default proxy."
+  }
+
+  assert {
+    condition = (
+      module.openlineage_collector.database_recovery.backup_retention_days >= 7 &&
+      module.openlineage_collector.database_recovery.final_snapshot_required
+    )
+    error_message = "The managed collector database must retain seven days of backups and require a final snapshot."
+  }
+
+  assert {
     condition     = length(module.openlineage_collector.alarm_names) == 5
     error_message = "The running managed collector must expose five actionable health and delivery alarms."
   }
