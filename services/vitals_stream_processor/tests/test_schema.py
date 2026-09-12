@@ -1,6 +1,6 @@
 import pytest
 
-from services.vitals_stream_processor.schema import validate_vitals_payload
+from services.vitals_stream_processor.schema import PermanentRecordError, validate_vitals_payload
 
 
 def valid_payload() -> dict:
@@ -45,7 +45,7 @@ def test_missing_schema_version_fails() -> None:
     payload = valid_payload()
     payload.pop("schema_version")
 
-    with pytest.raises(ValueError, match="schema_version"):
+    with pytest.raises(PermanentRecordError, match="schema_version"):
         validate_vitals_payload(payload)
 
 

@@ -55,6 +55,11 @@ run "plan" {
     ])
     error_message = "Every Lambda deployment package must produce a source code hash."
   }
+
+  assert {
+    condition     = module.mwaa.task_failure_alarm_name == "healthcare-realtime-pipeline-task-failure"
+    error_message = "MWAA Serverless task failures must be connected to an actionable CloudWatch alarm."
+  }
 }
 
 run "github_oidc_plan" {
@@ -108,5 +113,10 @@ run "openlineage_collector_plan" {
   assert {
     condition     = module.openlineage_collector.ingestion_authorization_type == "AWS_IAM"
     error_message = "The managed OpenLineage ingestion route must require AWS IAM authorization."
+  }
+
+  assert {
+    condition     = length(module.openlineage_collector.alarm_names) == 5
+    error_message = "The running managed collector must expose five actionable health and delivery alarms."
   }
 }

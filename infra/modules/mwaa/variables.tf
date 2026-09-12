@@ -29,6 +29,11 @@ variable "openlineage_collector_invoke_arn" {
   default     = ""
 }
 
+variable "alarm_topic_arn" {
+  description = "SNS topic ARN used for MWAA Serverless task-failure notifications."
+  type        = string
+}
+
 variable "subnet_ids" {
   description = "Private subnet IDs available to MWAA Serverless"
   type        = list(string)

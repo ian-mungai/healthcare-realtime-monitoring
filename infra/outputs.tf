@@ -43,6 +43,11 @@ output "openlineage_collector_service_name" {
   value       = module.openlineage_collector.service_name
 }
 
+output "openlineage_collector_alarm_names" {
+  description = "CloudWatch alarms monitoring the managed OpenLineage collector."
+  value       = module.openlineage_collector.alarm_names
+}
+
 output "github_deployment_role_arn" {
   description = "GitHub Actions OIDC deployment role ARN, or null when OIDC is disabled."
   value       = var.enable_github_oidc ? aws_iam_role.github_deployment[0].arn : null
@@ -100,6 +105,11 @@ output "mwaa_execution_role_arn" {
 
 output "mwaa_source_bucket_name" {
   value = module.mwaa.source_bucket_name
+}
+
+output "pipeline_task_failure_alarm_name" {
+  description = "CloudWatch alarm raised when an MWAA Serverless pipeline task fails."
+  value       = module.mwaa.task_failure_alarm_name
 }
 output "dbt_ecr_repository_url" {
   description = "ECR repository containing the dbt image."

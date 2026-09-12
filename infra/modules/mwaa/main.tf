@@ -342,3 +342,41 @@ resource "awscc_mwaaserverless_workflow" "healthcare_realtime" {
     aws_iam_role_policy.mwaa_ecs_access,
   ]
 }
+
+resource "aws_cloudwatch_log_metric_filter" "task_failures" {
+  name           = "healthcare-realtime-mwaa-serverless-task-failures"
+  pattern        = "{ $.event = \"Task finished\" && $.final_state != \"success\" }"
+  log_group_name = "/aws/mwaa-serverless/${basename(awscc_mwaaserverless_workflow.healthcare_realtime.workflow_arn)}/"
+
+  metric_transformation {
+    name      = "TaskFailure"
+    namespace = "HealthcareRealtime/Pipeline"
+    value     = "1"
+
+    dimensions = {
+      WorkflowName = var.workflow_name
+    }
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "task_failures" {
+  alarm_name          = "healthcare-realtime-pipeline-task-failure"
+  alarm_description   = "An MWAA Serverless pipeline task finished without a successful state."
+  namespace           = "HealthcareRealtime/Pipeline"
+  metric_name         = "TaskFailure"
+  statistic           = "Sum"
+  period              = 60
+  evaluation_periods  = 1
+  threshold           = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+
+  dimensions = {
+    WorkflowName = var.workflow_name
+  }
+
+  treat_missing_data = "notBreaching"
+  alarm_actions      = [var.alarm_topic_arn]
+  ok_actions         = [var.alarm_topic_arn]
+
+  tags = var.tags
+}
