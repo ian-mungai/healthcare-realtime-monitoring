@@ -6,18 +6,19 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
 import boto3
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 
 if TYPE_CHECKING:
-    from services.vitals_stream_processor.schema import validate_vitals_payload
+    from services.vitals_stream_processor.schema import PermanentRecordError, validate_vitals_payload
 else:
     try:
-        from services.vitals_stream_processor.schema import validate_vitals_payload
+        from services.vitals_stream_processor.schema import PermanentRecordError, validate_vitals_payload
     except ModuleNotFoundError:
-        from schema import validate_vitals_payload
+        from schema import PermanentRecordError, validate_vitals_payload
 
 AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
 LATEST_VITALS_TABLE = os.getenv("LATEST_VITALS_TABLE", "healthcare-realtime-latest-vitals")
@@ -25,6 +26,7 @@ LOAD_TEST_RESULTS_TABLE = os.getenv("LOAD_TEST_RESULTS_TABLE", "healthcare-realt
 CONNECTIONS_TABLE = os.getenv("CONNECTIONS_TABLE", "healthcare-realtime-websocket-connections")
 IDEMPOTENCY_TABLE = os.getenv("IDEMPOTENCY_TABLE", "healthcare-realtime-processed-observations")
 IDEMPOTENCY_TTL_SECONDS = int(os.getenv("IDEMPOTENCY_TTL_SECONDS", "604800"))
+IDEMPOTENCY_LEASE_SECONDS = int(os.getenv("IDEMPOTENCY_LEASE_SECONDS", "60"))
 WEBSOCKET_ENDPOINT = os.getenv("WEBSOCKET_ENDPOINT", "")
 
 METRIC_NAMESPACE = "HealthcareRealtime/Live"
@@ -39,13 +41,23 @@ idempotency_table = dynamodb.Table(IDEMPOTENCY_TABLE)
 cloudwatch = boto3.client("cloudwatch", region_name=AWS_REGION)
 
 VITAL_FIELDS = ("heart_rate", "spo2", "respiratory_rate", "systolic_bp", "diastolic_bp")
-PERMANENT_RECORD_ERRORS = (ValueError, KeyError, TypeError, binascii.Error)
 
 
 def decode_kinesis_record(record: dict[str, Any]) -> dict[str, Any]:
     encoded_data = record["kinesis"]["data"]
-    decoded_data = base64.b64decode(encoded_data).decode("utf-8")
-    return json.loads(decoded_data)
+    if not isinstance(encoded_data, str):
+        raise PermanentRecordError("Kinesis record data must be a base64-encoded string")
+
+    try:
+        decoded_data = base64.b64decode(encoded_data, validate=True).decode("utf-8")
+        payload = json.loads(decoded_data)
+    except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise PermanentRecordError("Kinesis record data must contain a valid UTF-8 JSON object") from error
+
+    if not isinstance(payload, dict):
+        raise PermanentRecordError("Kinesis record data must contain a JSON object")
+
+    return payload
 
 
 def to_dynamodb_item(payload: dict[str, Any]) -> dict[str, Any]:
@@ -61,25 +73,51 @@ def event_timestamp_epoch_ms(event_timestamp: str) -> int:
     return int(event_time.timestamp() * 1000)
 
 
-def claim_observation(payload: dict[str, Any]) -> bool:
+def claim_observation(payload: dict[str, Any]) -> str | None:
     observation_id = payload["observation_id"]
-    expires_at = int(datetime.now(UTC).timestamp()) + IDEMPOTENCY_TTL_SECONDS
+    now_epoch = int(datetime.now(UTC).timestamp())
+    claim_token = str(uuid4())
 
     try:
         idempotency_table.put_item(
-            Item={"observation_id": observation_id, "expires_at": expires_at}, ConditionExpression="attribute_not_exists(observation_id)"
+            Item={
+                "observation_id": observation_id,
+                "status": "processing",
+                "claim_token": claim_token,
+                "lease_expires_at": now_epoch + IDEMPOTENCY_LEASE_SECONDS,
+                "expires_at": now_epoch + IDEMPOTENCY_TTL_SECONDS,
+            },
+            ConditionExpression="attribute_not_exists(observation_id) OR (#status = :processing AND #lease_expires_at < :now_epoch)",
+            ExpressionAttributeNames={"#status": "status", "#lease_expires_at": "lease_expires_at"},
+            ExpressionAttributeValues={":processing": "processing", ":now_epoch": now_epoch},
         )
     except ClientError as error:
         if error.response["Error"]["Code"] == "ConditionalCheckFailedException":
             print(f"Skipping duplicate observation {observation_id}")
-            return False
+            return None
         raise
 
-    return True
+    return claim_token
 
 
-def release_observation_claim(observation_id: str) -> None:
-    idempotency_table.delete_item(Key={"observation_id": observation_id})
+def complete_observation_claim(observation_id: str, claim_token: str) -> None:
+    expires_at = int(datetime.now(UTC).timestamp()) + IDEMPOTENCY_TTL_SECONDS
+    idempotency_table.update_item(
+        Key={"observation_id": observation_id},
+        UpdateExpression="SET #status = :complete, expires_at = :expires_at REMOVE #claim_token, #lease_expires_at",
+        ConditionExpression="#claim_token = :claim_token",
+        ExpressionAttributeNames={"#status": "status", "#claim_token": "claim_token", "#lease_expires_at": "lease_expires_at"},
+        ExpressionAttributeValues={":complete": "complete", ":expires_at": expires_at, ":claim_token": claim_token},
+    )
+
+
+def release_observation_claim(observation_id: str, claim_token: str) -> None:
+    idempotency_table.delete_item(
+        Key={"observation_id": observation_id},
+        ConditionExpression="#claim_token = :claim_token",
+        ExpressionAttributeNames={"#claim_token": "claim_token"},
+        ExpressionAttributeValues={":claim_token": claim_token},
+    )
 
 
 def write_latest_vitals(payload: dict[str, Any]) -> bool:
@@ -267,6 +305,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, list[dict[s
     for record in event.get("Records", []):
         sequence_number = record["kinesis"]["sequenceNumber"]
         claimed_observation_id: str | None = None
+        claim_token: str | None = None
 
         try:
             payload = decode_kinesis_record(record)
@@ -276,7 +315,8 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, list[dict[s
             is_load_test = payload.get("source") == "load_test"
             metric_namespace = LOAD_TEST_METRIC_NAMESPACE if is_load_test else METRIC_NAMESPACE
 
-            if not claim_observation(payload):
+            claim_token = claim_observation(payload)
+            if claim_token is None:
                 metrics_by_namespace.setdefault(metric_namespace, []).extend(
                     [{"MetricName": "RecordsProcessed", "Value": 1, "Unit": "Count"}, {"MetricName": "DuplicatesSkipped", "Value": 1, "Unit": "Count"}]
                 )
@@ -287,6 +327,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, list[dict[s
             if is_load_test:
                 write_load_test_result(payload)
             elif not write_latest_vitals(payload):
+                complete_observation_claim(claimed_observation_id, claim_token)
                 metrics_by_namespace.setdefault(metric_namespace, []).extend(
                     [{"MetricName": "RecordsProcessed", "Value": 1, "Unit": "Count"}, {"MetricName": "StaleRecordsSkipped", "Value": 1, "Unit": "Count"}]
                 )
@@ -295,18 +336,19 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, list[dict[s
             deliveries, delivery_failures, active_connections = push_vitals(payload)
 
             metric_data = build_metric_data(payload, deliveries, delivery_failures, active_connections)
+            complete_observation_claim(claimed_observation_id, claim_token)
 
             metrics_by_namespace.setdefault(metric_namespace, []).extend(metric_data)
 
-        except PERMANENT_RECORD_ERRORS as error:
+        except PermanentRecordError as error:
             print(f"Rejected permanent Kinesis record {sequence_number}: {error}")
             metrics_by_namespace.setdefault(METRIC_NAMESPACE, []).append({"MetricName": "PermanentRecordsRejected", "Value": 1, "Unit": "Count"})
         except Exception as error:
             print(f"Failed Kinesis record {sequence_number}: {error}")
 
-            if claimed_observation_id:
+            if claimed_observation_id and claim_token:
                 try:
-                    release_observation_claim(claimed_observation_id)
+                    release_observation_claim(claimed_observation_id, claim_token)
                 except Exception as release_error:
                     print(f"Failed to release idempotency claim for {claimed_observation_id}: {release_error}")
 

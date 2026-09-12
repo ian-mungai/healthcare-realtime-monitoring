@@ -11,6 +11,7 @@ from botocore.exceptions import ClientError
 from services.vitals_stream_processor.handler import (
     calculate_latency_ms,
     claim_observation,
+    complete_observation_claim,
     decode_kinesis_record,
     get_patient_connections,
     lambda_handler,
@@ -19,6 +20,7 @@ from services.vitals_stream_processor.handler import (
     write_latest_vitals,
     write_load_test_result,
 )
+from services.vitals_stream_processor.schema import PermanentRecordError
 
 
 def build_kinesis_record(payload: dict, sequence_number: str = "1") -> dict:
@@ -40,6 +42,12 @@ def test_decode_kinesis_record() -> None:
     }
 
     assert decode_kinesis_record(build_kinesis_record(payload)) == payload
+
+
+@pytest.mark.parametrize("encoded_data", ["not-base64!", base64.b64encode(b"not-json").decode("utf-8"), base64.b64encode(b"[]").decode("utf-8")])
+def test_decode_kinesis_record_rejects_malformed_payload(encoded_data: str) -> None:
+    with pytest.raises(PermanentRecordError):
+        decode_kinesis_record({"kinesis": {"data": encoded_data}})
 
 
 def test_to_dynamodb_item_converts_floats() -> None:
@@ -74,7 +82,34 @@ def test_claim_observation_rejects_duplicate_observation_id(idempotency_table) -
     error_response = {"Error": {"Code": "ConditionalCheckFailedException", "Message": "duplicate"}, "ResponseMetadata": {"HTTPStatusCode": 400}}
     idempotency_table.put_item.side_effect = ClientError(cast(Any, error_response), "PutItem")
 
-    assert claim_observation({"observation_id": "observation-1"}) is False
+    assert claim_observation({"observation_id": "observation-1"}) is None
+
+
+@patch("services.vitals_stream_processor.handler.uuid4", return_value="claim-token")
+@patch("services.vitals_stream_processor.handler.idempotency_table")
+def test_claim_observation_uses_expiring_owner_lease(idempotency_table, _uuid4) -> None:
+    current_time = datetime(2026, 9, 11, 12, tzinfo=UTC)
+
+    with patch("services.vitals_stream_processor.handler.datetime") as mocked_datetime:
+        mocked_datetime.now.return_value = current_time
+        assert claim_observation({"observation_id": "observation-1"}) == "claim-token"
+
+    arguments = idempotency_table.put_item.call_args.kwargs
+    assert arguments["Item"]["status"] == "processing"
+    assert arguments["Item"]["claim_token"] == "claim-token"
+    assert arguments["Item"]["lease_expires_at"] == int(current_time.timestamp()) + 60
+    assert "#lease_expires_at < :now_epoch" in arguments["ConditionExpression"]
+
+
+@patch("services.vitals_stream_processor.handler.idempotency_table")
+def test_complete_observation_claim_requires_owner_token(idempotency_table) -> None:
+    complete_observation_claim("observation-1", "claim-token")
+
+    arguments = idempotency_table.update_item.call_args.kwargs
+    assert arguments["Key"] == {"observation_id": "observation-1"}
+    assert arguments["ConditionExpression"] == "#claim_token = :claim_token"
+    assert arguments["ExpressionAttributeValues"][":claim_token"] == "claim-token"
+    assert "REMOVE #claim_token, #lease_expires_at" in arguments["UpdateExpression"]
 
 
 @patch("services.vitals_stream_processor.handler.latest_vitals_table")
@@ -108,10 +143,11 @@ def test_write_load_test_result_records_processing_time_and_expiry(load_test_res
 
 
 @patch("services.vitals_stream_processor.handler.emit_metrics")
+@patch("services.vitals_stream_processor.handler.complete_observation_claim")
 @patch("services.vitals_stream_processor.handler.push_vitals")
 @patch("services.vitals_stream_processor.handler.write_latest_vitals")
-@patch("services.vitals_stream_processor.handler.claim_observation", return_value=True)
-def test_lambda_handler_processes_record(claim_observation, write_latest_vitals, push_vitals, emit_metrics) -> None:
+@patch("services.vitals_stream_processor.handler.claim_observation", return_value="claim-token")
+def test_lambda_handler_processes_record(claim_observation, write_latest_vitals, push_vitals, complete_observation_claim, emit_metrics) -> None:
     payload = {
         "schema_version": "1.0",
         "observation_id": "observation_123",
@@ -126,17 +162,21 @@ def test_lambda_handler_processes_record(claim_observation, write_latest_vitals,
 
     write_latest_vitals.assert_called_once_with(payload)
     push_vitals.assert_called_once_with(payload)
+    complete_observation_claim.assert_called_once_with("observation_123", "claim-token")
     emit_metrics.assert_called_once()
 
     assert result == {"batchItemFailures": []}
 
 
 @patch("services.vitals_stream_processor.handler.emit_metrics")
+@patch("services.vitals_stream_processor.handler.complete_observation_claim")
 @patch("services.vitals_stream_processor.handler.push_vitals")
 @patch("services.vitals_stream_processor.handler.write_latest_vitals")
 @patch("services.vitals_stream_processor.handler.write_load_test_result")
-@patch("services.vitals_stream_processor.handler.claim_observation", return_value=True)
-def test_lambda_handler_isolates_load_test_record(claim_observation, write_load_test_result, write_latest_vitals, push_vitals, emit_metrics) -> None:
+@patch("services.vitals_stream_processor.handler.claim_observation", return_value="claim-token")
+def test_lambda_handler_isolates_load_test_record(
+    claim_observation, write_load_test_result, write_latest_vitals, push_vitals, complete_observation_claim, emit_metrics
+) -> None:
     payload = {
         "schema_version": "1.0",
         "observation_id": "load-test-run-01-00000001",
@@ -152,6 +192,7 @@ def test_lambda_handler_isolates_load_test_record(claim_observation, write_load_
     write_load_test_result.assert_called_once_with(payload)
     write_latest_vitals.assert_not_called()
     push_vitals.assert_called_once_with(payload)
+    complete_observation_claim.assert_called_once_with("load-test-run-01-00000001", "claim-token")
     metric_data = emit_metrics.call_args.args[0]
     assert {metric["MetricName"] for metric in metric_data} == {
         "RecordsProcessed",
@@ -165,10 +206,11 @@ def test_lambda_handler_isolates_load_test_record(claim_observation, write_load_
 
 
 @patch("services.vitals_stream_processor.handler.release_observation_claim")
-@patch("services.vitals_stream_processor.handler.claim_observation", return_value=True)
+@patch("services.vitals_stream_processor.handler.claim_observation", return_value="claim-token")
 @patch("services.vitals_stream_processor.handler.write_latest_vitals")
-def test_lambda_handler_reports_failed_record(write_latest_vitals, claim_observation, release_observation_claim) -> None:
-    write_latest_vitals.side_effect = RuntimeError("DynamoDB failure")
+@pytest.mark.parametrize("error", [RuntimeError("DynamoDB failure"), KeyError("response field"), TypeError("implementation failure")])
+def test_lambda_handler_reports_failed_record(write_latest_vitals, claim_observation, release_observation_claim, error: Exception) -> None:
+    write_latest_vitals.side_effect = error
 
     payload = {
         "schema_version": "1.0",
@@ -183,7 +225,7 @@ def test_lambda_handler_reports_failed_record(write_latest_vitals, claim_observa
     result = lambda_handler(event, None)
 
     assert result == {"batchItemFailures": [{"itemIdentifier": "12345"}]}
-    release_observation_claim.assert_called_once_with("observation-1")
+    release_observation_claim.assert_called_once_with("observation-1", "claim-token")
 
 
 @patch("services.vitals_stream_processor.handler.emit_metrics")
@@ -198,7 +240,7 @@ def test_lambda_handler_drops_permanently_invalid_record(emit_metrics) -> None:
 
 
 @patch("services.vitals_stream_processor.handler.emit_metrics")
-@patch("services.vitals_stream_processor.handler.claim_observation", return_value=False)
+@patch("services.vitals_stream_processor.handler.claim_observation", return_value=None)
 def test_lambda_handler_batches_duplicate_metrics_once(claim_observation, emit_metrics) -> None:
     payload = {
         "schema_version": "1.0",

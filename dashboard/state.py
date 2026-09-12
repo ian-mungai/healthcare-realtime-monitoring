@@ -96,6 +96,13 @@ def event_age_seconds(vitals: dict[str, Any], now: datetime | None = None) -> fl
     return min(max((current_time - timestamp).total_seconds(), 0.0) for timestamp in event_timestamps)
 
 
+def measurement_age_seconds(vitals: dict[str, Any], field: str, now: datetime | None = None) -> float | None:
+    timestamp = parse_event_timestamp(vitals.get(vital_timestamp_key(field)) or vitals.get("event_timestamp"))
+    if timestamp is None:
+        return None
+    return max(((now or datetime.now(UTC)) - timestamp).total_seconds(), 0.0)
+
+
 def freshness_status(age_seconds: float | None, fresh_threshold_seconds: float, delayed_threshold_seconds: float) -> str:
     if age_seconds is None:
         return "No data"
