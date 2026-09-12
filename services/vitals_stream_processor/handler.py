@@ -133,7 +133,7 @@ def write_latest_vitals(payload: dict[str, Any]) -> bool:
     incoming_epoch_ms = event_timestamp_epoch_ms(event_timestamp)
 
     item = to_dynamodb_item(payload)
-    update_values: dict[str, Any] = {key: item[key] for key in ("schema_version", "source", "source_record_id") if key in item}
+    update_values: dict[str, Any] = {key: item[key] for key in ("schema_version", "source", "source_record_id", "encounter_id") if key in item}
     present_vitals = [field for field in VITAL_FIELDS if field in item]
 
     for field in present_vitals:

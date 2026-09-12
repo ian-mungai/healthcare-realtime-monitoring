@@ -12,6 +12,27 @@ checks:
         must_be: 0
 
 columns:
+  - name: fact_observation_key
+    checks:
+      - missing:
+      - duplicate:
+
+  - name: patient_key
+    checks:
+      - missing:
+
+  - name: encounter_key
+    checks:
+      - missing:
+
+  - name: observation_type_key
+    checks:
+      - missing:
+
+  - name: date_key
+    checks:
+      - missing:
+
   - name: observation_id
     checks:
       - missing:

@@ -18,9 +18,11 @@ BIDMC measurements -> FHIR Observation -> Kinesis -> realtime serving
 | `raw/fhir_observations/` | Amazon S3 | Immutable raw FHIR event landing area |
 | `healthcare_realtime.processed_fhir_observations` | Glue Catalog / Iceberg | Validated, deduplicated observations |
 | `healthcare_realtime_dbt.stg_fhir_observations` | Athena / dbt | Clean analytical staging model |
-| `healthcare_realtime_dbt.fact_observations` | Athena / dbt | Observation-level fact model |
-| `healthcare_realtime_dbt.dim_patient` | Athena / dbt | Patient-level observation summary |
-| `healthcare_realtime_dbt.dim_observation_type` | Athena / dbt | LOINC observation-type summary |
+| `healthcare_realtime_dbt.fact_observations` | Athena / dbt | Keyed vital-sign measurement fact |
+| `healthcare_realtime_dbt.dim_patient` | Athena / dbt | Conformed synthetic patient dimension |
+| `healthcare_realtime_dbt.dim_encounter` | Athena / dbt | Encounter analysis-window dimension |
+| `healthcare_realtime_dbt.dim_observation_type` | Athena / dbt | Conformed LOINC observation-type dimension |
+| `healthcare_realtime_dbt.dim_date` | Athena / dbt | Observation calendar dimension |
 | `healthcare-realtime-latest-vitals` | DynamoDB | Latest accepted realtime state by patient |
 | `quarantine/fhir_observations/` | Amazon S3 | Rejected analytical records with reasons |
 | `healthcare_realtime.quarantined_fhir_observations` | Glue Catalog / Athena | Queryable view of quarantined records |
@@ -30,7 +32,7 @@ Formal business owners and data stewards are not currently encoded in repository
 
 ## Standards and schema
 
-FHIR R4 `Observation` resources are transformed into versioned realtime payloads and analytical measurement rows. Realtime payloads require schema version `1.0`, a nonempty observation ID, patient ID, source, ISO-8601 event timestamp, and at least one supported numeric vital.
+FHIR R4 `Observation` resources are transformed into versioned realtime payloads and analytical measurement rows. Current schema `1.1` payloads require a nonempty observation ID, patient ID, encounter ID, source, ISO-8601 event timestamp, and at least one supported numeric vital. Legacy schema `1.0` payloads remain replay-compatible without an encounter ID.
 
 Supported LOINC codes are:
 
@@ -57,9 +59,9 @@ Glue classifies every analytical measurement candidate before writing it. Record
 
 Rejected records are appended to `s3://<project-data-bucket>/quarantine/fhir_observations/` with `rejection_reason` and `quarantined_at`. The external Glue table `healthcare_realtime.quarantined_fhir_observations` exposes those JSON records to Athena. Per-run counts are appended under `metrics/glue/`.
 
-Great Expectations validates the processed Iceberg table for required fields, allowed LOINC codes, and uniqueness of `observation_id` plus `loinc_code`. Every automated dbt build applies model-level not-null, uniqueness, and accepted-value tests, including a singular test for the `fact_observations` compound grain. Soda contracts independently verify that the staging, fact, and dimension tables are nonempty, satisfy their column constraints, and preserve the fact-table compound grain.
+Great Expectations validates the processed Iceberg table for required fields, allowed LOINC codes, and uniqueness of `observation_id` plus `loinc_code`. Every automated dbt build applies model-level not-null, uniqueness, relationship, and accepted-value tests, including a singular test for the `fact_observations` compound grain. Soda contracts independently verify that the staging, fact, and dimension tables are nonempty, satisfy their key constraints, and preserve the fact-table compound grain. The conformed dimensions and bus matrix are defined in [analytics-star-schema.md](analytics-star-schema.md).
 
-Verified quality checkpoint on 2026-09-03:
+Historical quality checkpoint before the star-schema expansion, verified on 2026-09-03:
 
 - Great Expectations: 15 of 15 expectations passed.
 - Soda: 26 of 26 contract checks passed across four datasets.

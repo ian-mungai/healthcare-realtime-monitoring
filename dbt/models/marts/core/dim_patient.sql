@@ -1,8 +1,9 @@
 select
+    {{ stable_key("patient_id") }} as patient_key,
     patient_id,
-    min(effective_datetime) as first_observation_at,
-    max(effective_datetime) as latest_observation_at,
-    count(*) as observation_row_count,
-    count(distinct observation_id) as observation_count
+    concat('Patient/', patient_id) as patient_reference,
+    'HAPI FHIR R4' as source_system,
+    'synthetic' as data_classification
 from {{ ref('stg_fhir_observations') }}
+where patient_id is not null
 group by patient_id

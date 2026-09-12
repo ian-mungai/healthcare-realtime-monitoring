@@ -33,3 +33,11 @@ def test_dbt_build_discovers_singular_tests() -> None:
 
     assert project["test-paths"] == ["tests"]
     assert 'CMD ["build", "--project-dir", "/app/dbt", "--profiles-dir", "/app"]' in dockerfile
+
+
+def test_dbt_models_preserve_encounter_context() -> None:
+    staging_model = (ROOT / "dbt/models/staging/stg_fhir_observations.sql").read_text()
+    fact_model = (ROOT / "dbt/models/marts/core/fact_observations.sql").read_text()
+
+    assert "encounter_id" in staging_model
+    assert "encounter_id" in fact_model

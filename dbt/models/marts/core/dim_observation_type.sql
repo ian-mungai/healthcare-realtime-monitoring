@@ -1,11 +1,11 @@
 select
+    {{ stable_key("loinc_code") }} as observation_type_key,
     observation_type,
     loinc_code,
     unit,
-    count(*) as observation_count,
-    min(effective_datetime) as first_observation_at,
-    max(effective_datetime) as latest_observation_at
+    'http://loinc.org' as code_system
 from {{ ref('stg_fhir_observations') }}
+where loinc_code is not null
 group by
     observation_type,
     loinc_code,

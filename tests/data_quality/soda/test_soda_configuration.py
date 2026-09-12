@@ -7,7 +7,14 @@ ROOT = Path(__file__).resolve().parents[3]
 CONTRACTS_DIR = ROOT / "data_quality" / "soda" / "contracts"
 EXAMPLE_CONFIG = ROOT / "data_quality" / "soda" / "config" / "configuration.example.yml"
 
-EXPECTED_CONTRACT_FILES = {"dim_observation_type.yml", "dim_patient.yml", "fact_observations.yml", "stg_fhir_observations.yml"}
+EXPECTED_CONTRACT_FILES = {
+    "dim_date.yml",
+    "dim_encounter.yml",
+    "dim_observation_type.yml",
+    "dim_patient.yml",
+    "fact_observations.yml",
+    "stg_fhir_observations.yml",
+}
 
 
 def test_soda_contract_files_exist() -> None:

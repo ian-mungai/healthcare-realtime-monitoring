@@ -1,6 +1,12 @@
 select
+    {{ stable_key("concat(observation_id, '|', loinc_code)") }} as fact_observation_key,
+    {{ stable_key("patient_id") }} as patient_key,
+    {{ stable_key("coalesce(nullif(trim(encounter_id), ''), concat('__legacy_unknown__|', patient_id))") }} as encounter_key,
+    {{ stable_key("loinc_code") }} as observation_type_key,
+    cast(date_format(cast(effective_datetime as timestamp), '%Y%m%d') as integer) as date_key,
     observation_id,
     patient_id,
+    encounter_id,
     observation_type,
     loinc_code,
     value,

@@ -7,7 +7,9 @@ try:
 except ModuleNotFoundError:
     vital_signs = import_module("vital_signs")
 
-SCHEMA_VERSION = "1.0"
+LEGACY_SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
+SUPPORTED_SCHEMA_VERSIONS = {LEGACY_SCHEMA_VERSION, SCHEMA_VERSION}
 
 VITAL_RANGES: dict[str, tuple[float, float]] = vital_signs.REALTIME_VITAL_RANGES
 
@@ -42,8 +44,9 @@ def validate_numeric_vital(name: str, value: Any) -> None:
 def validate_vitals_payload(payload: dict[str, Any]) -> None:
     schema_version = payload.get("schema_version")
 
-    if schema_version != SCHEMA_VERSION:
-        raise PermanentRecordError(f"schema_version must be {SCHEMA_VERSION}")
+    if schema_version not in SUPPORTED_SCHEMA_VERSIONS:
+        supported_versions = ", ".join(sorted(SUPPORTED_SCHEMA_VERSIONS))
+        raise PermanentRecordError(f"schema_version must be one of: {supported_versions}")
 
     observation_id = payload.get("observation_id")
 
@@ -54,6 +57,14 @@ def validate_vitals_payload(payload: dict[str, Any]) -> None:
 
     if not isinstance(patient_id, str) or not patient_id.strip():
         raise PermanentRecordError("patient_id must be a non-empty string")
+
+    encounter_id = payload.get("encounter_id")
+
+    if schema_version == SCHEMA_VERSION and encounter_id is None:
+        raise PermanentRecordError(f"encounter_id is required for schema_version {SCHEMA_VERSION}")
+
+    if encounter_id is not None and (not isinstance(encounter_id, str) or not encounter_id.strip()):
+        raise PermanentRecordError("encounter_id must be a non-empty string")
 
     source = payload.get("source")
 
