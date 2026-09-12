@@ -141,7 +141,7 @@ def add_quality_result(df: DataFrame) -> DataFrame:
         F.when(F.col("observation_id").isNull() | (F.length(F.trim(F.col("observation_id"))) == 0), F.lit("missing_observation_id"))
         .when(F.col("patient_id").isNull() | (F.length(F.trim(F.col("patient_id"))) == 0), F.lit("missing_patient_id"))
         .when(F.col("loinc_code").isNull() | (F.length(F.trim(F.col("loinc_code"))) == 0), F.lit("missing_loinc_code"))
-        .when(~F.col("loinc_code").isin(SUPPORTED_LOINC_CODES), F.lit("unsupported_loinc_code"))
+        .when(~F.col("loinc_code").isin(*SUPPORTED_LOINC_CODES), F.lit("unsupported_loinc_code"))
         .when(F.col("value").isNull(), F.lit("missing_value"))
         .when(F.col("effective_datetime").isNull(), F.lit("missing_effective_datetime"))
         .when(~range_valid, F.lit("physiological_range_violation"))

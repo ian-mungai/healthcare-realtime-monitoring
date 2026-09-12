@@ -32,6 +32,13 @@ def test_glue_supports_flattened_vitals_records() -> None:
     assert "diastolic_bp" in source
 
 
+def test_glue_expands_supported_loinc_codes_for_spark_isin() -> None:
+    source = read_glue_script()
+
+    assert ".isin(*SUPPORTED_LOINC_CODES)" in source
+    assert ".isin(SUPPORTED_LOINC_CODES)" not in source
+
+
 def test_glue_resolves_flattened_measurement_choice_types() -> None:
     source = read_glue_script()
 
