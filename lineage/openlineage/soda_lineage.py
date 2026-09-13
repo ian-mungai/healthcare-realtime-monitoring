@@ -18,6 +18,7 @@ DIM_DATE_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime_
 DIM_PROVIDER_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.dim_provider")
 FACT_OBSERVATIONS_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.fact_observations")
 ENCOUNTER_FEATURES_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.fct_encounter_vital_features")
+ML_TRAINING_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.ml_training_dataset")
 
 
 def build_soda_lineage_event(run_state: RunState, lineage_run_id: str) -> RunEvent:
@@ -36,6 +37,7 @@ def build_soda_lineage_event(run_state: RunState, lineage_run_id: str) -> RunEve
             DIM_PROVIDER_DATASET,
             FACT_OBSERVATIONS_DATASET,
             ENCOUNTER_FEATURES_DATASET,
+            ML_TRAINING_DATASET,
         ],
         outputs=[],
     )

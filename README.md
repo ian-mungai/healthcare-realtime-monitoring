@@ -122,6 +122,8 @@ The [data governance guide](docs/data-governance.md) documents datasets, schema 
 
 The [analytics star schema](docs/analytics-star-schema.md) defines the observation fact grain, conformed dimensions, key strategy, legacy encounter handling, and bus matrix.
 
+The [model-training guide](docs/model-training.md) defines the leakage-safe training dataset and reproducible logistic-regression baseline.
+
 ## Portfolio safety
 
 Public artifacts must use placeholders for account IDs, buckets, endpoints, load balancers, local usernames, secrets, and signed headers. The project’s tracked examples are designed to be reproducible without revealing a deployed environment.

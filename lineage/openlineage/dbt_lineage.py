@@ -19,6 +19,7 @@ DIM_DATE_DATASET = OutputDataset(namespace="aws-glue", name="healthcare_realtime
 DIM_PROVIDER_DATASET = OutputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.dim_provider")
 FACT_OBSERVATIONS_DATASET = OutputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.fact_observations")
 ENCOUNTER_FEATURES_DATASET = OutputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.fct_encounter_vital_features")
+ML_TRAINING_DATASET = OutputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.ml_training_dataset")
 
 
 def build_dbt_lineage_event(run_state: RunState, lineage_run_id: str) -> RunEvent:
@@ -38,6 +39,7 @@ def build_dbt_lineage_event(run_state: RunState, lineage_run_id: str) -> RunEven
             DIM_PROVIDER_DATASET,
             FACT_OBSERVATIONS_DATASET,
             ENCOUNTER_FEATURES_DATASET,
+            ML_TRAINING_DATASET,
         ],
     )
 

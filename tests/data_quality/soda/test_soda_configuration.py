@@ -16,6 +16,7 @@ EXPECTED_CONTRACT_FILES = {
     "dim_provider.yml",
     "fact_observations.yml",
     "fct_encounter_vital_features.yml",
+    "ml_training_dataset.yml",
     "stg_fhir_observations.yml",
 }
 
