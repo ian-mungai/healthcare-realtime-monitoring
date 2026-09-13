@@ -25,7 +25,9 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: requirements_dev.txt
+          cache-dependency-path: |
+            requirements_dev.txt
+            requirements_ml.txt
 
       - name: Install dependencies
         run: |
@@ -263,7 +265,9 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: requirements_dev.txt
+          cache-dependency-path: |
+            requirements_dev.txt
+            requirements_ml.txt
 
       - name: Install Python dependencies
         run: |

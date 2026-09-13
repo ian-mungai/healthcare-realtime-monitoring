@@ -6,6 +6,7 @@ from lineage.openlineage.dbt_lineage import (
     DIM_PROVIDER_DATASET,
     ENCOUNTER_FEATURES_DATASET,
     FACT_OBSERVATIONS_DATASET,
+    ML_TRAINING_DATASET,
     NAMESPACE,
     PROCESSED_DATASET,
     S3_LINEAGE_EVENT_PATH,
@@ -31,6 +32,7 @@ def test_dbt_output_datasets() -> None:
     assert DIM_PROVIDER_DATASET.name == "healthcare_realtime_dbt.dim_provider"
     assert FACT_OBSERVATIONS_DATASET.name == "healthcare_realtime_dbt.fact_observations"
     assert ENCOUNTER_FEATURES_DATASET.name == "healthcare_realtime_dbt.fct_encounter_vital_features"
+    assert ML_TRAINING_DATASET.name == "healthcare_realtime_dbt.ml_training_dataset"
 
 
 def test_dbt_lineage_s3_path() -> None:

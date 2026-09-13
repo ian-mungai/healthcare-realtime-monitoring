@@ -25,6 +25,7 @@ BIDMC measurements -> FHIR Observation -> Kinesis -> realtime serving
 | `healthcare_realtime_dbt.dim_observation_type` | Athena / dbt | Conformed LOINC observation-type dimension |
 | `healthcare_realtime_dbt.dim_date` | Athena / dbt | Observation calendar dimension |
 | `healthcare_realtime_dbt.fct_encounter_vital_features` | Athena / dbt | Encounter features and synthetic deterioration proxy label |
+| `healthcare_realtime_dbt.ml_training_dataset` | Athena / dbt | Versioned model features, proxy label, and patient-grouped split |
 | `healthcare-realtime-latest-vitals` | DynamoDB | Latest accepted realtime state by patient |
 | `quarantine/fhir_observations/` | Amazon S3 | Rejected analytical records with reasons |
 | `healthcare_realtime.quarantined_fhir_observations` | Glue Catalog / Athena | Queryable view of quarantined records |
@@ -68,6 +69,8 @@ Great Expectations validates the processed Iceberg table for required fields, al
 The committed provider history is a synthetic NPPES-compatible fixture. It contains no assertion about real clinicians, and deterministic encounter assignments are explicitly flagged as synthetic. A local utility can merge a normalized NPPES snapshot into effective-dated history, but real provider extracts and generated histories must remain outside the public repository.
 
 The encounter feature table separates the first 80 percent of each observed encounter window from the final 20 percent. Features use only the first window; the final window produces a versioned deterioration proxy based on NEWS2 extreme vital thresholds. This proxy supports pipeline demonstration only and is not a diagnosis, a validated clinical outcome, or approved training data for clinical use.
+
+The training dataset excludes ineligible encounters and assigns complete patient histories to either training or testing. Its feature schema, label definition, split rule, and source-row fingerprint are recorded with every baseline model artifact. Generated model files remain under the ignored `build/` directory unless a reviewed private artifact store is configured.
 
 Historical quality checkpoint before the star-schema expansion, verified on 2026-09-03:
 

@@ -2,13 +2,13 @@ pytest==9.1.1
 pytest-cov==7.1.0
 ruff==0.16.3
 mypy==2.3.1
+-r requirements_ml.txt
 httpx==0.28.1
 respx==0.23.1
 wfdb==4.3.1
 boto3==1.43.87
 great-expectations==1.22.0
 sqlalchemy==1.4.54
-pyathena==3.36.0
 openlineage-python[fsspec]==1.53.0
 s3fs==0.4.2
 soda-athena==4.22.0

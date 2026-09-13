@@ -82,3 +82,14 @@ def test_non_string_accepted_values_are_not_quoted() -> None:
         column = next(column for column in model["columns"] if column["name"] == column_name)
         accepted_values = next(test["accepted_values"] for test in column["tests"] if "accepted_values" in test)
         assert accepted_values["arguments"]["quote"] is False
+
+
+def test_ml_training_dataset_uses_patient_grouped_split() -> None:
+    training_model = (ANALYTICS_MODELS / "ml_training_dataset.sql").read_text()
+
+    assert "patient_key" in training_model
+    assert "split_bucket" in training_model
+    assert "< 8 then 'train'" in training_model
+    assert "where is_training_eligible" in training_model
+    assert (ROOT / "dbt/tests/assert_ml_training_dataset_no_patient_leakage.sql").is_file()
+    assert (ROOT / "dbt/tests/assert_ml_training_dataset_has_both_splits.sql").is_file()
