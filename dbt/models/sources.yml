@@ -8,3 +8,11 @@ sources:
     tables:
       - name: processed_fhir_observations
         description: Processed FHIR vital-sign observations stored as an Apache Iceberg table.
+
+  - name: model_serving
+    database: AwsDataCatalog
+    schema: healthcare_realtime_dbt
+
+    tables:
+      - name: ml_predictions_published
+        description: Versioned logistic-regression predictions published by the model training command.

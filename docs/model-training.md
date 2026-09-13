@@ -19,7 +19,7 @@ export AWS_PROFILE="${AWS_PROFILE:-healthcare_realtime}"
 export AWS_REGION="${AWS_REGION:-us-east-1}"
 export DATA_BUCKET_NAME="$(terraform -chdir=infra output -raw raw_s3_bucket_name)"
 
-.venv/bin/python -m jobs.ml.train_logistic_regression
+.venv/bin/python -m jobs.ml.train_logistic_regression --publish-s3
 ```
 
 The ignored `build/ml/logistic_baseline/` directory receives:
@@ -27,6 +27,11 @@ The ignored `build/ml/logistic_baseline/` directory receives:
 - `model.joblib`, containing median imputation, standardization, and class-balanced logistic regression;
 - `manifest.json`, containing the model version, dataset fingerprint, feature order, schema versions, split strategy, row counts, random seed, and evaluation summary;
 - `evaluation.json`, containing test-set ROC AUC, sensitivity, specificity, balanced accuracy, and confusion-matrix counts at the default and selected operating points.
+- `predictions.jsonl`, containing encounter-level probabilities and classifications for reproducibility.
+
+With `--publish-s3`, the command uploads checksummed copies to the existing encrypted, versioned project bucket. Model artifacts use `ml/model_artifacts/<model-version>/`; predictions use a model-version partition under `ml/predictions/`. It also registers the partition in Athena. No separate artifact bucket is required.
+
+The next dbt build materializes `healthcare_realtime_dbt.ml_predictions_serving`. dbt and Soda validate its `(model_version, encounter_key)` grain, probability and threshold ranges, binary predictions, required metadata, and source-row relationships.
 
 The default operating point uses a `0.5` decision threshold. An exploratory alternative maximizes Youden's J statistic on the training partition and is then measured on the untouched test partition. Selecting a production threshold requires an independent validation cohort and clinical review; these synthetic proxy-label results are portfolio evidence, not a clinical performance claim.
 
