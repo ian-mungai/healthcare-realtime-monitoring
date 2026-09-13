@@ -4,7 +4,7 @@ from typing import Any
 import joblib
 import pytest
 
-from jobs.ml.train_logistic_regression import FEATURE_COLUMNS, dataset_fingerprint, load_athena_records, train_baseline, write_artifacts
+from jobs.ml.train_logistic_regression import FEATURE_COLUMNS, dataset_fingerprint, evaluate_baseline, load_athena_records, train_baseline, write_artifacts
 
 
 def training_record(index: int, split: str, label: int) -> dict[str, Any]:
@@ -64,12 +64,37 @@ def test_train_baseline_rejects_mixed_feature_versions() -> None:
 
 def test_write_artifacts_creates_loadable_model_and_manifest(tmp_path: Path) -> None:
     model, manifest = train_baseline(sample_records())
+    evaluation = evaluate_baseline(model, sample_records())
 
-    write_artifacts(model, manifest, tmp_path)
+    write_artifacts(model, manifest, tmp_path, evaluation)
 
     assert (tmp_path / "manifest.json").is_file()
+    assert (tmp_path / "evaluation.json").is_file()
     loaded_model = joblib.load(tmp_path / "model.joblib")
     assert loaded_model.predict([[1.0] * len(FEATURE_COLUMNS)]).shape == (1,)
+
+
+def test_evaluate_baseline_reports_test_metrics_and_training_threshold() -> None:
+    model, _ = train_baseline(sample_records())
+
+    evaluation = evaluate_baseline(model, sample_records())
+
+    assert evaluation["evaluation_partition"] == "test"
+    assert evaluation["evaluation_row_count"] == 2
+    assert evaluation["evaluation_class_counts"] == {"0": 1, "1": 1}
+    assert 0.0 <= evaluation["roc_auc"] <= 1.0
+    assert evaluation["default_operating_point"]["threshold"] == 0.5
+    assert evaluation["threshold_selection"]["partition"] == "train"
+    assert sum(evaluation["selected_operating_point"]["confusion_matrix"].values()) == 2
+
+
+def test_evaluate_baseline_rejects_single_class_test_data() -> None:
+    records = sample_records()
+    records[-1]["deterioration_proxy_label"] = 0
+    model, _ = train_baseline(records)
+
+    with pytest.raises(ValueError, match="Test partition must contain labels 0 and 1"):
+        evaluate_baseline(model, records)
 
 
 def test_athena_loader_rejects_unsafe_identifiers() -> None:

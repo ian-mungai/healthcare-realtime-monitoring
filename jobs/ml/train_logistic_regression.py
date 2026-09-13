@@ -17,6 +17,7 @@ import joblib
 from pyathena import connect
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import confusion_matrix, roc_auc_score, roc_curve
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -38,6 +39,7 @@ TARGET_COLUMN: Final = "deterioration_proxy_label"
 REQUIRED_COLUMNS: Final = ("encounter_key", "data_split", "feature_schema_version", "label_definition_version", TARGET_COLUMN, *FEATURE_COLUMNS)
 IDENTIFIER_PATTERN: Final = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 RANDOM_STATE: Final = 42
+DEFAULT_DECISION_THRESHOLD: Final = 0.5
 
 
 def load_csv_records(path: Path) -> list[dict[str, Any]]:
@@ -124,10 +126,72 @@ def train_baseline(records: list[dict[str, Any]]) -> tuple[Pipeline, dict[str, A
     return model, manifest
 
 
-def write_artifacts(model: Pipeline, manifest: dict[str, Any], output_dir: Path) -> None:
+def _features_and_labels(records: list[dict[str, Any]]) -> tuple[list[list[float]], list[int]]:
+    features = [[_numeric_value(record[column]) for column in FEATURE_COLUMNS] for record in records]
+    labels = [int(record[TARGET_COLUMN]) for record in records]
+    return features, labels
+
+
+def _operating_point(labels: list[int], probabilities: list[float], threshold: float) -> dict[str, Any]:
+    predictions = [int(probability >= threshold) for probability in probabilities]
+    tn, fp, fn, tp = confusion_matrix(labels, predictions, labels=[0, 1]).ravel()
+    sensitivity = tp / (tp + fn) if tp + fn else 0.0
+    specificity = tn / (tn + fp) if tn + fp else 0.0
+    return {
+        "threshold": threshold,
+        "sensitivity": sensitivity,
+        "specificity": specificity,
+        "balanced_accuracy": (sensitivity + specificity) / 2,
+        "confusion_matrix": {"true_negative": int(tn), "false_positive": int(fp), "false_negative": int(fn), "true_positive": int(tp)},
+    }
+
+
+def _youden_threshold(labels: list[int], probabilities: list[float]) -> float:
+    false_positive_rates, true_positive_rates, thresholds = roc_curve(labels, probabilities)
+    candidates = [
+        (float(true_positive_rate - false_positive_rate), abs(float(threshold) - DEFAULT_DECISION_THRESHOLD), float(threshold))
+        for false_positive_rate, true_positive_rate, threshold in zip(false_positive_rates, true_positive_rates, thresholds, strict=True)
+        if math.isfinite(threshold) and 0.0 <= threshold <= 1.0
+    ]
+    return min(candidates, key=lambda candidate: (-candidate[0], candidate[1], candidate[2]))[2]
+
+
+def evaluate_baseline(model: Pipeline, records: list[dict[str, Any]]) -> dict[str, Any]:
+    _validate_records(records)
+    training_records = [record for record in records if record["data_split"] == "train"]
+    test_records = [record for record in records if record["data_split"] == "test"]
+    if not test_records:
+        raise ValueError("Test partition is empty")
+
+    training_features, training_labels = _features_and_labels(training_records)
+    test_features, test_labels = _features_and_labels(test_records)
+    if set(test_labels) != {0, 1}:
+        raise ValueError("Test partition must contain labels 0 and 1")
+
+    training_probabilities = model.predict_proba(training_features)[:, 1].tolist()
+    test_probabilities = model.predict_proba(test_features)[:, 1].tolist()
+    selected_threshold = _youden_threshold(training_labels, training_probabilities)
+    return {
+        "evaluation_partition": "test",
+        "evaluation_row_count": len(test_records),
+        "evaluation_class_counts": {str(label): count for label, count in sorted(Counter(test_labels).items())},
+        "roc_auc": float(roc_auc_score(test_labels, test_probabilities)),
+        "default_operating_point": _operating_point(test_labels, test_probabilities, DEFAULT_DECISION_THRESHOLD),
+        "selected_operating_point": _operating_point(test_labels, test_probabilities, selected_threshold),
+        "threshold_selection": {
+            "strategy": "maximum_youden_j",
+            "partition": "train",
+            "note": "Exploratory threshold selected on training data; independent validation is required before clinical use.",
+        },
+    }
+
+
+def write_artifacts(model: Pipeline, manifest: dict[str, Any], output_dir: Path, evaluation: dict[str, Any] | None = None) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     joblib.dump(model, output_dir / "model.joblib")
     (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    if evaluation is not None:
+        (output_dir / "evaluation.json").write_text(json.dumps(evaluation, indent=2, sort_keys=True) + "\n")
 
 
 def parse_args() -> argparse.Namespace:
@@ -155,8 +219,10 @@ def main() -> None:
         records = load_athena_records(args.athena_database, args.athena_table, staging_dir, args.region)
 
     model, manifest = train_baseline(records)
-    write_artifacts(model, manifest, args.output_dir)
-    print(json.dumps(manifest, indent=2, sort_keys=True))
+    evaluation = evaluate_baseline(model, records)
+    manifest["evaluation"] = {"roc_auc": evaluation["roc_auc"], "selected_threshold": evaluation["selected_operating_point"]["threshold"]}
+    write_artifacts(model, manifest, args.output_dir, evaluation)
+    print(json.dumps({"manifest": manifest, "evaluation": evaluation}, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":
