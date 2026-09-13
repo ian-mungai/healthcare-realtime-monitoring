@@ -1,0 +1,40 @@
+dataset: healthcare_realtime_athena/awsdatacatalog/healthcare_realtime_dbt/fct_encounter_vital_features
+
+checks:
+  - row_count:
+      threshold:
+        must_be_greater_than: 0
+
+columns:
+  - name: encounter_key
+    checks:
+      - missing:
+      - duplicate:
+
+  - name: patient_key
+    checks:
+      - missing:
+
+  - name: provider_version_key
+    checks:
+      - missing:
+
+  - name: feature_observation_count
+    checks:
+      - missing:
+
+  - name: outcome_observation_count
+    checks:
+      - missing:
+
+  - name: deterioration_proxy_label
+    checks:
+      - missing:
+      - invalid:
+          valid_values:
+            - 0
+            - 1
+
+  - name: label_definition_version
+    checks:
+      - missing:

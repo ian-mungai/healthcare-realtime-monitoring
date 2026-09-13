@@ -27,3 +27,22 @@ models:
         +materialized: table
         +table_type: iceberg
         +format: parquet
+
+      analytics:
+        +materialized: table
+        +table_type: iceberg
+        +format: parquet
+
+seeds:
+  healthcare_realtime:
+    provider_history:
+      +column_types:
+        provider_npi: varchar
+        provider_name: varchar
+        taxonomy_code: varchar
+        taxonomy_description: varchar
+        provider_state: varchar
+        valid_from: varchar
+        valid_to: varchar
+        is_current: boolean
+        data_source: varchar

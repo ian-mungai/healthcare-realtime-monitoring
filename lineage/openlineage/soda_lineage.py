@@ -15,7 +15,9 @@ DIM_PATIENT_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realti
 DIM_OBSERVATION_TYPE_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.dim_observation_type")
 DIM_ENCOUNTER_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.dim_encounter")
 DIM_DATE_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.dim_date")
+DIM_PROVIDER_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.dim_provider")
 FACT_OBSERVATIONS_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.fact_observations")
+ENCOUNTER_FEATURES_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.fct_encounter_vital_features")
 
 
 def build_soda_lineage_event(run_state: RunState, lineage_run_id: str) -> RunEvent:
@@ -25,7 +27,16 @@ def build_soda_lineage_event(run_state: RunState, lineage_run_id: str) -> RunEve
         run=Run(runId=lineage_run_id),
         job=Job(namespace=NAMESPACE, name="soda_athena_contract_validation"),
         producer=PRODUCER,
-        inputs=[STAGING_DATASET, DIM_PATIENT_DATASET, DIM_OBSERVATION_TYPE_DATASET, DIM_ENCOUNTER_DATASET, DIM_DATE_DATASET, FACT_OBSERVATIONS_DATASET],
+        inputs=[
+            STAGING_DATASET,
+            DIM_PATIENT_DATASET,
+            DIM_OBSERVATION_TYPE_DATASET,
+            DIM_ENCOUNTER_DATASET,
+            DIM_DATE_DATASET,
+            DIM_PROVIDER_DATASET,
+            FACT_OBSERVATIONS_DATASET,
+            ENCOUNTER_FEATURES_DATASET,
+        ],
         outputs=[],
     )
 

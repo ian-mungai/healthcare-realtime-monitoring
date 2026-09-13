@@ -7,6 +7,8 @@ from lineage.openlineage.soda_lineage import (
     DIM_ENCOUNTER_DATASET,
     DIM_OBSERVATION_TYPE_DATASET,
     DIM_PATIENT_DATASET,
+    DIM_PROVIDER_DATASET,
+    ENCOUNTER_FEATURES_DATASET,
     FACT_OBSERVATIONS_DATASET,
     NAMESPACE,
     S3_LINEAGE_EVENT_PATH,
@@ -25,7 +27,9 @@ def test_soda_input_datasets() -> None:
     assert DIM_OBSERVATION_TYPE_DATASET.name == "healthcare_realtime_dbt.dim_observation_type"
     assert DIM_ENCOUNTER_DATASET.name == "healthcare_realtime_dbt.dim_encounter"
     assert DIM_DATE_DATASET.name == "healthcare_realtime_dbt.dim_date"
+    assert DIM_PROVIDER_DATASET.name == "healthcare_realtime_dbt.dim_provider"
     assert FACT_OBSERVATIONS_DATASET.name == "healthcare_realtime_dbt.fact_observations"
+    assert ENCOUNTER_FEATURES_DATASET.name == "healthcare_realtime_dbt.fct_encounter_vital_features"
 
 
 def test_soda_has_no_output_dataset_contract() -> None:

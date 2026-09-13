@@ -21,8 +21,10 @@ BIDMC measurements -> FHIR Observation -> Kinesis -> realtime serving
 | `healthcare_realtime_dbt.fact_observations` | Athena / dbt | Keyed vital-sign measurement fact |
 | `healthcare_realtime_dbt.dim_patient` | Athena / dbt | Conformed synthetic patient dimension |
 | `healthcare_realtime_dbt.dim_encounter` | Athena / dbt | Encounter analysis-window dimension |
+| `healthcare_realtime_dbt.dim_provider` | Athena / dbt | Synthetic effective-dated provider dimension |
 | `healthcare_realtime_dbt.dim_observation_type` | Athena / dbt | Conformed LOINC observation-type dimension |
 | `healthcare_realtime_dbt.dim_date` | Athena / dbt | Observation calendar dimension |
+| `healthcare_realtime_dbt.fct_encounter_vital_features` | Athena / dbt | Encounter features and synthetic deterioration proxy label |
 | `healthcare-realtime-latest-vitals` | DynamoDB | Latest accepted realtime state by patient |
 | `quarantine/fhir_observations/` | Amazon S3 | Rejected analytical records with reasons |
 | `healthcare_realtime.quarantined_fhir_observations` | Glue Catalog / Athena | Queryable view of quarantined records |
@@ -59,7 +61,13 @@ Glue classifies every analytical measurement candidate before writing it. Record
 
 Rejected records are appended to `s3://<project-data-bucket>/quarantine/fhir_observations/` with `rejection_reason` and `quarantined_at`. The external Glue table `healthcare_realtime.quarantined_fhir_observations` exposes those JSON records to Athena. Per-run counts are appended under `metrics/glue/`.
 
-Great Expectations validates the processed Iceberg table for required fields, allowed LOINC codes, and uniqueness of `observation_id` plus `loinc_code`. Every automated dbt build applies model-level not-null, uniqueness, relationship, and accepted-value tests, including a singular test for the `fact_observations` compound grain. Soda contracts independently verify that the staging, fact, and dimension tables are nonempty, satisfy their key constraints, and preserve the fact-table compound grain. The conformed dimensions and bus matrix are defined in [analytics-star-schema.md](analytics-star-schema.md).
+Great Expectations validates the processed Iceberg table for required fields, allowed LOINC codes, and uniqueness of `observation_id` plus `loinc_code`. Every automated dbt build applies model-level not-null, uniqueness, relationship, and accepted-value tests, including singular tests for the `fact_observations` compound grain and provider SCD2 validity. Soda contracts independently verify that the staging, fact, dimension, and feature tables are nonempty, satisfy their key constraints, preserve the fact-table compound grain, and use valid binary labels. The conformed dimensions and bus matrix are defined in [analytics-star-schema.md](analytics-star-schema.md).
+
+## Provider and feature provenance
+
+The committed provider history is a synthetic NPPES-compatible fixture. It contains no assertion about real clinicians, and deterministic encounter assignments are explicitly flagged as synthetic. A local utility can merge a normalized NPPES snapshot into effective-dated history, but real provider extracts and generated histories must remain outside the public repository.
+
+The encounter feature table separates the first 80 percent of each observed encounter window from the final 20 percent. Features use only the first window; the final window produces a versioned deterioration proxy based on NEWS2 extreme vital thresholds. This proxy supports pipeline demonstration only and is not a diagnosis, a validated clinical outcome, or approved training data for clinical use.
 
 Historical quality checkpoint before the star-schema expansion, verified on 2026-09-03:
 
@@ -91,7 +99,7 @@ The verified lineage chain is:
 S3 raw FHIR observations
   -> Glue processed observations
   -> Athena quality validation
-  -> dbt staging, fact, and dimensions
+  -> dbt staging, fact, dimensions, and encounter features
   -> Soda contract validation
 ```
 

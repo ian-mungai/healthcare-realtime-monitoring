@@ -13,7 +13,9 @@ EXPECTED_CONTRACT_FILES = {
     "dim_encounter.yml",
     "dim_observation_type.yml",
     "dim_patient.yml",
+    "dim_provider.yml",
     "fact_observations.yml",
+    "fct_encounter_vital_features.yml",
     "stg_fhir_observations.yml",
 }
 
