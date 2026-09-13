@@ -25,6 +25,9 @@ export DATA_BUCKET_NAME="$(terraform -chdir=infra output -raw raw_s3_bucket_name
 The ignored `build/ml/logistic_baseline/` directory receives:
 
 - `model.joblib`, containing median imputation, standardization, and class-balanced logistic regression;
-- `manifest.json`, containing the model version, dataset fingerprint, feature order, schema versions, split strategy, row counts, and random seed.
+- `manifest.json`, containing the model version, dataset fingerprint, feature order, schema versions, split strategy, row counts, random seed, and evaluation summary;
+- `evaluation.json`, containing test-set ROC AUC, sensitivity, specificity, balanced accuracy, and confusion-matrix counts at the default and selected operating points.
 
-Training stops with a clear error when the training partition is empty or does not contain both labels. Evaluation metrics and deployment approval are separate controlled steps.
+The default operating point uses a `0.5` decision threshold. An exploratory alternative maximizes Youden's J statistic on the training partition and is then measured on the untouched test partition. Selecting a production threshold requires an independent validation cohort and clinical review; these synthetic proxy-label results are portfolio evidence, not a clinical performance claim.
+
+Training and evaluation stop with a clear error when either partition cannot support binary classification. Model deployment approval remains a separate controlled step.
