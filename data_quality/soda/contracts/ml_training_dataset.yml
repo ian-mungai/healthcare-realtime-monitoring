@@ -1,0 +1,40 @@
+dataset: healthcare_realtime_athena/awsdatacatalog/healthcare_realtime_dbt/ml_training_dataset
+
+checks:
+  - row_count:
+      threshold:
+        must_be_greater_than: 1
+
+columns:
+  - name: encounter_key
+    checks:
+      - missing:
+      - duplicate:
+
+  - name: patient_key
+    checks:
+      - missing:
+
+  - name: deterioration_proxy_label
+    checks:
+      - missing:
+      - invalid:
+          valid_values:
+            - 0
+            - 1
+
+  - name: feature_schema_version
+    checks:
+      - missing:
+
+  - name: label_definition_version
+    checks:
+      - missing:
+
+  - name: data_split
+    checks:
+      - missing:
+      - invalid:
+          valid_values:
+            - train
+            - test

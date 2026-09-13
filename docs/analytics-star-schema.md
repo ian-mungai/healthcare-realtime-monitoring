@@ -51,6 +51,12 @@ The versioned `news2-extreme-proxy-v1` label is `1` when the outcome window cont
 
 This label is a synthetic engineering proxy derived from NEWS2 extreme thresholds. It is not a diagnosis, a validated clinical outcome, or suitable for patient care or clinical model training.
 
+## Training dataset
+
+`healthcare_realtime_dbt.ml_training_dataset` contains only training-eligible encounters and preserves the feature and label definition versions. The split is deterministic: a stable bucket derived from `patient_key` assigns buckets 0 through 7 to training and 8 through 9 to testing. Grouping by patient prevents encounters for the same synthetic patient from appearing in both partitions.
+
+The baseline model uses the twelve vital-sign aggregates as predictors. Encounter, patient, and provider keys remain available for traceability but are excluded from model features.
+
 ## Join paths
 
 ```sql
