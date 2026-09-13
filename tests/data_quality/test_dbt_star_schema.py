@@ -70,3 +70,15 @@ def test_encounter_feature_model_separates_feature_and_outcome_windows() -> None
     assert "is_outcome_observation" in feature_model
     assert "deterioration_proxy_label" in feature_model
     assert "label_definition_version" in feature_model
+
+
+def test_non_string_accepted_values_are_not_quoted() -> None:
+    core_contract = yaml.safe_load((CORE_MODELS / "core.yml").read_text())
+    analytics_contract = yaml.safe_load((ANALYTICS_MODELS / "analytics.yml").read_text())
+    provider = next(model for model in core_contract["models"] if model["name"] == "dim_provider")
+    features = next(model for model in analytics_contract["models"] if model["name"] == "fct_encounter_vital_features")
+
+    for model, column_name in ((provider, "is_current"), (features, "deterioration_proxy_label")):
+        column = next(column for column in model["columns"] if column["name"] == column_name)
+        accepted_values = next(test["accepted_values"] for test in column["tests"] if "accepted_values" in test)
+        assert accepted_values["arguments"]["quote"] is False
