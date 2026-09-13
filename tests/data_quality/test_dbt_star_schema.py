@@ -4,6 +4,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 CORE_MODELS = ROOT / "dbt/models/marts/core"
+ANALYTICS_MODELS = ROOT / "dbt/models/marts/analytics"
 
 
 def read_model(name: str) -> str:
@@ -11,7 +12,7 @@ def read_model(name: str) -> str:
 
 
 def test_core_star_schema_models_exist() -> None:
-    expected_models = {"dim_date.sql", "dim_encounter.sql", "dim_observation_type.sql", "dim_patient.sql", "fact_observations.sql"}
+    expected_models = {"dim_date.sql", "dim_encounter.sql", "dim_observation_type.sql", "dim_patient.sql", "dim_provider.sql", "fact_observations.sql"}
 
     assert {path.name for path in CORE_MODELS.glob("*.sql")} == expected_models
 
@@ -19,7 +20,7 @@ def test_core_star_schema_models_exist() -> None:
 def test_fact_contains_stable_primary_and_foreign_keys() -> None:
     fact = read_model("fact_observations")
 
-    for key in ("fact_observation_key", "patient_key", "encounter_key", "observation_type_key", "date_key"):
+    for key in ("fact_observation_key", "patient_key", "encounter_key", "provider_version_key", "observation_type_key", "date_key"):
         assert key in fact
 
 
@@ -39,7 +40,7 @@ def test_core_contract_declares_fact_relationships() -> None:
     fact = next(model for model in contract["models"] if model["name"] == "fact_observations")
     columns = {column["name"]: column for column in fact["columns"]}
 
-    for key in ("patient_key", "encounter_key", "observation_type_key", "date_key"):
+    for key in ("patient_key", "encounter_key", "provider_version_key", "observation_type_key", "date_key"):
         assert any("relationships" in test for test in columns[key]["tests"])
 
 
@@ -47,5 +48,25 @@ def test_bus_matrix_documents_fact_grain_and_dimensions() -> None:
     bus_matrix = (ROOT / "docs/analytics-star-schema.md").read_text()
 
     assert "one vital-sign measurement per `observation_id` and `loinc_code`" in bus_matrix
-    for dimension in ("dim_patient", "dim_encounter", "dim_observation_type", "dim_date"):
+    for dimension in ("dim_patient", "dim_encounter", "dim_observation_type", "dim_date", "dim_provider"):
         assert dimension in bus_matrix
+
+
+def test_provider_dimension_declares_scd2_validity() -> None:
+    provider = read_model("dim_provider")
+
+    for column in ("provider_version_key", "provider_key", "valid_from", "valid_to", "is_current"):
+        assert column in provider
+
+    assert (ROOT / "dbt/tests/assert_dim_provider_single_current_version.sql").is_file()
+    assert (ROOT / "dbt/tests/assert_dim_provider_non_overlapping_versions.sql").is_file()
+
+
+def test_encounter_feature_model_separates_feature_and_outcome_windows() -> None:
+    feature_model = (ANALYTICS_MODELS / "fct_encounter_vital_features.sql").read_text()
+
+    assert "* 0.8" in feature_model
+    assert "is_feature_observation" in feature_model
+    assert "is_outcome_observation" in feature_model
+    assert "deterioration_proxy_label" in feature_model
+    assert "label_definition_version" in feature_model

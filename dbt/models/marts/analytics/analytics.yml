@@ -1,0 +1,42 @@
+version: 2
+
+models:
+  - name: fct_encounter_vital_features
+    description: Encounter-level vital features from the first 80 percent of the observation window and a synthetic deterioration proxy from the final 20 percent.
+
+    columns:
+      - name: encounter_key
+        tests:
+          - not_null
+          - unique
+          - relationships:
+              arguments:
+                to: ref('dim_encounter')
+                field: encounter_key
+
+      - name: patient_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_patient')
+                field: patient_key
+
+      - name: provider_version_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_provider')
+                field: provider_version_key
+
+      - name: deterioration_proxy_label
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+
+      - name: label_definition_version
+        tests:
+          - not_null

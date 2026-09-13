@@ -1,0 +1,6 @@
+provider_npi,provider_name,taxonomy_code,taxonomy_description,provider_state,valid_from,valid_to,is_current,data_source
+1999000013,Synthetic Clinician Alpha,207R00000X,Internal Medicine,MA,2020-01-01,2024-01-01,false,synthetic_nppes_fixture
+1999000013,Synthetic Clinician Alpha,207RC0000X,Cardiovascular Disease,MA,2024-01-01,,true,synthetic_nppes_fixture
+1999000022,Synthetic Clinician Bravo,207RP1001X,Pulmonary Disease,MA,2020-01-01,,true,synthetic_nppes_fixture
+1999000031,Synthetic Clinician Charlie,207R00000X,Internal Medicine,CT,2020-01-01,,true,synthetic_nppes_fixture
+1999000040,Synthetic Clinician Delta,363LF0000X,Family Nurse Practitioner,RI,2020-01-01,,true,synthetic_nppes_fixture
