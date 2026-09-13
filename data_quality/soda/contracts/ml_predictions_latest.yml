@@ -1,0 +1,45 @@
+dataset: healthcare_realtime_athena/awsdatacatalog/healthcare_realtime_dbt/ml_predictions_latest
+
+checks:
+  - row_count:
+      threshold:
+        must_be_greater_than: 0
+
+columns:
+  - name: encounter_key
+    checks:
+      - missing:
+      - duplicate:
+
+  - name: model_version
+    checks:
+      - missing:
+
+  - name: deterioration_probability
+    checks:
+      - missing:
+      - invalid:
+          valid_min: 0
+          valid_max: 1
+
+  - name: proxy_risk_band
+    checks:
+      - missing:
+      - invalid:
+          valid_values:
+            - baseline_proxy
+            - elevated_proxy
+
+  - name: prediction_scope
+    checks:
+      - missing:
+      - invalid:
+          valid_values:
+            - synthetic_portfolio_only
+
+  - name: is_clinically_validated
+    checks:
+      - missing:
+      - invalid:
+          valid_values:
+            - false

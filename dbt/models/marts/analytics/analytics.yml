@@ -92,3 +92,90 @@ models:
           - accepted_values:
               arguments:
                 values: ['train', 'test']
+
+  - name: ml_predictions_serving
+    description: Versioned encounter-level deterioration proxy predictions for analytical presentation.
+
+    columns:
+      - name: model_version
+        tests:
+          - not_null
+
+      - name: encounter_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('ml_training_dataset')
+                field: encounter_key
+
+      - name: patient_key
+        tests:
+          - not_null
+
+      - name: deterioration_probability
+        tests:
+          - not_null
+
+      - name: predicted_label
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+
+      - name: decision_threshold
+        tests:
+          - not_null
+
+      - name: feature_schema_version
+        tests:
+          - not_null
+
+      - name: label_definition_version
+        tests:
+          - not_null
+
+      - name: dataset_fingerprint
+        tests:
+          - not_null
+
+      - name: scored_at
+        tests:
+          - not_null
+
+  - name: ml_predictions_latest
+    description: Latest synthetic deterioration proxy predictions prepared for analytical presentation.
+
+    columns:
+      - name: encounter_key
+        tests:
+          - not_null
+          - unique
+
+      - name: model_version
+        tests:
+          - not_null
+
+      - name: proxy_risk_band
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['baseline_proxy', 'elevated_proxy']
+
+      - name: prediction_scope
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['synthetic_portfolio_only']
+
+      - name: is_clinically_validated
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [false]
+                quote: false
