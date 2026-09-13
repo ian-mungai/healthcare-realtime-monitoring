@@ -97,6 +97,7 @@ models:
           - accepted_values:
               arguments:
                 values: [true, false]
+                quote: false
 
   - name: dim_date
     description: Role-playing observation date dimension derived from available event dates.
