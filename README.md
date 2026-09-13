@@ -122,7 +122,7 @@ The [data governance guide](docs/data-governance.md) documents datasets, schema 
 
 The [analytics star schema](docs/analytics-star-schema.md) defines the observation fact grain, conformed dimensions, key strategy, legacy encounter handling, and bus matrix.
 
-The [model-training guide](docs/model-training.md) defines the leakage-safe training dataset and reproducible logistic-regression baseline.
+The [model-training guide](docs/model-training.md) defines the leakage-safe training dataset and reproducible logistic-regression baseline. The [model-predictions guide](docs/model-predictions.md) covers immutable-model scoring and Athena presentation datasets.
 
 ## Portfolio safety
 
