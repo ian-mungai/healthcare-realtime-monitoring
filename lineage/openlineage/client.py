@@ -6,42 +6,46 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import boto3
 from botocore.auth import SigV4Auth
 from botocore.awsrequest import AWSRequest
+from botocore.httpsession import URLLib3Session
 from openlineage.client import OpenLineageClient
 from openlineage.client.serde import Serde
 from openlineage.client.transport import Transport
 from openlineage.client.transport.file import FileConfig, FileTransport
 from openlineage.client.transport.http import HttpConfig, HttpTransport
-from requests import PreparedRequest, Session
-from requests.auth import AuthBase
+from requests import Response
+from requests.exceptions import HTTPError
 
 LOCAL_LINEAGE_DIRECTORY = Path("lineage/events")
 
 
-class AwsSigV4RequestsAuth(AuthBase):
-    def __init__(self, region: str) -> None:
+class AwsSigV4HttpTransport(Transport):
+    def __init__(self, url: str, endpoint: str, region: str) -> None:
+        self.url = url
+        self.endpoint = endpoint
         self.region = region
-        self.session = boto3.Session()
+        self.session = URLLib3Session()
 
-    def __call__(self, request: PreparedRequest) -> PreparedRequest:
-        credentials = self.session.get_credentials()
+    def emit(self, event) -> Any:
+        body = Serde.to_json(event).encode("utf-8")
+        request = AWSRequest(method="POST", url=urljoin(self.url, self.endpoint), data=body, headers={"Content-Type": "application/json"})
+        credentials = boto3.Session().get_credentials()
         if credentials is None:
             raise RuntimeError("AWS credentials are required for the managed OpenLineage collector")
 
-        aws_request = AWSRequest(method=request.method, url=request.url, data=request.body, headers=dict(request.headers))
-        SigV4Auth(credentials.get_frozen_credentials(), "execute-api", self.region).add_auth(aws_request)
-        request.headers.update(dict(aws_request.headers.items()))
-        return request
-
-
-def build_sigv4_session(region: str) -> Session:
-    session = Session()
-    session.auth = AwsSigV4RequestsAuth(region)
-    return session
+        SigV4Auth(credentials.get_frozen_credentials(), "execute-api", self.region).add_auth(request)
+        response = self.session.send(request.prepare())
+        if response.status_code >= 400:
+            error_response = Response()
+            error_response.status_code = response.status_code
+            error_response._content = response.content
+            error_response.url = request.url
+            raise HTTPError(f"{response.status_code} response from OpenLineage collector", response=error_response)
+        return response
 
 
 class S3Transport(Transport):
@@ -76,6 +80,12 @@ def build_s3_openlineage_client(event_path: str) -> OpenLineageClient:
 def emit_runtime_lineage_event(event_path: str, event_factory: Callable[[], Any], component: str, run_state: str) -> bool:
     try:
         build_runtime_openlineage_client(event_path).emit(event_factory())
+    except HTTPError as error:
+        response = error.response
+        status = response.status_code if response is not None else "unknown"
+        response_text = " ".join(response.text.split())[:1000] if response is not None else "unavailable"
+        print(f"OpenLineage {component} {run_state} emission failed: HTTPError: status={status}; response={response_text or 'empty'}")
+        return False
     except Exception as error:
         print(f"OpenLineage {component} {run_state} emission failed: {type(error).__name__}: {error}")
         return False
@@ -98,13 +108,12 @@ def build_runtime_openlineage_client(event_path: str) -> OpenLineageClient:
 
     if parsed.hostname in {"localhost", "127.0.0.1", "::1"}:
         print("OpenLineage transport selected: local HTTP without authentication")
-        session = None
+        transport: Transport = HttpTransport(HttpConfig(url=f"{collector_url.rstrip('/')}/", endpoint=endpoint, session=None))
     else:
         region = os.getenv("OPENLINEAGE_AWS_REGION", "").strip() or os.getenv("AWS_REGION", "").strip() or os.getenv("AWS_DEFAULT_REGION", "").strip()
         if not region:
             raise ValueError("OPENLINEAGE_AWS_REGION or AWS_REGION is required to sign requests to a remote OpenLineage collector")
         print(f"OpenLineage transport selected: SigV4 HTTP in {region}")
-        session = build_sigv4_session(region)
+        transport = AwsSigV4HttpTransport(f"{collector_url.rstrip('/')}/", endpoint, region)
 
-    collector_base_url = f"{collector_url.rstrip('/')}/"
-    return OpenLineageClient(transport=HttpTransport(HttpConfig(url=collector_base_url, endpoint=endpoint, session=session)))
+    return OpenLineageClient(transport=transport)
