@@ -16,7 +16,9 @@ DIM_PATIENT_DATASET = OutputDataset(namespace="aws-glue", name="healthcare_realt
 DIM_OBSERVATION_TYPE_DATASET = OutputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.dim_observation_type")
 DIM_ENCOUNTER_DATASET = OutputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.dim_encounter")
 DIM_DATE_DATASET = OutputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.dim_date")
+DIM_PROVIDER_DATASET = OutputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.dim_provider")
 FACT_OBSERVATIONS_DATASET = OutputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.fact_observations")
+ENCOUNTER_FEATURES_DATASET = OutputDataset(namespace="aws-glue", name="healthcare_realtime_dbt.fct_encounter_vital_features")
 
 
 def build_dbt_lineage_event(run_state: RunState, lineage_run_id: str) -> RunEvent:
@@ -27,7 +29,16 @@ def build_dbt_lineage_event(run_state: RunState, lineage_run_id: str) -> RunEven
         job=Job(namespace=NAMESPACE, name="dbt_athena_build"),
         producer=PRODUCER,
         inputs=[PROCESSED_DATASET],
-        outputs=[STAGING_DATASET, DIM_PATIENT_DATASET, DIM_OBSERVATION_TYPE_DATASET, DIM_ENCOUNTER_DATASET, DIM_DATE_DATASET, FACT_OBSERVATIONS_DATASET],
+        outputs=[
+            STAGING_DATASET,
+            DIM_PATIENT_DATASET,
+            DIM_OBSERVATION_TYPE_DATASET,
+            DIM_ENCOUNTER_DATASET,
+            DIM_DATE_DATASET,
+            DIM_PROVIDER_DATASET,
+            FACT_OBSERVATIONS_DATASET,
+            ENCOUNTER_FEATURES_DATASET,
+        ],
     )
 
 

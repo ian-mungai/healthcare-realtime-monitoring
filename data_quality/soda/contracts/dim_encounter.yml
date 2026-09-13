@@ -19,6 +19,10 @@ columns:
     checks:
       - missing:
 
+  - name: provider_version_key
+    checks:
+      - missing:
+
   - name: encounter_start_at
     checks:
       - missing:

@@ -54,6 +54,14 @@ models:
         tests:
           - not_null
 
+      - name: provider_version_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_provider')
+                field: provider_version_key
+
       - name: encounter_start_at
         tests:
           - not_null
@@ -61,6 +69,34 @@ models:
       - name: encounter_end_at
         tests:
           - not_null
+
+  - name: dim_provider
+    description: Type 2 provider dimension using an NPPES-compatible synthetic fixture for the portfolio cohort.
+
+    columns:
+      - name: provider_version_key
+        tests:
+          - not_null
+          - unique
+
+      - name: provider_key
+        tests:
+          - not_null
+
+      - name: provider_npi
+        tests:
+          - not_null
+
+      - name: valid_from
+        tests:
+          - not_null
+
+      - name: is_current
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
 
   - name: dim_date
     description: Role-playing observation date dimension derived from available event dates.
@@ -100,6 +136,14 @@ models:
               arguments:
                 to: ref('dim_encounter')
                 field: encounter_key
+
+      - name: provider_version_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_provider')
+                field: provider_version_key
 
       - name: observation_type_key
         tests:

@@ -25,6 +25,10 @@ columns:
     checks:
       - missing:
 
+  - name: provider_version_key
+    checks:
+      - missing:
+
   - name: observation_type_key
     checks:
       - missing:

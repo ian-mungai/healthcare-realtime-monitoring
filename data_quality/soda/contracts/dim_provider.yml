@@ -1,0 +1,34 @@
+dataset: healthcare_realtime_athena/awsdatacatalog/healthcare_realtime_dbt/dim_provider
+
+checks:
+  - row_count:
+      threshold:
+        must_be_greater_than: 0
+  - duplicate:
+      columns:
+        - provider_npi
+        - valid_from
+      threshold:
+        must_be: 0
+
+columns:
+  - name: provider_version_key
+    checks:
+      - missing:
+      - duplicate:
+
+  - name: provider_key
+    checks:
+      - missing:
+
+  - name: provider_npi
+    checks:
+      - missing:
+
+  - name: valid_from
+    checks:
+      - missing:
+
+  - name: is_current
+    checks:
+      - missing:
