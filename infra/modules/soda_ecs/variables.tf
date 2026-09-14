@@ -25,6 +25,12 @@ variable "dbt_database_name" {
   default     = "healthcare_realtime_dbt"
 }
 
+variable "ml_database_name" {
+  description = "Glue database containing model prediction tables."
+  type        = string
+  default     = "healthcare_realtime_ml"
+}
+
 variable "image_tag" {
   description = "ECR image tag used by the Soda ECS task."
   type        = string

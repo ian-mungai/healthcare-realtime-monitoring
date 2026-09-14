@@ -13,6 +13,11 @@ variable "data_bucket_name" {
   type        = string
 }
 
+variable "enable_schedule" {
+  description = "Enable the daily workflow only after an immutable ML model version is approved."
+  type        = bool
+}
+
 variable "glue_job_name" {
   description = "Glue job orchestrated by MWAA Serverless"
   type        = string

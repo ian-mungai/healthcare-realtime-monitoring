@@ -26,3 +26,8 @@ output "task_failure_alarm_name" {
   description = "CloudWatch alarm raised when an MWAA Serverless task fails."
   value       = aws_cloudwatch_metric_alarm.task_failures.alarm_name
 }
+
+output "trigger_mode" {
+  description = "Current MWAA Serverless workflow trigger mode."
+  value       = awscc_mwaaserverless_workflow.healthcare_realtime.trigger_mode
+}

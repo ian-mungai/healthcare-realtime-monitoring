@@ -9,7 +9,7 @@ This repository uses synthetic Synthea data and waveform-derived measurements fo
 - FHIR R4 observation ingestion through HAPI FHIR and a protected webhook.
 - Kinesis-based realtime processing with latest-state delivery over IAM-authorized REST and WebSocket APIs.
 - A Streamlit cohort dashboard designed to surface changes across multiple simulated patients.
-- Durable raw landing, Glue/Iceberg processing, Athena validation, dbt models, Soda contracts, and OpenLineage events collected by IAM-protected Marquez or stored in S3.
+- Durable normalized-event landing, Glue/Iceberg processing, Athena validation, dbt models, automated approved-model scoring, Soda contracts, and OpenLineage events collected by IAM-protected Marquez or stored in S3.
 - Bounded replay through encrypted SQS failure queues and a replay Lambda.
 - Terraform-managed AWS infrastructure, CloudWatch dashboards, alarms, and workload-scoped IAM roles.
 
@@ -19,7 +19,7 @@ The [architecture guide](docs/architecture.md) describes the realtime path, anal
 
 ```text
 Simulator -> HAPI FHIR -> webhook -> Kinesis -> Lambda -> DynamoDB -> REST/WebSocket dashboard
-                                            \-> Firehose -> S3 -> Glue -> Athena -> dbt -> Soda
+                                            \-> Firehose -> S3 -> Glue -> Athena -> dbt -> ML scoring -> Soda
 ```
 
 ## Repository map
@@ -29,7 +29,7 @@ Simulator -> HAPI FHIR -> webhook -> Kinesis -> Lambda -> DynamoDB -> REST/WebSo
 | `infra/` | Terraform root and AWS service modules |
 | `services/` | Webhook, realtime processor, API, replay, WebSocket, and simulator services |
 | `dashboard/` | Streamlit cohort-monitoring client |
-| `jobs/` | Glue and dbt runtime jobs |
+| `jobs/` | Glue, dbt, and machine-learning runtime jobs |
 | `airflow/` | MWAA Serverless workflow source and generator |
 | `data_quality/` | Great Expectations and Soda validation assets |
 | `lineage/` | OpenLineage event emitters |
@@ -43,6 +43,8 @@ Simulator -> HAPI FHIR -> webhook -> Kinesis -> Lambda -> DynamoDB -> REST/WebSo
 - Terraform 1.11 or later
 - AWS CLI authenticated to the target account
 - Docker, when building ECS images locally
+- Java 17 and Gradle, when generating Synthea data
+- Power BI Desktop and the Amazon Athena ODBC driver, only for the optional reporting connection
 - An AWS environment provisioned from this repository
 
 ## Local setup
@@ -79,6 +81,10 @@ Do not commit secrets, deployment identifiers, Terraform state, signed headers, 
 ```zsh
 .venv/bin/python -m pytest tests scripts/synthea_loader/tests services/fhir_webhook/tests services/vitals_simulator/tests services/vitals_stream_processor/tests services/vitals_replay/tests services/vitals_api/tests services/websocket_handler/tests -q
 .venv/bin/ruff check .
+.venv/bin/ruff format --check .
+.venv/bin/python -m mypy .
+for contract in data_quality/soda/contracts/*.yml; do .venv/bin/soda contract test --contract "$contract"; done
+PYTHONPATH="$PWD/airflow/serverless:$PWD/airflow/dags:$PWD" .venv/bin/python -m unittest discover -s airflow/serverless/tests -v
 terraform -chdir=infra fmt -check -recursive
 terraform -chdir=infra validate
 ```
@@ -95,7 +101,7 @@ terraform -chdir=infra plan -var-file=development.tfvars
 
 For an existing clone with local state, use `terraform -chdir=infra init -backend-config=backend.hcl -migrate-state` once and confirm the migration prompt. The local `backend.hcl` file is ignored by Git.
 
-The [deployment guide](docs/deployment.md) covers GitHub OIDC and shared OpenLineage collector setup. Recovery, cost-control, and operational checks are in the [operations runbook](docs/operations-runbook.md).
+The [bootstrap guide](docs/bootstrap.md) covers first deployment. The [deployment guide](docs/deployment.md) covers GitHub OIDC and shared OpenLineage collector setup. Recovery, cost-control, and operational checks are in the [operations runbook](docs/operations-runbook.md).
 
 ## Run the dashboard
 
@@ -104,6 +110,7 @@ After the target environment is deployed, retrieve its endpoints from Terraform 
 ```zsh
 export VITALS_API_ENDPOINT="$(terraform -chdir=infra output -raw vitals_api_endpoint)"
 export VITALS_WEBSOCKET_URL="$(terraform -chdir=infra output -raw realtime_websocket_url)"
+export DATA_BUCKET_NAME="$(terraform -chdir=infra output -raw raw_s3_bucket_name)"
 export PATIENT_IDS="<comma-separated-simulated-patient-ids>"
 PYTHONPATH="$PWD" .venv/bin/python -m streamlit run dashboard/app.py
 ```
@@ -122,7 +129,9 @@ The [data governance guide](docs/data-governance.md) documents datasets, schema 
 
 The [analytics star schema](docs/analytics-star-schema.md) defines the observation fact grain, conformed dimensions, key strategy, legacy encounter handling, and bus matrix.
 
-The [model-training guide](docs/model-training.md) defines the leakage-safe training dataset and reproducible logistic-regression baseline. The [model-predictions guide](docs/model-predictions.md) covers immutable-model scoring and Athena presentation datasets.
+The [model-training guide](docs/model-training.md) defines the inference-safe training windows and reproducible logistic-regression baseline. The [model-predictions guide](docs/model-predictions.md) covers daily approved-model scoring and Athena presentation datasets. The [Power BI connection guide](docs/power-bi-connection.md) stops after connecting Power BI to Athena; report construction is intentionally out of scope.
+
+The [technology inventory](docs/technology-inventory.md) lists the standards, AWS services, frameworks, libraries, delivery tools, and testing methods used by the project.
 
 ## Portfolio safety
 

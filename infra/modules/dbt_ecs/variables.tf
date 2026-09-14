@@ -31,6 +31,17 @@ variable "image_tag" {
   default     = "latest"
 }
 
+variable "approved_model_version" {
+  description = "Exact immutable model version approved for automated scoring."
+  type        = string
+}
+
+variable "ml_database_name" {
+  description = "Glue database containing Terraform-managed model prediction tables."
+  type        = string
+  default     = "healthcare_realtime_ml"
+}
+
 variable "openlineage_collector_url" {
   description = "Optional shared OpenLineage HTTP collector base URL."
   type        = string

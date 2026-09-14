@@ -40,6 +40,7 @@ FEATURE_COLUMNS: Final = (
 )
 TARGET_COLUMN: Final = "deterioration_proxy_label"
 REQUIRED_COLUMNS: Final = ("encounter_key", "patient_key", "data_split", "feature_schema_version", "label_definition_version", TARGET_COLUMN, *FEATURE_COLUMNS)
+SCORING_REQUIRED_COLUMNS: Final = ("encounter_key", "patient_key", "feature_schema_version", "label_definition_version", *FEATURE_COLUMNS)
 IDENTIFIER_PATTERN: Final = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 MODEL_VERSION_PATTERN: Final = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 RANDOM_STATE: Final = 42
@@ -51,12 +52,12 @@ def load_csv_records(path: Path) -> list[dict[str, Any]]:
         return list(csv.DictReader(handle))
 
 
-def load_athena_records(database: str, table: str, staging_dir: str, region: str) -> list[dict[str, Any]]:
+def load_athena_records(database: str, table: str, staging_dir: str, region: str, required_columns: tuple[str, ...] = REQUIRED_COLUMNS) -> list[dict[str, Any]]:
     for identifier in (database, table):
         if not IDENTIFIER_PATTERN.fullmatch(identifier):
             raise ValueError(f"Invalid Athena identifier: {identifier}")
 
-    columns = ", ".join(REQUIRED_COLUMNS)
+    columns = ", ".join(required_columns)
     query = f"select {columns} from {database}.{table} order by encounter_key"
     with connect(s3_staging_dir=staging_dir, region_name=region).cursor() as cursor:
         cursor.execute(query)
@@ -84,8 +85,18 @@ def _validate_records(records: list[dict[str, Any]]) -> None:
         raise ValueError("Training dataset must contain one label definition version")
 
 
-def dataset_fingerprint(records: list[dict[str, Any]]) -> str:
-    fingerprint_columns = REQUIRED_COLUMNS
+def validate_scoring_contract(records: list[dict[str, Any]], manifest: dict[str, Any]) -> None:
+    if not records:
+        raise ValueError("Scoring dataset is empty")
+    missing = [column for column in SCORING_REQUIRED_COLUMNS if column not in records[0]]
+    if missing:
+        raise ValueError(f"Scoring dataset is missing columns: {', '.join(missing)}")
+    feature_versions = sorted({str(record["feature_schema_version"]) for record in records})
+    if feature_versions != manifest.get("feature_schema_versions"):
+        raise ValueError("Scoring dataset feature schema does not match the approved model")
+
+
+def dataset_fingerprint(records: list[dict[str, Any]], fingerprint_columns: tuple[str, ...] = REQUIRED_COLUMNS) -> str:
     normalized = [[str(record.get(column, "")) for column in fingerprint_columns] for record in sorted(records, key=lambda row: str(row["encounter_key"]))]
     payload = json.dumps(normalized, separators=(",", ":"), ensure_ascii=True)
     return hashlib.sha256(payload.encode()).hexdigest()
@@ -130,8 +141,12 @@ def train_baseline(records: list[dict[str, Any]]) -> tuple[Pipeline, dict[str, A
     return model, manifest
 
 
+def _features(records: list[dict[str, Any]]) -> list[list[float]]:
+    return [[_numeric_value(record[column]) for column in FEATURE_COLUMNS] for record in records]
+
+
 def _features_and_labels(records: list[dict[str, Any]]) -> tuple[list[list[float]], list[int]]:
-    features = [[_numeric_value(record[column]) for column in FEATURE_COLUMNS] for record in records]
+    features = _features(records)
     labels = [int(record[TARGET_COLUMN]) for record in records]
     return features, labels
 
@@ -193,17 +208,17 @@ def evaluate_baseline(model: Pipeline, records: list[dict[str, Any]]) -> dict[st
 def build_prediction_records(
     model: Pipeline, records: list[dict[str, Any]], manifest: dict[str, Any], threshold: float, scored_at: datetime
 ) -> list[dict[str, Any]]:
-    features, _ = _features_and_labels(records)
+    features = _features(records)
     probabilities = model.predict_proba(features)[:, 1].tolist()
     timestamp = scored_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S.%f")
-    scoring_fingerprint = dataset_fingerprint(records)
+    scoring_fingerprint = dataset_fingerprint(records, SCORING_REQUIRED_COLUMNS)
     return [
         {
             "model_version": manifest["model_version"],
             "encounter_key": str(record["encounter_key"]),
             "patient_key": str(record["patient_key"]),
-            "data_split": str(record["data_split"]),
-            "actual_label": int(record[TARGET_COLUMN]),
+            "data_split": str(record["data_split"]) if record.get("data_split") is not None else None,
+            "actual_label": int(record[TARGET_COLUMN]) if record.get(TARGET_COLUMN) is not None else None,
             "deterioration_probability": float(probability),
             "predicted_label": int(probability >= threshold),
             "decision_threshold": threshold,
@@ -277,50 +292,30 @@ def publish_predictions(predictions_path: Path, bucket: str, model_version: str,
     return f"s3://{bucket}/{key}"
 
 
-def prediction_table_statements(database: str, bucket: str, model_version: str) -> tuple[str, str]:
+def prediction_partition_statement(database: str, bucket: str, model_version: str) -> str:
     if not IDENTIFIER_PATTERN.fullmatch(database):
         raise ValueError(f"Invalid Athena identifier: {database}")
     if not MODEL_VERSION_PATTERN.fullmatch(model_version):
         raise ValueError(f"Invalid model version: {model_version}")
-    table_location = f"s3://{bucket}/ml/predictions/"
-    partition_location = f"{table_location}model_version={model_version}/"
-    create_table = f"""
-create external table if not exists {database}.ml_predictions_published (
-    encounter_key string,
-    patient_key string,
-    data_split string,
-    actual_label int,
-    deterioration_probability double,
-    predicted_label int,
-    decision_threshold double,
-    feature_schema_version string,
-    label_definition_version string,
-    dataset_fingerprint string,
-    scored_at timestamp
-)
-partitioned by (model_version string)
-row format serde 'org.openx.data.jsonserde.JsonSerDe'
-location '{table_location}'
-""".strip()
-    add_partition = f"""
+    partition_location = f"s3://{bucket}/ml/predictions/model_version={model_version}/"
+    return f"""
 alter table {database}.ml_predictions_published
 add if not exists partition (model_version = '{model_version}')
 location '{partition_location}'
 """.strip()
-    return create_table, add_partition
 
 
-def register_predictions_table(database: str, staging_dir: str, region: str, bucket: str, model_version: str) -> None:
-    statements = prediction_table_statements(database, bucket, model_version)
+def register_predictions_partition(database: str, staging_dir: str, region: str, bucket: str, model_version: str) -> None:
+    statement = prediction_partition_statement(database, bucket, model_version)
     with connect(s3_staging_dir=staging_dir, region_name=region).cursor() as cursor:
-        for statement in statements:
-            cursor.execute(statement)
+        cursor.execute(statement)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input-csv", type=Path, help="Local export of the dbt training dataset")
     parser.add_argument("--athena-database", default="healthcare_realtime_dbt")
+    parser.add_argument("--predictions-database", default="healthcare_realtime_ml")
     parser.add_argument("--athena-table", default="ml_training_dataset")
     parser.add_argument("--athena-staging-dir", help="S3 URI for Athena query results")
     parser.add_argument("--region", default=os.getenv("AWS_REGION", "us-east-1"))
@@ -331,10 +326,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    staging_dir = args.athena_staging_dir
     if args.input_csv:
         records = load_csv_records(args.input_csv)
     else:
-        staging_dir = args.athena_staging_dir
         if not staging_dir:
             bucket = os.getenv("DATA_BUCKET_NAME")
             if not bucket:
@@ -353,8 +348,9 @@ def main() -> None:
         bucket = os.getenv("DATA_BUCKET_NAME")
         if not bucket:
             raise SystemExit("Set DATA_BUCKET_NAME before using --publish-s3")
+        staging_dir = staging_dir or f"s3://{bucket}/athena_results/ml_training/"
         published = publish_artifacts(args.output_dir, bucket, manifest["model_version"])
-        register_predictions_table(args.athena_database, staging_dir, args.region, bucket, manifest["model_version"])
+        register_predictions_partition(args.predictions_database, staging_dir, args.region, bucket, manifest["model_version"])
 
     print(json.dumps({"manifest": manifest, "evaluation": evaluation, "published": published}, indent=2, sort_keys=True))
 

@@ -17,11 +17,13 @@ from sklearn.pipeline import Pipeline
 
 from jobs.ml.train_logistic_regression import (
     FEATURE_COLUMNS,
+    SCORING_REQUIRED_COLUMNS,
     _s3_location,
     build_prediction_records,
     load_athena_records,
     publish_predictions,
-    register_predictions_table,
+    register_predictions_partition,
+    validate_scoring_contract,
 )
 
 
@@ -62,9 +64,10 @@ def write_predictions(predictions: list[dict[str, Any]], path: Path) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model-s3-uri", required=True, help="Exact ml/model_artifacts/<model-version> S3 URI selected for scoring")
+    parser.add_argument("--model-s3-uri", help="Exact ml/model_artifacts/<model-version> S3 URI selected for scoring")
     parser.add_argument("--athena-database", default="healthcare_realtime_dbt")
-    parser.add_argument("--athena-table", default="ml_training_dataset")
+    parser.add_argument("--athena-table", default="ml_scoring_dataset")
+    parser.add_argument("--predictions-database", default="healthcare_realtime_ml")
     parser.add_argument("--athena-staging-dir", help="S3 URI for Athena query results")
     parser.add_argument("--region", default=os.getenv("AWS_REGION", "us-east-1"))
     parser.add_argument("--output", type=Path, default=Path("build/ml/scoring/predictions.jsonl"))
@@ -75,12 +78,19 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     bucket = os.getenv("DATA_BUCKET_NAME")
+    model_s3_uri = args.model_s3_uri
+    if not model_s3_uri:
+        model_version = os.getenv("ML_APPROVED_MODEL_VERSION")
+        if not bucket or not model_version:
+            raise SystemExit("Set DATA_BUCKET_NAME and ML_APPROVED_MODEL_VERSION or pass --model-s3-uri")
+        model_s3_uri = f"s3://{bucket}/ml/model_artifacts/{model_version}"
     staging_dir = args.athena_staging_dir or (f"s3://{bucket}/athena_results/ml_scoring/" if bucket else None)
     if not staging_dir:
         raise SystemExit("Set DATA_BUCKET_NAME or pass --athena-staging-dir")
 
-    model, manifest = load_published_model(args.model_s3_uri)
-    records = load_athena_records(args.athena_database, args.athena_table, staging_dir, args.region)
+    model, manifest = load_published_model(model_s3_uri)
+    records = load_athena_records(args.athena_database, args.athena_table, staging_dir, args.region, SCORING_REQUIRED_COLUMNS)
+    validate_scoring_contract(records, manifest)
     threshold = float(manifest["evaluation"]["selected_threshold"])
     predictions = build_prediction_records(model, records, manifest, threshold, datetime.now(UTC))
     write_predictions(predictions, args.output)
@@ -90,7 +100,7 @@ def main() -> None:
         if not bucket:
             raise SystemExit("Set DATA_BUCKET_NAME before using --publish-s3")
         published = publish_predictions(args.output, bucket, manifest["model_version"])
-        register_predictions_table(args.athena_database, staging_dir, args.region, bucket, manifest["model_version"])
+        register_predictions_partition(args.predictions_database, staging_dir, args.region, bucket, manifest["model_version"])
     print(json.dumps({"model_version": manifest["model_version"], "prediction_count": len(predictions), "published": published}, indent=2))
 
 

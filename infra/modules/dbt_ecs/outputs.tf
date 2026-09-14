@@ -37,3 +37,8 @@ output "task_definition_family" {
   description = "dbt ECS task definition family."
   value       = aws_ecs_task_definition.dbt.family
 }
+
+output "predictions_database_name" {
+  description = "Terraform-managed Glue database containing published model predictions."
+  value       = aws_glue_catalog_database.ml.name
+}
