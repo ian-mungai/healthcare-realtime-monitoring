@@ -47,6 +47,9 @@
         "glue:CreateDatabase",
         "glue:GetDatabase",
         "glue:GetDatabases",
+        "glue:GetTags",
+        "glue:TagResource",
+        "glue:UntagResource",
         "glue:DeleteDatabase",
         "glue:GetTable",
         "glue:GetTables",
@@ -65,18 +68,27 @@
         "glue:DeleteTable",
         "glue:BatchDeleteTable",
         "glue:DeleteTableVersion",
-        "glue:BatchDeleteTableVersion",
+        "glue:BatchDeleteTableVersion"
+      ],
+      "Resource": [
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:catalog",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:database/healthcare_realtime_dbt",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:database/healthcare_realtime_ml",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/healthcare_realtime_dbt/*",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/healthcare_realtime_ml/*"
+      ]
+    },
+    {
+      "Sid": "ManageHealthcareGluePartitions",
+      "Effect": "Allow",
+      "Action": [
         "glue:CreatePartition",
         "glue:BatchCreatePartition",
         "glue:UpdatePartition",
         "glue:DeletePartition",
         "glue:BatchDeletePartition"
       ],
-      "Resource": [
-        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:catalog",
-        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:database/healthcare_realtime_dbt",
-        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/healthcare_realtime_dbt/*"
-      ]
+      "Resource": "*"
     }
   ]
 }
