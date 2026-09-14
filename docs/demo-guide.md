@@ -17,7 +17,8 @@ export AWS_DEFAULT_REGION="$AWS_REGION"
 Confirm the deployment is converged and that the simulator is not already running:
 
 ```zsh
-terraform -chdir=infra plan -var-file=development.tfvars
+terraform -chdir=infra plan -var-file=development.tfvars -out=tfplan-demo-check
+terraform -chdir=infra show -no-color tfplan-demo-check
 ./scripts/demo/status_vitals_demo.sh
 ```
 
@@ -41,6 +42,7 @@ Retrieve the target endpoints without copying them into documentation or screens
 ```zsh
 export VITALS_API_ENDPOINT="$(terraform -chdir=infra output -raw vitals_api_endpoint)"
 export VITALS_WEBSOCKET_URL="$(terraform -chdir=infra output -raw realtime_websocket_url)"
+export DATA_BUCKET_NAME="$(terraform -chdir=infra output -raw raw_s3_bucket_name)"
 export PATIENT_IDS="<comma-separated-simulated-patient-ids>"
 PYTHONPATH="$PWD" .venv/bin/python -m streamlit run dashboard/app.py
 ```
@@ -52,6 +54,7 @@ In the dashboard, verify that:
 3. Current-monitoring values are no more than 10 seconds old; older values are suppressed rather than presented as live.
 4. The chart time axis advances with full timestamps.
 5. Selecting **View trends** focuses a patient without hiding the rest of the cohort.
+6. **Model analytics** shows the latest approved synthetic proxy score for each scored patient without changing live clinical priorities.
 
 ## Postman REST check
 
@@ -94,7 +97,7 @@ Confirm that the live processing-latency and WebSocket-delivery alarms are `OK`.
 
 ## Analytics and recovery evidence
 
-For an extended demonstration, show a successful MWAA workflow run and its Glue, Athena, dbt, and Soda tasks. Then confirm that Great Expectations, Soda contracts, and OpenLineage events have completed successfully. When `openlineage_collector_url` is configured, confirm the shared collector contains matching START and COMPLETE events for the same run IDs.
+For an extended demonstration, show a successful MWAA workflow run and its Glue, Athena, Great Expectations, dbt, approved-model scoring, prediction refresh, and Soda tasks. Confirm that prediction freshness and OpenLineage validation completed successfully. When `openlineage_collector_url` is configured, confirm the shared collector contains matching START and COMPLETE events for the same run IDs.
 
 Do not intentionally inject a production-style failure during a portfolio recording. If recovery evidence is needed, use a reviewed synthetic failure case and follow the controlled replay procedure in the [operations runbook](operations-runbook.md).
 

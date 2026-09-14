@@ -31,12 +31,15 @@ flowchart LR
 
     subgraph Analytics[Durable analytical path]
         FIREHOSE["Kinesis Data Firehose"]
-        RAW["Versioned S3\nraw FHIR events"]
+        RAW["Versioned S3\nnormalized FHIR vital events"]
         GLUE["Glue + Iceberg\nprocessed observations"]
         ATHENA["Athena quality validation"]
         GX["Great Expectations\nprocessed-table validation"]
         DBT["dbt ECS task\nsilver and gold models"]
+        ML["Approved logistic model\nautomated scoring"]
+        PREDICT["Athena prediction\nserving views"]
         SODA["Soda ECS task\ndata contracts"]
+        POWERBI["Power BI\nAthena connection"]
     end
 
     subgraph Operations[Recovery and operations]
@@ -52,7 +55,8 @@ flowchart LR
     LATEST --> REST --> CLIENT
     PROCESSOR --> WS --> CLIENT
 
-    KINESIS --> FIREHOSE --> RAW --> GLUE --> ATHENA --> GX --> DBT --> SODA
+    KINESIS --> FIREHOSE --> RAW --> GLUE --> ATHENA --> GX --> DBT --> ML --> PREDICT --> SODA
+    PREDICT --> POWERBI
     GLUE --> LINEAGE
     ATHENA --> LINEAGE
     GX --> LINEAGE
@@ -78,13 +82,13 @@ The serving model is deliberately cohort-first: the dashboard keeps all simulate
 
 ## Analytical path
 
-Kinesis Data Firehose writes immutable flattened vital events to the data bucket. Glue reads that current event contract, classifies each measurement, exposes rejected rows through an Athena-readable quarantine table, and deduplicates and merges accepted measurements into an Iceberg table. Reviewed quarantine rows can be corrected and republished through the controlled replay utility. The native Airflow DAG and MWAA Serverless workflow coordinate Glue, Athena validation, Great Expectations, dbt, and Soda in sequence:
+Kinesis Data Firehose writes immutable normalized vital events to the data bucket. These rows preserve FHIR identifiers and coding but are not complete FHIR resources. Glue reads that current event contract, classifies each measurement, exposes rejected rows through an Athena-readable quarantine table, and deduplicates and merges accepted measurements into an Iceberg table. Reviewed quarantine rows can be corrected and republished through the controlled replay utility. The native Airflow DAG and MWAA Serverless workflow coordinate Glue, Athena validation, Great Expectations, dbt, approved-model scoring, prediction refresh, and Soda in sequence:
 
 ```text
-raw event arrival -> Glue processing -> Athena validation -> Great Expectations -> dbt build -> Soda contracts
+raw event arrival -> Glue -> Athena -> Great Expectations -> dbt -> approved-model scoring -> prediction refresh -> Soda
 ```
 
-dbt produces a keyed observation fact and conformed patient, encounter, observation-type, and date dimensions used for analytical reporting. The [analytics star schema](analytics-star-schema.md) defines its grain, keys, join paths, and bus matrix. The deployed workflow uses Athena validation, Great Expectations, dbt tests, and Soda contracts as automated quality gates. Each executed analytical validation emits OpenLineage lifecycle events with a shared run identity. The managed collector runs Marquez on private ECS and RDS resources behind explicit IAM-authorized API Gateway routes. Emitters sign requests using temporary workload credentials; S3 remains the durable fallback when the collector is disabled.
+dbt produces a keyed observation fact, conformed dimensions, fixed-window encounter features, and separate training and prospective-scoring datasets. The daily workflow scores the latter with one explicitly approved immutable model, publishes predictions to the Terraform-owned `healthcare_realtime_ml` catalog, rebuilds the serving views, and then runs freshness-aware Soda contracts. The [analytics star schema](analytics-star-schema.md) defines the analytical grain, keys, join paths, and bus matrix. Each executed analytical validation emits OpenLineage lifecycle events with a shared run identity. The managed collector runs Marquez on private ECS and RDS resources behind explicit IAM-authorized API Gateway routes. Emitters sign remote requests using temporary workload credentials; S3 remains the durable fallback when the collector is disabled.
 
 ## Failure and recovery model
 
@@ -110,7 +114,7 @@ Two CloudWatch dashboards support different questions:
 | `healthcare-realtime-monitoring` | End-to-end pipeline: Kinesis, Firehose, Glue, MWAA, dbt, Soda, and analytical failures |
 | `healthcare-realtime-live-development` | Realtime state: processor errors, iterator age, processing latency, WebSocket delivery, and simulator activity |
 
-Alarms cover pipeline task failures, throttling, Firehose delivery, processor errors and throttles, iterator age, live processing latency, and WebSocket-delivery failures. Operational validation is complete only when current state advances, monitoring clients receive updates, and the relevant alarms are `OK`.
+Alarms cover pipeline task failures, throttling, Firehose delivery, processor errors and throttles, iterator age, live processing latency, WebSocket-delivery failures, collector health, missing lineage events, and client-side lineage-emission failures. Operational validation is complete only when current state advances, monitoring clients receive updates, and the relevant alarms are `OK`.
 
 ## Deployment and configuration
 

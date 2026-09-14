@@ -61,17 +61,18 @@ Confirm that the state object exists in the configured bucket before removing an
 
 ## CI and Deployment Gate
 
-The CI workflow runs Python tests, linting, Terraform format and validation, generated-workflow validation, and container builds on pull requests and updates to `main`. Infrastructure deployment uses the manual OIDC-authenticated workflow and protected environment described in the [deployment guide](deployment.md).
+The CI workflow runs Python tests, linting, type checks, Soda syntax checks, Terraform format and validation, generated-workflow validation, deployment-package checks, and container builds on pull requests and updates to `main`. Infrastructure deployment uses the manual OIDC-authenticated workflow and protected environment described in the [deployment guide](deployment.md).
 
 Before infrastructure deployment, run:
 
 ```zsh
 terraform -chdir=infra fmt -check -recursive
 terraform -chdir=infra validate
-terraform -chdir=infra plan -var-file=development.tfvars
+terraform -chdir=infra plan -var-file=development.tfvars -out=tfplan-operations
+terraform -chdir=infra show -no-color tfplan-operations
 ```
 
-Review every planned action. Apply only an approved saved plan. After deployment, repeat `terraform plan` and expect `No changes`.
+Review every planned action, then apply only the saved plan with `terraform -chdir=infra apply tfplan-operations`. After deployment, repeat `terraform plan` and expect `No changes`.
 
 ## Demo Startup
 

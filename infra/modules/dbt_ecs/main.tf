@@ -31,6 +31,69 @@ resource "aws_cloudwatch_log_group" "dbt" {
   tags = var.tags
 }
 
+resource "aws_cloudwatch_log_metric_filter" "openlineage_emission_failures" {
+  name           = "healthcare-realtime-dbt-openlineage-emission-failures"
+  pattern        = "\"OpenLineage\" \"emission\" \"failed\""
+  log_group_name = aws_cloudwatch_log_group.dbt.name
+
+  metric_transformation {
+    name      = "EmissionFailure"
+    namespace = "HealthcareRealtime/OpenLineage"
+    value     = "1"
+  }
+}
+
+resource "aws_glue_catalog_database" "ml" {
+  name = var.ml_database_name
+}
+
+resource "aws_glue_catalog_table" "predictions" {
+  name          = "ml_predictions_published"
+  database_name = aws_glue_catalog_database.ml.name
+  table_type    = "EXTERNAL_TABLE"
+
+  parameters = {
+    classification = "json"
+    EXTERNAL       = "TRUE"
+  }
+
+  partition_keys {
+    name = "model_version"
+    type = "string"
+  }
+
+  storage_descriptor {
+    location      = "s3://${var.data_bucket_name}/ml/predictions/"
+    input_format  = "org.apache.hadoop.mapred.TextInputFormat"
+    output_format = "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+
+    ser_de_info {
+      serialization_library = "org.openx.data.jsonserde.JsonSerDe"
+    }
+
+    dynamic "columns" {
+      for_each = {
+        encounter_key             = "string"
+        patient_key               = "string"
+        data_split                = "string"
+        actual_label              = "int"
+        deterioration_probability = "double"
+        predicted_label           = "int"
+        decision_threshold        = "double"
+        feature_schema_version    = "string"
+        label_definition_version  = "string"
+        dataset_fingerprint       = "string"
+        scored_at                 = "timestamp"
+      }
+
+      content {
+        name = columns.key
+        type = columns.value
+      }
+    }
+  }
+}
+
 data "aws_iam_policy_document" "ecs_tasks_assume_role" {
   statement {
     effect = "Allow"
@@ -153,7 +216,25 @@ data "aws_iam_policy_document" "task" {
       "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:database/${var.source_database_name}",
       "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:table/${var.source_database_name}/*",
       "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:database/${var.dbt_database_name}",
-      "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:table/${var.dbt_database_name}/*"
+      "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:table/${var.dbt_database_name}/*",
+      "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:database/${var.ml_database_name}",
+      "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:table/${var.ml_database_name}/*"
+    ]
+  }
+
+  statement {
+    sid    = "RegisterModelPredictionPartitions"
+    effect = "Allow"
+
+    actions = [
+      "glue:CreatePartition",
+      "glue:BatchCreatePartition"
+    ]
+
+    resources = [
+      "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:catalog",
+      "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:database/${var.ml_database_name}",
+      "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:table/${var.ml_database_name}/ml_predictions_published"
     ]
   }
 
@@ -206,7 +287,23 @@ data "aws_iam_policy_document" "task" {
 
     resources = [
       "arn:aws:s3:::${var.data_bucket_name}/processed/*",
-      "arn:aws:s3:::${var.data_bucket_name}/ml/predictions/*"
+      "arn:aws:s3:::${var.data_bucket_name}/ml/predictions/*",
+      "arn:aws:s3:::${var.data_bucket_name}/ml/model_artifacts/${var.approved_model_version}/*"
+    ]
+  }
+
+  statement {
+    sid    = "PublishApprovedModelPredictions"
+    effect = "Allow"
+
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject"
+    ]
+
+    resources = [
+      "arn:aws:s3:::${var.data_bucket_name}/ml/predictions/model_version=${var.approved_model_version}/*"
     ]
   }
 
@@ -223,7 +320,8 @@ data "aws_iam_policy_document" "task" {
     ]
 
     resources = [
-      "arn:aws:s3:::${var.data_bucket_name}/athena_results/dbt/*"
+      "arn:aws:s3:::${var.data_bucket_name}/athena_results/dbt/*",
+      "arn:aws:s3:::${var.data_bucket_name}/athena_results/ml_scoring/*"
     ]
   }
 
@@ -332,6 +430,10 @@ resource "aws_ecs_task_definition" "dbt" {
         {
           name  = "OPENLINEAGE_URL"
           value = var.openlineage_collector_url
+        },
+        {
+          name  = "ML_APPROVED_MODEL_VERSION"
+          value = var.approved_model_version
         }
       ]
 

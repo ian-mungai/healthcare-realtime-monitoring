@@ -12,7 +12,7 @@ STATE="${STATE:-Washington}"
 
 if [ ! -d "$SYNTHEA_DIR" ]; then
     echo "Synthea is not installed."
-    echo "Run ./scripts/synthea-loader/scripts/install.sh first."
+    echo "Run ./scripts/synthea_loader/scripts/install.sh first."
     exit 1
 fi
 

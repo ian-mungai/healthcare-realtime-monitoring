@@ -7,6 +7,9 @@ from lineage.openlineage.dbt_lineage import emit_s3_dbt_lineage
 
 
 def main() -> int:
+    if len(sys.argv) > 1 and sys.argv[1] == "score-ml":
+        return subprocess.run([sys.executable, "-m", "jobs.ml.score_logistic_regression", *sys.argv[2:]], check=False).returncode
+
     lineage_run_id = emit_s3_dbt_lineage(RunState.START)
 
     try:

@@ -4,7 +4,7 @@
 
 Use this checklist to close a portfolio release of the healthcare realtime monitoring project. All published evidence must use synthetic data and replace deployment-specific values with placeholders.
 
-Power BI report construction is tracked separately and is not a prerequisite for this repository release.
+Only the documented Power BI-to-Athena connection is in scope. Report construction, DAX, visuals, publishing, and gateway setup are intentionally excluded.
 
 ## Source and CI
 
@@ -43,7 +43,7 @@ Detailed instructions are in [demo-guide.md](demo-guide.md).
 - [ ] Confirm the end-to-end pipeline dashboard is healthy.
 - [ ] Confirm the realtime dashboard shows current processing, low iterator age, and no sustained delivery errors.
 - [ ] Confirm the live processing-latency and WebSocket-delivery alarms are `OK`.
-- [ ] Record a successful MWAA workflow and its Glue, Athena, dbt, and Soda task outcomes.
+- [ ] Record a successful MWAA workflow and its Glue, Athena, Great Expectations, dbt, approved-model scoring, prediction refresh, and Soda task outcomes.
 - [ ] Record successful Great Expectations, Soda, and OpenLineage validation outcomes.
 - [ ] Verify the failure queue and replay dead-letter queue are empty or contain only reviewed synthetic test records.
 

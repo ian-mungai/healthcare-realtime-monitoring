@@ -35,10 +35,12 @@ class WorkflowGenerationTests(unittest.TestCase):
         self.assertEqual(dag.schedule, "0 2 * * *")
         self.assertFalse(dag.catchup)
         self.assertEqual(dag.max_active_runs, 1)
-        self.assertEqual(len(dag.tasks), 7)
+        self.assertEqual(len(dag.tasks), 9)
         self.assertEqual(dag.task_dict["run_great_expectations"].upstream_task_ids, {"validate_processed_data"})
         self.assertEqual(dag.task_dict["run_dbt_build"].upstream_task_ids, {"run_great_expectations"})
-        self.assertEqual(dag.task_dict["run_soda_checks"].upstream_task_ids, {"run_dbt_build"})
+        self.assertEqual(dag.task_dict["run_ml_scoring"].upstream_task_ids, {"run_dbt_build"})
+        self.assertEqual(dag.task_dict["refresh_prediction_models"].upstream_task_ids, {"run_ml_scoring"})
+        self.assertEqual(dag.task_dict["run_soda_checks"].upstream_task_ids, {"refresh_prediction_models"})
 
     def test_serverless_definition_preserves_contract_and_normalizes_ecs_families(self) -> None:
         workflow = generator.build_workflow_definition()["healthcare_realtime_pipeline"]
@@ -50,11 +52,18 @@ class WorkflowGenerationTests(unittest.TestCase):
         self.assertEqual(tasks["run_dbt_build"]["task_definition"], "healthcare_realtime_dbt")
         self.assertEqual(tasks["run_soda_checks"]["task_definition"], "healthcare_realtime_soda")
         self.assertEqual(tasks["run_great_expectations"]["task_definition"], "healthcare_realtime_soda")
+        self.assertEqual(tasks["run_ml_scoring"]["task_definition"], "healthcare_realtime_dbt")
+        self.assertEqual(
+            tasks["run_dbt_build"]["overrides"]["containerOverrides"][0]["command"][-3:], ["--exclude", "ml_predictions_serving", "ml_predictions_latest"]
+        )
+        self.assertEqual(tasks["run_ml_scoring"]["overrides"]["containerOverrides"][0]["command"], ["score-ml", "--publish-s3"])
         self.assertEqual(
             tasks["run_great_expectations"]["overrides"],
             {"containerOverrides": [{"name": "soda", "command": ["python", "/app/validate_processed_observations.py"]}]},
         )
         self.assertEqual(tasks["run_dbt_build"]["dependencies"], ["run_great_expectations"])
+        self.assertEqual(tasks["refresh_prediction_models"]["dependencies"], ["run_ml_scoring"])
+        self.assertEqual(tasks["run_soda_checks"]["dependencies"], ["refresh_prediction_models"])
         self.assertEqual(tasks["validate_processed_data"]["op_kwargs"]["openlineage_url"], "https://lineage.example.com")
 
     def test_task_definition_normalization_accepts_family_revision_and_arn(self) -> None:

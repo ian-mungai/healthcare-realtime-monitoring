@@ -194,6 +194,8 @@ def test_fhir_metadata():
     assert payload["resourceType"] == "CapabilityStatement"
     assert payload["fhirVersion"] == "4.0.1"
     assert payload["rest"][0]["resource"][0]["type"] == "Observation"
+    assert payload["rest"][0]["resource"][0]["profile"].endswith("/healthcare-realtime-vital-observation")
+    assert "Encounter reference" in payload["rest"][0]["documentation"]
     assert payload["rest"][0]["resource"][0]["interaction"] == [{"code": "update"}]
 
 

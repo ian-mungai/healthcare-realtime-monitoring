@@ -20,6 +20,18 @@ resource "aws_cloudwatch_log_group" "soda" {
   tags = var.tags
 }
 
+resource "aws_cloudwatch_log_metric_filter" "openlineage_emission_failures" {
+  name           = "healthcare-realtime-soda-openlineage-emission-failures"
+  pattern        = "\"OpenLineage\" \"emission\" \"failed\""
+  log_group_name = aws_cloudwatch_log_group.soda.name
+
+  metric_transformation {
+    name      = "EmissionFailure"
+    namespace = "HealthcareRealtime/OpenLineage"
+    value     = "1"
+  }
+}
+
 data "aws_iam_policy_document" "ecs_tasks_assume_role" {
   statement {
     effect = "Allow"
@@ -142,7 +154,9 @@ data "aws_iam_policy_document" "task" {
       "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:database/${var.source_database_name}",
       "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:database/${var.dbt_database_name}",
       "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:table/${var.source_database_name}/*",
-      "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:table/${var.dbt_database_name}/*"
+      "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:table/${var.dbt_database_name}/*",
+      "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:database/${var.ml_database_name}",
+      "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:table/${var.ml_database_name}/*"
     ]
   }
 
@@ -195,7 +209,8 @@ data "aws_iam_policy_document" "task" {
 
     resources = [
       "arn:aws:s3:::${var.data_bucket_name}/processed/*",
-      "arn:aws:s3:::${var.data_bucket_name}/dbt/*"
+      "arn:aws:s3:::${var.data_bucket_name}/dbt/*",
+      "arn:aws:s3:::${var.data_bucket_name}/ml/predictions/*"
     ]
   }
 

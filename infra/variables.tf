@@ -134,6 +134,17 @@ variable "dbt_image_tag" {
   type        = string
 }
 
+variable "ml_approved_model_version" {
+  description = "Exact immutable model version approved for automated scoring. Leave empty only during first-deployment bootstrap."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.ml_approved_model_version == "" || can(regex("^[a-z0-9][a-z0-9-]{0,62}$", var.ml_approved_model_version))
+    error_message = "ml_approved_model_version must be empty for bootstrap or a lowercase immutable version name."
+  }
+}
+
 variable "soda_image_tag" {
   description = "ECR image tag deployed by the Soda ECS task."
   type        = string

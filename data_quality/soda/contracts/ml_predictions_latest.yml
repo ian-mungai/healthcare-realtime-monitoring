@@ -4,6 +4,11 @@ checks:
   - row_count:
       threshold:
         must_be_greater_than: 0
+  - freshness:
+      column: scored_at
+      threshold:
+        must_be_less_than: 26
+        unit: hour
 
 columns:
   - name: encounter_key
