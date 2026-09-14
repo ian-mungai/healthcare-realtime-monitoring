@@ -4,6 +4,16 @@ config-version: 2
 
 profile: healthcare_realtime
 
+vars:
+  feature_window_minutes: 15
+  outcome_window_minutes: 15
+  vital_sign_loinc_codes:
+    heart_rate: "8867-4"
+    respiratory_rate: "9279-1"
+    spo2: "2708-6"
+    systolic_bp: "8480-6"
+    diastolic_bp: "8462-4"
+
 model-paths:
   - models
 

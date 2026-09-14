@@ -8,14 +8,16 @@ import pytest
 
 from jobs.ml.train_logistic_regression import (
     FEATURE_COLUMNS,
+    SCORING_REQUIRED_COLUMNS,
     build_prediction_records,
     dataset_fingerprint,
     evaluate_baseline,
     load_athena_records,
-    prediction_table_statements,
+    prediction_partition_statement,
     publish_artifacts,
     publish_predictions,
     train_baseline,
+    validate_scoring_contract,
     write_artifacts,
 )
 
@@ -125,10 +127,31 @@ def test_prediction_records_include_traceability_and_operating_point() -> None:
     assert predictions[0]["encounter_key"] == records[0]["encounter_key"]
     assert predictions[0]["patient_key"] == records[0]["patient_key"]
     assert predictions[0]["model_version"] == manifest["model_version"]
-    assert predictions[0]["dataset_fingerprint"] == dataset_fingerprint(records)
+    assert predictions[0]["dataset_fingerprint"] == dataset_fingerprint(records, SCORING_REQUIRED_COLUMNS)
     assert predictions[0]["decision_threshold"] == 0.4
     assert predictions[0]["predicted_label"] in {0, 1}
     assert 0.0 <= predictions[0]["deterioration_probability"] <= 1.0
+
+
+def test_prediction_records_allow_unlabelled_prospective_features() -> None:
+    records = sample_records()
+    model, manifest = train_baseline(records)
+    scoring_records = [{key: value for key, value in record.items() if key not in {"data_split", "deterioration_proxy_label"}} for record in records]
+
+    predictions = build_prediction_records(model, scoring_records, manifest, 0.4, datetime(2026, 9, 13, 12, 30, tzinfo=UTC))
+
+    assert predictions[0]["data_split"] is None
+    assert predictions[0]["actual_label"] is None
+
+
+def test_scoring_contract_rejects_a_model_trained_on_an_old_feature_schema() -> None:
+    records = sample_records()
+    _, manifest = train_baseline(records)
+    scoring_records = [{key: value for key, value in record.items() if key not in {"data_split", "deterioration_proxy_label"}} for record in records]
+    scoring_records[0]["feature_schema_version"] = "vital-features-v2"
+
+    with pytest.raises(ValueError, match="feature schema"):
+        validate_scoring_contract(scoring_records, manifest)
 
 
 class RecordingS3Client:
@@ -154,12 +177,12 @@ def test_publish_artifacts_uses_versioned_encrypted_paths(tmp_path: Path) -> Non
     assert published["predictions.jsonl"] == "s3://example-bucket/ml/predictions/model_version=logistic-abc123/predictions.jsonl"
 
 
-def test_prediction_table_statements_are_partitioned_by_model_version() -> None:
-    create_table, add_partition = prediction_table_statements("healthcare_realtime_dbt", "example-bucket", "logistic-abc123")
+def test_prediction_partition_statement_targets_ml_database() -> None:
+    add_partition = prediction_partition_statement("healthcare_realtime_ml", "example-bucket", "logistic-abc123")
 
-    assert "partitioned by (model_version string)" in create_table
-    assert "healthcare_realtime_dbt.ml_predictions_published" in create_table
+    assert "healthcare_realtime_ml.ml_predictions_published" in add_partition
     assert "model_version = 'logistic-abc123'" in add_partition
+    assert "create external table" not in add_partition
 
 
 def test_published_prediction_lines_exclude_partition_column(tmp_path: Path) -> None:

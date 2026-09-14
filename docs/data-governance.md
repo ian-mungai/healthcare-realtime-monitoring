@@ -15,7 +15,7 @@ BIDMC measurements -> FHIR Observation -> Kinesis -> realtime serving
 
 | Dataset | System | Purpose |
 | --- | --- | --- |
-| `raw/fhir_observations/` | Amazon S3 | Immutable raw FHIR event landing area |
+| `raw/fhir_observations/` | Amazon S3 | Immutable normalized FHIR vital-event landing area |
 | `healthcare_realtime.processed_fhir_observations` | Glue Catalog / Iceberg | Validated, deduplicated observations |
 | `healthcare_realtime_dbt.stg_fhir_observations` | Athena / dbt | Clean analytical staging model |
 | `healthcare_realtime_dbt.fact_observations` | Athena / dbt | Keyed vital-sign measurement fact |
@@ -26,6 +26,12 @@ BIDMC measurements -> FHIR Observation -> Kinesis -> realtime serving
 | `healthcare_realtime_dbt.dim_date` | Athena / dbt | Observation calendar dimension |
 | `healthcare_realtime_dbt.fct_encounter_vital_features` | Athena / dbt | Encounter features and synthetic deterioration proxy label |
 | `healthcare_realtime_dbt.ml_training_dataset` | Athena / dbt | Versioned model features, proxy label, and patient-grouped split |
+| `healthcare_realtime_dbt.ml_scoring_dataset` | Athena / dbt | Inference-safe features for completed fixed feature windows |
+| `ml/model_artifacts/` | Amazon S3 | Checksummed immutable model, manifest, and evaluation artifacts |
+| `ml/predictions/` | Amazon S3 | Model-version-partitioned prediction records |
+| `healthcare_realtime_ml.ml_predictions_published` | Glue Catalog / Athena | Terraform-owned external prediction table |
+| `healthcare_realtime_dbt.ml_predictions_serving` | Athena / dbt | Versioned prediction history |
+| `healthcare_realtime_dbt.ml_predictions_latest` | Athena / dbt | Predictions restricted to the approved model version |
 | `healthcare-realtime-latest-vitals` | DynamoDB | Latest accepted realtime state by patient |
 | `quarantine/fhir_observations/` | Amazon S3 | Rejected analytical records with reasons |
 | `healthcare_realtime.quarantined_fhir_observations` | Glue Catalog / Athena | Queryable view of quarantined records |
@@ -68,7 +74,7 @@ Great Expectations validates the processed Iceberg table for required fields, al
 
 The committed provider history is a synthetic NPPES-compatible fixture. It contains no assertion about real clinicians, and deterministic encounter assignments are explicitly flagged as synthetic. A local utility can merge a normalized NPPES snapshot into effective-dated history, but real provider extracts and generated histories must remain outside the public repository.
 
-The encounter feature table separates the first 80 percent of each observed encounter window from the final 20 percent. Features use only the first window; the final window produces a versioned deterioration proxy based on NEWS2 extreme vital thresholds. This proxy supports pipeline demonstration only and is not a diagnosis, a validated clinical outcome, or approved training data for clinical use.
+The encounter feature table uses the first fixed 15 minutes for features and the following fixed 15 minutes for the outcome proxy. The boundary is computable while an encounter is in progress and does not depend on its eventual end time. The outcome window produces a versioned deterioration proxy based on NEWS2 extreme vital thresholds. This proxy supports pipeline demonstration only and is not a diagnosis, a validated clinical outcome, or approved training data for clinical use.
 
 The training dataset excludes ineligible encounters and assigns complete patient histories to either training or testing. Its feature schema, label definition, split rule, and source-row fingerprint are recorded with every baseline model artifact. Generated model files remain under the ignored `build/` directory unless a reviewed private artifact store is configured.
 
@@ -99,10 +105,11 @@ OpenLineage events are sent to the configured shared HTTP collector. When no col
 The verified lineage chain is:
 
 ```text
-S3 raw FHIR observations
+S3 normalized FHIR vital events
   -> Glue processed observations
   -> Athena quality validation
-  -> dbt staging, fact, dimensions, and encounter features
+  -> dbt staging, fact, dimensions, encounter features, and model inputs
+  -> approved-model prediction publication and serving views
   -> Soda contract validation
 ```
 

@@ -48,6 +48,11 @@ output "openlineage_collector_alarm_names" {
   value       = module.openlineage_collector.alarm_names
 }
 
+output "openlineage_emission_failure_alarm_name" {
+  description = "CloudWatch alarm for client-side OpenLineage delivery failures."
+  value       = aws_cloudwatch_metric_alarm.openlineage_emission_failures.alarm_name
+}
+
 output "github_deployment_role_arn" {
   description = "GitHub Actions OIDC deployment role ARN, or null when OIDC is disabled."
   value       = var.enable_github_oidc ? aws_iam_role.github_deployment[0].arn : null

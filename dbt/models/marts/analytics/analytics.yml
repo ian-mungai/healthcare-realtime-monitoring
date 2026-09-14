@@ -2,7 +2,7 @@ version: 2
 
 models:
   - name: fct_encounter_vital_features
-    description: Encounter-level vital features from the first 80 percent of the observation window and a synthetic deterioration proxy from the final 20 percent.
+    description: Encounter-level vital features from a fixed initial window and a synthetic deterioration proxy from the following fixed outcome window.
 
     columns:
       - name: encounter_key
@@ -42,6 +42,34 @@ models:
         tests:
           - not_null
 
+  - name: ml_scoring_dataset
+    description: Inference-safe encounter features available once the fixed feature window has elapsed.
+
+    columns:
+      - name: encounter_key
+        tests:
+          - not_null
+          - unique
+          - relationships:
+              arguments:
+                to: ref('fct_encounter_vital_features')
+                field: encounter_key
+
+      - name: patient_key
+        tests:
+          - not_null
+
+      - name: feature_schema_version
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['vital-features-v2']
+
+      - name: label_definition_version
+        tests:
+          - not_null
+
   - name: ml_training_dataset
     description: Model-ready encounter features with a deterministic patient-grouped 80/20 train/test split.
 
@@ -72,7 +100,7 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                values: ['vital-features-v1']
+                values: ['vital-features-v2']
 
       - name: label_definition_version
         tests:
@@ -106,7 +134,7 @@ models:
           - not_null
           - relationships:
               arguments:
-                to: ref('ml_training_dataset')
+                to: ref('ml_scoring_dataset')
                 field: encounter_key
 
       - name: patient_key

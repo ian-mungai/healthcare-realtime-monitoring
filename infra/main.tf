@@ -121,6 +121,7 @@ module "mwaa" {
   workflow_name      = "healthcare_realtime_pipeline"
   source_bucket_name = var.mwaa_source_bucket_name
   data_bucket_name   = module.raw_s3.bucket_name
+  enable_schedule    = var.ml_approved_model_version != ""
 
   dbt_ecs_task_definition_family  = module.dbt_ecs.task_definition_family
   dbt_ecs_task_role_arn           = module.dbt_ecs.task_role_arn
@@ -175,6 +176,7 @@ module "dbt_ecs" {
   private_subnet_ids               = module.network.private_subnet_ids
   data_bucket_name                 = module.raw_s3.bucket_name
   image_tag                        = var.dbt_image_tag
+  approved_model_version           = var.ml_approved_model_version
   openlineage_collector_url        = local.effective_openlineage_collector_url
   openlineage_collector_invoke_arn = local.openlineage_collector_invoke_arn
 

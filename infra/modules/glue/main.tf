@@ -86,6 +86,25 @@ resource "aws_iam_role_policy" "glue_data_access" {
   policy = data.aws_iam_policy_document.glue_data_access.json
 }
 
+resource "aws_cloudwatch_log_group" "glue" {
+  name              = "/aws-glue/jobs/healthcare-realtime"
+  retention_in_days = 14
+
+  tags = var.tags
+}
+
+resource "aws_cloudwatch_log_metric_filter" "openlineage_emission_failures" {
+  name           = "healthcare-realtime-glue-openlineage-emission-failures"
+  pattern        = "\"OpenLineage\" \"emission\" \"failed\""
+  log_group_name = aws_cloudwatch_log_group.glue.name
+
+  metric_transformation {
+    name      = "EmissionFailure"
+    namespace = "HealthcareRealtime/OpenLineage"
+    value     = "1"
+  }
+}
+
 resource "aws_glue_catalog_database" "healthcare_realtime" {
   name = var.database_name
 }
@@ -217,6 +236,7 @@ resource "aws_glue_job" "raw_to_processed" {
     "--extra-py-files"               = "s3://${var.bucket_name}/glue/dependencies/healthcare_realtime_lineage.zip"
     "--additional-python-modules"    = "openlineage-python[fsspec]==1.52.0,s3fs"
     "--enable-observability-metrics" = "true"
+    "--continuous-log-logGroup"      = aws_cloudwatch_log_group.glue.name
     "--conf"                         = "spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions --conf spark.sql.catalog.glue_catalog=org.apache.iceberg.spark.SparkCatalog --conf spark.sql.catalog.glue_catalog.warehouse=s3://${var.bucket_name}/processed/ --conf spark.sql.catalog.glue_catalog.catalog-impl=org.apache.iceberg.aws.glue.GlueCatalog --conf spark.sql.catalog.glue_catalog.io-impl=org.apache.iceberg.aws.s3.S3FileIO"
   }
 

@@ -45,7 +45,7 @@ Review the generated history before replacing the synthetic seed. Do not commit 
 
 ## Feature and label construction
 
-`healthcare_realtime_dbt.fct_encounter_vital_features` uses the encounter's observed duration as the analysis window. Observations before the 80 percent cutoff produce model-ready vital aggregates. The final 20 percent is held out for the binary `deterioration_proxy_label`, preventing outcome-window measurements from leaking into features.
+`healthcare_realtime_dbt.fct_encounter_vital_features` uses absolute windows that are independent of the encounter's eventual duration. The first 15 minutes produce model-ready vital aggregates and the following 15 minutes produce the binary `deterioration_proxy_label`. `ml_scoring_dataset` becomes eligible after the feature window; `ml_training_dataset` additionally requires observations in the outcome window.
 
 The versioned `news2-extreme-proxy-v1` label is `1` when the outcome window contains heart rate at or below 40 or at or above 131, respiratory rate at or below 8 or at or above 25, oxygen saturation at or below 91, or systolic pressure at or below 90. `is_training_eligible` requires observations in both windows.
 

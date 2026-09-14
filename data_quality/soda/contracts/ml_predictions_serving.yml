@@ -10,6 +10,11 @@ checks:
         - encounter_key
       threshold:
         must_be: 0
+  - freshness:
+      column: scored_at
+      threshold:
+        must_be_less_than: 26
+        unit: hour
 
 columns:
   - name: model_version

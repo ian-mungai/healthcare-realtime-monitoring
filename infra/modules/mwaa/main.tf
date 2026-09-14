@@ -308,7 +308,7 @@ resource "aws_iam_role_policy" "mwaa_logs_access" {
 resource "awscc_mwaaserverless_workflow" "healthcare_realtime" {
   name         = var.workflow_name
   role_arn     = aws_iam_role.mwaa_execution.arn
-  trigger_mode = "manual_only"
+  trigger_mode = var.enable_schedule ? "scheduled" : "manual_only"
 
   definition_s3_location = {
     bucket     = aws_s3_bucket.mwaa.bucket
@@ -351,6 +351,18 @@ resource "aws_cloudwatch_log_metric_filter" "task_failures" {
   metric_transformation {
     name      = "TaskFailure"
     namespace = "HealthcareRealtime/Pipeline"
+    value     = "1"
+  }
+}
+
+resource "aws_cloudwatch_log_metric_filter" "openlineage_emission_failures" {
+  name           = "healthcare-realtime-mwaa-openlineage-emission-failures"
+  pattern        = "\"OpenLineage\" \"emission\" \"failed\""
+  log_group_name = "/aws/mwaa-serverless/${basename(awscc_mwaaserverless_workflow.healthcare_realtime.workflow_arn)}/"
+
+  metric_transformation {
+    name      = "EmissionFailure"
+    namespace = "HealthcareRealtime/OpenLineage"
     value     = "1"
   }
 }

@@ -122,20 +122,26 @@ export OPENLINEAGE_URL="$(terraform -chdir=infra output -raw openlineage_collect
 
 .venv/bin/python - <<'PY'
 import os
-from urllib.parse import urlparse
 
-from lineage.openlineage.client import build_sigv4_session, execute_api_region
+import boto3
+from botocore.auth import SigV4Auth
+from botocore.awsrequest import AWSRequest
+from botocore.httpsession import URLLib3Session
 
-url = os.environ["OPENLINEAGE_URL"].rstrip("/")
-region = execute_api_region(urlparse(url).hostname)
-if region is None:
-    raise SystemExit("Expected the managed API Gateway collector URL")
-response = build_sigv4_session(region).get(f"{url}/api/v1/namespaces", timeout=10)
-response.raise_for_status()
-print(response.json())
+url = f'{os.environ["OPENLINEAGE_URL"].rstrip("/")}/api/v1/namespaces'
+region = os.environ["AWS_REGION"]
+credentials = boto3.Session().get_credentials()
+if credentials is None:
+    raise SystemExit("AWS credentials are required")
+request = AWSRequest(method="GET", url=url)
+SigV4Auth(credentials.get_frozen_credentials(), "execute-api", region).add_auth(request)
+response = URLLib3Session().send(request.prepare())
+if response.status_code >= 400:
+    raise SystemExit(f"Collector returned HTTP {response.status_code}")
+print(response.content.decode())
 PY
 ```
 
 For cost-controlled shutdown, set `openlineage_collector_desired_count = 0` and apply. Stop the Marquez RDS instance from AWS when the analytical workflow is not being demonstrated; AWS automatically restarts a stopped RDS instance after seven days. Restore the database and desired count before running the pipeline.
 
-To use an externally managed collector instead, leave `enable_openlineage_collector = false` and set `openlineage_collector_url` to its HTTPS base URL. External collectors are not automatically assigned AWS SigV4 authentication.
+To use an externally managed collector instead, leave `enable_openlineage_collector = false` and set `openlineage_collector_url` to its HTTPS base URL. Every non-local remote collector request is SigV4-signed for `execute-api`; use a local endpoint for unsigned development transport.

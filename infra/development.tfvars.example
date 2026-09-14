@@ -48,3 +48,4 @@ realtime_patient_access_policy = {
 vitals_simulator_image_tag = "sha-<commit>-<variant>"
 dbt_image_tag              = "<dbt-image-tag>"
 soda_image_tag             = "<soda-image-tag>"
+ml_approved_model_version  = ""

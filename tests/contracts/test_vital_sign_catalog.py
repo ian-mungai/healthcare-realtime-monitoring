@@ -114,7 +114,13 @@ def test_glue_and_great_expectations_definitions_match_catalog() -> None:
 
 def test_dbt_and_soda_contracts_match_catalog() -> None:
     expected_codes = {vital["loinc_code"] for vital in VITALS}
+    dbt_project = yaml.safe_load((ROOT / "dbt/dbt_project.yml").read_text())
 
+    assert set(dbt_project["vars"]["vital_sign_loinc_codes"].values()) == expected_codes
     assert loinc_contract_values("dbt/models/staging/staging.yml") == expected_codes
     assert loinc_contract_values("data_quality/soda/contracts/stg_fhir_observations.yml") == expected_codes
     assert loinc_contract_values("data_quality/soda/contracts/dim_observation_type.yml") == expected_codes
+
+    feature_model = (ROOT / "dbt/models/marts/analytics/fct_encounter_vital_features.sql").read_text()
+    assert "vital_sign_loinc_codes" in feature_model
+    assert not expected_codes.intersection(feature_model.split("'"))

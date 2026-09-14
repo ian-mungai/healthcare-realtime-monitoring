@@ -63,7 +63,41 @@ with DAG(
         cluster=DATA_JOBS_ECS_CLUSTER,
         task_definition=DBT_ECS_TASK_DEFINITION,
         launch_type="FARGATE",
-        overrides={},
+        overrides={
+            "containerOverrides": [
+                {
+                    "name": "dbt",
+                    "command": ["build", "--project-dir", "/app/dbt", "--profiles-dir", "/app", "--exclude", "ml_predictions_serving", "ml_predictions_latest"],
+                }
+            ]
+        },
+        wait_for_completion=True,
+        network_configuration={"awsvpcConfiguration": {"subnets": DBT_ECS_SUBNETS, "securityGroups": [DBT_ECS_SECURITY_GROUP], "assignPublicIp": "DISABLED"}},
+    )
+
+    run_ml_scoring = EcsRunTaskOperator(
+        task_id="run_ml_scoring",
+        cluster=DATA_JOBS_ECS_CLUSTER,
+        task_definition=DBT_ECS_TASK_DEFINITION,
+        launch_type="FARGATE",
+        overrides={"containerOverrides": [{"name": "dbt", "command": ["score-ml", "--publish-s3"]}]},
+        wait_for_completion=True,
+        network_configuration={"awsvpcConfiguration": {"subnets": DBT_ECS_SUBNETS, "securityGroups": [DBT_ECS_SECURITY_GROUP], "assignPublicIp": "DISABLED"}},
+    )
+
+    refresh_prediction_models = EcsRunTaskOperator(
+        task_id="refresh_prediction_models",
+        cluster=DATA_JOBS_ECS_CLUSTER,
+        task_definition=DBT_ECS_TASK_DEFINITION,
+        launch_type="FARGATE",
+        overrides={
+            "containerOverrides": [
+                {
+                    "name": "dbt",
+                    "command": ["build", "--project-dir", "/app/dbt", "--profiles-dir", "/app", "--select", "ml_predictions_serving", "ml_predictions_latest"],
+                }
+            ]
+        },
         wait_for_completion=True,
         network_configuration={"awsvpcConfiguration": {"subnets": DBT_ECS_SUBNETS, "securityGroups": [DBT_ECS_SECURITY_GROUP], "assignPublicIp": "DISABLED"}},
     )
@@ -78,4 +112,5 @@ with DAG(
         network_configuration={"awsvpcConfiguration": {"subnets": SODA_ECS_SUBNETS, "securityGroups": [SODA_ECS_SECURITY_GROUP], "assignPublicIp": "DISABLED"}},
     )
 
-    check_raw_data >> run_glue_job >> wait_for_glue_job >> validate_processed_data >> run_great_expectations >> run_dbt_build >> run_soda_checks
+    check_raw_data >> run_glue_job >> wait_for_glue_job >> validate_processed_data >> run_great_expectations >> run_dbt_build
+    run_dbt_build >> run_ml_scoring >> refresh_prediction_models >> run_soda_checks

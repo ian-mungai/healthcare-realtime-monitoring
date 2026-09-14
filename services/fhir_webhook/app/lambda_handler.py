@@ -9,6 +9,7 @@ from services.fhir_webhook.app.security import WEBHOOK_SECRET_HEADER, validate_w
 FHIR_WEBHOOK_ROUTE = "POST /webhooks/fhir"
 FHIR_UPDATE_ROUTE = "PUT /webhooks/fhir/{resource_type}/{resource_id}"
 FHIR_METADATA_ROUTE = "GET /webhooks/fhir/metadata"
+FHIR_OBSERVATION_PROFILE = "https://example.org/fhir/StructureDefinition/healthcare-realtime-vital-observation"
 
 
 @lru_cache(maxsize=1)
@@ -30,7 +31,13 @@ def build_capability_statement() -> dict:
         "kind": "instance",
         "fhirVersion": "4.0.1",
         "format": ["application/fhir+json"],
-        "rest": [{"mode": "server", "resource": [{"type": "Observation", "interaction": [{"code": "update"}]}]}],
+        "rest": [
+            {
+                "mode": "server",
+                "documentation": "This portfolio endpoint accepts vital-sign Observations that include an Encounter reference.",
+                "resource": [{"type": "Observation", "profile": FHIR_OBSERVATION_PROFILE, "interaction": [{"code": "update"}]}],
+            }
+        ],
     }
 
 

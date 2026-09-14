@@ -14,13 +14,7 @@ select
     systolic_bp_mean,
     systolic_bp_min,
     diastolic_bp_mean,
-    deterioration_proxy_label,
     label_definition_version,
-    'vital-features-v2' as feature_schema_version,
-    mod(from_base(substr(patient_key, 1, 7), 16), 10) as split_bucket,
-    case
-        when mod(from_base(substr(patient_key, 1, 7), 16), 10) < 8 then 'train'
-        else 'test'
-    end as data_split
+    'vital-features-v2' as feature_schema_version
 from {{ ref('fct_encounter_vital_features') }}
-where is_training_eligible
+where is_scoring_eligible

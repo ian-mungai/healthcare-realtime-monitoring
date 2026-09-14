@@ -43,6 +43,7 @@ run "plan" {
     vitals_simulator_image_tag = "sha-ci"
     dbt_image_tag              = "sha-ci"
     soda_image_tag             = "sha-ci"
+    ml_approved_model_version  = "logistic-ci"
   }
 
   assert {
@@ -60,6 +61,41 @@ run "plan" {
     condition     = module.mwaa.task_failure_alarm_name == "healthcare-realtime-pipeline-task-failure"
     error_message = "MWAA Serverless task failures must be connected to an actionable CloudWatch alarm."
   }
+
+  assert {
+    condition     = module.mwaa.trigger_mode == "scheduled"
+    error_message = "An approved model version must enable the daily MWAA Serverless schedule."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.openlineage_emission_failures.alarm_name == "healthcare-realtime-openlineage-emission-failures"
+    error_message = "Client-side OpenLineage delivery failures must raise an actionable alarm."
+  }
+
+  assert {
+    condition     = module.dbt_ecs.predictions_database_name == "healthcare_realtime_ml"
+    error_message = "Published model predictions must use a dedicated Terraform-managed Glue database."
+  }
+}
+
+run "bootstrap_plan" {
+  command = plan
+
+  variables {
+    aws_region                 = "example-region-1"
+    data_bucket_name           = "ci-project-data-bucket"
+    mwaa_source_bucket_name    = "ci-project-mwaa-source-bucket"
+    realtime_alert_email       = "alerts@example.com"
+    vitals_simulator_image_tag = "sha-ci"
+    dbt_image_tag              = "sha-ci"
+    soda_image_tag             = "sha-ci"
+    ml_approved_model_version  = ""
+  }
+
+  assert {
+    condition     = module.mwaa.trigger_mode == "manual_only"
+    error_message = "First-deployment bootstrap must not schedule scoring before a model is approved."
+  }
 }
 
 run "github_oidc_plan" {
@@ -73,6 +109,7 @@ run "github_oidc_plan" {
     vitals_simulator_image_tag = "sha-ci"
     dbt_image_tag              = "sha-ci"
     soda_image_tag             = "sha-ci"
+    ml_approved_model_version  = "logistic-ci"
 
     enable_github_oidc         = true
     github_repository          = "example-owner/healthcare-realtime-monitoring"
@@ -99,6 +136,7 @@ run "openlineage_collector_plan" {
     vitals_simulator_image_tag = "sha-ci"
     dbt_image_tag              = "sha-ci"
     soda_image_tag             = "sha-ci"
+    ml_approved_model_version  = "logistic-ci"
 
     enable_openlineage_collector        = true
     openlineage_collector_image_tag     = "sha-ci"

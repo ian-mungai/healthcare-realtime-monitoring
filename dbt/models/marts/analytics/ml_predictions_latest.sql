@@ -1,13 +1,5 @@
 {{ config(materialized='view') }}
 
-with latest_scoring_run as (
-    select model_version
-    from {{ ref('ml_predictions_serving') }}
-    group by model_version
-    order by max(scored_at) desc, model_version desc
-    limit 1
-)
-
 select
     predictions.model_version,
     predictions.encounter_key,
@@ -28,5 +20,4 @@ select
     'synthetic_portfolio_only' as prediction_scope,
     false as is_clinically_validated
 from {{ ref('ml_predictions_serving') }} as predictions
-inner join latest_scoring_run
-    on predictions.model_version = latest_scoring_run.model_version
+where predictions.model_version = '{{ env_var("ML_APPROVED_MODEL_VERSION") }}'

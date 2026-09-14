@@ -65,11 +65,23 @@ def test_provider_dimension_declares_scd2_validity() -> None:
 def test_encounter_feature_model_separates_feature_and_outcome_windows() -> None:
     feature_model = (ANALYTICS_MODELS / "fct_encounter_vital_features.sql").read_text()
 
-    assert "* 0.8" in feature_model
+    assert "var('feature_window_minutes')" in feature_model
+    assert "var('outcome_window_minutes')" in feature_model
+    assert "date_diff('second', encounter_start_at, encounter_end_at)" not in feature_model
     assert "is_feature_observation" in feature_model
     assert "is_outcome_observation" in feature_model
+    assert "current_timestamp >= outcome_cutoff_at" in feature_model
     assert "deterioration_proxy_label" in feature_model
     assert "label_definition_version" in feature_model
+
+
+def test_ml_scoring_dataset_does_not_require_outcome_labels() -> None:
+    scoring_model = (ANALYTICS_MODELS / "ml_scoring_dataset.sql").read_text()
+
+    assert "where is_scoring_eligible" in scoring_model
+    assert "deterioration_proxy_label" not in scoring_model
+    assert "data_split" not in scoring_model
+    assert "vital-features-v2" in scoring_model
 
 
 def test_non_string_accepted_values_are_not_quoted() -> None:
@@ -93,3 +105,10 @@ def test_ml_training_dataset_uses_patient_grouped_split() -> None:
     assert "where is_training_eligible" in training_model
     assert (ROOT / "dbt/tests/assert_ml_training_dataset_no_patient_leakage.sql").is_file()
     assert (ROOT / "dbt/tests/assert_ml_training_dataset_has_both_splits.sql").is_file()
+
+
+def test_latest_predictions_require_the_approved_model_version() -> None:
+    latest_model = (ANALYTICS_MODELS / "ml_predictions_latest.sql").read_text()
+
+    assert 'env_var("ML_APPROVED_MODEL_VERSION")' in latest_model
+    assert "order by max(scored_at)" not in latest_model

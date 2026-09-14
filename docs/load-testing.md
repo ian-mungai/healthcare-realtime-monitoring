@@ -13,8 +13,9 @@ export AWS_REGION="<aws-region>"
 export AWS_DEFAULT_REGION="$AWS_REGION"
 
 scripts/lambda/build_vitals_stream_processor.sh
-terraform -chdir=infra plan -var-file=development.tfvars
-terraform -chdir=infra apply -var-file=development.tfvars
+terraform -chdir=infra plan -var-file=development.tfvars -out=tfplan-load-test
+terraform -chdir=infra show -no-color tfplan-load-test
+terraform -chdir=infra apply tfplan-load-test
 ```
 
 The plan should add the isolated stream, results table, processor event-source mapping, and related least-privilege permissions. It should not attach the test stream to Firehose.
