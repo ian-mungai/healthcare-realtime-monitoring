@@ -205,7 +205,8 @@ data "aws_iam_policy_document" "task" {
     ]
 
     resources = [
-      "arn:aws:s3:::${var.data_bucket_name}/processed/*"
+      "arn:aws:s3:::${var.data_bucket_name}/processed/*",
+      "arn:aws:s3:::${var.data_bucket_name}/ml/predictions/*"
     ]
   }
 
