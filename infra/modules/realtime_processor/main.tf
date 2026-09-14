@@ -127,7 +127,8 @@ data "aws_iam_policy_document" "lambda" {
 
     actions = [
       "dynamodb:DeleteItem",
-      "dynamodb:PutItem"
+      "dynamodb:PutItem",
+      "dynamodb:UpdateItem"
     ]
 
     resources = [
