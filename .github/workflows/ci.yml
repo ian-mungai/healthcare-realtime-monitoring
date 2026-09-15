@@ -47,6 +47,10 @@ jobs:
         run: |
           ruff format --check .
 
+      - name: Shell syntax
+        run: |
+          bash -n scripts/infrastructure/*.sh scripts/demo/*.sh
+
       - name: MyPy
         run: |
           python -m mypy .

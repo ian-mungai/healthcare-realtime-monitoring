@@ -66,6 +66,12 @@ cp .env.example .env
 cp infra/development.tfvars.example infra/development.tfvars
 ```
 
+Infrastructure and demo scripts load missing values from the ignored `.env`; variables already exported in the shell take precedence. Complete the tracked placeholders, then verify local, AWS, GitHub, state, secret, IAM, OIDC, SNS, and Docker prerequisites:
+
+```zsh
+./scripts/infrastructure/check_prerequisites.sh
+```
+
 Select the target AWS context before running AWS CLI, Terraform, or dashboard commands:
 
 ```zsh
@@ -98,7 +104,7 @@ cp infra/bootstrap/terraform.tfvars.example infra/bootstrap/terraform.tfvars
 ./scripts/infrastructure/bootstrap.sh state-plan
 ```
 
-Review and apply the bootstrap plan before running `./scripts/infrastructure/bootstrap.sh main-init`. For an existing environment, use the guarded `main-migrate` action documented in the lifecycle guide. Bootstrap inputs, backend configuration, and state files are ignored by Git.
+Review and apply the bootstrap plan, run `./scripts/infrastructure/bootstrap.sh state-backup`, then run `./scripts/infrastructure/bootstrap.sh main-init`. For an existing environment, use the guarded `main-migrate` action documented in the lifecycle guide. Bootstrap inputs, backend configuration, and state files are ignored by Git.
 
 The [bootstrap guide](docs/bootstrap.md) covers first deployment. The [infrastructure lifecycle guide](docs/infrastructure-lifecycle.md) covers persistent state, guarded teardown, and recreation. The [external prerequisite inventory](docs/external-prerequisites.md) identifies account configuration outside the application stack. The [deployment guide](docs/deployment.md) covers GitHub OIDC and shared OpenLineage collector setup. Recovery, cost-control, and operational checks are in the [operations runbook](docs/operations-runbook.md).
 
