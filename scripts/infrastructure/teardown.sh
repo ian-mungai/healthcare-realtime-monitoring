@@ -3,6 +3,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_ROOT/scripts/infrastructure/project_env.sh"
+load_project_env "${PROJECT_ENV_FILE:-$REPO_ROOT/.env}"
 INFRA_DIR="$REPO_ROOT/infra"
 ACTION="${1:-}"
 CONFIRMATION="delete-healthcare-realtime-development"

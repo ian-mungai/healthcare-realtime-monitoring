@@ -11,12 +11,9 @@ python3.12 -m venv .venv
 cp .env.example .env
 cp infra/development.tfvars.example infra/development.tfvars
 cp infra/bootstrap/terraform.tfvars.example infra/bootstrap/terraform.tfvars
-export AWS_PROFILE="<aws-profile>"
-export AWS_REGION="<aws-region>"
-export AWS_DEFAULT_REGION="$AWS_REGION"
 ```
 
-Replace every placeholder in the ignored files and use globally unique bucket names. Leave `ml_approved_model_version` empty for the first deployment; this keeps MWAA in manual-only mode while the training dataset and first model are created. Never commit these files.
+Replace every placeholder in the ignored files and use globally unique bucket names. Infrastructure and demo scripts load missing values from `.env`; values already exported in the shell take precedence. Leave `ml_approved_model_version` empty for the first deployment; this keeps MWAA in manual-only mode while the training dataset and first model are created. Never commit these files.
 
 Create the persistent state bucket before initializing the application stack:
 
@@ -25,8 +22,8 @@ Create the persistent state bucket before initializing the application stack:
 terraform -chdir=infra/bootstrap show -no-color tfplan-state-bootstrap
 CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
   ./scripts/infrastructure/bootstrap.sh state-apply
+./scripts/infrastructure/bootstrap.sh state-backup
 ./scripts/infrastructure/bootstrap.sh main-init
-export TF_STATE_BUCKET="$(terraform -chdir=infra/bootstrap output -raw state_bucket_name)"
 ```
 
 The state bucket is separate from `data_bucket_name` and `mwaa_source_bucket_name`. See [infrastructure-lifecycle.md](infrastructure-lifecycle.md) before migrating old state or deleting an environment.
@@ -73,7 +70,7 @@ CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
 terraform -chdir=infra plan -var-file=development.tfvars
 ```
 
-The final plan must report `No changes`. During bootstrap the workflow remains manual-only because no approved model exists yet. The [external prerequisite inventory](external-prerequisites.md) identifies the account and third-party configuration that Terraform does not create.
+The final plan must report `No changes`. Run `./scripts/infrastructure/check_prerequisites.sh` to verify the external configuration without printing private values. During bootstrap the workflow remains manual-only because no approved model exists yet. The [external prerequisite inventory](external-prerequisites.md) identifies the account and third-party configuration that Terraform does not create.
 
 ## 4. Seed FHIR and register delivery
 

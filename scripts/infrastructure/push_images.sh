@@ -3,6 +3,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_ROOT/scripts/infrastructure/project_env.sh"
+load_project_env "${PROJECT_ENV_FILE:-$REPO_ROOT/.env}"
 INFRA_DIR="$REPO_ROOT/infra"
 IMAGE_TAG="${IMAGE_TAG:-sha-$(git -C "$REPO_ROOT" rev-parse --short=12 HEAD)}"
 AWS_REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-}}"

@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_ROOT/scripts/infrastructure/project_env.sh"
+load_project_env "${PROJECT_ENV_FILE:-$REPO_ROOT/.env}"
 AWS_REGION="${AWS_REGION:?Set AWS_REGION for the target environment.}"
 ECS_CLUSTER_NAME="healthcare-realtime-services"
 TASK_FAMILY="healthcare_realtime_vitals_simulator"

@@ -3,6 +3,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_ROOT/scripts/infrastructure/project_env.sh"
+load_project_env "${PROJECT_ENV_FILE:-$REPO_ROOT/.env}"
 BOOTSTRAP_DIR="$REPO_ROOT/infra/bootstrap"
 INFRA_DIR="$REPO_ROOT/infra"
 ACTION="${1:-}"
@@ -15,6 +17,7 @@ Usage: scripts/infrastructure/bootstrap.sh <action>
 Actions:
   state-plan   Initialize the local bootstrap stack and save a state-bucket plan.
   state-apply  Create the reviewed, protected Terraform state bucket.
+  state-backup Save the local bootstrap state in the protected state bucket.
   main-init    Configure a fresh application stack to use the persistent bucket.
   main-migrate Migrate an existing application state into the persistent bucket.
   repositories-plan  Save a plan containing only the four ECR repositories.
@@ -56,6 +59,25 @@ case "$ACTION" in
   state-apply)
     require_confirmation
     terraform -chdir="$BOOTSTRAP_DIR" apply -input=false tfplan-state-bootstrap
+    ;;
+  state-backup)
+    : "${TF_STATE_BUCKET:?Set TF_STATE_BUCKET in .env or the current shell.}"
+    : "${TF_BOOTSTRAP_STATE_KEY:?Set TF_BOOTSTRAP_STATE_KEY in .env or the current shell.}"
+    test -s "$BOOTSTRAP_DIR/terraform.tfstate"
+    bootstrap_bucket="$(terraform -chdir="$BOOTSTRAP_DIR" output -raw state_bucket_name)"
+    if [[ "$TF_STATE_BUCKET" != "$bootstrap_bucket" ]]; then
+      echo "TF_STATE_BUCKET does not match the bucket managed by the bootstrap state." >&2
+      exit 2
+    fi
+    aws s3api put-object \
+      --bucket "$TF_STATE_BUCKET" \
+      --key "$TF_BOOTSTRAP_STATE_KEY" \
+      --body "$BOOTSTRAP_DIR/terraform.tfstate" \
+      --server-side-encryption AES256 \
+      --region "${AWS_REGION:-${AWS_DEFAULT_REGION:-}}" \
+      >/dev/null
+    aws s3api head-object --bucket "$TF_STATE_BUCKET" --key "$TF_BOOTSTRAP_STATE_KEY" --region "${AWS_REGION:-${AWS_DEFAULT_REGION:-}}" >/dev/null
+    echo "Bootstrap state backup verified."
     ;;
   main-init)
     write_backend_config

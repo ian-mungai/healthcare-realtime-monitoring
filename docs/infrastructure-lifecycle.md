@@ -17,10 +17,11 @@ cp infra/bootstrap/terraform.tfvars.example infra/bootstrap/terraform.tfvars
 ./scripts/infrastructure/bootstrap.sh state-plan
 CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
   ./scripts/infrastructure/bootstrap.sh state-apply
+./scripts/infrastructure/bootstrap.sh state-backup
 ./scripts/infrastructure/bootstrap.sh main-init
 ```
 
-The bootstrap stack intentionally uses local state and protects its bucket with `prevent_destroy`. Back up `infra/bootstrap/terraform.tfstate` privately. If that local state is lost, import the known state bucket into the bootstrap stack instead of trying to create a duplicate.
+The bootstrap stack intentionally uses local state and protects its bucket with `prevent_destroy`. The `state-backup` action saves the ignored bootstrap state at `s3://<terraform-state-bucket>/healthcare-realtime-monitoring/terraform/bootstrap/terraform.tfstate`. If local state is lost, restore this protected backup instead of trying to create a duplicate bucket.
 
 The main state object uses `s3://<terraform-state-bucket>/healthcare-realtime-monitoring/terraform/terraform.tfstate`, keeping this project's state below a project-specific folder and Terraform subfolder.
 

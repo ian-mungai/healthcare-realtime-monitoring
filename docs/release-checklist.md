@@ -15,6 +15,7 @@ Only the documented Power BI-to-Athena connection is in scope. Report constructi
 
 ## Infrastructure convergence
 
+- [ ] Run `./scripts/infrastructure/check_prerequisites.sh` and confirm every automated prerequisite passes.
 - [ ] Run `terraform -chdir=infra fmt -check -recursive`.
 - [ ] Run `terraform -chdir=infra validate`.
 - [ ] Review `terraform -chdir=infra plan -var-file=development.tfvars`.
