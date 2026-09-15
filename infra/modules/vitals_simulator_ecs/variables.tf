@@ -39,6 +39,12 @@ variable "image_tag" {
   type        = string
 }
 
+variable "force_delete_repository" {
+  description = "Allow deletion of a populated simulator ECR repository during an explicitly approved teardown."
+  type        = bool
+  default     = false
+}
+
 variable "alarm_topic_arn" {
   description = "SNS topic ARN receiving simulator operational alarms."
   type        = string

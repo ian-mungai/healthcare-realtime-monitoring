@@ -31,6 +31,12 @@ variable "image_tag" {
   default     = "latest"
 }
 
+variable "force_delete_repository" {
+  description = "Allow deletion of a populated dbt ECR repository during an explicitly approved teardown."
+  type        = bool
+  default     = false
+}
+
 variable "approved_model_version" {
   description = "Exact immutable model version approved for automated scoring."
   type        = string

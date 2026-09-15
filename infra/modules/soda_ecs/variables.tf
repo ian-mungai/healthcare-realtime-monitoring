@@ -37,6 +37,12 @@ variable "image_tag" {
   default     = "latest"
 }
 
+variable "force_delete_repository" {
+  description = "Allow deletion of a populated Soda ECR repository during an explicitly approved teardown."
+  type        = bool
+  default     = false
+}
+
 variable "openlineage_collector_url" {
   description = "Optional shared OpenLineage HTTP collector base URL."
   type        = string

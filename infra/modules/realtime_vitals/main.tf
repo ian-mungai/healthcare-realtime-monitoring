@@ -2,7 +2,7 @@ resource "aws_dynamodb_table" "latest_vitals" {
   name                        = "healthcare-realtime-latest-vitals"
   billing_mode                = "PAY_PER_REQUEST"
   hash_key                    = "patient_id"
-  deletion_protection_enabled = true
+  deletion_protection_enabled = var.deletion_protection_enabled
 
   attribute {
     name = "patient_id"
@@ -20,7 +20,7 @@ resource "aws_dynamodb_table" "processed_observations" {
   name                        = "healthcare-realtime-processed-observations"
   billing_mode                = "PAY_PER_REQUEST"
   hash_key                    = "observation_id"
-  deletion_protection_enabled = true
+  deletion_protection_enabled = var.deletion_protection_enabled
 
   attribute {
     name = "observation_id"
@@ -43,7 +43,7 @@ resource "aws_dynamodb_table" "load_test_results" {
   name                        = "healthcare-realtime-load-test-results"
   billing_mode                = "PAY_PER_REQUEST"
   hash_key                    = "observation_id"
-  deletion_protection_enabled = true
+  deletion_protection_enabled = var.deletion_protection_enabled
 
   attribute {
     name = "observation_id"
@@ -66,7 +66,7 @@ resource "aws_dynamodb_table" "websocket_connections" {
   name                        = "healthcare-realtime-websocket-connections"
   billing_mode                = "PAY_PER_REQUEST"
   hash_key                    = "connection_id"
-  deletion_protection_enabled = true
+  deletion_protection_enabled = var.deletion_protection_enabled
 
   attribute {
     name = "connection_id"

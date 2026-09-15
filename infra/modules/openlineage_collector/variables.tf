@@ -41,6 +41,24 @@ variable "desired_count" {
   }
 }
 
+variable "allow_destructive_teardown" {
+  description = "Disable database deletion protection and allow populated ECR deletion for a reviewed teardown."
+  type        = bool
+  default     = false
+}
+
+variable "skip_final_snapshot" {
+  description = "Skip the Marquez RDS final snapshot when deletion is enabled."
+  type        = bool
+  default     = false
+}
+
+variable "final_snapshot_identifier" {
+  description = "Final Marquez snapshot identifier when skip_final_snapshot is false."
+  type        = string
+  default     = "healthcare-realtime-marquez-final"
+}
+
 variable "stage_name" {
   description = "API Gateway stage exposing the OpenLineage endpoint."
   type        = string

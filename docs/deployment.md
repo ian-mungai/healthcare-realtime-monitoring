@@ -63,7 +63,7 @@ Create a GitHub environment named `development`, restrict it to `main`, and requ
 | --- | --- |
 | `AWS_DEPLOY_ROLE_ARN` | Terraform `github_deployment_role_arn` output |
 | `AWS_REGION` | Target AWS region |
-| `TF_STATE_BUCKET` | Existing private project data bucket |
+| `TF_STATE_BUCKET` | Dedicated persistent state bucket created by `infra/bootstrap` |
 
 Add one environment secret named `TERRAFORM_VARIABLES_JSON`. Its value is a JSON object containing the same private inputs as `infra/development.tfvars`. Never commit or print this value.
 

@@ -1,3 +1,3 @@
-bucket = "<project-data-bucket>"
+bucket = "<terraform-state-bucket>"
 key    = "terraform-state/development/terraform.tfstate"
 region = "<aws-region>"

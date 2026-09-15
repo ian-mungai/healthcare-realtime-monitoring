@@ -1,6 +1,7 @@
 resource "aws_ecr_repository" "vitals_simulator" {
   name                 = "healthcare-realtime-vitals-simulator"
   image_tag_mutability = "IMMUTABLE"
+  force_delete         = var.force_delete_repository
 
   image_scanning_configuration {
     scan_on_push = true

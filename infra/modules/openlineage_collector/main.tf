@@ -3,6 +3,7 @@ data "aws_region" "current" {}
 resource "aws_ecr_repository" "marquez" {
   name                 = "healthcare-realtime-marquez"
   image_tag_mutability = "IMMUTABLE"
+  force_delete         = var.allow_destructive_teardown
 
   image_scanning_configuration {
     scan_on_push = true
@@ -170,9 +171,9 @@ resource "aws_db_instance" "marquez" {
   auto_minor_version_upgrade = true
   apply_immediately          = true
 
-  deletion_protection       = true
-  skip_final_snapshot       = false
-  final_snapshot_identifier = "healthcare-realtime-marquez-final"
+  deletion_protection       = !var.allow_destructive_teardown
+  skip_final_snapshot       = var.skip_final_snapshot
+  final_snapshot_identifier = var.skip_final_snapshot ? null : var.final_snapshot_identifier
 
   tags = var.tags
 }

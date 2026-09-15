@@ -10,13 +10,26 @@ python3.12 -m venv .venv
 .venv/bin/python -m pip install -r requirements_dev.txt
 cp .env.example .env
 cp infra/development.tfvars.example infra/development.tfvars
-cp infra/backend.hcl.example infra/backend.hcl
+cp infra/bootstrap/terraform.tfvars.example infra/bootstrap/terraform.tfvars
 export AWS_PROFILE="<aws-profile>"
 export AWS_REGION="<aws-region>"
 export AWS_DEFAULT_REGION="$AWS_REGION"
 ```
 
 Replace every placeholder in the ignored files and use globally unique bucket names. Leave `ml_approved_model_version` empty for the first deployment; this keeps MWAA in manual-only mode while the training dataset and first model are created. Never commit these files.
+
+Create the persistent state bucket before initializing the application stack:
+
+```zsh
+./scripts/infrastructure/bootstrap.sh state-plan
+terraform -chdir=infra/bootstrap show -no-color tfplan-state-bootstrap
+CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
+  ./scripts/infrastructure/bootstrap.sh state-apply
+./scripts/infrastructure/bootstrap.sh main-init
+export TF_STATE_BUCKET="$(terraform -chdir=infra/bootstrap output -raw state_bucket_name)"
+```
+
+The state bucket is separate from `data_bucket_name` and `mwaa_source_bucket_name`. See [infrastructure-lifecycle.md](infrastructure-lifecycle.md) before migrating old state or deleting an environment.
 
 ## 2. Bootstrap protected inputs and packages
 
@@ -28,26 +41,39 @@ Build generated deployment artifacts before Terraform reads their hashes:
 for builder in scripts/lambda/build_*.sh; do "$builder"; done
 ./scripts/glue/build_lineage_package.sh
 ./airflow/serverless/build_code_package.sh
-terraform -chdir=infra init -backend-config=backend.hcl
 terraform -chdir=infra fmt -check -recursive
 terraform -chdir=infra validate
 ```
 
 ## 3. Build ECS images and deploy
 
-Bootstrap ECR repositories with a reviewed targeted plan, then build Linux AMD64 images from `services/vitals_simulator/Dockerfile`, `deploy/dbt/Dockerfile`, `deploy/soda/Dockerfile`, and optionally `deploy/marquez/Dockerfile`. Tag each image immutably, push it, and place the exact tags in `infra/development.tfvars`.
+Bootstrap the four ECR repositories with a reviewed targeted plan, then build and push Linux AMD64 images with the immutable current-commit tag:
+
+```zsh
+./scripts/infrastructure/bootstrap.sh repositories-plan
+terraform -chdir=infra show -no-color tfplan-bootstrap-ecr
+CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
+  ./scripts/infrastructure/bootstrap.sh repositories-apply
+./scripts/infrastructure/push_images.sh
+```
+
+Place the four tags printed by `push_images.sh` into the ignored `infra/development.tfvars`. The script refuses to overwrite an existing tag.
 
 Generate the MWAA definition only after the task definitions and network outputs exist:
 
 ```zsh
-./airflow/serverless/convert_healthcare_realtime_pipeline.sh
-terraform -chdir=infra plan -var-file=development.tfvars -out=tfplan-bootstrap
-terraform -chdir=infra show -no-color tfplan-bootstrap
-terraform -chdir=infra apply tfplan-bootstrap
+./scripts/infrastructure/bootstrap.sh foundation-plan
+terraform -chdir=infra show -no-color tfplan-bootstrap-foundation
+CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
+  ./scripts/infrastructure/bootstrap.sh foundation-apply
+./scripts/infrastructure/bootstrap.sh application-plan
+terraform -chdir=infra show -no-color tfplan-bootstrap-application
+CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
+  ./scripts/infrastructure/bootstrap.sh application-apply
 terraform -chdir=infra plan -var-file=development.tfvars
 ```
 
-The final plan must report `No changes`. During bootstrap the workflow remains manual-only because no approved model exists yet.
+The final plan must report `No changes`. During bootstrap the workflow remains manual-only because no approved model exists yet. The [external prerequisite inventory](external-prerequisites.md) identifies the account and third-party configuration that Terraform does not create.
 
 ## 4. Seed FHIR and register delivery
 

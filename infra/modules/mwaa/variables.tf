@@ -8,6 +8,12 @@ variable "source_bucket_name" {
   type        = string
 }
 
+variable "force_destroy" {
+  description = "Allow Terraform to delete all MWAA source object versions during an explicitly approved teardown."
+  type        = bool
+  default     = false
+}
+
 variable "data_bucket_name" {
   description = "Healthcare realtime data bucket"
   type        = string
