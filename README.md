@@ -91,17 +91,16 @@ terraform -chdir=infra validate
 
 ## Infrastructure workflow
 
-Terraform uses a partial S3 backend configuration with native state locking. The backend stores state under the dedicated `terraform-state/development/` prefix in the project's private, versioned data bucket. Copy the portable example and provide the project bucket and region for your environment:
+Terraform uses a partial S3 backend configuration with native state locking. The protected bootstrap stack creates a private, versioned bucket that is separate from application data and survives application teardown:
 
 ```zsh
-cp infra/backend.hcl.example infra/backend.hcl
-terraform -chdir=infra init -backend-config=backend.hcl
-terraform -chdir=infra plan -var-file=development.tfvars
+cp infra/bootstrap/terraform.tfvars.example infra/bootstrap/terraform.tfvars
+./scripts/infrastructure/bootstrap.sh state-plan
 ```
 
-For an existing clone with local state, use `terraform -chdir=infra init -backend-config=backend.hcl -migrate-state` once and confirm the migration prompt. The local `backend.hcl` file is ignored by Git.
+Review and apply the bootstrap plan before running `./scripts/infrastructure/bootstrap.sh main-init`. For an existing environment, use the guarded `main-migrate` action documented in the lifecycle guide. Bootstrap inputs, backend configuration, and state files are ignored by Git.
 
-The [bootstrap guide](docs/bootstrap.md) covers first deployment. The [deployment guide](docs/deployment.md) covers GitHub OIDC and shared OpenLineage collector setup. Recovery, cost-control, and operational checks are in the [operations runbook](docs/operations-runbook.md).
+The [bootstrap guide](docs/bootstrap.md) covers first deployment. The [infrastructure lifecycle guide](docs/infrastructure-lifecycle.md) covers persistent state, guarded teardown, and recreation. The [external prerequisite inventory](docs/external-prerequisites.md) identifies account configuration outside the application stack. The [deployment guide](docs/deployment.md) covers GitHub OIDC and shared OpenLineage collector setup. Recovery, cost-control, and operational checks are in the [operations runbook](docs/operations-runbook.md).
 
 ## Run the dashboard
 

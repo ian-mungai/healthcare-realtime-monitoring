@@ -39,22 +39,26 @@ cp infra/development.tfvars.example infra/development.tfvars
 
 ### Terraform state
 
-Use the project's private, versioned data bucket for Terraform state. The backend example isolates state under the `terraform-state/development/` prefix; copy it and set the project bucket and region for the target environment:
+Use the dedicated, private, versioned state bucket created by `infra/bootstrap`. It must be separate from the application data and MWAA source buckets so application teardown cannot remove its own state:
 
 ```zsh
-cp infra/backend.hcl.example infra/backend.hcl
+cp infra/bootstrap/terraform.tfvars.example infra/bootstrap/terraform.tfvars
+./scripts/infrastructure/bootstrap.sh state-plan
 ```
 
-For a new checkout, initialize with the remote backend:
+For a new environment, review and apply the state plan, then initialize the main stack:
 
 ```zsh
-terraform -chdir=infra init -backend-config=backend.hcl
+CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
+  ./scripts/infrastructure/bootstrap.sh state-apply
+./scripts/infrastructure/bootstrap.sh main-init
 ```
 
-For an existing deployment that still has local state, migrate it once:
+For an existing deployment, make a private backup and migrate it once:
 
 ```zsh
-terraform -chdir=infra init -backend-config=backend.hcl -migrate-state
+CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
+  ./scripts/infrastructure/bootstrap.sh main-migrate
 ```
 
 Confirm that the state object exists in the configured bucket before removing any local state backup. S3 versioning provides recovery and Terraform's `use_lockfile` setting provides native locking.

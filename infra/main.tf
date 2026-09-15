@@ -30,7 +30,8 @@ module "load_test_kinesis" {
 module "raw_s3" {
   source = "./modules/raw_s3"
 
-  bucket_name = var.data_bucket_name
+  bucket_name   = var.data_bucket_name
+  force_destroy = var.allow_destructive_teardown
 
   tags = {
     Project     = "healthcare_realtime_monitoring"
@@ -45,14 +46,17 @@ module "openlineage_collector" {
 
   depends_on = [aws_api_gateway_account.cloudwatch]
 
-  enabled            = var.enable_openlineage_collector
-  vpc_id             = module.network.vpc_id
-  private_subnet_ids = module.network.private_subnet_ids
-  ecs_cluster_arn    = module.hapi_ecs.cluster_arn
-  image_tag          = var.openlineage_collector_image_tag
-  desired_count      = var.openlineage_collector_desired_count
-  stage_name         = "development"
-  alarm_topic_arn    = module.realtime_observability.alert_topic_arn
+  enabled                    = var.enable_openlineage_collector
+  vpc_id                     = module.network.vpc_id
+  private_subnet_ids         = module.network.private_subnet_ids
+  ecs_cluster_arn            = module.hapi_ecs.cluster_arn
+  image_tag                  = var.openlineage_collector_image_tag
+  desired_count              = var.openlineage_collector_desired_count
+  allow_destructive_teardown = var.allow_destructive_teardown
+  skip_final_snapshot        = var.openlineage_skip_final_snapshot
+  final_snapshot_identifier  = var.openlineage_final_snapshot_identifier
+  stage_name                 = "development"
+  alarm_topic_arn            = module.realtime_observability.alert_topic_arn
 
   tags = {
     Project     = "healthcare_realtime_monitoring"
@@ -120,6 +124,7 @@ module "mwaa" {
 
   workflow_name      = "healthcare_realtime_pipeline"
   source_bucket_name = var.mwaa_source_bucket_name
+  force_destroy      = var.allow_destructive_teardown
   data_bucket_name   = module.raw_s3.bucket_name
   enable_schedule    = var.ml_approved_model_version != ""
 
@@ -176,6 +181,7 @@ module "dbt_ecs" {
   private_subnet_ids               = module.network.private_subnet_ids
   data_bucket_name                 = module.raw_s3.bucket_name
   image_tag                        = var.dbt_image_tag
+  force_delete_repository          = var.allow_destructive_teardown
   approved_model_version           = var.ml_approved_model_version
   openlineage_collector_url        = local.effective_openlineage_collector_url
   openlineage_collector_invoke_arn = local.openlineage_collector_invoke_arn
@@ -197,6 +203,7 @@ module "soda_ecs" {
   private_subnet_ids               = module.network.private_subnet_ids
   data_bucket_name                 = module.raw_s3.bucket_name
   image_tag                        = var.soda_image_tag
+  force_delete_repository          = var.allow_destructive_teardown
   openlineage_collector_url        = local.effective_openlineage_collector_url
   openlineage_collector_invoke_arn = local.openlineage_collector_invoke_arn
 
@@ -221,9 +228,10 @@ module "vitals_simulator_ecs" {
   ecs_cluster_arn = module.hapi_ecs.cluster_arn
   fhir_base_url   = module.hapi_ecs.fhir_base_url
 
-  data_bucket_name = module.raw_s3.bucket_name
-  image_tag        = var.vitals_simulator_image_tag
-  alarm_topic_arn  = module.realtime_observability.alert_topic_arn
+  data_bucket_name        = module.raw_s3.bucket_name
+  image_tag               = var.vitals_simulator_image_tag
+  force_delete_repository = var.allow_destructive_teardown
+  alarm_topic_arn         = module.realtime_observability.alert_topic_arn
 
   tags = {
     Project     = "healthcare_realtime_monitoring"
@@ -234,6 +242,8 @@ module "vitals_simulator_ecs" {
 
 module "realtime_vitals" {
   source = "./modules/realtime_vitals"
+
+  deletion_protection_enabled = !var.allow_destructive_teardown
 
   tags = {
     Project     = "healthcare_realtime_monitoring"
@@ -358,9 +368,11 @@ module "realtime_replay" {
 module "hapi_ecs" {
   source = "./modules/hapi_ecs"
 
-  vpc_id             = module.network.vpc_id
-  public_subnet_ids  = module.network.public_subnet_ids
-  private_subnet_ids = module.network.private_subnet_ids
+  vpc_id              = module.network.vpc_id
+  public_subnet_ids   = module.network.public_subnet_ids
+  private_subnet_ids  = module.network.private_subnet_ids
+  deletion_protection = !var.allow_destructive_teardown
+  skip_final_snapshot = var.hapi_skip_final_snapshot
 
   tags = {
     Project     = "healthcare_realtime_monitoring"

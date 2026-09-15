@@ -5,6 +5,7 @@ data "aws_region" "current" {}
 resource "aws_ecr_repository" "dbt" {
   name                 = "healthcare-realtime-dbt"
   image_tag_mutability = "MUTABLE"
+  force_delete         = var.force_delete_repository
 
   image_scanning_configuration {
     scan_on_push = true

@@ -18,6 +18,7 @@ def main() -> None:
         "${AWS_REGION}": os.environ["AWS_REGION"],
         "${DATA_BUCKET_NAME}": os.environ.get("DATA_BUCKET_NAME", "healthcare-realtime-data"),
         "${MWAA_BUCKET_NAME}": os.environ.get("MWAA_BUCKET_NAME", "healthcare-realtime-mwaa"),
+        "${TF_STATE_BUCKET}": os.environ.get("TF_STATE_BUCKET", "healthcare-realtime-terraform-state"),
         "${EMAIL_ADDRESS}": os.environ.get("EMAIL_ADDRESS", "alerts@example.com"),
     }
 
