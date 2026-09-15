@@ -13,6 +13,35 @@ variable "mwaa_source_bucket_name" {
   type        = string
 }
 
+variable "allow_destructive_teardown" {
+  description = "Opt in to disabling deletion protection and allowing Terraform to empty managed S3/ECR resources during a reviewed teardown."
+  type        = bool
+  default     = false
+}
+
+variable "hapi_skip_final_snapshot" {
+  description = "Skip the HAPI RDS final snapshot when deletion is enabled. Set false when a retained recovery snapshot is required."
+  type        = bool
+  default     = true
+}
+
+variable "openlineage_skip_final_snapshot" {
+  description = "Skip the Marquez RDS final snapshot when deletion is enabled. Set true for a complete portfolio teardown."
+  type        = bool
+  default     = false
+}
+
+variable "openlineage_final_snapshot_identifier" {
+  description = "Unique final snapshot identifier used when the Marquez final snapshot is retained."
+  type        = string
+  default     = "healthcare-realtime-marquez-final"
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{0,62}$", var.openlineage_final_snapshot_identifier))
+    error_message = "openlineage_final_snapshot_identifier must be a valid lowercase RDS snapshot identifier."
+  }
+}
+
 variable "realtime_alert_email" {
   description = "Email address used for realtime infrastructure alerts."
   type        = string

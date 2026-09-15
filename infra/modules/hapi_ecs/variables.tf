@@ -13,6 +13,18 @@ variable "private_subnet_ids" {
   type        = list(string)
 }
 
+variable "deletion_protection" {
+  description = "Protect the HAPI RDS instance from deletion."
+  type        = bool
+  default     = true
+}
+
+variable "skip_final_snapshot" {
+  description = "Skip the HAPI RDS final snapshot when deletion is enabled."
+  type        = bool
+  default     = true
+}
+
 variable "tags" {
   description = "Tags applied to HAPI FHIR resources."
   type        = map(string)

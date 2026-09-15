@@ -226,15 +226,21 @@ jobs:
         run: |
           terraform init -backend=false
 
-      - name: Terraform Validate
-        working-directory: infra
+      - name: Terraform Bootstrap Init
+        working-directory: infra/bootstrap
         run: |
-          terraform validate
+          terraform init -backend=false
+
+      - name: Terraform Validate
+        run: |
+          terraform -chdir=infra validate
+          terraform -chdir=infra/bootstrap validate
 
       - name: Terraform Plan
         working-directory: infra
         run: |
           terraform test -filter=tests/ci_plan.tftest.hcl
+          terraform -chdir=bootstrap test -filter=tests/ci_plan.tftest.hcl
 
   synthea_changes:
     name: Detect Synthea Changes

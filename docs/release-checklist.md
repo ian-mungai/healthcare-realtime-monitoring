@@ -22,6 +22,7 @@ Only the documented Power BI-to-Athena connection is in scope. Report constructi
 - [ ] Apply only an approved saved plan.
 - [ ] Regenerate the MWAA Serverless workflow from the deployed Terraform outputs before applying workflow changes.
 - [ ] Run Terraform plan again after deployment and confirm `No changes`.
+- [ ] Confirm the main state backend is separate from both application buckets and the bootstrap state is backed up privately.
 
 The portability rollout intentionally changes the Glue job arguments, MWAA workflow definition, and dbt/Soda ECS task-definition revisions. These changes make the target bucket and region runtime configuration rather than repository constants.
 
