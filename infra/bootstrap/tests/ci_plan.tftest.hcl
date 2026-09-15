@@ -20,7 +20,7 @@ run "state_bucket_plan" {
   }
 
   assert {
-    condition     = output.main_backend_key == "terraform-state/development/terraform.tfstate"
+    condition     = output.main_backend_key == "healthcare-realtime-monitoring/terraform/terraform.tfstate"
     error_message = "The main backend key must remain stable across local and GitHub deployments."
   }
 }

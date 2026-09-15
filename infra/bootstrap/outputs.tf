@@ -10,5 +10,5 @@ output "aws_region" {
 
 output "main_backend_key" {
   description = "Recommended state key for the development application stack."
-  value       = "terraform-state/development/terraform.tfstate"
+  value       = "healthcare-realtime-monitoring/terraform/terraform.tfstate"
 }

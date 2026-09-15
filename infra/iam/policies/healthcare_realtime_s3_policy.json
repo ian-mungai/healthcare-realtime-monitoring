@@ -105,9 +105,11 @@
       "Effect": "Allow",
       "Action": [
         "s3:CreateBucket",
+        "s3:GetAccelerateConfiguration",
         "s3:GetBucket*",
         "s3:GetEncryptionConfiguration",
         "s3:GetLifecycleConfiguration",
+        "s3:GetReplicationConfiguration",
         "s3:GetBucketOwnershipControls",
         "s3:ListBucket",
         "s3:ListBucketVersions",
@@ -132,7 +134,7 @@
         "s3:AbortMultipartUpload",
         "s3:ListMultipartUploadParts"
       ],
-      "Resource": "arn:aws:s3:::${TF_STATE_BUCKET}/terraform-state/*"
+      "Resource": "arn:aws:s3:::${TF_STATE_BUCKET}/healthcare-realtime-monitoring/terraform/*"
     }
   ]
 }

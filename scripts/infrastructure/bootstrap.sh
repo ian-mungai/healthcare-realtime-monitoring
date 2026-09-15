@@ -64,7 +64,7 @@ case "$ACTION" in
   main-migrate)
     require_confirmation
     write_backend_config
-    terraform -chdir="$INFRA_DIR" init -migrate-state -backend-config=backend.hcl
+    terraform -chdir="$INFRA_DIR" init -input=false -migrate-state -force-copy -backend-config=backend.hcl
     ;;
   repositories-plan)
     terraform -chdir="$INFRA_DIR" plan "${application_plan_args[@]}" \

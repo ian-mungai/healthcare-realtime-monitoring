@@ -80,7 +80,7 @@ jobs:
         run: |
           terraform -chdir=infra init \
             -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
-            -backend-config="key=terraform-state/development/terraform.tfstate" \
+            -backend-config="key=healthcare-realtime-monitoring/terraform/terraform.tfstate" \
             -backend-config="region=${{ vars.AWS_REGION }}"
 
       - name: Build deployment packages
