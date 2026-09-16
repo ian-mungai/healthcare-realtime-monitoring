@@ -11,13 +11,17 @@ on:
         options:
           - plan
           - apply
+      environment:
+        description: Protected GitHub deployment environment
+        required: true
+        type: environment
 
 permissions:
   contents: read
   id-token: write
 
 concurrency:
-  group: healthcare-realtime-development-deployment
+  group: ${{ github.repository }}-${{ inputs.environment }}-deployment
   cancel-in-progress: false
 
 jobs:
@@ -25,7 +29,7 @@ jobs:
     name: Terraform ${{ inputs.action }}
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: development
+    environment: ${{ inputs.environment }}
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
       TF_IN_AUTOMATION: "true"
@@ -51,7 +55,7 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
-          role-session-name: healthcare-realtime-github-deploy
+          role-session-name: ${{ github.event.repository.name }}-deploy
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -75,12 +79,44 @@ jobs:
           printf '%s' "$TERRAFORM_VARIABLES_JSON" > infra/deployment.auto.tfvars.json
           jq -e . infra/deployment.auto.tfvars.json >/dev/null
           echo "OPENLINEAGE_URL=$(jq -r '.openlineage_collector_url // ""' infra/deployment.auto.tfvars.json)" >> "$GITHUB_ENV"
+          jq -r '
+            {
+              PROJECT_NAME: .project_name,
+              AWS_REGION: .aws_region,
+              RAW_PREFIX: .raw_prefix,
+              AIRFLOW_PIPELINE_SCHEDULE: .airflow_pipeline_schedule,
+              ATHENA_CATALOG: .athena_catalog_name,
+              ATHENA_WORKGROUP: .athena_workgroup_name,
+              ATHENA_RESULTS_S3_URI: .athena_results_s3_uri,
+              ATHENA_SOURCE_DATABASE: .source_database_name,
+              ATHENA_DBT_DATABASE: .dbt_database_name,
+              ATHENA_ML_DATABASE: .ml_database_name,
+              ATHENA_PROCESSED_TABLE: .processed_observations_table_name,
+              ATHENA_PREDICTIONS_PUBLISHED_TABLE: .ml_predictions_published_table_name,
+              SODA_DATA_SOURCE_NAME: .soda_data_source_name,
+              DBT_STAGING_TABLE: .dbt_staging_table_name,
+              DBT_DIM_PATIENT_TABLE: .dbt_dim_patient_table_name,
+              DBT_DIM_ENCOUNTER_TABLE: .dbt_dim_encounter_table_name,
+              DBT_DIM_PROVIDER_TABLE: .dbt_dim_provider_table_name,
+              DBT_DIM_OBSERVATION_TYPE_TABLE: .dbt_dim_observation_type_table_name,
+              DBT_DIM_DATE_TABLE: .dbt_dim_date_table_name,
+              DBT_FACT_OBSERVATIONS_TABLE: .dbt_fact_observations_table_name,
+              DBT_ENCOUNTER_FEATURES_TABLE: .dbt_encounter_features_table_name,
+              DBT_ML_TRAINING_TABLE: .dbt_ml_training_table_name,
+              DBT_ML_SCORING_TABLE: .dbt_ml_scoring_table_name,
+              DBT_ML_PREDICTIONS_SERVING_TABLE: .dbt_ml_predictions_serving_table_name,
+              DBT_ML_PREDICTIONS_LATEST_TABLE: .dbt_ml_predictions_latest_table_name
+            }
+            | to_entries[]
+            | select(.value != null and .value != "")
+            | "\(.key)=\(.value)"
+          ' infra/deployment.auto.tfvars.json >> "$GITHUB_ENV"
 
       - name: Initialize Terraform state
         run: |
           terraform -chdir=infra init \
             -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
-            -backend-config="key=healthcare-realtime-monitoring/terraform/terraform.tfstate" \
+            -backend-config="key=${{ github.event.repository.name }}/terraform/terraform.tfstate" \
             -backend-config="region=${{ vars.AWS_REGION }}"
 
       - name: Build deployment packages
@@ -89,7 +125,8 @@ jobs:
             "$builder"
           done
           ./scripts/glue/build_lineage_package.sh
-          ./airflow/serverless/convert_healthcare_realtime_pipeline.sh
+          TERRAFORM_VAR_FILE="$PWD/infra/deployment.auto.tfvars.json" \
+            ./airflow/serverless/convert_healthcare_realtime_pipeline.sh
           ./airflow/serverless/build_code_package.sh
 
       - name: Validate Terraform

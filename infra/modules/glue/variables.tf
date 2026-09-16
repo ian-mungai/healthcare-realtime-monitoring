@@ -8,6 +8,21 @@ variable "database_name" {
   type        = string
 }
 
+variable "processed_table_name" {
+  description = "Glue table containing processed FHIR observations."
+  type        = string
+}
+
+variable "quarantine_table_name" {
+  description = "Glue table containing quarantined FHIR observations."
+  type        = string
+}
+
+variable "project_name" {
+  description = "Project name used as the OpenLineage namespace."
+  type        = string
+}
+
 variable "job_name" {
   description = "Glue ETL job name"
   type        = string

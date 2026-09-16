@@ -11,16 +11,16 @@ from lib.athena_lineage import run_athena_validation
 from airflow import DAG
 
 RAW_BUCKET = os.environ["RAW_BUCKET"]
-RAW_PREFIX = os.getenv("RAW_PREFIX", "raw/fhir_observations/")
-GLUE_JOB_NAME = os.getenv("GLUE_JOB_NAME", "healthcare_realtime_raw_to_processed")
-DATA_JOBS_ECS_CLUSTER = os.getenv("DATA_JOBS_ECS_CLUSTER", "healthcare-realtime-data-jobs")
-DBT_ECS_TASK_DEFINITION = os.getenv("DBT_ECS_TASK_DEFINITION", "healthcare_realtime_dbt")
+RAW_PREFIX = os.environ["RAW_PREFIX"]
+GLUE_JOB_NAME = os.environ["GLUE_JOB_NAME"]
+DATA_JOBS_ECS_CLUSTER = os.environ["DATA_JOBS_ECS_CLUSTER"]
+DBT_ECS_TASK_DEFINITION = os.environ["DBT_ECS_TASK_DEFINITION"]
 DBT_ECS_SECURITY_GROUP = os.getenv("AIRFLOW__DBT__ECS_SECURITY_GROUP", "")
 DBT_ECS_SUBNETS = [subnet.strip() for subnet in os.getenv("AIRFLOW__DBT__ECS_SUBNETS", "").split(",") if subnet.strip()]
-SODA_ECS_TASK_DEFINITION = os.getenv("SODA_ECS_TASK_DEFINITION", "healthcare_realtime_soda")
+SODA_ECS_TASK_DEFINITION = os.environ["SODA_ECS_TASK_DEFINITION"]
 SODA_ECS_SECURITY_GROUP = os.getenv("AIRFLOW__SODA__ECS_SECURITY_GROUP", "")
 SODA_ECS_SUBNETS = [subnet.strip() for subnet in os.getenv("AIRFLOW__SODA__ECS_SUBNETS", "").split(",") if subnet.strip()]
-AIRFLOW_PIPELINE_SCHEDULE = os.getenv("AIRFLOW_PIPELINE_SCHEDULE", "0 2 * * *")
+AIRFLOW_PIPELINE_SCHEDULE = os.environ["AIRFLOW_PIPELINE_SCHEDULE"]
 OPENLINEAGE_URL = os.getenv("OPENLINEAGE_URL", "")
 DEFAULT_ARGS = {"owner": "healthcare_realtime", "depends_on_past": False, "retries": 2, "retry_delay": timedelta(minutes=1)}
 
@@ -45,7 +45,18 @@ with DAG(
     )
 
     validate_processed_data = PythonOperator(
-        task_id="validate_processed_data", python_callable=run_athena_validation, op_kwargs={"data_bucket_name": RAW_BUCKET, "openlineage_url": OPENLINEAGE_URL}
+        task_id="validate_processed_data",
+        python_callable=run_athena_validation,
+        op_kwargs={
+            "data_bucket_name": RAW_BUCKET,
+            "aws_region": os.environ["AWS_REGION"],
+            "database": os.environ["ATHENA_SOURCE_DATABASE"],
+            "table": os.environ["ATHENA_PROCESSED_TABLE"],
+            "workgroup": os.environ["ATHENA_WORKGROUP"],
+            "athena_output": os.environ["ATHENA_RESULTS_S3_URI"],
+            "project_name": os.environ["PROJECT_NAME"],
+            "openlineage_url": OPENLINEAGE_URL,
+        },
     )
 
     run_great_expectations = EcsRunTaskOperator(

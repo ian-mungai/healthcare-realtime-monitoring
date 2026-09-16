@@ -13,7 +13,7 @@ else:
     except ModuleNotFoundError:
         from authorization import is_patient_authorized
 
-LATEST_VITALS_TABLE = os.getenv("LATEST_VITALS_TABLE", "healthcare-realtime-latest-vitals")
+LATEST_VITALS_TABLE = os.environ["LATEST_VITALS_TABLE"]
 AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
 VITAL_FIELDS = ("heart_rate", "spo2", "respiratory_rate", "systolic_bp", "diastolic_bp")
 dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)

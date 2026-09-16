@@ -19,19 +19,19 @@ from lineage.openlineage.soda_lineage import (
 
 
 def test_soda_lineage_namespace() -> None:
-    assert NAMESPACE == "healthcare-realtime-monitoring"
+    assert NAMESPACE == "example-project"
 
 
 def test_soda_input_datasets() -> None:
-    assert STAGING_DATASET.name == "healthcare_realtime_dbt.stg_fhir_observations"
-    assert DIM_PATIENT_DATASET.name == "healthcare_realtime_dbt.dim_patient"
-    assert DIM_OBSERVATION_TYPE_DATASET.name == "healthcare_realtime_dbt.dim_observation_type"
-    assert DIM_ENCOUNTER_DATASET.name == "healthcare_realtime_dbt.dim_encounter"
-    assert DIM_DATE_DATASET.name == "healthcare_realtime_dbt.dim_date"
-    assert DIM_PROVIDER_DATASET.name == "healthcare_realtime_dbt.dim_provider"
-    assert FACT_OBSERVATIONS_DATASET.name == "healthcare_realtime_dbt.fact_observations"
-    assert ENCOUNTER_FEATURES_DATASET.name == "healthcare_realtime_dbt.fct_encounter_vital_features"
-    assert ML_TRAINING_DATASET.name == "healthcare_realtime_dbt.ml_training_dataset"
+    assert STAGING_DATASET.name == "example_dbt.example_staging"
+    assert DIM_PATIENT_DATASET.name == "example_dbt.example_dim_patient"
+    assert DIM_OBSERVATION_TYPE_DATASET.name == "example_dbt.example_dim_observation_type"
+    assert DIM_ENCOUNTER_DATASET.name == "example_dbt.example_dim_encounter"
+    assert DIM_DATE_DATASET.name == "example_dbt.example_dim_date"
+    assert DIM_PROVIDER_DATASET.name == "example_dbt.example_dim_provider"
+    assert FACT_OBSERVATIONS_DATASET.name == "example_dbt.example_fact_observations"
+    assert ENCOUNTER_FEATURES_DATASET.name == "example_dbt.example_encounter_features"
+    assert ML_TRAINING_DATASET.name == "example_dbt.example_ml_training"
 
 
 def test_soda_has_no_output_dataset_contract() -> None:
@@ -40,4 +40,4 @@ def test_soda_has_no_output_dataset_contract() -> None:
 
 
 def test_soda_lineage_s3_path() -> None:
-    assert S3_LINEAGE_EVENT_PATH == "s3://<project-data-bucket>/lineage/openlineage/soda/event"
+    assert S3_LINEAGE_EVENT_PATH == "s3://example-data-bucket/lineage/openlineage/soda/event"

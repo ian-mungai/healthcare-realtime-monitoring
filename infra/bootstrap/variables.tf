@@ -8,6 +8,16 @@ variable "state_bucket_name" {
   type        = string
 }
 
+variable "project_name" {
+  description = "Repository-safe project name used to namespace Terraform state."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z0-9][a-z0-9._-]*$", var.project_name))
+    error_message = "project_name must be safe for use in an S3 object key."
+  }
+}
+
 variable "noncurrent_version_retention_days" {
   description = "Days to retain noncurrent Terraform state versions."
   type        = number

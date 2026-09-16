@@ -13,7 +13,7 @@ cp infra/development.tfvars.example infra/development.tfvars
 cp infra/bootstrap/terraform.tfvars.example infra/bootstrap/terraform.tfvars
 ```
 
-Replace every placeholder in the ignored files and use globally unique bucket names. Infrastructure and demo scripts load missing values from `.env`; values already exported in the shell take precedence. Leave `ml_approved_model_version` empty for the first deployment; this keeps MWAA in manual-only mode while the training dataset and first model are created. Never commit these files.
+Replace every placeholder in the ignored files and use globally unique bucket names. `.env` contains only local or externally managed prerequisites; Terraform-created endpoints and resource identifiers come from Terraform outputs. Values already exported in the shell take precedence. Leave `ml_approved_model_version` empty for the first deployment; this keeps MWAA in manual-only mode while the training dataset and first model are created. Never commit these files.
 
 Create the persistent state bucket before initializing the application stack:
 
@@ -94,6 +94,6 @@ The loader writes the local patient/encounter mapping used by the simulator. The
 
 ## 5. Validate the deployment
 
-First run dbt through the deployed task to materialize `ml_training_dataset`. Use the [model training guide](model-training.md) to train and publish the first reviewed model, then place its exact version in the ignored `infra/development.tfvars` and apply a reviewed saved plan. That update narrows model-read permissions, updates the task definition, and enables the daily `02:00` UTC MWAA schedule.
+First run dbt through the deployed task to materialize the table named by `DBT_ML_TRAINING_TABLE`. Use the [model training guide](model-training.md) to train and publish the first reviewed model, then place its exact version in the ignored `infra/development.tfvars` and apply a reviewed saved plan. That update narrows model-read permissions, updates the task definition, and enables the daily schedule configured by `AIRFLOW_PIPELINE_SCHEDULE`.
 
 Use the [demo guide](demo-guide.md) for live Streamlit, Postman REST/WebSocket, and CloudWatch checks. After starting an MWAA run, allow 15 minutes before checking its final result; verify Glue, Athena, Great Expectations, dbt, approved-model scoring, prediction refresh, Soda, and OpenLineage.

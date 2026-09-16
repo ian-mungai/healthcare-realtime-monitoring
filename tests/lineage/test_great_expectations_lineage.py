@@ -2,12 +2,12 @@ from lineage.openlineage.great_expectations_lineage import GX_VALIDATION_DATASET
 
 
 def test_great_expectations_lineage_namespace() -> None:
-    assert NAMESPACE == "healthcare-realtime-monitoring"
+    assert NAMESPACE == "example-project"
 
 
 def test_processed_dataset() -> None:
     assert PROCESSED_DATASET.namespace == "aws-glue"
-    assert PROCESSED_DATASET.name == "healthcare_realtime.processed_fhir_observations"
+    assert PROCESSED_DATASET.name == "example_source.example_processed_observations"
 
 
 def test_great_expectations_validation_dataset() -> None:
@@ -16,4 +16,4 @@ def test_great_expectations_validation_dataset() -> None:
 
 
 def test_great_expectations_lineage_s3_path() -> None:
-    assert S3_LINEAGE_EVENT_PATH == "s3://<project-data-bucket>/lineage/openlineage/great_expectations/event"
+    assert S3_LINEAGE_EVENT_PATH == "s3://example-data-bucket/lineage/openlineage/great_expectations/event"

@@ -16,8 +16,9 @@ from botocore.auth import SigV4Auth
 from botocore.awsrequest import AWSRequest
 
 AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
-STREAM_NAME = "healthcare_realtime_vitals_load_test"
-RESULTS_TABLE_NAME = "healthcare-realtime-load-test-results"
+STREAM_NAME = os.environ["LOAD_TEST_KINESIS_STREAM_NAME"]
+PRIMARY_STREAM_NAME = os.environ["KINESIS_STREAM_NAME"]
+RESULTS_TABLE_NAME = os.environ["LOAD_TEST_RESULTS_TABLE"]
 PATIENT_PREFIX = "load_test_patient_"
 
 
@@ -246,7 +247,7 @@ def run_load_test(
         raise ValueError("duration-seconds must be greater than zero")
     if patients > 500:
         raise ValueError("patients must not exceed the Kinesis PutRecords limit of 500 records per request")
-    if stream_name == "healthcare_realtime_vitals":
+    if stream_name == PRIMARY_STREAM_NAME:
         raise ValueError("the production stream is not allowed; use the isolated load-test stream")
 
     kinesis_client = boto3.client("kinesis", region_name=region)

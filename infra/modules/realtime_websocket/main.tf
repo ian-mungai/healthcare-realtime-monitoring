@@ -127,7 +127,7 @@ resource "aws_lambda_permission" "websocket" {
 
 resource "aws_apigatewayv2_stage" "development" {
   api_id      = aws_apigatewayv2_api.vitals_websocket.id
-  name        = "development"
+  name        = var.stage_name
   auto_deploy = true
 
   access_log_settings {

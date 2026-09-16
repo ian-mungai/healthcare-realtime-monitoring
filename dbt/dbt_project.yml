@@ -31,17 +31,41 @@ models:
   healthcare_realtime:
     staging:
       +materialized: view
+      stg_fhir_observations:
+        +alias: "{{ env_var('DBT_STAGING_TABLE') }}"
 
     marts:
       core:
         +materialized: table
         +table_type: iceberg
         +format: parquet
+        dim_patient:
+          +alias: "{{ env_var('DBT_DIM_PATIENT_TABLE') }}"
+        dim_encounter:
+          +alias: "{{ env_var('DBT_DIM_ENCOUNTER_TABLE') }}"
+        dim_provider:
+          +alias: "{{ env_var('DBT_DIM_PROVIDER_TABLE') }}"
+        dim_observation_type:
+          +alias: "{{ env_var('DBT_DIM_OBSERVATION_TYPE_TABLE') }}"
+        dim_date:
+          +alias: "{{ env_var('DBT_DIM_DATE_TABLE') }}"
+        fact_observations:
+          +alias: "{{ env_var('DBT_FACT_OBSERVATIONS_TABLE') }}"
 
       analytics:
         +materialized: table
         +table_type: iceberg
         +format: parquet
+        fct_encounter_vital_features:
+          +alias: "{{ env_var('DBT_ENCOUNTER_FEATURES_TABLE') }}"
+        ml_training_dataset:
+          +alias: "{{ env_var('DBT_ML_TRAINING_TABLE') }}"
+        ml_scoring_dataset:
+          +alias: "{{ env_var('DBT_ML_SCORING_TABLE') }}"
+        ml_predictions_serving:
+          +alias: "{{ env_var('DBT_ML_PREDICTIONS_SERVING_TABLE') }}"
+        ml_predictions_latest:
+          +alias: "{{ env_var('DBT_ML_PREDICTIONS_LATEST_TABLE') }}"
 
 seeds:
   healthcare_realtime:

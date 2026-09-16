@@ -22,11 +22,11 @@
       ],
       "Resource": [
         "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:catalog",
-        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:database/healthcare_realtime",
-        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:database/healthcare_realtime_dbt",
-        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/healthcare_realtime/*",
-        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/healthcare_realtime_dbt/*",
-        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:job/healthcare_realtime_raw_to_processed"
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:database/${SOURCE_DATABASE_NAME}",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:database/${DBT_DATABASE_NAME}",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/${SOURCE_DATABASE_NAME}/*",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/${DBT_DATABASE_NAME}/*",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:job/${GLUE_JOB_NAME}"
       ]
     },
     {
@@ -38,7 +38,7 @@
         "glue:DeleteJob",
         "glue:StartJobRun"
       ],
-      "Resource": "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:job/healthcare_realtime_raw_to_processed"
+      "Resource": "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:job/${GLUE_JOB_NAME}"
     },
     {
       "Sid": "ManageHealthcareGlueCatalog",
@@ -72,10 +72,10 @@
       ],
       "Resource": [
         "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:catalog",
-        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:database/healthcare_realtime_dbt",
-        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:database/healthcare_realtime_ml",
-        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/healthcare_realtime_dbt/*",
-        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/healthcare_realtime_ml/*"
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:database/${DBT_DATABASE_NAME}",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:database/${ML_DATABASE_NAME}",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/${DBT_DATABASE_NAME}/*",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/${ML_DATABASE_NAME}/*"
       ]
     },
     {

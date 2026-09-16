@@ -9,14 +9,16 @@ The prediction datasets expose synthetic deterioration proxy scores for portfoli
 Select an exact version-named model prefix rather than resolving a mutable `latest` pointer:
 
 ```zsh
-export AWS_PROFILE="${AWS_PROFILE:-healthcare_realtime}"
-export AWS_REGION="${AWS_REGION:-us-east-1}"
+set -a
+source .env
+set +a
 export DATA_BUCKET_NAME="$(terraform -chdir=infra output -raw raw_s3_bucket_name)"
 export ML_APPROVED_MODEL_VERSION="<reviewed-model-version>"
 
 .venv/bin/python -m jobs.ml.score_logistic_regression \
   --model-s3-uri "s3://${DATA_BUCKET_NAME}/ml/model_artifacts/${ML_APPROVED_MODEL_VERSION}" \
-  --predictions-database healthcare_realtime_ml \
+  --predictions-database "$ATHENA_ML_DATABASE" \
+  --predictions-table "$ATHENA_PREDICTIONS_PUBLISHED_TABLE" \
   --publish-s3
 ```
 
@@ -24,8 +26,8 @@ The scorer verifies the model and manifest SHA-256 metadata, checks the feature 
 
 ## Athena presentation
 
-- `healthcare_realtime_dbt.ml_predictions_serving` retains versioned scoring history.
-- `healthcare_realtime_dbt.ml_predictions_latest` presents only the Terraform-configured approved model version for reporting.
+- `${ATHENA_DBT_DATABASE}.${DBT_ML_PREDICTIONS_SERVING_TABLE}` retains versioned scoring history.
+- `${ATHENA_DBT_DATABASE}.${DBT_ML_PREDICTIONS_LATEST_TABLE}` presents only the Terraform-configured approved model version for reporting.
 - `proxy_risk_band` uses `baseline_proxy` and `elevated_proxy`; it does not represent a diagnosis.
 - `prediction_scope` and `is_clinically_validated` prevent the analytical output from being presented as a clinical system.
 
@@ -37,6 +39,6 @@ The native Airflow DAG and generated MWAA Serverless workflow run this sequence 
 dbt feature build -> approved-model scoring -> prediction-view refresh -> Soda freshness and contract checks
 ```
 
-The scorer reads `healthcare_realtime_dbt.ml_scoring_dataset`, which does not require a completed outcome window or training label. It resolves the exact artifact from `ML_APPROVED_MODEL_VERSION`, never a mutable `latest` pointer, and does not retrain. Soda fails the workflow when the newest `scored_at` is 26 hours old or older.
+The scorer reads `${ATHENA_DBT_DATABASE}.${DBT_ML_SCORING_TABLE}`, which does not require a completed outcome window or training label. It resolves the exact artifact from `ML_APPROVED_MODEL_VERSION`, never a mutable `latest` pointer, and does not retrain. Soda fails the workflow when the newest `scored_at` is 26 hours old or older.
 
-The Streamlit dashboard's separate **Model analytics** mode reads `ml_predictions_latest` through Athena and shows one latest prediction per patient. Results are cached for five minutes and cannot alter the live cohort's vital-warning priorities.
+The Streamlit dashboard's separate **Model analytics** mode reads `${DBT_ML_PREDICTIONS_LATEST_TABLE}` through Athena and shows one latest prediction per patient. Results are cached for five minutes and cannot alter the live cohort's vital-warning priorities.

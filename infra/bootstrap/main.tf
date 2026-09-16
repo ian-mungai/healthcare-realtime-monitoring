@@ -7,7 +7,7 @@ resource "aws_s3_bucket" "terraform_state" {
   }
 
   tags = {
-    Project   = "healthcare_realtime_monitoring"
+    Project   = var.project_name
     Purpose   = "terraform-state"
     ManagedBy = "terraform-bootstrap"
   }

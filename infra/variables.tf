@@ -3,6 +3,186 @@ variable "aws_region" {
   type        = string
 }
 
+variable "project_name" {
+  description = "Project identifier used for tags and lineage namespaces."
+  type        = string
+}
+
+variable "deployment_environment" {
+  description = "Deployment environment name used by stages, tags, queues, dashboards, and alarms."
+  type        = string
+}
+
+variable "kinesis_stream_name" {
+  description = "Primary realtime Kinesis stream name."
+  type        = string
+}
+
+variable "load_test_kinesis_stream_name" {
+  description = "Isolated load-test Kinesis stream name."
+  type        = string
+}
+
+variable "firehose_delivery_stream_name" {
+  description = "Firehose delivery stream name."
+  type        = string
+}
+
+variable "glue_job_name" {
+  description = "Glue ETL job name."
+  type        = string
+}
+
+variable "raw_prefix" {
+  description = "S3 prefix containing raw FHIR observations."
+  type        = string
+}
+
+variable "airflow_pipeline_schedule" {
+  description = "Cron schedule used by both Airflow deployment targets."
+  type        = string
+}
+
+variable "athena_workgroup_name" {
+  description = "Athena workgroup used by validation and analytics queries."
+  type        = string
+}
+
+variable "athena_results_s3_uri" {
+  description = "S3 URI used for Athena query results."
+  type        = string
+}
+
+variable "source_database_name" {
+  description = "Glue database containing processed source observations."
+  type        = string
+}
+
+variable "processed_observations_table_name" {
+  description = "Processed observation table name in the source Glue database."
+  type        = string
+}
+
+variable "quarantine_table_name" {
+  description = "Quarantined observation table name in the source Glue database."
+  type        = string
+}
+
+variable "dbt_database_name" {
+  description = "Glue database used for dbt analytical models."
+  type        = string
+}
+
+variable "ml_database_name" {
+  description = "Glue database containing published model predictions."
+  type        = string
+}
+
+variable "ml_predictions_published_table_name" {
+  description = "Published model-prediction table name."
+  type        = string
+}
+
+variable "athena_catalog_name" {
+  description = "Athena data catalog name used by dbt and quality tools."
+  type        = string
+}
+
+variable "soda_data_source_name" {
+  description = "Logical Soda data source name."
+  type        = string
+}
+
+variable "dbt_staging_table_name" {
+  description = "Physical name of the dbt staging model."
+  type        = string
+}
+
+variable "dbt_dim_patient_table_name" {
+  description = "Physical name of the patient dimension."
+  type        = string
+}
+
+variable "dbt_dim_encounter_table_name" {
+  description = "Physical name of the encounter dimension."
+  type        = string
+}
+
+variable "dbt_dim_provider_table_name" {
+  description = "Physical name of the provider dimension."
+  type        = string
+}
+
+variable "dbt_dim_observation_type_table_name" {
+  description = "Physical name of the observation-type dimension."
+  type        = string
+}
+
+variable "dbt_dim_date_table_name" {
+  description = "Physical name of the date dimension."
+  type        = string
+}
+
+variable "dbt_fact_observations_table_name" {
+  description = "Physical name of the observation fact table."
+  type        = string
+}
+
+variable "dbt_encounter_features_table_name" {
+  description = "Physical name of the encounter feature table."
+  type        = string
+}
+
+variable "dbt_ml_training_table_name" {
+  description = "Physical name of the ML training table."
+  type        = string
+}
+
+variable "dbt_ml_scoring_table_name" {
+  description = "Physical name of the ML scoring table."
+  type        = string
+}
+
+variable "dbt_ml_predictions_serving_table_name" {
+  description = "Physical name of the ML predictions serving table."
+  type        = string
+}
+
+variable "dbt_ml_predictions_latest_table_name" {
+  description = "Physical name of the latest ML prediction view."
+  type        = string
+}
+
+variable "latest_vitals_table_name" {
+  description = "DynamoDB table containing the latest accepted patient vitals."
+  type        = string
+}
+
+variable "processed_observations_state_table_name" {
+  description = "DynamoDB table containing realtime idempotency claims."
+  type        = string
+}
+
+variable "load_test_results_table_name" {
+  description = "DynamoDB table containing isolated load-test results."
+  type        = string
+}
+
+variable "websocket_connections_table_name" {
+  description = "DynamoDB table containing active WebSocket connections."
+  type        = string
+}
+
+variable "api_stage_name" {
+  description = "API Gateway stage name used by HTTP and WebSocket APIs."
+  type        = string
+}
+
+variable "fhir_webhook_secret_id" {
+  description = "Secrets Manager identifier containing the FHIR webhook secret."
+  type        = string
+}
+
 variable "data_bucket_name" {
   description = "Globally unique S3 bucket name for healthcare data."
   type        = string
@@ -127,7 +307,6 @@ variable "github_oidc_subject_prefix" {
 variable "github_deployment_environment" {
   description = "Protected GitHub environment allowed to deploy."
   type        = string
-  default     = "development"
 }
 
 variable "github_deployment_policy_arns" {
