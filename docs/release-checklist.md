@@ -35,6 +35,7 @@ The portability rollout intentionally changes the Glue job arguments, MWAA workf
 - [ ] Start exactly one simulator task using `scripts/demo/start_vitals_demo.sh`.
 - [ ] Confirm the simulator is running with `scripts/demo/status_vitals_demo.sh`.
 - [x] Open the cohort dashboard and verify current measurements for every configured simulated patient.
+- [x] Open the separate model analytics dashboard and verify all ten patients, ranked proxy probabilities, feature-window context, model controls and nonclinical labels.
 - [ ] Confirm trend focus and cohort return behavior without losing other patient lines.
 - [ ] Verify a REST latest-vitals response with AWS IAM authorization.
 - [ ] Verify a WebSocket update with AWS IAM authorization.
@@ -52,7 +53,7 @@ Detailed instructions are in [demo-guide.md](demo-guide.md).
 - [x] Record successful Great Expectations, Soda and OpenLineage validation outcomes.
 - [ ] Verify the failure queue and replay dead-letter queue are empty or contain only reviewed synthetic test records.
 
-Verified release evidence on 2026-09-16: the cohort dashboard displayed current measurements for all ten configured simulated patients; one MWAA Serverless run completed all nine workflow tasks successfully; and the shared collector contained successful runs for all five expected analytical lineage jobs. Deployment-specific identifiers are intentionally omitted.
+Verified release evidence on 2026-09-16: the cohort dashboard displayed current measurements for all ten configured simulated patients; the model analytics dashboard displayed all ten Athena-backed approved-model scores with encounter, feature and governance context; one MWAA Serverless run completed all nine workflow tasks successfully; and the shared collector contained successful runs for all five expected analytical lineage jobs. Deployment-specific identifiers are intentionally omitted.
 
 ## Public-artifact redaction
 

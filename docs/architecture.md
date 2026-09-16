@@ -26,7 +26,7 @@ flowchart LR
         LATEST["DynamoDB\nlatest patient state"]
         REST["IAM-authorized REST API"]
         WS["IAM-authorized WebSocket API"]
-        CLIENT["Streamlit cohort dashboard\nand Postman clients"]
+        CLIENT["Streamlit live cohort dashboard\nand Postman clients"]
     end
 
     subgraph Analytics[Durable analytical path]
@@ -38,6 +38,7 @@ flowchart LR
         DBT["dbt ECS task\nsilver and gold models"]
         ML["Approved logistic model\nautomated scoring"]
         PREDICT["Athena prediction\nserving views"]
+        MODELCLIENT["Streamlit model\nanalytics dashboard"]
         SODA["Soda ECS task\ndata contracts"]
         POWERBI["Power BI\nAthena connection"]
     end
@@ -56,6 +57,7 @@ flowchart LR
     PROCESSOR --> WS --> CLIENT
 
     KINESIS --> FIREHOSE --> RAW --> GLUE --> ATHENA --> GX --> DBT --> ML --> PREDICT --> SODA
+    PREDICT --> MODELCLIENT
     PREDICT --> POWERBI
     GLUE --> LINEAGE
     ATHENA --> LINEAGE
@@ -78,7 +80,7 @@ flowchart LR
 3. The processor Lambda validates realtime payloads, rejects stale or duplicate state updates, writes the newest state per patient to DynamoDB and broadcasts accepted updates to connected WebSocket clients.
 4. The REST API provides an IAM-authorized latest-state fallback. The Streamlit dashboard uses the WebSocket feed while merging REST-polling results to remain responsive during a transient connection interruption.
 
-The serving model is deliberately cohort-first: the dashboard keeps all simulated patients visible and permits an operator to focus on one patient without losing the wider clinical context.
+The realtime serving model is deliberately cohort-first: the live dashboard keeps all simulated patients visible and permits an operator to focus on one patient without losing the wider clinical context.
 
 ## Analytical path
 
@@ -88,7 +90,7 @@ Kinesis Data Firehose writes immutable normalized vital events to the data bucke
 raw event arrival -> Glue -> Athena -> Great Expectations -> dbt -> approved-model scoring -> prediction refresh -> Soda
 ```
 
-dbt produces a keyed observation fact, conformed dimensions, fixed-window encounter features and separate training and prospective-scoring datasets. The daily workflow scores the latter with one explicitly approved immutable model, publishes predictions to the Terraform-owned catalog named by `ATHENA_ML_DATABASE`, rebuilds the serving views and then runs freshness-aware Soda contracts. The [analytics star schema](analytics-star-schema.md) defines the analytical grain, keys, join paths and bus matrix. Each executed analytical validation emits OpenLineage lifecycle events with a shared run identity. The managed collector runs Marquez on private ECS and RDS resources behind explicit IAM-authorized API Gateway routes. Emitters sign remote requests using temporary workload credentials; S3 remains the durable fallback when the collector is disabled.
+dbt produces a keyed observation fact, conformed dimensions, fixed-window encounter features and separate training and prospective-scoring datasets. The daily workflow scores the latter with one explicitly approved immutable model, publishes predictions to the Terraform-owned catalog named by `ATHENA_ML_DATABASE`, rebuilds the serving views and then runs freshness-aware Soda contracts. The separate model analytics dashboard joins the latest approved score to patient, encounter and feature-window context. It displays ranked proxy probability, model controls, scoring freshness and explicit synthetic and nonclinical labels without affecting live monitoring priorities. The [analytics star schema](analytics-star-schema.md) defines the analytical grain, keys, join paths and bus matrix. Each executed analytical validation emits OpenLineage lifecycle events with a shared run identity. The managed collector runs Marquez on private ECS and RDS resources behind explicit IAM-authorized API Gateway routes. Emitters sign remote requests using temporary workload credentials; S3 remains the durable fallback when the collector is disabled.
 
 ## Failure and recovery model
 
@@ -131,5 +133,5 @@ Tracked examples contain placeholders only. Generated MWAA workflow definitions,
 ## Trade-offs
 
 - The project prioritizes explainable, observable AWS-native services over minimizing component count.
-- The dashboard is designed for synthetic-cohort monitoring, not regulated clinical use; it does not replace a certified bedside-monitoring system.
+- The dashboards use synthetic data and are not regulated clinical systems; they do not replace certified monitoring or clinical decision-support tools.
 - The portfolio environment retains short operational log and database-backup periods to control cost. A production deployment would require formal retention, recovery, compliance and clinical-safety review.

@@ -43,6 +43,8 @@ def load_latest_predictions(
     database: str,
     predictions_table: str,
     patient_table: str,
+    encounter_table: str,
+    features_table: str,
     output_location: str,
     region: str,
     catalog: str,
@@ -55,6 +57,8 @@ def load_latest_predictions(
         "database": database,
         "predictions table": predictions_table,
         "patient table": patient_table,
+        "encounter table": encounter_table,
+        "features table": features_table,
         "catalog": catalog,
         "workgroup": workgroup,
     }.items():
@@ -68,11 +72,25 @@ def load_latest_predictions(
 with ranked as (
     select
         patients.patient_reference as patient_id,
+        encounters.encounter_id,
         predictions.encounter_key,
         predictions.model_version,
         predictions.deterioration_probability,
+        predictions.predicted_label,
+        predictions.decision_threshold,
         predictions.proxy_risk_band,
+        predictions.feature_schema_version,
+        predictions.label_definition_version,
+        predictions.dataset_fingerprint,
+        predictions.prediction_scope,
+        predictions.is_clinically_validated,
         predictions.scored_at,
+        features.feature_observation_count,
+        features.heart_rate_mean,
+        features.respiratory_rate_mean,
+        features.spo2_mean,
+        features.systolic_bp_mean,
+        features.diastolic_bp_mean,
         row_number() over (
             partition by predictions.patient_key
             order by predictions.scored_at desc, predictions.encounter_key desc
@@ -80,14 +98,32 @@ with ranked as (
     from {database}.{predictions_table} as predictions
     inner join {database}.{patient_table} as patients
         on predictions.patient_key = patients.patient_key
+    inner join {database}.{encounter_table} as encounters
+        on predictions.encounter_key = encounters.encounter_key
+    left join {database}.{features_table} as features
+        on predictions.encounter_key = features.encounter_key
 )
 select
     patient_id,
+    encounter_id,
     encounter_key,
     model_version,
     deterioration_probability,
+    predicted_label,
+    decision_threshold,
     proxy_risk_band,
-    scored_at
+    feature_schema_version,
+    label_definition_version,
+    dataset_fingerprint,
+    prediction_scope,
+    is_clinically_validated,
+    scored_at,
+    feature_observation_count,
+    heart_rate_mean,
+    respiratory_rate_mean,
+    spo2_mean,
+    systolic_bp_mean,
+    diastolic_bp_mean
 from ranked
 where patient_rank = 1
 order by deterioration_probability desc, patient_id

@@ -8,7 +8,7 @@ This repository uses synthetic Synthea data and waveform-derived measurements fo
 
 - FHIR R4 observation ingestion through HAPI FHIR and a protected webhook.
 - Kinesis-based realtime processing with latest-state delivery over IAM-authorized REST and WebSocket APIs.
-- A Streamlit cohort dashboard designed to surface changes across multiple simulated patients.
+- Separate Streamlit dashboards for live cohort monitoring and approved-model analytics.
 - Durable normalized-event landing, Glue/Iceberg processing, Athena validation, dbt models, automated approved-model scoring, Soda contracts and OpenLineage events collected by IAM-protected Marquez or stored in S3.
 - Bounded replay through encrypted SQS failure queues and a replay Lambda.
 - Terraform-managed AWS infrastructure, CloudWatch dashboards, alarms and workload-scoped IAM roles.
@@ -18,8 +18,9 @@ This repository uses synthetic Synthea data and waveform-derived measurements fo
 The [architecture guide](docs/architecture.md) describes the realtime path, analytical path, recovery model, security boundaries and observability design.
 
 ```text
-Simulator -> HAPI FHIR -> webhook -> Kinesis -> Lambda -> DynamoDB -> REST/WebSocket dashboard
-                                            \-> Firehose -> S3 -> Glue -> Athena -> dbt -> ML scoring -> Soda
+Simulator -> HAPI FHIR -> webhook -> Kinesis -> Lambda -> DynamoDB -> REST/WebSocket -> live cohort dashboard
+                                            \-> Firehose -> S3 -> Glue -> Athena -> dbt -> ML scoring -> model analytics dashboard
+                                                                                         \-> Soda
 ```
 
 ## Repository map
@@ -28,7 +29,7 @@ Simulator -> HAPI FHIR -> webhook -> Kinesis -> Lambda -> DynamoDB -> REST/WebSo
 | --- | --- |
 | `infra/` | Terraform root and AWS service modules |
 | `services/` | Webhook, realtime processor, API, replay, WebSocket and simulator services |
-| `dashboard/` | Streamlit cohort-monitoring client |
+| `dashboard/` | Streamlit live cohort and model analytics clients |
 | `jobs/` | Glue, dbt and machine-learning runtime jobs |
 | `airflow/` | MWAA Serverless workflow source and generator |
 | `data_quality/` | Great Expectations and Soda validation assets |
@@ -107,19 +108,21 @@ Review and apply the bootstrap plan, run `./scripts/infrastructure/bootstrap.sh 
 
 Start with the [clean-account quickstart](docs/quickstart.md) for the shortest path from clone to live demo. The [bootstrap guide](docs/bootstrap.md) explains the deployment stages in more detail. The [infrastructure lifecycle guide](docs/infrastructure-lifecycle.md) covers persistent state, guarded teardown and recreation. The [external prerequisite inventory](docs/external-prerequisites.md) identifies account configuration outside the application stack. The [deployment guide](docs/deployment.md) covers GitHub OIDC and shared OpenLineage collector setup. Recovery, cost-control and operational checks are in the [operations runbook](docs/operations-runbook.md).
 
-## Run the dashboard
+## Run the dashboards
 
-After the target environment is deployed, retrieve its endpoints from Terraform outputs and launch the local dashboard:
+After the target environment is deployed, launch the live cohort dashboard:
 
 ```zsh
-export VITALS_API_ENDPOINT="$(terraform -chdir=infra output -raw vitals_api_endpoint)"
-export VITALS_WEBSOCKET_URL="$(terraform -chdir=infra output -raw realtime_websocket_url)"
-export DATA_BUCKET_NAME="$(terraform -chdir=infra output -raw raw_s3_bucket_name)"
-export PATIENT_IDS="<comma-separated-simulated-patient-ids>"
-PYTHONPATH="$PWD" .venv/bin/python -m streamlit run dashboard/app.py
+./scripts/demo/start_live_dashboard.sh
 ```
 
-The dashboard uses AWS IAM credentials from the selected profile to sign REST and WebSocket requests. Keep the full cohort visible during a demo; focusing a patient should add context rather than hide the rest of the cohort.
+Launch the separate model analytics dashboard in another terminal:
+
+```zsh
+./scripts/demo/start_model_analytics_dashboard.sh
+```
+
+The launch scripts load the selected AWS profile and region from `.env`. They retrieve realtime endpoints from Terraform outputs and analytical names from the ignored Terraform variable file. The live dashboard uses AWS IAM credentials to sign REST and WebSocket requests. The model dashboard queries Athena for probability-ranked approved-model scores, feature-window vital summaries, encounter context, freshness and governance labels.
 
 ## Demo and operations
 
