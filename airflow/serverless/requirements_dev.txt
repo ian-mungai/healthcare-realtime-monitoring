@@ -1,5 +1,5 @@
-apache-airflow==3.3.1
-apache-airflow-providers-amazon==9.36.0
-apache-airflow-providers-standard==1.19.0
-openlineage-python==1.53.0
-PyYAML==6.0.3
+apache-airflow==3.0.6
+apache-airflow-providers-amazon==9.32.0
+apache-airflow-providers-standard==1.9.0
+openlineage-python==1.52.0
+PyYAML==6.0.2
