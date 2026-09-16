@@ -146,12 +146,22 @@ jobs:
           terraform -chdir=infra validate
 
       - name: Create reviewed plan
+        env:
+          TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+          TF_STATE_PREFIX: ${{ secrets.TF_STATE_PREFIX }}
         run: |
           if ! terraform -chdir=infra plan -out=tfplan-deploy >"$RUNNER_TEMP/tfplan.log" 2>&1; then
-            echo "Terraform plan failed. Review the protected deployment locally; private plan output was not published."
+            python scripts/infrastructure/sanitize_terraform_output.py \
+              "$RUNNER_TEMP/tfplan.log" \
+              --redact "$TF_STATE_BUCKET" \
+              --redact "$TF_STATE_PREFIX" \
+              --values-json infra/deployment.auto.tfvars.json
             exit 1
           fi
-          grep -E '^(Plan:|No changes\.)' "$RUNNER_TEMP/tfplan.log" || true
+          terraform -chdir=infra show -json tfplan-deploy > "$RUNNER_TEMP/tfplan.json"
+          python scripts/infrastructure/summarize_terraform_plan.py \
+            "$RUNNER_TEMP/tfplan.json" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Apply reviewed plan
         if: inputs.action == 'apply'

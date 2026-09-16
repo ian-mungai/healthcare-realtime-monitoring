@@ -18,17 +18,24 @@ def test_deployment_workflow_retrieves_private_config_after_oidc() -> None:
     assert 'deployment_config_key="$TF_STATE_PREFIX/config/deployment.auto.tfvars.json"' in workflow
 
 
-def test_deployment_workflow_does_not_publish_full_plan() -> None:
+def test_deployment_workflow_publishes_value_free_plan_summary() -> None:
     workflow = (REPO_ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8")
 
     assert 'cat "$RUNNER_TEMP/tfplan.txt"' not in workflow
     assert '>"$RUNNER_TEMP/tfplan.log" 2>&1' in workflow
+    assert "terraform -chdir=infra show -json tfplan-deploy" in workflow
+    assert "summarize_terraform_plan.py" in workflow
+    assert 'tee -a "$GITHUB_STEP_SUMMARY"' in workflow
+    assert "sanitize_terraform_output.py" in workflow
+    assert "--values-json infra/deployment.auto.tfvars.json" in workflow
 
 
-def test_sync_script_encrypts_config_and_cleans_temporary_file() -> None:
+def test_sync_script_uses_shared_prefix_and_bucket_encryption() -> None:
     script = (REPO_ROOT / "scripts/infrastructure/sync_deployment_config.sh").read_text(encoding="utf-8")
 
     assert "mktemp" in script
     assert "trap 'rm -f \"$TEMP_CONFIG\"' EXIT" in script
-    assert "--server-side-encryption AES256" in script
-    assert 'CONFIG_KEY="$PROJECT_NAME/terraform/config/deployment.auto.tfvars.json"' in script
+    assert "--server-side-encryption" not in script
+    assert 'CONFIG_KEY="$TF_STATE_PREFIX/config/deployment.auto.tfvars.json"' in script
+    assert 'EXPECTED_STATE_PREFIX="$PROJECT_NAME/terraform"' in script
+    assert 'PYTHON_BIN="$(command -v python3)"' in script

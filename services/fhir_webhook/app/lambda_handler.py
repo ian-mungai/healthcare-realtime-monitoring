@@ -9,6 +9,7 @@ from services.fhir_webhook.app.security import WEBHOOK_SECRET_HEADER, validate_w
 FHIR_WEBHOOK_ROUTE = "POST /webhooks/fhir"
 FHIR_UPDATE_ROUTE = "PUT /webhooks/fhir/{resource_type}/{resource_id}"
 FHIR_METADATA_ROUTE = "GET /webhooks/fhir/metadata"
+FHIR_PROFILE_ROUTE = "GET /webhooks/fhir/StructureDefinition/healthcare-realtime-vital-observation"
 FHIR_OBSERVATION_PROFILE = "https://example.org/fhir/StructureDefinition/healthcare-realtime-vital-observation"
 
 
@@ -38,6 +39,34 @@ def build_capability_statement() -> dict:
                 "resource": [{"type": "Observation", "profile": FHIR_OBSERVATION_PROFILE, "interaction": [{"code": "update"}]}],
             }
         ],
+    }
+
+
+def build_observation_profile() -> dict:
+    return {
+        "resourceType": "StructureDefinition",
+        "id": "healthcare-realtime-vital-observation",
+        "url": FHIR_OBSERVATION_PROFILE,
+        "version": "1.0.0",
+        "name": "HealthcareRealtimeVitalObservation",
+        "status": "active",
+        "kind": "resource",
+        "abstract": False,
+        "type": "Observation",
+        "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Observation",
+        "derivation": "constraint",
+        "differential": {
+            "element": [
+                {
+                    "id": "Observation.encounter",
+                    "path": "Observation.encounter",
+                    "short": "Encounter that defines the analytics window",
+                    "min": 1,
+                    "max": "1",
+                    "mustSupport": True,
+                }
+            ]
+        },
     }
 
 
@@ -73,7 +102,15 @@ def validate_update_path(event: dict, payload: dict) -> str | None:
 def lambda_handler(event: dict, context) -> dict:
     route_key = event.get("routeKey")
 
-    supported_routes = {"GET /health", "GET /webhooks/fhir", "HEAD /webhooks/fhir", FHIR_METADATA_ROUTE, FHIR_WEBHOOK_ROUTE, FHIR_UPDATE_ROUTE}
+    supported_routes = {
+        "GET /health",
+        "GET /webhooks/fhir",
+        "HEAD /webhooks/fhir",
+        FHIR_METADATA_ROUTE,
+        FHIR_PROFILE_ROUTE,
+        FHIR_WEBHOOK_ROUTE,
+        FHIR_UPDATE_ROUTE,
+    }
 
     if route_key not in supported_routes:
         return build_response(404, {"detail": "Route not found"})
@@ -100,6 +137,9 @@ def lambda_handler(event: dict, context) -> dict:
 
     if route_key == FHIR_METADATA_ROUTE:
         return build_response(200, build_capability_statement(), "application/fhir+json")
+
+    if route_key == FHIR_PROFILE_ROUTE:
+        return build_response(200, build_observation_profile(), "application/fhir+json")
 
     body = decode_body(event)
     if route_key == FHIR_WEBHOOK_ROUTE and not body.strip():

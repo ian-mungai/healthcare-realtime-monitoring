@@ -29,7 +29,7 @@ realtime_patient_access_policy = {
 
 The default empty policy denies all patient access. Use an exact IAM user ARN or a narrowly scoped assumed-role session pattern; do not use a wildcard principal. Add `load_test_patient_*` only for principals that run the isolated load test.
 
-All supported FHIR webhook routes require `X-Webhook-Secret`, including health, metadata, and subscription handshake requests. The Lambda refreshes its cached Secrets Manager value within five minutes, so secret rotation does not require a cold start.
+All supported FHIR webhook routes require `X-Webhook-Secret`, including health, metadata, the Observation profile, and subscription handshake requests. The metadata response advertises the project-specific vital-sign Observation profile. That profile makes `Observation.encounter` mandatory because the encounter defines the analytics window; otherwise-valid generic FHIR R4 Observations without an Encounter are rejected. Retrieve the machine-readable profile from `GET /webhooks/fhir/StructureDefinition/healthcare-realtime-vital-observation`. The Lambda refreshes its cached Secrets Manager value within five minutes, so secret rotation does not require a cold start.
 
 Create the local Terraform input file from its tracked template, then replace every placeholder with values for the target AWS environment:
 
