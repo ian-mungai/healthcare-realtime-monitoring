@@ -35,7 +35,7 @@ for command_name in aws terraform docker git java gh jq; do
   check_command "$command_name"
 done
 
-for variable_name in AWS_PROFILE AWS_REGION PROJECT_NAME TF_STATE_BUCKET FHIR_WEBHOOK_SECRET FHIR_WEBHOOK_SECRET_ID FHIR_WEBHOOK_SECRET_KEY GITHUB_REPOSITORY GITHUB_DEPLOYMENT_ENVIRONMENT; do
+for variable_name in AWS_PROFILE AWS_REGION PROJECT_NAME TF_STATE_BUCKET TF_STATE_PREFIX FHIR_WEBHOOK_SECRET FHIR_WEBHOOK_SECRET_ID FHIR_WEBHOOK_SECRET_KEY GITHUB_REPOSITORY GITHUB_DEPLOYMENT_ENVIRONMENT; do
   check_env "$variable_name"
 done
 
@@ -45,11 +45,22 @@ if ((failures > 0)); then
 fi
 
 export AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-$AWS_REGION}"
-TF_STATE_KEY="${PROJECT_NAME}/terraform/terraform.tfstate"
-TF_BOOTSTRAP_STATE_KEY="${PROJECT_NAME}/terraform/bootstrap/terraform.tfstate"
-TF_DEPLOYMENT_CONFIG_KEY="${PROJECT_NAME}/terraform/config/deployment.auto.tfvars.json"
+EXPECTED_STATE_PREFIX="${PROJECT_NAME}/terraform"
+[[ "$TF_STATE_PREFIX" == "$EXPECTED_STATE_PREFIX" ]] \
+  && pass "Terraform state prefix" || fail "TF_STATE_PREFIX must equal <project-name>/terraform"
+TF_STATE_KEY="${TF_STATE_PREFIX}/terraform.tfstate"
+TF_BOOTSTRAP_STATE_KEY="${TF_STATE_PREFIX}/bootstrap/terraform.tfstate"
+TF_DEPLOYMENT_CONFIG_KEY="${TF_STATE_PREFIX}/config/deployment.auto.tfvars.json"
 
-python_version="$($REPO_ROOT/.venv/bin/python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || true)"
+if [[ -n "${PYTHON_BIN:-}" ]]; then
+  :
+elif [[ -x "$REPO_ROOT/.venv/bin/python" ]]; then
+  PYTHON_BIN="$REPO_ROOT/.venv/bin/python"
+else
+  PYTHON_BIN="$(command -v python3)"
+fi
+
+python_version="$("$PYTHON_BIN" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || true)"
 [[ "$python_version" == "3.12" ]] && pass "Python 3.12 environment" || fail "Python 3.12 environment"
 terraform version -json 2>/dev/null \
   | jq -e '.terraform_version | split(".") | (.[0] | tonumber) > 1 or ((.[0] | tonumber) == 1 and (.[1] | tonumber) >= 11)' >/dev/null \
@@ -76,12 +87,13 @@ deployment_config_encryption="$(aws s3api head-object \
   --key "$TF_DEPLOYMENT_CONFIG_KEY" \
   --query ServerSideEncryption \
   --output text 2>/dev/null || true)"
-[[ "$deployment_config_encryption" == "AES256" ]] \
+[[ "$deployment_config_encryption" == "AES256" || "$deployment_config_encryption" == "aws:kms" ]] \
   && pass "encrypted private deployment configuration" || fail "encrypted private deployment configuration"
 
 [[ "$(aws s3api get-bucket-versioning --bucket "$TF_STATE_BUCKET" --query Status --output text 2>/dev/null)" == "Enabled" ]] \
   && pass "state bucket versioning" || fail "state bucket versioning"
-[[ "$(aws s3api get-bucket-encryption --bucket "$TF_STATE_BUCKET" --query 'ServerSideEncryptionConfiguration.Rules[0].ApplyServerSideEncryptionByDefault.SSEAlgorithm' --output text 2>/dev/null)" == "AES256" ]] \
+bucket_encryption="$(aws s3api get-bucket-encryption --bucket "$TF_STATE_BUCKET" --query 'ServerSideEncryptionConfiguration.Rules[0].ApplyServerSideEncryptionByDefault.SSEAlgorithm' --output text 2>/dev/null || true)"
+[[ "$bucket_encryption" == "AES256" || "$bucket_encryption" == "aws:kms" ]] \
   && pass "state bucket encryption" || fail "state bucket encryption"
 [[ "$(aws s3api get-public-access-block --bucket "$TF_STATE_BUCKET" --query 'PublicAccessBlockConfiguration.[BlockPublicAcls,IgnorePublicAcls,BlockPublicPolicy,RestrictPublicBuckets]' --output text 2>/dev/null)" == $'True\tTrue\tTrue\tTrue' ]] \
   && pass "state bucket public access block" || fail "state bucket public access block"
