@@ -52,7 +52,7 @@ def test_soda_example_configuration_is_valid_yaml() -> None:
     with EXAMPLE_CONFIG.open(encoding="utf-8") as file:
         config = yaml.safe_load(file)
 
-    assert config["name"] == "healthcare_realtime_athena"
+    assert config["name"] == "${env.SODA_DATA_SOURCE_NAME}"
     assert config["type"] == "athena"
     assert "connection" in config
 
@@ -65,3 +65,4 @@ def test_soda_configurations_use_environment_namespace() -> None:
         connection = config["connection"]
         assert connection["region_name"] == "${env.AWS_REGION}"
         assert connection["staging_dir"] == ("s3://${env.DATA_BUCKET_NAME}/athena_results/soda/")
+        assert connection["catalog"] == "${env.ATHENA_CATALOG}"

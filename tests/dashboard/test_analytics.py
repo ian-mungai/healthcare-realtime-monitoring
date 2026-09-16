@@ -48,7 +48,15 @@ class RecordingAthenaClient:
 def test_load_latest_predictions_returns_one_ranked_row_per_patient() -> None:
     client = RecordingAthenaClient()
     records = load_latest_predictions(
-        "healthcare_realtime_dbt", "s3://example-bucket/athena_results/dashboard/", "us-east-1", athena_client=client, poll_interval_seconds=0
+        "example_dbt",
+        "example_predictions_latest",
+        "example_dim_patient",
+        "s3://example-bucket/athena_results/dashboard/",
+        "example-region-1",
+        "example_catalog",
+        "example_workgroup",
+        athena_client=client,
+        poll_interval_seconds=0,
     )
 
     assert records[0]["patient_id"] == "Patient/1000"
@@ -59,9 +67,13 @@ def test_load_latest_predictions_returns_one_ranked_row_per_patient() -> None:
 def test_load_latest_predictions_reports_athena_failure() -> None:
     with pytest.raises(RuntimeError, match="test failure"):
         load_latest_predictions(
-            "healthcare_realtime_dbt",
+            "example_dbt",
+            "example_predictions_latest",
+            "example_dim_patient",
             "s3://example-bucket/athena_results/dashboard/",
-            "us-east-1",
+            "example-region-1",
+            "example_catalog",
+            "example_workgroup",
             athena_client=RecordingAthenaClient("FAILED"),
             poll_interval_seconds=0,
         )
@@ -69,6 +81,8 @@ def test_load_latest_predictions_reports_athena_failure() -> None:
 
 def test_load_latest_predictions_validates_configuration() -> None:
     with pytest.raises(ValueError, match="database"):
-        load_latest_predictions("invalid-name", "s3://example-bucket/results/", "us-east-1")
+        load_latest_predictions(
+            "invalid-name", "predictions", "patients", "s3://example-bucket/results/", "example-region-1", "catalog", "workgroup"
+        )
     with pytest.raises(ValueError, match="S3 URI"):
-        load_latest_predictions("healthcare_realtime_dbt", "local-results", "us-east-1")
+        load_latest_predictions("database", "predictions", "patients", "local-results", "example-region-1", "catalog", "workgroup")

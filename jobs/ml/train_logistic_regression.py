@@ -292,21 +292,23 @@ def publish_predictions(predictions_path: Path, bucket: str, model_version: str,
     return f"s3://{bucket}/{key}"
 
 
-def prediction_partition_statement(database: str, bucket: str, model_version: str) -> str:
+def prediction_partition_statement(database: str, table: str, bucket: str, model_version: str) -> str:
     if not IDENTIFIER_PATTERN.fullmatch(database):
         raise ValueError(f"Invalid Athena identifier: {database}")
     if not MODEL_VERSION_PATTERN.fullmatch(model_version):
         raise ValueError(f"Invalid model version: {model_version}")
     partition_location = f"s3://{bucket}/ml/predictions/model_version={model_version}/"
     return f"""
-alter table {database}.ml_predictions_published
+alter table {database}.{table}
 add if not exists partition (model_version = '{model_version}')
 location '{partition_location}'
 """.strip()
 
 
-def register_predictions_partition(database: str, staging_dir: str, region: str, bucket: str, model_version: str) -> None:
-    statement = prediction_partition_statement(database, bucket, model_version)
+def register_predictions_partition(
+    database: str, table: str, staging_dir: str, region: str, bucket: str, model_version: str
+) -> None:
+    statement = prediction_partition_statement(database, table, bucket, model_version)
     with connect(s3_staging_dir=staging_dir, region_name=region).cursor() as cursor:
         cursor.execute(statement)
 
@@ -314,11 +316,12 @@ def register_predictions_partition(database: str, staging_dir: str, region: str,
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input-csv", type=Path, help="Local export of the dbt training dataset")
-    parser.add_argument("--athena-database", default="healthcare_realtime_dbt")
-    parser.add_argument("--predictions-database", default="healthcare_realtime_ml")
-    parser.add_argument("--athena-table", default="ml_training_dataset")
+    parser.add_argument("--athena-database", default=os.getenv("ATHENA_DBT_DATABASE"))
+    parser.add_argument("--predictions-database", default=os.getenv("ATHENA_ML_DATABASE"))
+    parser.add_argument("--predictions-table", default=os.getenv("ATHENA_PREDICTIONS_PUBLISHED_TABLE"))
+    parser.add_argument("--athena-table", default=os.getenv("DBT_ML_TRAINING_TABLE"))
     parser.add_argument("--athena-staging-dir", help="S3 URI for Athena query results")
-    parser.add_argument("--region", default=os.getenv("AWS_REGION", "us-east-1"))
+    parser.add_argument("--region", default=os.getenv("AWS_REGION"))
     parser.add_argument("--output-dir", type=Path, default=Path("build/ml/logistic_baseline"))
     parser.add_argument("--publish-s3", action="store_true", help="Publish versioned artifacts and predictions to the project bucket")
     return parser.parse_args()
@@ -326,6 +329,19 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    missing = [
+        option
+        for option, value in {
+            "--athena-database": args.athena_database,
+            "--predictions-database": args.predictions_database,
+            "--predictions-table": args.predictions_table,
+            "--athena-table": args.athena_table,
+            "--region": args.region,
+        }.items()
+        if not value
+    ]
+    if missing:
+        raise SystemExit(f"Set the matching environment variables or pass: {', '.join(missing)}")
     staging_dir = args.athena_staging_dir
     if args.input_csv:
         records = load_csv_records(args.input_csv)
@@ -350,7 +366,14 @@ def main() -> None:
             raise SystemExit("Set DATA_BUCKET_NAME before using --publish-s3")
         staging_dir = staging_dir or f"s3://{bucket}/athena_results/ml_training/"
         published = publish_artifacts(args.output_dir, bucket, manifest["model_version"])
-        register_predictions_partition(args.predictions_database, staging_dir, args.region, bucket, manifest["model_version"])
+        register_predictions_partition(
+            args.predictions_database,
+            args.predictions_table,
+            staging_dir,
+            args.region,
+            bucket,
+            manifest["model_version"],
+        )
 
     print(json.dumps({"manifest": manifest, "evaluation": evaluation, "published": published}, indent=2, sort_keys=True))
 

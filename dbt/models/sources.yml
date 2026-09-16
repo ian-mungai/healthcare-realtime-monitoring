@@ -2,17 +2,19 @@ version: 2
 
 sources:
   - name: healthcare_realtime
-    database: AwsDataCatalog
-    schema: healthcare_realtime
+    database: "{{ env_var('ATHENA_CATALOG') }}"
+    schema: "{{ env_var('ATHENA_SOURCE_DATABASE') }}"
 
     tables:
       - name: processed_fhir_observations
+        identifier: "{{ env_var('ATHENA_PROCESSED_TABLE') }}"
         description: Processed FHIR vital-sign observations stored as an Apache Iceberg table.
 
   - name: model_serving
-    database: AwsDataCatalog
-    schema: healthcare_realtime_ml
+    database: "{{ env_var('ATHENA_CATALOG') }}"
+    schema: "{{ env_var('ATHENA_ML_DATABASE') }}"
 
     tables:
       - name: ml_predictions_published
+        identifier: "{{ env_var('ATHENA_PREDICTIONS_PUBLISHED_TABLE') }}"
         description: Versioned logistic-regression predictions published by the approved-model scoring task.

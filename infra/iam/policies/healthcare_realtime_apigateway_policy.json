@@ -28,10 +28,10 @@
         "execute-api:Invoke"
       ],
       "Resource": [
-        "arn:aws:execute-api:${AWS_REGION}:${AWS_ACCOUNT_ID}:*/development/GET/patients/*/vitals",
-        "arn:aws:execute-api:${AWS_REGION}:${AWS_ACCOUNT_ID}:*/development/GET/api/v1/*",
-        "arn:aws:execute-api:${AWS_REGION}:${AWS_ACCOUNT_ID}:*/development/POST/api/v1/lineage",
-        "arn:aws:execute-api:${AWS_REGION}:${AWS_ACCOUNT_ID}:*/development/$connect"
+        "arn:aws:execute-api:${AWS_REGION}:${AWS_ACCOUNT_ID}:*/${API_STAGE_NAME}/GET/patients/*/vitals",
+        "arn:aws:execute-api:${AWS_REGION}:${AWS_ACCOUNT_ID}:*/${API_STAGE_NAME}/GET/api/v1/*",
+        "arn:aws:execute-api:${AWS_REGION}:${AWS_ACCOUNT_ID}:*/${API_STAGE_NAME}/POST/api/v1/lineage",
+        "arn:aws:execute-api:${AWS_REGION}:${AWS_ACCOUNT_ID}:*/${API_STAGE_NAME}/$connect"
       ]
     }
   ]

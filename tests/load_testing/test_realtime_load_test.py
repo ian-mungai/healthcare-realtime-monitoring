@@ -72,7 +72,7 @@ def test_run_load_test_rejects_invalid_parameters(patients, rate, duration, mess
 
 def test_run_load_test_rejects_production_stream() -> None:
     with pytest.raises(ValueError, match="production stream is not allowed"):
-        realtime_load_test.run_load_test(1, 1, 1, "healthcare_realtime_vitals", "example-region-1")
+        realtime_load_test.run_load_test(1, 1, 1, realtime_load_test.PRIMARY_STREAM_NAME, "example-region-1")
 
 
 def test_run_load_test_reports_successful_batch(monkeypatch, capsys) -> None:

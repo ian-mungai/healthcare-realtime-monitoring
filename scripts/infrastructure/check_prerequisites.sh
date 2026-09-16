@@ -35,7 +35,7 @@ for command_name in aws terraform docker git java gh jq; do
   check_command "$command_name"
 done
 
-for variable_name in AWS_PROFILE AWS_REGION TF_STATE_BUCKET TF_STATE_KEY TF_BOOTSTRAP_STATE_KEY FHIR_WEBHOOK_SECRET FHIR_WEBHOOK_SECRET_ID FHIR_WEBHOOK_SECRET_KEY GITHUB_REPOSITORY GITHUB_DEPLOYMENT_ENVIRONMENT; do
+for variable_name in AWS_PROFILE AWS_REGION PROJECT_NAME TF_STATE_BUCKET FHIR_WEBHOOK_SECRET FHIR_WEBHOOK_SECRET_ID FHIR_WEBHOOK_SECRET_KEY GITHUB_REPOSITORY GITHUB_DEPLOYMENT_ENVIRONMENT; do
   check_env "$variable_name"
 done
 
@@ -45,6 +45,8 @@ if ((failures > 0)); then
 fi
 
 export AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-$AWS_REGION}"
+TF_STATE_KEY="${PROJECT_NAME}/terraform/terraform.tfstate"
+TF_BOOTSTRAP_STATE_KEY="${PROJECT_NAME}/terraform/bootstrap/terraform.tfstate"
 
 python_version="$($REPO_ROOT/.venv/bin/python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || true)"
 [[ "$python_version" == "3.12" ]] && pass "Python 3.12 environment" || fail "Python 3.12 environment"
@@ -107,7 +109,7 @@ else
   fail "GitHub OIDC provider"
 fi
 
-deploy_role_arn="${AWS_DEPLOY_ROLE_ARN:-$(terraform -chdir="$REPO_ROOT/infra" output -raw github_deployment_role_arn 2>/dev/null || true)}"
+deploy_role_arn="$(terraform -chdir="$REPO_ROOT/infra" output -raw github_deployment_role_arn 2>/dev/null || true)"
 github_region="$(gh variable get AWS_REGION --repo "$GITHUB_REPOSITORY" --env "$GITHUB_DEPLOYMENT_ENVIRONMENT" 2>/dev/null || true)"
 github_state_bucket="$(gh variable get TF_STATE_BUCKET --repo "$GITHUB_REPOSITORY" --env "$GITHUB_DEPLOYMENT_ENVIRONMENT" 2>/dev/null || true)"
 github_role="$(gh variable get AWS_DEPLOY_ROLE_ARN --repo "$GITHUB_REPOSITORY" --env "$GITHUB_DEPLOYMENT_ENVIRONMENT" 2>/dev/null || true)"

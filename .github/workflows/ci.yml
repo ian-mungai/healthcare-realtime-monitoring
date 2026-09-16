@@ -178,6 +178,15 @@ jobs:
           SODA_ECS_TASK_DEFINITION: "healthcare_realtime_soda:17"
           DATA_JOBS_ECS_CLUSTER: "healthcare-realtime-data-jobs"
           RAW_BUCKET: "ci-project-data-bucket"
+          RAW_PREFIX: "raw/example/"
+          GLUE_JOB_NAME: "example-glue-job"
+          AIRFLOW_PIPELINE_SCHEDULE: "0 2 * * *"
+          AWS_REGION: "example-region-1"
+          PROJECT_NAME: "example-project"
+          ATHENA_SOURCE_DATABASE: "example_source"
+          ATHENA_PROCESSED_TABLE: "example_processed"
+          ATHENA_WORKGROUP: "example-workgroup"
+          ATHENA_RESULTS_S3_URI: "s3://ci-project-data-bucket/athena-results/"
           OPENLINEAGE_URL: "https://lineage.example.com"
         run: |
           PYTHONPATH="$PWD/airflow/dags:$PWD" python airflow/serverless/generate_healthcare_realtime_pipeline.py

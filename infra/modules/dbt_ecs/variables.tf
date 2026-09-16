@@ -16,13 +16,11 @@ variable "data_bucket_name" {
 variable "source_database_name" {
   description = "Glue database containing the processed source table."
   type        = string
-  default     = "healthcare_realtime"
 }
 
 variable "dbt_database_name" {
   description = "Glue database containing dbt-managed models."
   type        = string
-  default     = "healthcare_realtime_dbt"
 }
 
 variable "image_tag" {
@@ -45,7 +43,16 @@ variable "approved_model_version" {
 variable "ml_database_name" {
   description = "Glue database containing Terraform-managed model prediction tables."
   type        = string
-  default     = "healthcare_realtime_ml"
+}
+
+variable "ml_predictions_published_table_name" {
+  description = "Physical Glue table containing published model predictions."
+  type        = string
+}
+
+variable "data_identifiers" {
+  description = "Database and table identifiers injected into the dbt and ML task environment."
+  type        = map(string)
 }
 
 variable "openlineage_collector_url" {

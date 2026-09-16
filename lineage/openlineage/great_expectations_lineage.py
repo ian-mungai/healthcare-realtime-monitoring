@@ -4,13 +4,13 @@ from uuid import uuid4
 from openlineage.client.event_v2 import InputDataset, Job, OutputDataset, Run, RunEvent, RunState
 
 from lineage.openlineage.client import emit_runtime_lineage_event
-from lineage.openlineage.config import lineage_event_path
+from lineage.openlineage.config import lineage_event_path, project_namespace, qualified_dataset
 
-NAMESPACE = "healthcare-realtime-monitoring"
+NAMESPACE = project_namespace()
 PRODUCER = "https://github.com/OpenLineage/OpenLineage"
-S3_LINEAGE_EVENT_PATH = "s3://<project-data-bucket>/lineage/openlineage/great_expectations/event"
+S3_LINEAGE_EVENT_PATH = lineage_event_path("great_expectations")
 
-PROCESSED_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime.processed_fhir_observations")
+PROCESSED_DATASET = InputDataset(namespace="aws-glue", name=qualified_dataset("ATHENA_SOURCE_DATABASE", "ATHENA_PROCESSED_TABLE"))
 GX_VALIDATION_DATASET = OutputDataset(namespace="great-expectations", name="processed_fhir_observations_quality")
 
 

@@ -9,36 +9,34 @@ from openlineage.client.event_v2 import RunState
 
 from lineage.openlineage.athena_lineage import emit_s3_athena_lineage
 
-AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
-ATHENA_DATABASE = os.getenv("GLUE_DATABASE", "healthcare_realtime")
-ATHENA_TABLE = os.getenv("GLUE_TABLE", "processed_fhir_observations")
-ATHENA_WORKGROUP = os.getenv("ATHENA_WORKGROUP", "primary")
 ATHENA_POLL_INTERVAL_SECONDS = int(os.getenv("ATHENA_POLL_INTERVAL_SECONDS", "5"))
 ATHENA_TERMINAL_STATES = {"SUCCEEDED", "FAILED", "CANCELLED"}
 
-ATHENA_VALIDATION_QUERY = f"""
-WITH invalid_rows AS (
-    SELECT 1 AS violation
-    FROM {ATHENA_DATABASE}.{ATHENA_TABLE}
-    WHERE observation_id IS NULL
-    OR patient_id IS NULL
-    OR patient_id = ''
-    OR loinc_code IS NULL
-    OR value IS NULL
-    OR effective_datetime IS NULL
-),
-duplicate_grains AS (
-    SELECT observation_id, loinc_code
-    FROM {ATHENA_DATABASE}.{ATHENA_TABLE}
-    WHERE observation_id IS NOT NULL
-    AND loinc_code IS NOT NULL
-    GROUP BY observation_id, loinc_code
-    HAVING COUNT(*) > 1
-)
-SELECT
-    (SELECT COUNT(*) FROM invalid_rows)
-    + (SELECT COUNT(*) FROM duplicate_grains) AS invalid_row_count
-"""
+
+def validation_query(database: str, table: str) -> str:
+    return f"""
+    WITH invalid_rows AS (
+        SELECT 1 AS violation
+        FROM {database}.{table}
+        WHERE observation_id IS NULL
+        OR patient_id IS NULL
+        OR patient_id = ''
+        OR loinc_code IS NULL
+        OR value IS NULL
+        OR effective_datetime IS NULL
+    ),
+    duplicate_grains AS (
+        SELECT observation_id, loinc_code
+        FROM {database}.{table}
+        WHERE observation_id IS NOT NULL
+        AND loinc_code IS NOT NULL
+        GROUP BY observation_id, loinc_code
+        HAVING COUNT(*) > 1
+    )
+    SELECT
+        (SELECT COUNT(*) FROM invalid_rows)
+        + (SELECT COUNT(*) FROM duplicate_grains) AS invalid_row_count
+    """.strip()
 
 
 def emit_athena_lineage_event(run_state: RunState, lineage_run_id: str | None = None) -> str:
@@ -66,21 +64,32 @@ def get_invalid_row_count(athena_client, query_execution_id: str) -> int:
     return int(rows[1]["Data"][0]["VarCharValue"])
 
 
-def run_athena_validation(data_bucket_name: str = "<project-data-bucket>", openlineage_url: str = "") -> str:
-    athena_output = os.getenv("ATHENA_OUTPUT", f"s3://{data_bucket_name}/athena_results/")
+def run_athena_validation(
+    data_bucket_name: str,
+    aws_region: str,
+    database: str,
+    table: str,
+    workgroup: str,
+    athena_output: str,
+    project_name: str,
+    openlineage_url: str = "",
+) -> str:
     os.environ["DATA_BUCKET_NAME"] = data_bucket_name
+    os.environ["PROJECT_NAME"] = project_name
+    os.environ["ATHENA_SOURCE_DATABASE"] = database
+    os.environ["ATHENA_PROCESSED_TABLE"] = table
     if openlineage_url:
         os.environ["OPENLINEAGE_URL"] = openlineage_url
     lineage_run_id = str(uuid4())
     emit_athena_lineage_event(RunState.START, lineage_run_id)
 
     try:
-        athena_client = boto3.client("athena", region_name=AWS_REGION)
+        athena_client = boto3.client("athena", region_name=aws_region)
         response = athena_client.start_query_execution(
-            QueryString=ATHENA_VALIDATION_QUERY,
-            QueryExecutionContext={"Database": ATHENA_DATABASE},
+            QueryString=validation_query(database, table),
+            QueryExecutionContext={"Database": database},
             ResultConfiguration={"OutputLocation": athena_output},
-            WorkGroup=ATHENA_WORKGROUP,
+            WorkGroup=workgroup,
         )
         query_execution_id = response["QueryExecutionId"]
         status = wait_for_athena_query(athena_client, query_execution_id)

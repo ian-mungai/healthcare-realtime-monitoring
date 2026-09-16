@@ -65,11 +65,12 @@ def write_predictions(predictions: list[dict[str, Any]], path: Path) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model-s3-uri", help="Exact ml/model_artifacts/<model-version> S3 URI selected for scoring")
-    parser.add_argument("--athena-database", default="healthcare_realtime_dbt")
-    parser.add_argument("--athena-table", default="ml_scoring_dataset")
-    parser.add_argument("--predictions-database", default="healthcare_realtime_ml")
+    parser.add_argument("--athena-database", default=os.getenv("ATHENA_DBT_DATABASE"))
+    parser.add_argument("--athena-table", default=os.getenv("DBT_ML_SCORING_TABLE"))
+    parser.add_argument("--predictions-database", default=os.getenv("ATHENA_ML_DATABASE"))
+    parser.add_argument("--predictions-table", default=os.getenv("ATHENA_PREDICTIONS_PUBLISHED_TABLE"))
     parser.add_argument("--athena-staging-dir", help="S3 URI for Athena query results")
-    parser.add_argument("--region", default=os.getenv("AWS_REGION", "us-east-1"))
+    parser.add_argument("--region", default=os.getenv("AWS_REGION"))
     parser.add_argument("--output", type=Path, default=Path("build/ml/scoring/predictions.jsonl"))
     parser.add_argument("--publish-s3", action="store_true")
     return parser.parse_args()
@@ -77,6 +78,19 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    missing = [
+        option
+        for option, value in {
+            "--athena-database": args.athena_database,
+            "--athena-table": args.athena_table,
+            "--predictions-database": args.predictions_database,
+            "--predictions-table": args.predictions_table,
+            "--region": args.region,
+        }.items()
+        if not value
+    ]
+    if missing:
+        raise SystemExit(f"Set the matching environment variables or pass: {', '.join(missing)}")
     bucket = os.getenv("DATA_BUCKET_NAME")
     model_s3_uri = args.model_s3_uri
     if not model_s3_uri:
@@ -100,7 +114,14 @@ def main() -> None:
         if not bucket:
             raise SystemExit("Set DATA_BUCKET_NAME before using --publish-s3")
         published = publish_predictions(args.output, bucket, manifest["model_version"])
-        register_predictions_partition(args.predictions_database, staging_dir, args.region, bucket, manifest["model_version"])
+        register_predictions_partition(
+            args.predictions_database,
+            args.predictions_table,
+            staging_dir,
+            args.region,
+            bucket,
+            manifest["model_version"],
+        )
     print(json.dumps({"model_version": manifest["model_version"], "prediction_count": len(predictions), "published": published}, indent=2))
 
 

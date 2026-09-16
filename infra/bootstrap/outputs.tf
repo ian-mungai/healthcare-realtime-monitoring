@@ -10,5 +10,10 @@ output "aws_region" {
 
 output "main_backend_key" {
   description = "Recommended state key for the development application stack."
-  value       = "healthcare-realtime-monitoring/terraform/terraform.tfstate"
+  value       = "${var.project_name}/terraform/terraform.tfstate"
+}
+
+output "bootstrap_state_backup_key" {
+  description = "Object key used for the bootstrap-state backup."
+  value       = "${var.project_name}/terraform/bootstrap/terraform.tfstate"
 }

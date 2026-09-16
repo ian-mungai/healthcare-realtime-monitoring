@@ -4,8 +4,8 @@ healthcare_realtime:
   outputs:
     dev:
       type: athena
-      database: awsdatacatalog
-      schema: healthcare_realtime_dbt
+      database: "{{ env_var('ATHENA_CATALOG') }}"
+      schema: "{{ env_var('ATHENA_DBT_DATABASE') }}"
       region_name: "{{ env_var('AWS_REGION') }}"
       s3_staging_dir: "s3://{{ env_var('DATA_BUCKET_NAME') }}/athena_results/dbt/"
       s3_data_dir: "s3://{{ env_var('DATA_BUCKET_NAME') }}/dbt/"

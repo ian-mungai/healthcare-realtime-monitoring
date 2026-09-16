@@ -277,7 +277,7 @@ resource "aws_ecs_task_definition" "soda" {
       image     = "${aws_ecr_repository.soda.repository_url}:${var.image_tag}"
       essential = true
 
-      environment = [
+      environment = concat([
         {
           name  = "AWS_REGION"
           value = data.aws_region.current.region
@@ -294,7 +294,10 @@ resource "aws_ecs_task_definition" "soda" {
           name  = "OPENLINEAGE_URL"
           value = var.openlineage_collector_url
         }
-      ]
+        ], [for name, value in var.data_identifiers : {
+          name  = name
+          value = value
+      }])
 
       logConfiguration = {
         logDriver = "awslogs"

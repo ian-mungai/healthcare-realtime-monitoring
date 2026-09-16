@@ -1,4 +1,4 @@
-dataset: healthcare_realtime_athena/awsdatacatalog/healthcare_realtime_dbt/fact_observations
+dataset: ${env.SODA_DATA_SOURCE_NAME}/${env.ATHENA_CATALOG}/${env.ATHENA_DBT_DATABASE}/${env.DBT_FACT_OBSERVATIONS_TABLE}
 
 checks:
   - row_count:

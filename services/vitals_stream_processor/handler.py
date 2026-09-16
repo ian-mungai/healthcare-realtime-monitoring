@@ -21,10 +21,10 @@ else:
         from schema import PermanentRecordError, validate_vitals_payload
 
 AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
-LATEST_VITALS_TABLE = os.getenv("LATEST_VITALS_TABLE", "healthcare-realtime-latest-vitals")
-LOAD_TEST_RESULTS_TABLE = os.getenv("LOAD_TEST_RESULTS_TABLE", "healthcare-realtime-load-test-results")
-CONNECTIONS_TABLE = os.getenv("CONNECTIONS_TABLE", "healthcare-realtime-websocket-connections")
-IDEMPOTENCY_TABLE = os.getenv("IDEMPOTENCY_TABLE", "healthcare-realtime-processed-observations")
+LATEST_VITALS_TABLE = os.environ["LATEST_VITALS_TABLE"]
+LOAD_TEST_RESULTS_TABLE = os.environ["LOAD_TEST_RESULTS_TABLE"]
+CONNECTIONS_TABLE = os.environ["CONNECTIONS_TABLE"]
+IDEMPOTENCY_TABLE = os.environ["IDEMPOTENCY_TABLE"]
 IDEMPOTENCY_TTL_SECONDS = int(os.getenv("IDEMPOTENCY_TTL_SECONDS", "604800"))
 IDEMPOTENCY_LEASE_SECONDS = int(os.getenv("IDEMPOTENCY_LEASE_SECONDS", "60"))
 WEBSOCKET_ENDPOINT = os.getenv("WEBSOCKET_ENDPOINT", "")

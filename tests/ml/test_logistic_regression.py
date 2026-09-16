@@ -178,9 +178,9 @@ def test_publish_artifacts_uses_versioned_encrypted_paths(tmp_path: Path) -> Non
 
 
 def test_prediction_partition_statement_targets_ml_database() -> None:
-    add_partition = prediction_partition_statement("healthcare_realtime_ml", "example-bucket", "logistic-abc123")
+    add_partition = prediction_partition_statement("example_ml", "example_predictions", "example-bucket", "logistic-abc123")
 
-    assert "healthcare_realtime_ml.ml_predictions_published" in add_partition
+    assert "example_ml.example_predictions" in add_partition
     assert "model_version = 'logistic-abc123'" in add_partition
     assert "create external table" not in add_partition
 

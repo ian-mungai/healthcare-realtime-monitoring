@@ -24,6 +24,11 @@ variable "patient_access_policy" {
   sensitive   = true
 }
 
+variable "stage_name" {
+  description = "API Gateway deployment stage name."
+  type        = string
+}
+
 variable "tags" {
   description = "Tags applied to realtime WebSocket resources."
   type        = map(string)

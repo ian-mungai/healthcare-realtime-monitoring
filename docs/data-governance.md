@@ -16,25 +16,25 @@ BIDMC measurements -> FHIR Observation -> Kinesis -> realtime serving
 | Dataset | System | Purpose |
 | --- | --- | --- |
 | `raw/fhir_observations/` | Amazon S3 | Immutable normalized FHIR vital-event landing area |
-| `healthcare_realtime.processed_fhir_observations` | Glue Catalog / Iceberg | Validated, deduplicated observations |
-| `healthcare_realtime_dbt.stg_fhir_observations` | Athena / dbt | Clean analytical staging model |
-| `healthcare_realtime_dbt.fact_observations` | Athena / dbt | Keyed vital-sign measurement fact |
-| `healthcare_realtime_dbt.dim_patient` | Athena / dbt | Conformed synthetic patient dimension |
-| `healthcare_realtime_dbt.dim_encounter` | Athena / dbt | Encounter analysis-window dimension |
-| `healthcare_realtime_dbt.dim_provider` | Athena / dbt | Synthetic effective-dated provider dimension |
-| `healthcare_realtime_dbt.dim_observation_type` | Athena / dbt | Conformed LOINC observation-type dimension |
-| `healthcare_realtime_dbt.dim_date` | Athena / dbt | Observation calendar dimension |
-| `healthcare_realtime_dbt.fct_encounter_vital_features` | Athena / dbt | Encounter features and synthetic deterioration proxy label |
-| `healthcare_realtime_dbt.ml_training_dataset` | Athena / dbt | Versioned model features, proxy label, and patient-grouped split |
-| `healthcare_realtime_dbt.ml_scoring_dataset` | Athena / dbt | Inference-safe features for completed fixed feature windows |
+| `${ATHENA_SOURCE_DATABASE}.${ATHENA_PROCESSED_TABLE}` | Glue Catalog / Iceberg | Validated, deduplicated observations |
+| `${ATHENA_DBT_DATABASE}.${DBT_STAGING_TABLE}` | Athena / dbt | Clean analytical staging model |
+| `${ATHENA_DBT_DATABASE}.${DBT_FACT_OBSERVATIONS_TABLE}` | Athena / dbt | Keyed vital-sign measurement fact |
+| `${ATHENA_DBT_DATABASE}.${DBT_DIM_PATIENT_TABLE}` | Athena / dbt | Conformed synthetic patient dimension |
+| `${ATHENA_DBT_DATABASE}.${DBT_DIM_ENCOUNTER_TABLE}` | Athena / dbt | Encounter analysis-window dimension |
+| `${ATHENA_DBT_DATABASE}.${DBT_DIM_PROVIDER_TABLE}` | Athena / dbt | Synthetic effective-dated provider dimension |
+| `${ATHENA_DBT_DATABASE}.${DBT_DIM_OBSERVATION_TYPE_TABLE}` | Athena / dbt | Conformed LOINC observation-type dimension |
+| `${ATHENA_DBT_DATABASE}.${DBT_DIM_DATE_TABLE}` | Athena / dbt | Observation calendar dimension |
+| `${ATHENA_DBT_DATABASE}.${DBT_ENCOUNTER_FEATURES_TABLE}` | Athena / dbt | Encounter features and synthetic deterioration proxy label |
+| `${ATHENA_DBT_DATABASE}.${DBT_ML_TRAINING_TABLE}` | Athena / dbt | Versioned model features, proxy label, and patient-grouped split |
+| `${ATHENA_DBT_DATABASE}.${DBT_ML_SCORING_TABLE}` | Athena / dbt | Inference-safe features for completed fixed feature windows |
 | `ml/model_artifacts/` | Amazon S3 | Checksummed immutable model, manifest, and evaluation artifacts |
 | `ml/predictions/` | Amazon S3 | Model-version-partitioned prediction records |
-| `healthcare_realtime_ml.ml_predictions_published` | Glue Catalog / Athena | Terraform-owned external prediction table |
-| `healthcare_realtime_dbt.ml_predictions_serving` | Athena / dbt | Versioned prediction history |
-| `healthcare_realtime_dbt.ml_predictions_latest` | Athena / dbt | Predictions restricted to the approved model version |
-| `healthcare-realtime-latest-vitals` | DynamoDB | Latest accepted realtime state by patient |
+| `${ATHENA_ML_DATABASE}.${ATHENA_PREDICTIONS_PUBLISHED_TABLE}` | Glue Catalog / Athena | Terraform-owned external prediction table |
+| `${ATHENA_DBT_DATABASE}.${DBT_ML_PREDICTIONS_SERVING_TABLE}` | Athena / dbt | Versioned prediction history |
+| `${ATHENA_DBT_DATABASE}.${DBT_ML_PREDICTIONS_LATEST_TABLE}` | Athena / dbt | Predictions restricted to the approved model version |
+| `${LATEST_VITALS_TABLE}` | DynamoDB | Latest accepted realtime state by patient |
 | `quarantine/fhir_observations/` | Amazon S3 | Rejected analytical records with reasons |
-| `healthcare_realtime.quarantined_fhir_observations` | Glue Catalog / Athena | Queryable view of quarantined records |
+| `${ATHENA_SOURCE_DATABASE}.${ATHENA_QUARANTINE_TABLE}` | Glue Catalog / Athena | Queryable view of quarantined records |
 | `metrics/glue/` | Amazon S3 | Per-run candidate, valid, and rejected counts |
 
 Formal business owners and data stewards are not currently encoded in repository metadata. Until that is added, the repository owner operates the portfolio datasets and infrastructure.
@@ -66,9 +66,9 @@ Glue classifies every analytical measurement candidate before writing it. Record
 - missing values or effective timestamps; or
 - physiological range violations.
 
-Rejected records are appended to `s3://<project-data-bucket>/quarantine/fhir_observations/` with `rejection_reason` and `quarantined_at`. The external Glue table `healthcare_realtime.quarantined_fhir_observations` exposes those JSON records to Athena. Per-run counts are appended under `metrics/glue/`.
+Rejected records are appended to `s3://<project-data-bucket>/quarantine/fhir_observations/` with `rejection_reason` and `quarantined_at`. The external Glue table `${ATHENA_SOURCE_DATABASE}.${ATHENA_QUARANTINE_TABLE}` exposes those JSON records to Athena. Per-run counts are appended under `metrics/glue/`.
 
-Great Expectations validates the processed Iceberg table for required fields, allowed LOINC codes, and uniqueness of `observation_id` plus `loinc_code`. Every automated dbt build applies model-level not-null, uniqueness, relationship, and accepted-value tests, including singular tests for the `fact_observations` compound grain and provider SCD2 validity. Soda contracts independently verify that the staging, fact, dimension, and feature tables are nonempty, satisfy their key constraints, preserve the fact-table compound grain, and use valid binary labels. The conformed dimensions and bus matrix are defined in [analytics-star-schema.md](analytics-star-schema.md).
+Great Expectations validates the processed Iceberg table for required fields, allowed LOINC codes, and uniqueness of `observation_id` plus `loinc_code`. Every automated dbt build applies model-level not-null, uniqueness, relationship, and accepted-value tests, including singular tests for the `DBT_FACT_OBSERVATIONS_TABLE` compound grain and provider SCD2 validity. Soda contracts independently verify that the staging, fact, dimension, and feature tables are nonempty, satisfy their key constraints, preserve the fact-table compound grain, and use valid binary labels. The conformed dimensions and bus matrix are defined in [analytics-star-schema.md](analytics-star-schema.md).
 
 ## Provider and feature provenance
 

@@ -4,25 +4,23 @@ from uuid import uuid4
 from openlineage.client.event_v2 import InputDataset, Job, OutputDataset, Run, RunEvent, RunState
 
 from lineage.openlineage.client import build_local_openlineage_client, emit_runtime_lineage_event
-from lineage.openlineage.config import lineage_event_path
+from lineage.openlineage.config import lineage_event_path, project_namespace, qualified_dataset
 
-NAMESPACE = "healthcare-realtime-monitoring"
 PRODUCER = "https://github.com/OpenLineage/OpenLineage"
-S3_LINEAGE_EVENT_PATH = "s3://<project-data-bucket>/lineage/openlineage/athena/event"
-
-PROCESSED_DATASET = InputDataset(namespace="aws-glue", name="healthcare_realtime.processed_fhir_observations")
-VALIDATION_DATASET = OutputDataset(namespace="athena", name="healthcare_realtime.processed_fhir_observations_quality")
 
 
 def build_athena_lineage_event(run_state: RunState, lineage_run_id: str) -> RunEvent:
+    processed_dataset = InputDataset(
+        namespace="aws-glue", name=qualified_dataset("ATHENA_SOURCE_DATABASE", "ATHENA_PROCESSED_TABLE")
+    )
     return RunEvent(
         eventType=run_state,
         eventTime=datetime.now(UTC).isoformat(),
         run=Run(runId=lineage_run_id),
-        job=Job(namespace=NAMESPACE, name="validate_processed_fhir_observations"),
+        job=Job(namespace=project_namespace(), name="validate_processed_fhir_observations"),
         producer=PRODUCER,
-        inputs=[PROCESSED_DATASET],
-        outputs=[VALIDATION_DATASET],
+        inputs=[processed_dataset],
+        outputs=[OutputDataset(namespace="athena", name=f"{processed_dataset.name}_quality")],
     )
 
 

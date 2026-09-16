@@ -1,4 +1,4 @@
-dataset: healthcare_realtime_athena/awsdatacatalog/healthcare_realtime_dbt/dim_patient
+dataset: ${env.SODA_DATA_SOURCE_NAME}/${env.ATHENA_CATALOG}/${env.ATHENA_DBT_DATABASE}/${env.DBT_DIM_PATIENT_TABLE}
 
 checks:
   - row_count:

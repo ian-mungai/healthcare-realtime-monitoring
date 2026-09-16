@@ -134,7 +134,7 @@
         "s3:AbortMultipartUpload",
         "s3:ListMultipartUploadParts"
       ],
-      "Resource": "arn:aws:s3:::${TF_STATE_BUCKET}/healthcare-realtime-monitoring/terraform/*"
+      "Resource": "arn:aws:s3:::${TF_STATE_BUCKET}/${PROJECT_NAME}/terraform/*"
     }
   ]
 }

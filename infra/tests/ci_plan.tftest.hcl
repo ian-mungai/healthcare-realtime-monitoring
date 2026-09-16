@@ -32,6 +32,46 @@ mock_provider "aws" {
 
 mock_provider "awscc" {}
 
+variables {
+  project_name                            = "example_project"
+  deployment_environment                  = "test"
+  kinesis_stream_name                     = "example_vitals"
+  load_test_kinesis_stream_name           = "example_vitals_load_test"
+  firehose_delivery_stream_name           = "example_firehose"
+  glue_job_name                           = "example_raw_to_processed"
+  raw_prefix                              = "raw/example/"
+  airflow_pipeline_schedule               = "0 2 * * *"
+  athena_workgroup_name                   = "example_workgroup"
+  athena_results_s3_uri                   = "s3://ci-project-data-bucket/athena-results/"
+  source_database_name                    = "example_source"
+  processed_observations_table_name       = "example_processed"
+  quarantine_table_name                   = "example_quarantine"
+  dbt_database_name                       = "example_dbt"
+  ml_database_name                        = "example_ml"
+  ml_predictions_published_table_name     = "example_predictions_published"
+  athena_catalog_name                     = "example_catalog"
+  soda_data_source_name                   = "example_soda"
+  dbt_staging_table_name                  = "example_staging"
+  dbt_dim_patient_table_name              = "example_dim_patient"
+  dbt_dim_encounter_table_name            = "example_dim_encounter"
+  dbt_dim_provider_table_name             = "example_dim_provider"
+  dbt_dim_observation_type_table_name     = "example_dim_observation_type"
+  dbt_dim_date_table_name                 = "example_dim_date"
+  dbt_fact_observations_table_name        = "example_fact_observations"
+  dbt_encounter_features_table_name       = "example_encounter_features"
+  dbt_ml_training_table_name              = "example_ml_training"
+  dbt_ml_scoring_table_name               = "example_ml_scoring"
+  dbt_ml_predictions_serving_table_name   = "example_predictions_serving"
+  dbt_ml_predictions_latest_table_name    = "example_predictions_latest"
+  latest_vitals_table_name                = "example-latest-vitals"
+  processed_observations_state_table_name = "example-processed-observations"
+  load_test_results_table_name            = "example-load-test-results"
+  websocket_connections_table_name        = "example-websocket-connections"
+  api_stage_name                          = "test"
+  fhir_webhook_secret_id                  = "example/fhir-webhook"
+  github_deployment_environment           = "test"
+}
+
 run "plan" {
   command = plan
 
@@ -73,8 +113,13 @@ run "plan" {
   }
 
   assert {
-    condition     = module.dbt_ecs.predictions_database_name == "healthcare_realtime_ml"
+    condition     = module.dbt_ecs.predictions_database_name == "example_ml"
     error_message = "Published model predictions must use a dedicated Terraform-managed Glue database."
+  }
+
+  assert {
+    condition     = contains(module.dbt_ecs.task_environment_names, "ATHENA_CATALOG")
+    error_message = "The dbt ECS task must receive the configured Athena catalog."
   }
 }
 

@@ -3,26 +3,40 @@ from unittest.mock import MagicMock, patch
 import pytest
 from openlineage.client.event_v2 import RunState
 
-from lineage.openlineage.athena_lineage import NAMESPACE, PROCESSED_DATASET, S3_LINEAGE_EVENT_PATH, VALIDATION_DATASET, build_athena_lineage_event
+from lineage.openlineage.athena_lineage import build_athena_lineage_event
 from lineage.openlineage.client import S3Transport
+from lineage.openlineage.config import lineage_event_path
+
+VALIDATION_ARGUMENTS = {
+    "data_bucket_name": "example-data-bucket",
+    "aws_region": "example-region-1",
+    "database": "example_source",
+    "table": "example_processed_observations",
+    "workgroup": "example-workgroup",
+    "athena_output": "s3://example-data-bucket/athena-results/",
+    "project_name": "example-project",
+}
 
 
 def test_athena_lineage_namespace() -> None:
-    assert NAMESPACE == "healthcare-realtime-monitoring"
+    event = build_athena_lineage_event(RunState.START, "11111111-1111-4111-8111-111111111111")
+    assert event.job.namespace == "example-project"
 
 
 def test_processed_dataset() -> None:
-    assert PROCESSED_DATASET.namespace == "aws-glue"
-    assert PROCESSED_DATASET.name == "healthcare_realtime.processed_fhir_observations"
+    dataset = build_athena_lineage_event(RunState.START, "11111111-1111-4111-8111-111111111111").inputs[0]
+    assert dataset.namespace == "aws-glue"
+    assert dataset.name == "example_source.example_processed_observations"
 
 
 def test_validation_dataset() -> None:
-    assert VALIDATION_DATASET.namespace == "athena"
-    assert VALIDATION_DATASET.name == "healthcare_realtime.processed_fhir_observations_quality"
+    dataset = build_athena_lineage_event(RunState.START, "11111111-1111-4111-8111-111111111111").outputs[0]
+    assert dataset.namespace == "athena"
+    assert dataset.name == "example_source.example_processed_observations_quality"
 
 
 def test_athena_lineage_s3_path() -> None:
-    assert S3_LINEAGE_EVENT_PATH == "s3://<project-data-bucket>/lineage/openlineage/athena/event"
+    assert lineage_event_path("athena") == "s3://example-data-bucket/lineage/openlineage/athena/event"
 
 
 @patch("lineage.openlineage.client.boto3.client")
@@ -32,7 +46,7 @@ def test_s3_transport_writes_openlineage_event(mock_boto_client: MagicMock) -> N
     lineage_run_id = "44444444-4444-4444-8444-444444444444"
     event = build_athena_lineage_event(RunState.START, lineage_run_id)
 
-    transport = S3Transport(S3_LINEAGE_EVENT_PATH)
+    transport = S3Transport(lineage_event_path("athena"))
     transport.emit(event)
 
     mock_boto_client.assert_called_once_with("s3")
@@ -40,7 +54,7 @@ def test_s3_transport_writes_openlineage_event(mock_boto_client: MagicMock) -> N
 
     call = s3_client.put_object.call_args.kwargs
 
-    assert call["Bucket"] == "<project-data-bucket>"
+    assert call["Bucket"] == "example-data-bucket"
     assert call["Key"].startswith("lineage/openlineage/athena/event-")
     assert call["Key"].endswith(".json")
     assert call["ContentType"] == "application/json"
@@ -83,8 +97,8 @@ def test_athena_lifecycle_preserves_datasets() -> None:
 
     event = build_athena_lineage_event(RunState.COMPLETE, lineage_run_id)
 
-    assert event.inputs == [PROCESSED_DATASET]
-    assert event.outputs == [VALIDATION_DATASET]
+    assert event.inputs[0].name == "example_source.example_processed_observations"
+    assert event.outputs[0].name == "example_source.example_processed_observations_quality"
 
 
 def test_get_invalid_row_count_returns_count() -> None:
@@ -102,9 +116,9 @@ def test_get_invalid_row_count_returns_count() -> None:
 
 
 def test_athena_validation_query_checks_compound_grain_uniqueness() -> None:
-    from airflow.dags.lib.athena_lineage import ATHENA_VALIDATION_QUERY
+    from airflow.dags.lib.athena_lineage import validation_query
 
-    normalized_query = " ".join(ATHENA_VALIDATION_QUERY.split()).upper()
+    normalized_query = " ".join(validation_query("example_source", "example_table").split()).upper()
 
     assert "GROUP BY OBSERVATION_ID, LOINC_CODE" in normalized_query
     assert "HAVING COUNT(*) > 1" in normalized_query
@@ -134,7 +148,7 @@ def test_run_athena_validation_emits_start_complete(mock_boto_client: MagicMock,
     }
     mock_boto_client.return_value = athena_client
 
-    result = run_athena_validation()
+    result = run_athena_validation(**VALIDATION_ARGUMENTS)
 
     assert result == "query-123"
     athena_client.get_query_results.assert_called_once_with(QueryExecutionId="query-123")
@@ -158,7 +172,7 @@ def test_run_athena_validation_invalid_rows_emits_start_fail(mock_boto_client: M
     mock_boto_client.return_value = athena_client
 
     with pytest.raises(RuntimeError, match="Processed Iceberg table contains 4 quality violations"):
-        run_athena_validation()
+        run_athena_validation(**VALIDATION_ARGUMENTS)
 
     assert mock_emit.call_count == 2
     assert mock_emit.call_args_list[0].args[0] == RunState.START
@@ -177,7 +191,7 @@ def test_run_athena_validation_emits_start_fail(mock_boto_client: MagicMock, moc
     mock_boto_client.return_value = athena_client
 
     with pytest.raises(RuntimeError, match="validation error"):
-        run_athena_validation()
+        run_athena_validation(**VALIDATION_ARGUMENTS)
 
     athena_client.get_query_results.assert_not_called()
     assert mock_emit.call_count == 2

@@ -13,7 +13,7 @@
         "firehose:UntagDeliveryStream",
         "firehose:ListTagsForDeliveryStream"
       ],
-      "Resource": "arn:aws:firehose:${AWS_REGION}:${AWS_ACCOUNT_ID}:deliverystream/healthcare_realtime_firehose"
+      "Resource": "arn:aws:firehose:${AWS_REGION}:${AWS_ACCOUNT_ID}:deliverystream/${FIREHOSE_DELIVERY_STREAM_NAME}"
     }
   ]
 }

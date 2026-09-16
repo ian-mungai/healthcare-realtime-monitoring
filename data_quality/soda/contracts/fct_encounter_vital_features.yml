@@ -1,4 +1,4 @@
-dataset: healthcare_realtime_athena/awsdatacatalog/healthcare_realtime_dbt/fct_encounter_vital_features
+dataset: ${env.SODA_DATA_SOURCE_NAME}/${env.ATHENA_CATALOG}/${env.ATHENA_DBT_DATABASE}/${env.DBT_ENCOUNTER_FEATURES_TABLE}
 
 checks:
   - row_count:

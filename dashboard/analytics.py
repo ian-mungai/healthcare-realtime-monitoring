@@ -41,15 +41,25 @@ def _result_rows(athena_client: Any, query_execution_id: str) -> list[dict[str, 
 
 def load_latest_predictions(
     database: str,
+    predictions_table: str,
+    patient_table: str,
     output_location: str,
     region: str,
-    workgroup: str = "primary",
+    catalog: str,
+    workgroup: str,
     athena_client: Any | None = None,
     timeout_seconds: float = 30.0,
     poll_interval_seconds: float = 0.5,
 ) -> list[dict[str, str | None]]:
-    if not IDENTIFIER_PATTERN.fullmatch(database):
-        raise ValueError(f"Invalid Athena database: {database}")
+    for label, identifier in {
+        "database": database,
+        "predictions table": predictions_table,
+        "patient table": patient_table,
+        "catalog": catalog,
+        "workgroup": workgroup,
+    }.items():
+        if not IDENTIFIER_PATTERN.fullmatch(identifier):
+            raise ValueError(f"Invalid Athena {label}: {identifier}")
     if not output_location.startswith("s3://"):
         raise ValueError("Athena output location must be an S3 URI")
 
@@ -67,8 +77,8 @@ with ranked as (
             partition by predictions.patient_key
             order by predictions.scored_at desc, predictions.encounter_key desc
         ) as patient_rank
-    from {database}.ml_predictions_latest as predictions
-    inner join {database}.dim_patient as patients
+    from {database}.{predictions_table} as predictions
+    inner join {database}.{patient_table} as patients
         on predictions.patient_key = patients.patient_key
 )
 select
@@ -84,7 +94,7 @@ order by deterioration_probability desc, patient_id
 """.strip()
     response = client.start_query_execution(
         QueryString=query,
-        QueryExecutionContext={"Database": database, "Catalog": "AwsDataCatalog"},
+        QueryExecutionContext={"Database": database, "Catalog": catalog},
         ResultConfiguration={"OutputLocation": output_location},
         WorkGroup=workgroup,
     )

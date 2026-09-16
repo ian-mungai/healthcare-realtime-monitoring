@@ -1,7 +1,7 @@
-name: healthcare_realtime_athena
+name: ${env.SODA_DATA_SOURCE_NAME}
 type: athena
 
 connection:
   region_name: ${env.AWS_REGION}
   staging_dir: s3://${env.DATA_BUCKET_NAME}/athena_results/soda/
-  catalog: awsdatacatalog
+  catalog: ${env.ATHENA_CATALOG}

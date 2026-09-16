@@ -64,11 +64,29 @@ def get_model_predictions() -> list[dict[str, str | None]]:
     bucket = os.getenv("DATA_BUCKET_NAME", "").strip()
     if not bucket:
         raise ValueError("DATA_BUCKET_NAME is required for model analytics")
+    required = {
+        name: os.getenv(name, "").strip()
+        for name in (
+            "AWS_REGION",
+            "ATHENA_CATALOG",
+            "ATHENA_WORKGROUP",
+            "ATHENA_DBT_DATABASE",
+            "DBT_ML_PREDICTIONS_LATEST_TABLE",
+            "DBT_DIM_PATIENT_TABLE",
+            "ATHENA_RESULTS_S3_URI",
+        )
+    }
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        raise ValueError(f"Missing dashboard environment variables: {', '.join(missing)}")
     return load_latest_predictions(
-        database=os.getenv("ATHENA_DBT_DATABASE", "healthcare_realtime_dbt"),
-        output_location=os.getenv("ATHENA_RESULTS_S3_URI", f"s3://{bucket}/athena_results/dashboard/"),
-        region=os.getenv("AWS_REGION", "us-east-1"),
-        workgroup=os.getenv("ATHENA_WORKGROUP", "primary"),
+        database=required["ATHENA_DBT_DATABASE"],
+        predictions_table=required["DBT_ML_PREDICTIONS_LATEST_TABLE"],
+        patient_table=required["DBT_DIM_PATIENT_TABLE"],
+        output_location=required["ATHENA_RESULTS_S3_URI"],
+        region=required["AWS_REGION"],
+        catalog=required["ATHENA_CATALOG"],
+        workgroup=required["ATHENA_WORKGROUP"],
     )
 
 
