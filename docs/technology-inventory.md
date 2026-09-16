@@ -40,7 +40,7 @@ This inventory lists technologies used by committed code, infrastructure, tests 
 
 | Area | Tools and methods |
 | --- | --- |
-| Monitoring client | Streamlit, Altair, REST polling, WebSocket updates, AWS SigV4 |
+| Monitoring and analytics clients | Streamlit live cohort and model analytics dashboards, Altair, Athena queries, REST polling, WebSocket updates, AWS SigV4 |
 | HTTP and service integration | Requests, HTTPX, Respx, WebSocket Client, Botocore signing, SQLAlchemy and PostgreSQL drivers |
 | Manual verification | Postman, AWS CLI, GitHub CLI, `jq`, Athena SQL, CloudWatch dashboards |
 | Infrastructure and delivery | Terraform AWS/AWSCC providers, Docker Buildx, Git, GitHub Actions, OIDC, protected environments, immutable image tags |

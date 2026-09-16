@@ -35,26 +35,29 @@ Wait until the task reports `RUNNING`. The script starts one Fargate simulator t
 
 In the simulator log stream, healthy cycles report `status=healthy`, `patients_succeeded=10` and `patients_failed=0`. Investigate any `status=degraded` cycle before using the run as release evidence.
 
-## Start the dashboard
+## Start the dashboards
 
-Retrieve the target endpoints without copying them into documentation or screenshots:
+Start the live cohort dashboard in its own terminal:
 
 ```zsh
-export VITALS_API_ENDPOINT="$(terraform -chdir=infra output -raw vitals_api_endpoint)"
-export VITALS_WEBSOCKET_URL="$(terraform -chdir=infra output -raw realtime_websocket_url)"
-export DATA_BUCKET_NAME="$(terraform -chdir=infra output -raw raw_s3_bucket_name)"
-export PATIENT_IDS="<comma-separated-simulated-patient-ids>"
-PYTHONPATH="$PWD" .venv/bin/python -m streamlit run dashboard/app.py
+./scripts/demo/start_live_dashboard.sh
 ```
 
-In the dashboard, verify that:
+In the live dashboard, verify that:
 
 1. The cohort view contains every configured simulated patient.
 2. Heart rate, oxygen saturation, respiratory rate and blood pressure update while the simulator is running.
 3. Current-monitoring values are no more than 10 seconds old; older values are suppressed rather than presented as live.
 4. The chart time axis advances with full timestamps.
 5. Selecting **View trends** focuses a patient without hiding the rest of the cohort.
-6. **Model analytics** shows the latest approved synthetic proxy score for each scored patient without changing live clinical priorities.
+
+Start the separate model analytics dashboard in another terminal:
+
+```zsh
+./scripts/demo/start_model_analytics_dashboard.sh
+```
+
+Confirm it shows the latest approved synthetic proxy score, feature-window vital summaries, encounter reference, freshness and model-governance labels for each scored patient. The launch scripts retrieve deployment-specific configuration from Terraform outputs and the ignored Terraform variable file, so do not copy those values into `.env`, documentation or screenshots.
 
 ## Postman REST check
 

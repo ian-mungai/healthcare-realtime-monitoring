@@ -128,16 +128,10 @@ Start one simulator task:
 ./scripts/demo/status_vitals_demo.sh
 ```
 
-In a second terminal, load `.env`, retrieve the Terraform-created endpoints and start Streamlit:
+In a second terminal, start the live cohort dashboard:
 
 ```zsh
-set -a
-source .env
-set +a
-export VITALS_API_ENDPOINT="$(terraform -chdir=infra output -raw vitals_api_endpoint)"
-export VITALS_WEBSOCKET_URL="$(terraform -chdir=infra output -raw realtime_websocket_url)"
-export DATA_BUCKET_NAME="$(terraform -chdir=infra output -raw raw_s3_bucket_name)"
-PYTHONPATH="$PWD" .venv/bin/python -m streamlit run dashboard/app.py
+./scripts/demo/start_live_dashboard.sh
 ```
 
 Confirm all ten patients are present and current values are no more than ten seconds old. Run the REST, WebSocket and CloudWatch checks in the [demo guide](demo-guide.md), then stop the simulator:
@@ -147,7 +141,13 @@ Confirm all ten patients are present and current values are no more than ten sec
 ./scripts/demo/status_vitals_demo.sh
 ```
 
-The realtime demo does not require an approved model. For the complete analytical and data-science path, run dbt, follow the [model training guide](model-training.md), apply the approved model version and run MWAA. Allow 30 minutes for that workflow.
+The realtime demo does not require an approved model. To show existing approved-model results, launch the separate analytics dashboard in a third terminal:
+
+```zsh
+./scripts/demo/start_model_analytics_dashboard.sh
+```
+
+For the complete analytical and data-science path, run dbt, follow the [model training guide](model-training.md), apply the approved model version and run MWAA. Allow 30 minutes for that workflow.
 
 ## Destroy and recreate
 

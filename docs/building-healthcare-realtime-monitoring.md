@@ -85,6 +85,8 @@ The report design includes four pages:
 3. Encounter analysis with drillthrough, provider context and feature-window summaries.
 4. Model analytics with probability, proxy risk band, model version and prominent nonclinical labeling.
 
+The local Streamlit experience keeps operational monitoring and analytical model review separate. The live dashboard follows current vital-sign changes across the ten-patient cohort. The model analytics dashboard queries Athena for the latest approved score per patient and adds encounter context, feature-window vital summaries, the decision threshold, model and schema versions, freshness, prediction scope and clinical-validation status.
+
 The `.pbix` remains outside the repository because it is a binary file that can retain connection metadata and cached previews. Publishing to Power BI Service is optional and restricted to a private workspace. The project does not use Publish to web.
 
 ## Technology and methods used
