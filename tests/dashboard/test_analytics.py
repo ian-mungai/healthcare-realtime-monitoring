@@ -81,8 +81,6 @@ def test_load_latest_predictions_reports_athena_failure() -> None:
 
 def test_load_latest_predictions_validates_configuration() -> None:
     with pytest.raises(ValueError, match="database"):
-        load_latest_predictions(
-            "invalid-name", "predictions", "patients", "s3://example-bucket/results/", "example-region-1", "catalog", "workgroup"
-        )
+        load_latest_predictions("invalid-name", "predictions", "patients", "s3://example-bucket/results/", "example-region-1", "catalog", "workgroup")
     with pytest.raises(ValueError, match="S3 URI"):
         load_latest_predictions("database", "predictions", "patients", "local-results", "example-region-1", "catalog", "workgroup")
