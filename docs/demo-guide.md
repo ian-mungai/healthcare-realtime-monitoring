@@ -6,12 +6,12 @@ Demonstrate that synthetic vital-sign events flow from the simulator through FHI
 
 ## Before the demo
 
-From the repository root, select the target AWS profile and region:
+From the repository root, load the ignored target-environment settings:
 
 ```zsh
-export AWS_PROFILE="<aws-profile>"
-export AWS_REGION="<aws-region>"
-export AWS_DEFAULT_REGION="$AWS_REGION"
+set -a
+source .env
+set +a
 ```
 
 Confirm the deployment is converged and that the simulator is not already running:

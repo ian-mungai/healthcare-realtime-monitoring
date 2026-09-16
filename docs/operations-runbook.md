@@ -6,12 +6,13 @@ This runbook covers the portfolio demonstration environment. It uses synthetic d
 
 ## Prerequisites
 
-From any directory within a repository clone, select the AWS profile and region that host the target environment:
+From any directory within a repository clone, load the ignored environment that identifies the target environment:
 
 ```zsh
 cd "$(git rev-parse --show-toplevel)"
-export AWS_PROFILE="<aws-profile>"
-export AWS_REGION="<aws-region>"
+set -a
+source .env
+set +a
 ```
 
 Never place credentials, signed headers, account identifiers, endpoint identifiers or secret values in shell history, screenshots or public evidence.

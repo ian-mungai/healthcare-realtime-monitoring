@@ -15,7 +15,10 @@ The portfolio release includes the completed Power BI-to-Athena connection and r
 
 ## Infrastructure convergence
 
-- [ ] Run `./scripts/infrastructure/check_prerequisites.sh` and confirm every automated prerequisite passes.
+- [ ] Run `./scripts/infrastructure/verify_reproducibility.sh` and confirm the empty-account simulations pass.
+- [ ] Complete one deployment from an empty backend in a clean AWS account using `docs/quickstart.md`.
+- [ ] Run the guarded teardown and confirm only documented external prerequisites and the protected state bucket remain.
+- [ ] Run `./scripts/infrastructure/check_prerequisites.sh post-deploy` and confirm every automated prerequisite passes.
 - [ ] Run `terraform -chdir=infra fmt -check -recursive`.
 - [ ] Run `terraform -chdir=infra validate`.
 - [ ] Review `terraform -chdir=infra plan -var-file=development.tfvars`.

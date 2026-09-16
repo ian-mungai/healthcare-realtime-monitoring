@@ -8,9 +8,9 @@ Build the realtime processor Lambda package, review the Terraform plan and apply
 
 ```zsh
 cd healthcare-realtime-monitoring
-export AWS_PROFILE="<aws-profile>"
-export AWS_REGION="<aws-region>"
-export AWS_DEFAULT_REGION="$AWS_REGION"
+set -a
+source .env
+set +a
 
 scripts/lambda/build_vitals_stream_processor.sh
 terraform -chdir=infra plan -var-file=development.tfvars -out=tfplan-load-test

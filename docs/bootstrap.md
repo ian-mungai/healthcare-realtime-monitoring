@@ -15,6 +15,17 @@ cp infra/bootstrap/terraform.tfvars.example infra/bootstrap/terraform.tfvars
 
 Replace every placeholder in the ignored files and use globally unique bucket names. `.env` contains only local or externally managed prerequisites; Terraform-created endpoints and resource identifiers come from Terraform outputs. Values already exported in the shell take precedence. Leave `ml_approved_model_version` empty for the first deployment; this keeps MWAA in manual-only mode while the training dataset and first model are created. Never commit these files.
 
+Run the local and regional checks before creating resources:
+
+```zsh
+./scripts/infrastructure/check_prerequisites.sh local
+.venv/bin/python scripts/infrastructure/check_region_readiness.py \
+  --profile "$AWS_PROFILE" \
+  --region "$AWS_REGION"
+```
+
+Render and review every tracked customer-managed IAM policy, then apply them with the guarded policy command documented in the [clean-account quickstart](quickstart.md). Use an approved bootstrap identity because Terraform cannot create the identity and permissions needed to start itself.
+
 Create the persistent state bucket before initializing the application stack:
 
 ```zsh
@@ -70,13 +81,15 @@ CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
 terraform -chdir=infra plan -var-file=development.tfvars
 ```
 
-The final plan must report `No changes`. Run `./scripts/infrastructure/check_prerequisites.sh` to verify the external configuration without printing private values. During bootstrap the workflow remains manual-only because no approved model exists yet. The [external prerequisite inventory](external-prerequisites.md) identifies the account and third-party configuration that Terraform does not create.
+The final plan must report `No changes`. During bootstrap the workflow remains manual-only because no approved model exists yet. The [external prerequisite inventory](external-prerequisites.md) identifies the account and third-party configuration that Terraform does not create.
 
 After the GitHub OIDC deployment role exists, synchronize the ignored deployment inputs to encrypted AWS storage and configure the protected GitHub environment as described in [deployment.md](deployment.md):
 
 ```zsh
 ./scripts/infrastructure/sync_deployment_config.sh
 ```
+
+After configuring the protected GitHub environment, run `./scripts/infrastructure/check_prerequisites.sh post-deploy` to verify the deployed external configuration without printing private values.
 
 ## 4. Seed FHIR and register delivery
 

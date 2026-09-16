@@ -16,22 +16,31 @@ These prerequisites are intentionally outside the main application Terraform sta
 | External datasets and tools | PhysioNet source access, Postman and optional Power BI are not provisioned by Terraform | Confirm network access and install only the tools needed for the selected workflow | No AWS teardown action |
 | AWS quotas and service availability | Account quotas and regional availability cannot be guaranteed by this repository | Check VPC, Elastic IP, Fargate, RDS, MWAA Serverless and managed-policy quotas before deployment | Quota increases remain on the account |
 
-The policy JSON files are reproducible policy definitions, not Terraform-managed IAM identities. Supply the ignored Terraform variable file so resource identifiers come from the same configuration used by the stack; only account and state-bucket identifiers remain external:
+The policy JSON files are reproducible policy definitions, not Terraform-managed IAM identities. Plan all templates without changing AWS:
 
 ```zsh
-export AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
-.venv/bin/python infra/iam/scripts/render_policy.py \
-  infra/iam/policies/<policy-name>.json \
+.venv/bin/python infra/iam/scripts/manage_policies.py plan \
   --terraform-var-file infra/development.tfvars \
-  --output /tmp/<policy-name>.json
+  --profile "$AWS_PROFILE" \
+  --region "$AWS_REGION"
 ```
 
-Set `TF_STATE_BUCKET` only when rendering the S3 policy, then review the rendered JSON before updating an existing policy version.
+Apply the reviewed create and update actions only from an approved bootstrap identity:
+
+```zsh
+CONFIRM_IAM_POLICIES=apply-healthcare-realtime-policies \
+  .venv/bin/python infra/iam/scripts/manage_policies.py apply \
+  --terraform-var-file infra/development.tfvars \
+  --profile "$AWS_PROFILE" \
+  --region "$AWS_REGION"
+```
+
+The command obtains the account ID from STS, uses `TF_STATE_BUCKET` from `.env`, creates missing policies and publishes a new default version only when an existing document changed. It never creates users or groups and never attaches policies to an identity.
 
 Copy `.env.example` to the ignored `.env` and complete its placeholders. Infrastructure and demo scripts load missing values from that file while preserving explicit shell overrides. Verify every automatable prerequisite without displaying secret values:
 
 ```zsh
-./scripts/infrastructure/check_prerequisites.sh
+./scripts/infrastructure/check_prerequisites.sh pre-deploy
 ```
 
-Mailbox confirmation, account quota increases, PhysioNet availability, Postman installation and optional Power BI installation require human or account-owner action. The preflight verifies the deployed SNS confirmation and service access that can be checked safely.
+After the full application deployment and GitHub environment setup, run `./scripts/infrastructure/check_prerequisites.sh post-deploy`. Mailbox confirmation, account quota increases, PhysioNet availability, Postman installation and optional Power BI installation require human or account-owner action.

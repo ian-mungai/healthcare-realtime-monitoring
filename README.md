@@ -42,10 +42,10 @@ Simulator -> HAPI FHIR -> webhook -> Kinesis -> Lambda -> DynamoDB -> REST/WebSo
 - Python 3.12
 - Terraform 1.11 or later
 - AWS CLI authenticated to the target account
+- A temporary administrator or approved bootstrap identity for first deployment
 - Docker, when building ECS images locally
 - Java 17 and Gradle, when generating Synthea data
 - Power BI Desktop and the Amazon Athena ODBC driver, only when reproducing the completed reporting connection
-- An AWS environment provisioned from this repository
 
 ## Local setup
 
@@ -56,7 +56,6 @@ cd healthcare-realtime-monitoring
 python3.12 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip
 .venv/bin/python -m pip install -r requirements_dev.txt
-.venv/bin/python -m pip install -r dashboard/requirements.txt
 ```
 
 Create local configuration from the tracked examples. These files are ignored by Git and must contain values for your own AWS environment:
@@ -66,18 +65,18 @@ cp .env.example .env
 cp infra/development.tfvars.example infra/development.tfvars
 ```
 
-Infrastructure and demo scripts load missing values from the ignored `.env`; variables already exported in the shell take precedence. Complete the tracked placeholders, then verify local, AWS, GitHub, state, secret, IAM, OIDC, SNS and Docker prerequisites:
+Infrastructure and demo scripts load missing values from the ignored `.env`; variables already exported in the shell take precedence. Complete the tracked placeholders, then verify the local toolchain and selected AWS identity. Cloud resources are checked in later deployment phases:
 
 ```zsh
-./scripts/infrastructure/check_prerequisites.sh
+./scripts/infrastructure/check_prerequisites.sh local
 ```
 
-Select the target AWS context before running AWS CLI, Terraform or dashboard commands:
+Load the ignored local environment before running AWS CLI, Terraform or dashboard commands:
 
 ```zsh
-export AWS_PROFILE="<aws-profile>"
-export AWS_REGION="<aws-region>"
-export AWS_DEFAULT_REGION="$AWS_REGION"
+set -a
+source .env
+set +a
 ```
 
 Do not commit secrets, deployment identifiers, Terraform state, signed headers or generated workflow definitions.
@@ -106,7 +105,7 @@ cp infra/bootstrap/terraform.tfvars.example infra/bootstrap/terraform.tfvars
 
 Review and apply the bootstrap plan, run `./scripts/infrastructure/bootstrap.sh state-backup`, then run `./scripts/infrastructure/bootstrap.sh main-init`. For an existing environment, use the guarded `main-migrate` action documented in the lifecycle guide. Bootstrap inputs, backend configuration and state files are ignored by Git.
 
-The [bootstrap guide](docs/bootstrap.md) covers first deployment. The [infrastructure lifecycle guide](docs/infrastructure-lifecycle.md) covers persistent state, guarded teardown and recreation. The [external prerequisite inventory](docs/external-prerequisites.md) identifies account configuration outside the application stack. The [deployment guide](docs/deployment.md) covers GitHub OIDC and shared OpenLineage collector setup. Recovery, cost-control and operational checks are in the [operations runbook](docs/operations-runbook.md).
+Start with the [clean-account quickstart](docs/quickstart.md) for the shortest path from clone to live demo. The [bootstrap guide](docs/bootstrap.md) explains the deployment stages in more detail. The [infrastructure lifecycle guide](docs/infrastructure-lifecycle.md) covers persistent state, guarded teardown and recreation. The [external prerequisite inventory](docs/external-prerequisites.md) identifies account configuration outside the application stack. The [deployment guide](docs/deployment.md) covers GitHub OIDC and shared OpenLineage collector setup. Recovery, cost-control and operational checks are in the [operations runbook](docs/operations-runbook.md).
 
 ## Run the dashboard
 
