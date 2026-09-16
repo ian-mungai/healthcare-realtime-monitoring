@@ -8,7 +8,7 @@ The teardown workflow is deliberately two phase. The first reviewed apply disabl
 
 ## Persistent state bootstrap
 
-Create the ignored bootstrap inputs, review the state-bucket plan, and apply it:
+Create the ignored bootstrap inputs, review the state-bucket plan and apply it:
 
 Replace the placeholders in `infra/bootstrap/terraform.tfvars` before running the following commands.
 
@@ -54,7 +54,7 @@ CONFIRM_TEARDOWN=delete-healthcare-realtime-development \
   ./scripts/infrastructure/teardown.sh prepare-apply
 ```
 
-Preview application storage. The command refuses to operate when `TF_STATE_BUCKET` matches the data bucket. Executing cleanup removes every object version, delete marker, and ECR image listed by the preview.
+Preview application storage. The command refuses to operate when `TF_STATE_BUCKET` matches the data bucket. Executing cleanup removes every object version, delete marker and ECR image listed by the preview.
 
 ```zsh
 ./scripts/infrastructure/teardown.sh cleanup-preview
@@ -62,7 +62,7 @@ CONFIRM_TEARDOWN=delete-healthcare-realtime-development \
   ./scripts/infrastructure/teardown.sh cleanup-apply
 ```
 
-Create the final destroy plan, review every deletion, and apply only that saved plan:
+Create the final destroy plan, review every deletion and apply only that saved plan:
 
 ```zsh
 ./scripts/infrastructure/teardown.sh destroy-plan
@@ -71,10 +71,10 @@ CONFIRM_TEARDOWN=delete-healthcare-realtime-development \
   ./scripts/infrastructure/teardown.sh destroy-apply
 ```
 
-Confirm that no application resources remain before separately considering the webhook secret, GitHub environment, account policies, OIDC provider, or retained RDS snapshots. Keep the Terraform state bucket for future recreation and audit history.
+Confirm that no application resources remain before separately considering the webhook secret, GitHub environment, account policies, OIDC provider or retained RDS snapshots. Keep the Terraform state bucket for future recreation and audit history.
 
 ## Recreation
 
 Reuse the persistent state bucket with a new empty state key or remove the old main-state object only after preserving an approved backup. Then follow [bootstrap.md](bootstrap.md) from the application repository at the intended commit.
 
-Bucket names are globally unique and may be unavailable after deletion. Use new names in the ignored configuration when AWS does not immediately release an old name. Recreate the webhook secret, image repositories and images, synthetic FHIR cohort, HAPI subscription, analytical tables, and approved model in the documented order.
+Bucket names are globally unique and may be unavailable after deletion. Use new names in the ignored configuration when AWS does not immediately release an old name. Recreate the webhook secret, image repositories and images, synthetic FHIR cohort, HAPI subscription, analytical tables and approved model in the documented order.

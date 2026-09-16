@@ -59,6 +59,7 @@ variables {
   dbt_dim_date_table_name                 = "example_dim_date"
   dbt_fact_observations_table_name        = "example_fact_observations"
   dbt_encounter_features_table_name       = "example_encounter_features"
+  active_patient_ids                      = ["patient-01", "patient-02", "patient-03", "patient-04", "patient-05", "patient-06", "patient-07", "patient-08", "patient-09", "patient-10"]
   dbt_ml_training_table_name              = "example_ml_training"
   dbt_ml_scoring_table_name               = "example_ml_scoring"
   dbt_ml_predictions_serving_table_name   = "example_predictions_serving"

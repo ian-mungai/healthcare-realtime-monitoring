@@ -25,9 +25,9 @@ BIDMC measurements -> FHIR Observation -> Kinesis -> realtime serving
 | `${ATHENA_DBT_DATABASE}.${DBT_DIM_OBSERVATION_TYPE_TABLE}` | Athena / dbt | Conformed LOINC observation-type dimension |
 | `${ATHENA_DBT_DATABASE}.${DBT_DIM_DATE_TABLE}` | Athena / dbt | Observation calendar dimension |
 | `${ATHENA_DBT_DATABASE}.${DBT_ENCOUNTER_FEATURES_TABLE}` | Athena / dbt | Encounter features and synthetic deterioration proxy label |
-| `${ATHENA_DBT_DATABASE}.${DBT_ML_TRAINING_TABLE}` | Athena / dbt | Versioned model features, proxy label, and patient-grouped split |
+| `${ATHENA_DBT_DATABASE}.${DBT_ML_TRAINING_TABLE}` | Athena / dbt | Versioned model features, proxy label and patient-grouped split |
 | `${ATHENA_DBT_DATABASE}.${DBT_ML_SCORING_TABLE}` | Athena / dbt | Inference-safe features for completed fixed feature windows |
-| `ml/model_artifacts/` | Amazon S3 | Checksummed immutable model, manifest, and evaluation artifacts |
+| `ml/model_artifacts/` | Amazon S3 | Checksummed immutable model, manifest and evaluation artifacts |
 | `ml/predictions/` | Amazon S3 | Model-version-partitioned prediction records |
 | `${ATHENA_ML_DATABASE}.${ATHENA_PREDICTIONS_PUBLISHED_TABLE}` | Glue Catalog / Athena | Terraform-owned external prediction table |
 | `${ATHENA_DBT_DATABASE}.${DBT_ML_PREDICTIONS_SERVING_TABLE}` | Athena / dbt | Versioned prediction history |
@@ -35,17 +35,17 @@ BIDMC measurements -> FHIR Observation -> Kinesis -> realtime serving
 | `${LATEST_VITALS_TABLE}` | DynamoDB | Latest accepted realtime state by patient |
 | `quarantine/fhir_observations/` | Amazon S3 | Rejected analytical records with reasons |
 | `${ATHENA_SOURCE_DATABASE}.${ATHENA_QUARANTINE_TABLE}` | Glue Catalog / Athena | Queryable view of quarantined records |
-| `metrics/glue/` | Amazon S3 | Per-run candidate, valid, and rejected counts |
+| `metrics/glue/` | Amazon S3 | Per-run candidate, valid and rejected counts |
 
 Formal business owners and data stewards are not currently encoded in repository metadata. Until that is added, the repository owner operates the portfolio datasets and infrastructure.
 
 ## Standards and schema
 
-FHIR R4 `Observation` resources are transformed into versioned realtime payloads and analytical measurement rows. Current schema `1.1` payloads require a nonempty observation ID, patient ID, encounter ID, source, ISO-8601 event timestamp, and at least one supported numeric vital. Legacy schema `1.0` payloads remain replay-compatible without an encounter ID.
+FHIR R4 `Observation` resources are transformed into versioned realtime payloads and analytical measurement rows. Current schema `1.1` payloads require a nonempty observation ID, patient ID, encounter ID, source, ISO-8601 event timestamp and at least one supported numeric vital. Legacy schema `1.0` payloads remain replay-compatible without an encounter ID.
 
 Supported LOINC codes are:
 
-The machine-readable source of truth is [`config/vital_signs.json`](../config/vital_signs.json). Independently deployed components retain local constants, and contract tests verify that their LOINC codes, units, names, and validation ranges match this catalog.
+The machine-readable source of truth is [`config/vital_signs.json`](../config/vital_signs.json). Independently deployed components retain local constants and contract tests verify that their LOINC codes, units, names and validation ranges match this catalog.
 
 | LOINC | Measurement | Analytical range |
 | --- | --- | --- |
@@ -61,22 +61,22 @@ The realtime validator permits systolic values through 300 and diastolic values 
 
 Glue classifies every analytical measurement candidate before writing it. Records are rejected for:
 
-- missing observation, patient, or LOINC identifiers;
+- missing observation, patient or LOINC identifiers;
 - unsupported LOINC codes;
 - missing values or effective timestamps; or
 - physiological range violations.
 
 Rejected records are appended to `s3://<project-data-bucket>/quarantine/fhir_observations/` with `rejection_reason` and `quarantined_at`. The external Glue table `${ATHENA_SOURCE_DATABASE}.${ATHENA_QUARANTINE_TABLE}` exposes those JSON records to Athena. Per-run counts are appended under `metrics/glue/`.
 
-Great Expectations validates the processed Iceberg table for required fields, allowed LOINC codes, and uniqueness of `observation_id` plus `loinc_code`. Every automated dbt build applies model-level not-null, uniqueness, relationship, and accepted-value tests, including singular tests for the `DBT_FACT_OBSERVATIONS_TABLE` compound grain and provider SCD2 validity. Soda contracts independently verify that the staging, fact, dimension, and feature tables are nonempty, satisfy their key constraints, preserve the fact-table compound grain, and use valid binary labels. The conformed dimensions and bus matrix are defined in [analytics-star-schema.md](analytics-star-schema.md).
+Great Expectations validates the processed Iceberg table for required fields, allowed LOINC codes and uniqueness of `observation_id` plus `loinc_code`. Every automated dbt build applies model-level not-null, uniqueness, relationship and accepted-value tests, including singular tests for the `DBT_FACT_OBSERVATIONS_TABLE` compound grain and provider SCD2 validity. Soda contracts independently verify that the staging, fact, dimension and feature tables are nonempty, satisfy their key constraints, preserve the fact-table compound grain and use valid binary labels. The conformed dimensions and bus matrix are defined in [analytics-star-schema.md](analytics-star-schema.md).
 
 ## Provider and feature provenance
 
-The committed provider history is a synthetic NPPES-compatible fixture. It contains no assertion about real clinicians, and deterministic encounter assignments are explicitly flagged as synthetic. A local utility can merge a normalized NPPES snapshot into effective-dated history, but real provider extracts and generated histories must remain outside the public repository.
+The committed provider history is a synthetic NPPES-compatible fixture. It contains no assertion about real clinicians and deterministic encounter assignments are explicitly flagged as synthetic. A local utility can merge a normalized NPPES snapshot into effective-dated history, but real provider extracts and generated histories must remain outside the public repository.
 
-The encounter feature table uses the first fixed 15 minutes for features and the following fixed 15 minutes for the outcome proxy. The boundary is computable while an encounter is in progress and does not depend on its eventual end time. The outcome window produces a versioned deterioration proxy that requires repeated observations of the same vital beyond a NEWS2 extreme threshold, reducing sensitivity to isolated synthetic measurements. This proxy supports pipeline demonstration only and is not a diagnosis, a validated clinical outcome, or approved training data for clinical use.
+The encounter feature table uses the first fixed 15 minutes for features and the following fixed 15 minutes for the outcome proxy. The boundary is computable while an encounter is in progress and does not depend on its eventual end time. The outcome window produces a versioned deterioration proxy that requires repeated observations of the same vital beyond a NEWS2 extreme threshold, reducing sensitivity to isolated synthetic measurements. This proxy supports pipeline demonstration only and is not a diagnosis, a validated clinical outcome or approved training data for clinical use.
 
-The training dataset excludes ineligible encounters and assigns complete patient histories to either training or testing. Its feature schema, label definition, split rule, and source-row fingerprint are recorded with every baseline model artifact. Generated model files remain under the ignored `build/` directory unless a reviewed private artifact store is configured.
+The training dataset excludes ineligible encounters and assigns complete patient histories to either training or testing. Its feature schema, label definition, split rule and source-row fingerprint are recorded with every baseline model artifact. Generated model files remain under the ignored `build/` directory unless a reviewed private artifact store is configured.
 
 Historical quality checkpoint before the star-schema expansion, verified on 2026-09-03:
 
@@ -108,7 +108,7 @@ The verified lineage chain is:
 S3 normalized FHIR vital events
   -> Glue processed observations
   -> Athena quality validation
-  -> dbt staging, fact, dimensions, encounter features, and model inputs
+  -> dbt staging, fact, dimensions, encounter features and model inputs
   -> approved-model prediction publication and serving views
   -> Soda contract validation
 ```
@@ -117,7 +117,7 @@ Great Expectations also emits an independent quality lineage edge from processed
 
 ## Security and access
 
-- The data bucket blocks public access, enables versioning, and uses AES-256 server-side encryption.
+- The data bucket blocks public access, enables versioning and uses AES-256 server-side encryption.
 - The Kinesis stream uses AWS-managed KMS encryption.
 - The latest-vitals DynamoDB table has point-in-time recovery enabled.
 - API Gateway REST and WebSocket connection routes use AWS IAM authorization where configured.
@@ -125,13 +125,13 @@ Great Expectations also emits an independent quality lineage edge from processed
 - ECS tasks and Lambda functions use workload-specific IAM roles scoped to required services and paths.
 - ECR image tags used for deployments are supplied explicitly; the simulator requires immutable `sha-*` tags.
 
-Terraform state, credentials, webhook secrets, alert addresses, connection IDs, and signed authorization headers are not portfolio evidence and must remain private.
+Terraform state, credentials, webhook secrets, alert addresses, connection IDs and signed authorization headers are not portfolio evidence and must remain private.
 
 ## Retention and recovery
 
-CloudWatch log groups for HAPI, dbt, Soda, and the vitals simulator retain logs for 14 days. SQS failure and replay-DLQ messages are retained for 14 days. HAPI RDS automated backups are retained for one day. DynamoDB point-in-time recovery protects the latest-vitals table.
+CloudWatch log groups for HAPI, dbt, Soda and the vitals simulator retain logs for 14 days. SQS failure and replay-DLQ messages are retained for 14 days. HAPI RDS automated backups are retained for one day. DynamoDB point-in-time recovery protects the latest-vitals table.
 
-The versioned S3 data bucket currently has no lifecycle expiration policy. Raw, processed, quarantine, metrics, lineage, and Athena-result objects therefore remain until explicitly removed or a reviewed lifecycle policy is introduced.
+The versioned S3 data bucket currently has no lifecycle expiration policy. Raw, processed, quarantine, metrics, lineage and Athena-result objects therefore remain until explicitly removed or a reviewed lifecycle policy is introduced.
 
 ## Operational evidence
 
@@ -145,4 +145,4 @@ Evidence for a governed release should include:
 - controlled failure and replay evidence; and
 - Terraform convergence and CI success.
 
-Evidence must use synthetic identifiers and redact secrets, credentials, signed headers, email addresses, and other account-specific sensitive values.
+Evidence must use synthetic identifiers and redact secrets, credentials, signed headers, email addresses and other account-specific sensitive values.

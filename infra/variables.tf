@@ -133,6 +133,16 @@ variable "dbt_encounter_features_table_name" {
   type        = string
 }
 
+variable "active_patient_ids" {
+  description = "Exactly ten synthetic HAPI patient identifiers included in cohort analytics."
+  type        = list(string)
+
+  validation {
+    condition     = length(var.active_patient_ids) == 10 && length(distinct(var.active_patient_ids)) == 10 && alltrue([for patient_id in var.active_patient_ids : trimspace(patient_id) != ""])
+    error_message = "active_patient_ids must contain exactly ten unique non-empty patient identifiers."
+  }
+}
+
 variable "dbt_ml_training_table_name" {
   description = "Physical name of the ML training table."
   type        = string

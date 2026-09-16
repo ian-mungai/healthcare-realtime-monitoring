@@ -181,6 +181,7 @@ module "dbt_ecs" {
     DBT_DIM_DATE_TABLE                 = var.dbt_dim_date_table_name
     DBT_FACT_OBSERVATIONS_TABLE        = var.dbt_fact_observations_table_name
     DBT_ENCOUNTER_FEATURES_TABLE       = var.dbt_encounter_features_table_name
+    ACTIVE_PATIENT_IDS                 = join(",", var.active_patient_ids)
     DBT_ML_TRAINING_TABLE              = var.dbt_ml_training_table_name
     DBT_ML_SCORING_TABLE               = var.dbt_ml_scoring_table_name
     DBT_ML_PREDICTIONS_SERVING_TABLE   = var.dbt_ml_predictions_serving_table_name
