@@ -15,7 +15,6 @@ import requests
 import streamlit as st
 import websocket
 
-from dashboard.analytics import load_latest_predictions
 from dashboard.aws_auth import get_sigv4_headers
 from dashboard.state import (
     analytical_quarantine_fields,
@@ -57,37 +56,6 @@ VITAL_DISPLAY_NAMES = {
     "systolic_bp": "Systolic BP",
     "diastolic_bp": "Diastolic BP",
 }
-
-
-@st.cache_data(ttl=300, show_spinner=False)
-def get_model_predictions() -> list[dict[str, str | None]]:
-    bucket = os.getenv("DATA_BUCKET_NAME", "").strip()
-    if not bucket:
-        raise ValueError("DATA_BUCKET_NAME is required for model analytics")
-    required = {
-        name: os.getenv(name, "").strip()
-        for name in (
-            "AWS_REGION",
-            "ATHENA_CATALOG",
-            "ATHENA_WORKGROUP",
-            "ATHENA_DBT_DATABASE",
-            "DBT_ML_PREDICTIONS_LATEST_TABLE",
-            "DBT_DIM_PATIENT_TABLE",
-            "ATHENA_RESULTS_S3_URI",
-        )
-    }
-    missing = [name for name, value in required.items() if not value]
-    if missing:
-        raise ValueError(f"Missing dashboard environment variables: {', '.join(missing)}")
-    return load_latest_predictions(
-        database=required["ATHENA_DBT_DATABASE"],
-        predictions_table=required["DBT_ML_PREDICTIONS_LATEST_TABLE"],
-        patient_table=required["DBT_DIM_PATIENT_TABLE"],
-        output_location=required["ATHENA_RESULTS_S3_URI"],
-        region=required["AWS_REGION"],
-        catalog=required["ATHENA_CATALOG"],
-        workgroup=required["ATHENA_WORKGROUP"],
-    )
 
 
 def get_initial_vitals(patient_id: str) -> dict[str, Any] | None:
@@ -673,72 +641,15 @@ def render_dashboard() -> None:
     st.caption("Synthetic/research data for demonstration only. This dashboard is not intended for clinical decision-making.")
 
 
-def render_model_analytics() -> None:
-    st.title("Model Analytics")
-    st.caption("Latest synthetic deterioration-proxy score per patient · refreshed at most every 5 minutes")
-
-    try:
-        predictions = get_model_predictions()
-    except Exception as error:
-        st.error(f"Model analytics unavailable: {error}")
-        return
-
-    if not predictions:
-        st.info("No approved-model predictions are available.")
-        return
-
-    dataframe = pd.DataFrame(predictions)
-    dataframe["deterioration_probability"] = pd.to_numeric(dataframe["deterioration_probability"], errors="coerce")
-    dataframe["patient_id"] = dataframe["patient_id"].str.rsplit("/", n=1).str[-1]
-    dataframe["scored_at"] = pd.to_datetime(dataframe["scored_at"], utc=True, errors="coerce")
-    dataframe = dataframe.dropna(subset=["deterioration_probability", "patient_id"])
-    if dataframe.empty:
-        st.info("No valid approved-model predictions are available.")
-        return
-
-    elevated_count = int((dataframe["proxy_risk_band"] == "elevated_proxy").sum())
-    patient_count, elevated_column, model_column, scored_column = st.columns(4)
-    patient_count.metric("Patients scored", len(dataframe))
-    elevated_column.metric("Elevated proxy", elevated_count)
-    model_column.metric("Approved model", dataframe["model_version"].iloc[0])
-    scored_column.metric("Latest score", format_event_time(dataframe["scored_at"].max().isoformat()))
-
-    chart = (
-        alt.Chart(dataframe)
-        .mark_bar()
-        .encode(
-            x=alt.X("deterioration_probability:Q", title="Deterioration proxy probability", scale=alt.Scale(domain=[0, 1])),
-            y=alt.Y("patient_id:N", title="Patient", sort="-x"),
-            color=alt.Color(
-                "proxy_risk_band:N", title="Proxy band", scale=alt.Scale(domain=["baseline_proxy", "elevated_proxy"], range=["#2563eb", "#dc2626"])
-            ),
-            tooltip=[
-                alt.Tooltip("patient_id:N", title="Patient"),
-                alt.Tooltip("deterioration_probability:Q", title="Probability", format=".3f"),
-                alt.Tooltip("proxy_risk_band:N", title="Proxy band"),
-                alt.Tooltip("model_version:N", title="Model"),
-                alt.Tooltip("scored_at:T", title="Scored", format="%Y-%m-%d %H:%M:%S"),
-            ],
-        )
-        .properties(height=max(320, len(dataframe) * 34))
-    )
-    st.altair_chart(chart, width="stretch")
-    st.warning("Portfolio demonstration only. Proxy scores are not clinically validated and do not affect the live patient priority display.")
-
-
 def main() -> None:
     st.set_page_config(page_title="Healthcare Realtime Monitoring", page_icon="🩺", layout="wide")
-    selected_view = st.segmented_control("View", ["Live cohort", "Model analytics"], default="Live cohort", label_visibility="collapsed")
-    if selected_view == "Model analytics":
-        render_model_analytics()
-    else:
-        start_websocket_workers()
-        load_initial_state()
-        process_websocket_messages()
-        refresh_vitals_from_api()
-        render_dashboard()
-        time.sleep(REFRESH_INTERVAL_SECONDS)
-        st.rerun()
+    start_websocket_workers()
+    load_initial_state()
+    process_websocket_messages()
+    refresh_vitals_from_api()
+    render_dashboard()
+    time.sleep(REFRESH_INTERVAL_SECONDS)
+    st.rerun()
 
 
 if __name__ == "__main__":
