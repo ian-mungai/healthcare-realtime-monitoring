@@ -17,11 +17,7 @@ def build_glue_lineage_event(run_state: RunState, lineage_run_id: str) -> RunEve
         job=Job(namespace=project_namespace(), name=required_env("GLUE_JOB_NAME")),
         producer=PRODUCER,
         inputs=[InputDataset(namespace=f"s3://{data_bucket_name()}", name="raw/fhir_observations")],
-        outputs=[
-            OutputDataset(
-                namespace="aws-glue", name=qualified_dataset("ATHENA_SOURCE_DATABASE", "ATHENA_PROCESSED_TABLE")
-            )
-        ],
+        outputs=[OutputDataset(namespace="aws-glue", name=qualified_dataset("ATHENA_SOURCE_DATABASE", "ATHENA_PROCESSED_TABLE"))],
     )
 
 

@@ -10,9 +10,7 @@ PRODUCER = "https://github.com/OpenLineage/OpenLineage"
 
 
 def build_athena_lineage_event(run_state: RunState, lineage_run_id: str) -> RunEvent:
-    processed_dataset = InputDataset(
-        namespace="aws-glue", name=qualified_dataset("ATHENA_SOURCE_DATABASE", "ATHENA_PROCESSED_TABLE")
-    )
+    processed_dataset = InputDataset(namespace="aws-glue", name=qualified_dataset("ATHENA_SOURCE_DATABASE", "ATHENA_PROCESSED_TABLE"))
     return RunEvent(
         eventType=run_state,
         eventTime=datetime.now(UTC).isoformat(),

@@ -305,9 +305,7 @@ location '{partition_location}'
 """.strip()
 
 
-def register_predictions_partition(
-    database: str, table: str, staging_dir: str, region: str, bucket: str, model_version: str
-) -> None:
+def register_predictions_partition(database: str, table: str, staging_dir: str, region: str, bucket: str, model_version: str) -> None:
     statement = prediction_partition_statement(database, table, bucket, model_version)
     with connect(s3_staging_dir=staging_dir, region_name=region).cursor() as cursor:
         cursor.execute(statement)
@@ -366,14 +364,7 @@ def main() -> None:
             raise SystemExit("Set DATA_BUCKET_NAME before using --publish-s3")
         staging_dir = staging_dir or f"s3://{bucket}/athena_results/ml_training/"
         published = publish_artifacts(args.output_dir, bucket, manifest["model_version"])
-        register_predictions_partition(
-            args.predictions_database,
-            args.predictions_table,
-            staging_dir,
-            args.region,
-            bucket,
-            manifest["model_version"],
-        )
+        register_predictions_partition(args.predictions_database, args.predictions_table, staging_dir, args.region, bucket, manifest["model_version"])
 
     print(json.dumps({"manifest": manifest, "evaluation": evaluation, "published": published}, indent=2, sort_keys=True))
 

@@ -24,13 +24,17 @@ def test_athena_lineage_namespace() -> None:
 
 
 def test_processed_dataset() -> None:
-    dataset = build_athena_lineage_event(RunState.START, "11111111-1111-4111-8111-111111111111").inputs[0]
+    event = build_athena_lineage_event(RunState.START, "11111111-1111-4111-8111-111111111111")
+    assert event.inputs is not None
+    dataset = event.inputs[0]
     assert dataset.namespace == "aws-glue"
     assert dataset.name == "example_source.example_processed_observations"
 
 
 def test_validation_dataset() -> None:
-    dataset = build_athena_lineage_event(RunState.START, "11111111-1111-4111-8111-111111111111").outputs[0]
+    event = build_athena_lineage_event(RunState.START, "11111111-1111-4111-8111-111111111111")
+    assert event.outputs is not None
+    dataset = event.outputs[0]
     assert dataset.namespace == "athena"
     assert dataset.name == "example_source.example_processed_observations_quality"
 
@@ -97,6 +101,8 @@ def test_athena_lifecycle_preserves_datasets() -> None:
 
     event = build_athena_lineage_event(RunState.COMPLETE, lineage_run_id)
 
+    assert event.inputs is not None
+    assert event.outputs is not None
     assert event.inputs[0].name == "example_source.example_processed_observations"
     assert event.outputs[0].name == "example_source.example_processed_observations_quality"
 
