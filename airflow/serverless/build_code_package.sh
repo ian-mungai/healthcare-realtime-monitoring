@@ -3,8 +3,10 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-BUILD_ROOT="$REPO_ROOT/tmp/mwaa_serverless_code"
-PACKAGE_PATH="$REPO_ROOT/tmp/healthcare_realtime_mwaa_serverless_code.zip"
+BUILD_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/healthcare-realtime-mwaa.XXXXXX")"
+PACKAGE_DIR="$REPO_ROOT/build/mwaa"
+PACKAGE_PATH="$PACKAGE_DIR/healthcare_realtime_mwaa_serverless_code.zip"
+trap 'rm -rf "$BUILD_ROOT"' EXIT
 
 if [[ -z "${PYTHON_BIN:-}" && -x "$REPO_ROOT/.venv/bin/python" ]]; then
   PYTHON_BIN="$REPO_ROOT/.venv/bin/python"
@@ -12,7 +14,7 @@ else
   PYTHON_BIN="${PYTHON_BIN:-python3}"
 fi
 
-rm -rf "$BUILD_ROOT"
+mkdir -p "$PACKAGE_DIR"
 rm -f "$PACKAGE_PATH"
 
 mkdir -p "$BUILD_ROOT/lib"
