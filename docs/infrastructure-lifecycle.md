@@ -36,13 +36,12 @@ CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
 
 Stop demo tasks and allow any running MWAA workflow to finish. Export only approved synthetic evidence and decide whether database snapshots must be retained.
 
-Set the AWS context and the persistent state bucket:
+Load the AWS context and persistent state bucket from the ignored environment file:
 
 ```zsh
-export AWS_PROFILE="<aws-profile>"
-export AWS_REGION="<aws-region>"
-export AWS_DEFAULT_REGION="$AWS_REGION"
-export TF_STATE_BUCKET="<terraform-state-bucket>"
+set -a
+source .env
+set +a
 ```
 
 Create and inspect the protection-removal plan. For a complete portfolio teardown, the wrapper sets `openlineage_skip_final_snapshot=true`; change the workflow and use a unique snapshot identifier when retention is required.
@@ -73,8 +72,23 @@ CONFIRM_TEARDOWN=delete-healthcare-realtime-development \
 
 Confirm that no application resources remain before separately considering the webhook secret, GitHub environment, account policies, OIDC provider or retained RDS snapshots. Keep the Terraform state bucket for future recreation and audit history.
 
+Verify the destroyed application state and search for tagged resources that require review:
+
+```zsh
+test -z "$(terraform -chdir=infra state list)"
+aws resourcegroupstaggingapi get-resources \
+  --region "$AWS_REGION" \
+  --tag-filters "Key=Project,Values=$PROJECT_NAME" \
+  --query 'ResourceTagMappingList[].ResourceARN' \
+  --output text
+```
+
+The second command may list retained external prerequisites. Review each result against [external-prerequisites.md](external-prerequisites.md); do not delete a shared OIDC provider, shared policy or protected state bucket merely to make the result empty.
+
 ## Recreation
 
 Reuse the persistent state bucket with a new empty state key or remove the old main-state object only after preserving an approved backup. Then follow [bootstrap.md](bootstrap.md) from the application repository at the intended commit.
 
 Bucket names are globally unique and may be unavailable after deletion. Use new names in the ignored configuration when AWS does not immediately release an old name. Recreate the webhook secret, image repositories and images, synthetic FHIR cohort, HAPI subscription, analytical tables and approved model in the documented order.
+
+For a different AWS account, create a new state bucket with `infra/bootstrap` and initialize an empty backend. Never reuse main Terraform state that still binds resources to another account.

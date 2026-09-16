@@ -5,6 +5,15 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$REPO_ROOT/scripts/infrastructure/project_env.sh"
 load_project_env "${PROJECT_ENV_FILE:-$REPO_ROOT/.env}"
+PHASE="${1:-post-deploy}"
+
+case "$PHASE" in
+  local | pre-deploy | post-deploy) ;;
+  *)
+    echo "Usage: scripts/infrastructure/check_prerequisites.sh [local|pre-deploy|post-deploy]" >&2
+    exit 2
+    ;;
+esac
 
 failures=0
 
@@ -31,11 +40,19 @@ check_env() {
   fi
 }
 
-for command_name in aws terraform docker git java gh jq; do
+required_commands=(aws terraform docker git java jq)
+if [[ "$PHASE" == "post-deploy" ]]; then
+  required_commands+=(gh)
+fi
+for command_name in "${required_commands[@]}"; do
   check_command "$command_name"
 done
 
-for variable_name in AWS_PROFILE AWS_REGION PROJECT_NAME TF_STATE_BUCKET TF_STATE_PREFIX FHIR_WEBHOOK_SECRET_ID FHIR_WEBHOOK_SECRET_KEY GITHUB_REPOSITORY GITHUB_DEPLOYMENT_ENVIRONMENT; do
+required_variables=(AWS_PROFILE AWS_REGION PROJECT_NAME TF_STATE_BUCKET TF_STATE_PREFIX FHIR_WEBHOOK_SECRET_ID FHIR_WEBHOOK_SECRET_KEY)
+if [[ "$PHASE" == "post-deploy" ]]; then
+  required_variables+=(GITHUB_REPOSITORY GITHUB_DEPLOYMENT_ENVIRONMENT)
+fi
+for variable_name in "${required_variables[@]}"; do
   check_env "$variable_name"
 done
 
@@ -69,8 +86,52 @@ java_version="$(java -version 2>&1 | head -n 1 | sed -E 's/.*version "([0-9]+).*
 [[ "$java_version" =~ ^[0-9]+$ && "$java_version" -ge 17 ]] && pass "Java 17+" || fail "Java 17+"
 
 aws sts get-caller-identity >/dev/null && pass "AWS identity" || fail "AWS identity"
-gh auth status >/dev/null 2>&1 && pass "GitHub CLI authentication" || fail "GitHub CLI authentication"
 docker info >/dev/null 2>&1 && pass "Docker daemon" || fail "Docker daemon"
+
+if [[ "$PHASE" == "local" ]]; then
+  if ((failures > 0)); then
+    printf '%d local prerequisite check(s) failed.\n' "$failures" >&2
+    exit 1
+  fi
+  echo "Local prerequisite checks passed."
+  exit 0
+fi
+
+region_check_args=(--region "$AWS_REGION")
+if [[ -n "${AWS_PROFILE:-}" ]]; then
+  region_check_args+=(--profile "$AWS_PROFILE")
+fi
+"$PYTHON_BIN" "$REPO_ROOT/scripts/infrastructure/check_region_readiness.py" "${region_check_args[@]}" \
+  && pass "regional readiness" || fail "regional readiness"
+
+registered_secret="$(aws secretsmanager list-secrets --query "SecretList[?Name=='$FHIR_WEBHOOK_SECRET_ID'].Name | [0]" --output text 2>/dev/null || true)"
+if [[ "$registered_secret" == "$FHIR_WEBHOOK_SECRET_ID" ]]; then
+  pass "FHIR webhook secret registration"
+else
+  fail "FHIR webhook secret registration"
+fi
+
+policy_inventory="$(aws iam list-policies --scope Local --query 'Policies[].PolicyName' --output json 2>/dev/null || echo '[]')"
+missing_policies=0
+for policy_path in "$REPO_ROOT"/infra/iam/policies/*.json; do
+  policy_name="$(basename "$policy_path" .json)"
+  jq -e --arg name "$policy_name" 'index($name) != null' <<<"$policy_inventory" >/dev/null \
+    || { fail "customer-managed policy missing: $policy_name"; missing_policies=$((missing_policies + 1)); }
+done
+if ((missing_policies == 0)); then
+  pass "customer-managed policy inventory"
+fi
+
+if [[ "$PHASE" == "pre-deploy" ]]; then
+  if ((failures > 0)); then
+    printf '%d pre-deployment prerequisite check(s) failed.\n' "$failures" >&2
+    exit 1
+  fi
+  echo "Pre-deployment prerequisite checks passed."
+  exit 0
+fi
+
+gh auth status >/dev/null 2>&1 && pass "GitHub CLI authentication" || fail "GitHub CLI authentication"
 
 if aws s3api head-object --bucket "$TF_STATE_BUCKET" --key "$TF_STATE_KEY" >/dev/null 2>&1; then
   pass "main Terraform state"
@@ -97,24 +158,6 @@ bucket_encryption="$(aws s3api get-bucket-encryption --bucket "$TF_STATE_BUCKET"
   && pass "state bucket encryption" || fail "state bucket encryption"
 [[ "$(aws s3api get-public-access-block --bucket "$TF_STATE_BUCKET" --query 'PublicAccessBlockConfiguration.[BlockPublicAcls,IgnorePublicAcls,BlockPublicPolicy,RestrictPublicBuckets]' --output text 2>/dev/null)" == $'True\tTrue\tTrue\tTrue' ]] \
   && pass "state bucket public access block" || fail "state bucket public access block"
-
-registered_secret="$(aws secretsmanager list-secrets --query "SecretList[?Name=='$FHIR_WEBHOOK_SECRET_ID'].Name | [0]" --output text 2>/dev/null || true)"
-if [[ "$registered_secret" == "$FHIR_WEBHOOK_SECRET_ID" ]]; then
-  pass "FHIR webhook secret registration"
-else
-  fail "FHIR webhook secret registration"
-fi
-
-policy_inventory="$(aws iam list-policies --scope Local --query 'Policies[].PolicyName' --output json 2>/dev/null || echo '[]')"
-missing_policies=0
-for policy_path in "$REPO_ROOT"/infra/iam/policies/*.json; do
-  policy_name="$(basename "$policy_path" .json)"
-  jq -e --arg name "$policy_name" 'index($name) != null' <<<"$policy_inventory" >/dev/null \
-    || { fail "customer-managed policy missing: $policy_name"; missing_policies=$((missing_policies + 1)); }
-done
-if ((missing_policies == 0)); then
-  pass "customer-managed policy inventory"
-fi
 
 github_oidc_found=false
 while IFS= read -r oidc_arn; do
@@ -157,4 +200,4 @@ if ((failures > 0)); then
   exit 1
 fi
 
-echo "All automated prerequisite checks passed."
+echo "Post-deployment prerequisite checks passed."
