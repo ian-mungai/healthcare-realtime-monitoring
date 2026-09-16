@@ -91,7 +91,7 @@ def test_load_cached_bidmc_record_returns_none_when_object_is_missing(monkeypatc
             raise ClientError(error, "GetObject")
 
     monkeypatch.setenv("BIDMC_CACHE_S3_BUCKET", "healthcare-test")
-    monkeypatch.setattr(source.boto3, "client", lambda service_name: MissingCacheClient())
+    monkeypatch.setattr(source.boto3, "client", lambda _service_name: MissingCacheClient())
 
     assert source.load_cached_bidmc_record("bidmc01n") is None
 

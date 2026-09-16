@@ -36,7 +36,7 @@ def test_plan_summary_lists_actions_without_values(tmp_path: Path) -> None:
 
 
 def test_failed_plan_diagnostics_are_redacted() -> None:
-    output = "Error reading s3://private-state: arn:aws:iam::123456789012:role/deploy at abc.execute-api.us-east-1.amazonaws.com/private-prefix"
+    output = "Error reading s3://private-state: arn:aws:iam::123456789012:role/deploy at abc.execute-api.example-region-1.amazonaws.com/private-prefix"
 
     sanitized = sanitize(output, ["private-state", "private-prefix"])
 
@@ -44,7 +44,7 @@ def test_failed_plan_diagnostics_are_redacted() -> None:
     assert "private-state" not in sanitized
     assert "private-prefix" not in sanitized
     assert "123456789012" not in sanitized
-    assert "abc.execute-api.us-east-1.amazonaws.com" not in sanitized
+    assert "abc.execute-api.example-region-1.amazonaws.com" not in sanitized
 
 
 def test_private_json_strings_are_collected_for_redaction() -> None:

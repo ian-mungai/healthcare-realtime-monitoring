@@ -89,11 +89,17 @@ export FHIR_BASE_URL="$(terraform -chdir=infra output -raw hapi_fhir_base_url)"
 .venv/bin/python -m scripts.synthea_loader.src.load_fhir
 ```
 
-Load `FHIR_WEBHOOK_SECRET` into the current shell from the approved private source, then register the HAPI Subscription without printing the value:
+Using an approved identity with `secretsmanager:GetSecretValue`, retrieve the webhook secret for the registration process only. Register the HAPI Subscription without writing the value to `.env` or printing it:
 
 ```zsh
 export FHIR_WEBHOOK_URL="$(terraform -chdir=infra output -raw fhir_webhook_url)"
-.venv/bin/python -m services.fhir_webhook.app.register_subscription
+FHIR_WEBHOOK_SECRET="$(
+  aws secretsmanager get-secret-value \
+    --secret-id "$FHIR_WEBHOOK_SECRET_ID" \
+    --query SecretString \
+    --output text \
+  | jq -r --arg key "$FHIR_WEBHOOK_SECRET_KEY" '.[$key]'
+)" .venv/bin/python -m services.fhir_webhook.app.register_subscription
 ```
 
 The loader writes the local patient/encounter mapping used by the simulator. The subscription command writes its HAPI response under the ignored service output directory.
