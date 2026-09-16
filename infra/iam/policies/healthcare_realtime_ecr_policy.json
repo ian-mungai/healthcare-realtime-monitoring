@@ -37,6 +37,7 @@
         "ecr:PutLifecyclePolicy",
         "ecr:DeleteLifecyclePolicy",
         "ecr:BatchCheckLayerAvailability",
+        "ecr:BatchDeleteImage",
         "ecr:GetDownloadUrlForLayer",
         "ecr:BatchGetImage",
         "ecr:InitiateLayerUpload",
