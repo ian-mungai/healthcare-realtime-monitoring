@@ -42,8 +42,8 @@ resource "aws_s3_object" "workflow_definition" {
 resource "aws_s3_object" "workflow_code" {
   bucket = aws_s3_bucket.mwaa.id
   key    = "code/healthcare_realtime_mwaa_serverless_code.zip"
-  source = "${path.root}/../tmp/healthcare_realtime_mwaa_serverless_code.zip"
-  etag   = filemd5("${path.root}/../tmp/healthcare_realtime_mwaa_serverless_code.zip")
+  source = "${path.root}/../build/mwaa/healthcare_realtime_mwaa_serverless_code.zip"
+  etag   = filemd5("${path.root}/../build/mwaa/healthcare_realtime_mwaa_serverless_code.zip")
 
   depends_on = [
     aws_s3_bucket_versioning.mwaa,

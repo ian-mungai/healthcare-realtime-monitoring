@@ -71,7 +71,10 @@ def test_encounter_feature_model_separates_feature_and_outcome_windows() -> None
     assert "is_feature_observation" in feature_model
     assert "is_outcome_observation" in feature_model
     assert "current_timestamp >= outcome_cutoff_at" in feature_model
+    assert "deterioration_min_repeated_extreme_observations" in feature_model
+    assert "outcome_systolic_bp_extreme_count" in feature_model
     assert "deterioration_proxy_label" in feature_model
+    assert "news2-repeated-extreme-proxy-v2" in feature_model
     assert "label_definition_version" in feature_model
 
 
@@ -105,6 +108,7 @@ def test_ml_training_dataset_uses_patient_grouped_split() -> None:
     assert "where is_training_eligible" in training_model
     assert (ROOT / "dbt/tests/assert_ml_training_dataset_no_patient_leakage.sql").is_file()
     assert (ROOT / "dbt/tests/assert_ml_training_dataset_has_both_splits.sql").is_file()
+    assert (ROOT / "dbt/tests/assert_ml_training_dataset_has_both_classes.sql").is_file()
 
 
 def test_latest_predictions_require_the_approved_model_version() -> None:

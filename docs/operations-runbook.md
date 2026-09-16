@@ -134,14 +134,15 @@ Export a bounded reason group to local JSONL, correct the rejected fields, and v
 ```zsh
 export DATA_BUCKET="$(terraform -chdir=infra output -raw raw_s3_bucket_name)"
 export VITALS_STREAM="$(terraform -chdir=infra output -raw kinesis_stream_name)"
+export QUARANTINE_REVIEW_FILE="${TMPDIR:-/tmp}/healthcare-realtime-quarantine-review.jsonl"
 
 .venv/bin/python scripts/quarantine/manage_quarantine.py --region "$AWS_REGION" export \
   --bucket "$DATA_BUCKET" \
   --rejection-reason "<rejection-reason>" \
-  --output tmp/quarantine-review.jsonl
+  --output "$QUARANTINE_REVIEW_FILE"
 
 .venv/bin/python scripts/quarantine/manage_quarantine.py --region "$AWS_REGION" replay \
-  --input tmp/quarantine-review.jsonl \
+  --input "$QUARANTINE_REVIEW_FILE" \
   --stream-name "$VITALS_STREAM"
 ```
 

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-OUTPUT_DIR="$REPO_ROOT/tmp"
+OUTPUT_DIR="$REPO_ROOT/build/glue"
 OUTPUT_FILE="$OUTPUT_DIR/healthcare_realtime_lineage.zip"
 
 mkdir -p "$OUTPUT_DIR"

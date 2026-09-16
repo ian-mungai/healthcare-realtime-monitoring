@@ -288,24 +288,34 @@ data "aws_iam_policy_document" "task" {
 
     resources = [
       "arn:aws:s3:::${var.data_bucket_name}/processed/*",
-      "arn:aws:s3:::${var.data_bucket_name}/ml/predictions/*",
-      "arn:aws:s3:::${var.data_bucket_name}/ml/model_artifacts/${var.approved_model_version}/*"
+      "arn:aws:s3:::${var.data_bucket_name}/ml/predictions/*"
     ]
   }
 
-  statement {
-    sid    = "PublishApprovedModelPredictions"
-    effect = "Allow"
+  dynamic "statement" {
+    for_each = var.approved_model_version == "" ? [] : [var.approved_model_version]
 
-    actions = [
-      "s3:GetObject",
-      "s3:PutObject",
-      "s3:DeleteObject"
-    ]
+    content {
+      sid       = "ReadApprovedModelArtifacts"
+      effect    = "Allow"
+      actions   = ["s3:GetObject"]
+      resources = ["arn:aws:s3:::${var.data_bucket_name}/ml/model_artifacts/${statement.value}/*"]
+    }
+  }
 
-    resources = [
-      "arn:aws:s3:::${var.data_bucket_name}/ml/predictions/model_version=${var.approved_model_version}/*"
-    ]
+  dynamic "statement" {
+    for_each = var.approved_model_version == "" ? [] : [var.approved_model_version]
+
+    content {
+      sid    = "PublishApprovedModelPredictions"
+      effect = "Allow"
+      actions = [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ]
+      resources = ["arn:aws:s3:::${var.data_bucket_name}/ml/predictions/model_version=${statement.value}/*"]
+    }
   }
 
   statement {

@@ -6,9 +6,9 @@ The baseline estimates the synthetic deterioration proxy from encounter-level vi
 
 ## Dataset contract
 
-`${ATHENA_DBT_DATABASE}.${DBT_ML_TRAINING_TABLE}` contains one row per eligible encounter. Features come from the first fixed 15 minutes and the proxy label comes from the following fixed 15 minutes; short encounters without both windows are excluded. It carries twelve numeric features, a binary proxy label, versioned feature and label definitions, and a deterministic patient-grouped split. Patient and provider identifiers are not model features.
+`${ATHENA_DBT_DATABASE}.${DBT_ML_TRAINING_TABLE}` contains one row per eligible encounter. Features come from the first fixed 15 minutes and the proxy label comes from the following fixed 15 minutes; short encounters without both windows are excluded. The versioned proxy requires repeated extreme observations of the same vital so that an isolated synthetic measurement cannot determine the label. It carries twelve numeric features, a binary proxy label, versioned feature and label definitions, and a deterministic patient-grouped split. Patient and provider identifiers are not model features.
 
-The committed dbt tests require both train and test partitions and reject patient leakage between them. Soda validates population, key completeness, split values, and label values.
+The committed dbt tests require both label classes in both train and test partitions, require both partitions, and reject patient leakage between them. Soda validates population, key completeness, split values, and label values.
 
 ## Train locally from Athena
 

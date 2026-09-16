@@ -140,14 +140,14 @@ jobs:
               Path("build/lambda/websocket_handler.zip"): {"handler.py"},
               Path("build/lambda/vitals_api.zip"): {"handler.py"},
               Path("build/lambda/vitals_replay.zip"): {"handler.py"},
-              Path("tmp/healthcare_realtime_lineage.zip"): {
+              Path("build/glue/healthcare_realtime_lineage.zip"): {
                   "config/__init__.py",
                   "config/vital_signs.json",
                   "lineage/openlineage/client.py",
                   "lineage/openlineage/glue_lineage.py",
                   "services/vital_signs.py",
               },
-              Path("tmp/healthcare_realtime_mwaa_serverless_code.zip"): {
+              Path("build/mwaa/healthcare_realtime_mwaa_serverless_code.zip"): {
                   "lib/athena_lineage.py",
                   "lineage/openlineage/client.py",
                   "lineage/openlineage/config.py",
