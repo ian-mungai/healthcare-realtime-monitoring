@@ -22,5 +22,5 @@ select
         when mod(from_base(substr(patient_key, 1, 7), 16), 10) < 8 then 'train'
         else 'test'
     end as data_split
-from {{ ref('fct_encounter_vital_features') }}
+from {{ ref('fact_encounter_vital_features') }}
 where is_training_eligible

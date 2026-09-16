@@ -2,7 +2,7 @@ version: 2
 
 models:
   - name: stg_fhir_observations
-    description: Clean staging model for processed FHIR observations.
+    description: Clean staging model limited to the configured ten-patient cohort and observations with valid encounter context.
 
     columns:
       - name: observation_id
@@ -14,7 +14,9 @@ models:
           - not_null
 
       - name: encounter_id
-        description: Encounter associated with the source FHIR Observation. Historical schema 1.0 rows may be null.
+        description: Required encounter associated with the source FHIR Observation.
+        tests:
+          - not_null
 
       - name: observation_type
         tests:

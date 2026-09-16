@@ -16,5 +16,5 @@ select
     diastolic_bp_mean,
     label_definition_version,
     'vital-features-v2' as feature_schema_version
-from {{ ref('fct_encounter_vital_features') }}
+from {{ ref('fact_encounter_vital_features') }}
 where is_scoring_eligible

@@ -1,7 +1,7 @@
 version: 2
 
 models:
-  - name: fct_encounter_vital_features
+  - name: fact_encounter_vital_features
     description: Encounter-level vital features from a fixed initial window and a synthetic deterioration proxy from the following fixed outcome window.
 
     columns:
@@ -68,7 +68,7 @@ models:
           - unique
           - relationships:
               arguments:
-                to: ref('fct_encounter_vital_features')
+                to: ref('fact_encounter_vital_features')
                 field: encounter_key
 
       - name: patient_key
@@ -96,7 +96,7 @@ models:
           - unique
           - relationships:
               arguments:
-                to: ref('fct_encounter_vital_features')
+                to: ref('fact_encounter_vital_features')
                 field: encounter_key
 
       - name: patient_key

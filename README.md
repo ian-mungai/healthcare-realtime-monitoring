@@ -1,6 +1,6 @@
 # Healthcare Realtime Monitoring
 
-An AWS portfolio project for synthetic realtime vital-sign monitoring. It ingests BIDMC waveform-derived measurements as FHIR observations, maintains current patient state for live clients, and builds governed analytical datasets for quality validation and reporting.
+An AWS portfolio project for synthetic realtime vital-sign monitoring. It ingests BIDMC waveform-derived measurements as FHIR observations, maintains current patient state for live clients and builds governed analytical datasets for quality validation and reporting.
 
 This repository uses synthetic Synthea data and waveform-derived measurements for demonstration only. It is not a clinical decision-support system and must not be used for patient care.
 
@@ -9,13 +9,13 @@ This repository uses synthetic Synthea data and waveform-derived measurements fo
 - FHIR R4 observation ingestion through HAPI FHIR and a protected webhook.
 - Kinesis-based realtime processing with latest-state delivery over IAM-authorized REST and WebSocket APIs.
 - A Streamlit cohort dashboard designed to surface changes across multiple simulated patients.
-- Durable normalized-event landing, Glue/Iceberg processing, Athena validation, dbt models, automated approved-model scoring, Soda contracts, and OpenLineage events collected by IAM-protected Marquez or stored in S3.
+- Durable normalized-event landing, Glue/Iceberg processing, Athena validation, dbt models, automated approved-model scoring, Soda contracts and OpenLineage events collected by IAM-protected Marquez or stored in S3.
 - Bounded replay through encrypted SQS failure queues and a replay Lambda.
-- Terraform-managed AWS infrastructure, CloudWatch dashboards, alarms, and workload-scoped IAM roles.
+- Terraform-managed AWS infrastructure, CloudWatch dashboards, alarms and workload-scoped IAM roles.
 
 ## Architecture
 
-The [architecture guide](docs/architecture.md) describes the realtime path, analytical path, recovery model, security boundaries, and observability design.
+The [architecture guide](docs/architecture.md) describes the realtime path, analytical path, recovery model, security boundaries and observability design.
 
 ```text
 Simulator -> HAPI FHIR -> webhook -> Kinesis -> Lambda -> DynamoDB -> REST/WebSocket dashboard
@@ -27,14 +27,14 @@ Simulator -> HAPI FHIR -> webhook -> Kinesis -> Lambda -> DynamoDB -> REST/WebSo
 | Path | Contents |
 | --- | --- |
 | `infra/` | Terraform root and AWS service modules |
-| `services/` | Webhook, realtime processor, API, replay, WebSocket, and simulator services |
+| `services/` | Webhook, realtime processor, API, replay, WebSocket and simulator services |
 | `dashboard/` | Streamlit cohort-monitoring client |
-| `jobs/` | Glue, dbt, and machine-learning runtime jobs |
+| `jobs/` | Glue, dbt and machine-learning runtime jobs |
 | `airflow/` | MWAA Serverless workflow source and generator |
 | `data_quality/` | Great Expectations and Soda validation assets |
 | `lineage/` | OpenLineage event emitters |
-| `scripts/` | Build, test-data, load-test, and demo helpers |
-| `docs/` | Architecture, governance, operations, and demo documentation |
+| `scripts/` | Build, test-data, load-test and demo helpers |
+| `docs/` | Architecture, governance, operations, demo and Power BI report documentation |
 
 ## Prerequisites
 
@@ -66,13 +66,13 @@ cp .env.example .env
 cp infra/development.tfvars.example infra/development.tfvars
 ```
 
-Infrastructure and demo scripts load missing values from the ignored `.env`; variables already exported in the shell take precedence. Complete the tracked placeholders, then verify local, AWS, GitHub, state, secret, IAM, OIDC, SNS, and Docker prerequisites:
+Infrastructure and demo scripts load missing values from the ignored `.env`; variables already exported in the shell take precedence. Complete the tracked placeholders, then verify local, AWS, GitHub, state, secret, IAM, OIDC, SNS and Docker prerequisites:
 
 ```zsh
 ./scripts/infrastructure/check_prerequisites.sh
 ```
 
-Select the target AWS context before running AWS CLI, Terraform, or dashboard commands:
+Select the target AWS context before running AWS CLI, Terraform or dashboard commands:
 
 ```zsh
 export AWS_PROFILE="<aws-profile>"
@@ -80,7 +80,7 @@ export AWS_REGION="<aws-region>"
 export AWS_DEFAULT_REGION="$AWS_REGION"
 ```
 
-Do not commit secrets, deployment identifiers, Terraform state, signed headers, or generated workflow definitions.
+Do not commit secrets, deployment identifiers, Terraform state, signed headers or generated workflow definitions.
 
 ## Validate the repository
 
@@ -104,9 +104,9 @@ cp infra/bootstrap/terraform.tfvars.example infra/bootstrap/terraform.tfvars
 ./scripts/infrastructure/bootstrap.sh state-plan
 ```
 
-Review and apply the bootstrap plan, run `./scripts/infrastructure/bootstrap.sh state-backup`, then run `./scripts/infrastructure/bootstrap.sh main-init`. For an existing environment, use the guarded `main-migrate` action documented in the lifecycle guide. Bootstrap inputs, backend configuration, and state files are ignored by Git.
+Review and apply the bootstrap plan, run `./scripts/infrastructure/bootstrap.sh state-backup`, then run `./scripts/infrastructure/bootstrap.sh main-init`. For an existing environment, use the guarded `main-migrate` action documented in the lifecycle guide. Bootstrap inputs, backend configuration and state files are ignored by Git.
 
-The [bootstrap guide](docs/bootstrap.md) covers first deployment. The [infrastructure lifecycle guide](docs/infrastructure-lifecycle.md) covers persistent state, guarded teardown, and recreation. The [external prerequisite inventory](docs/external-prerequisites.md) identifies account configuration outside the application stack. The [deployment guide](docs/deployment.md) covers GitHub OIDC and shared OpenLineage collector setup. Recovery, cost-control, and operational checks are in the [operations runbook](docs/operations-runbook.md).
+The [bootstrap guide](docs/bootstrap.md) covers first deployment. The [infrastructure lifecycle guide](docs/infrastructure-lifecycle.md) covers persistent state, guarded teardown and recreation. The [external prerequisite inventory](docs/external-prerequisites.md) identifies account configuration outside the application stack. The [deployment guide](docs/deployment.md) covers GitHub OIDC and shared OpenLineage collector setup. Recovery, cost-control and operational checks are in the [operations runbook](docs/operations-runbook.md).
 
 ## Run the dashboard
 
@@ -124,20 +124,22 @@ The dashboard uses AWS IAM credentials from the selected profile to sign REST an
 
 ## Demo and operations
 
-Use the [demo guide](docs/demo-guide.md) for a complete live walkthrough, including startup, dashboard validation, Postman REST and WebSocket checks, CloudWatch review, and shutdown.
+Use the [demo guide](docs/demo-guide.md) for a complete live walkthrough, including startup, dashboard validation, Postman REST and WebSocket checks, CloudWatch review and shutdown.
 
 Use the [load-testing guide](docs/load-testing.md) to run an isolated test that measures Kinesis-to-DynamoDB processing and WebSocket delivery latency without writing test events into the analytical lakehouse.
 
 ## Data governance
 
-The [data governance guide](docs/data-governance.md) documents datasets, schema controls, quality gates, deduplication, retention, replay, and evidence expectations.
+The [data governance guide](docs/data-governance.md) documents datasets, schema controls, quality gates, deduplication, retention, replay and evidence expectations.
 
-The [analytics star schema](docs/analytics-star-schema.md) defines the observation fact grain, conformed dimensions, key strategy, legacy encounter handling, and bus matrix.
+The [analytics star schema](docs/analytics-star-schema.md) defines the observation fact grain, conformed dimensions, key strategy, active-cohort and encounter-boundary rules and bus matrix.
 
-The [model-training guide](docs/model-training.md) defines the inference-safe training windows and reproducible logistic-regression baseline. The [model-predictions guide](docs/model-predictions.md) covers daily approved-model scoring and Athena presentation datasets. The [Power BI connection guide](docs/power-bi-connection.md) stops after connecting Power BI to Athena; report construction is intentionally out of scope.
+The [model-training guide](docs/model-training.md) defines the inference-safe training windows and reproducible logistic-regression baseline. The [model-predictions guide](docs/model-predictions.md) covers daily approved-model scoring and Athena presentation datasets. The [Power BI connection guide](docs/power-bi-connection.md) documents the Athena connection used by the separately reviewed root-level portfolio `.pbix` artifact.
 
-The [technology inventory](docs/technology-inventory.md) lists the standards, AWS services, frameworks, libraries, delivery tools, and testing methods used by the project.
+The [technology inventory](docs/technology-inventory.md) lists the standards, AWS services, frameworks, libraries, delivery tools and testing methods used by the project.
+
+The [project build article](docs/building-healthcare-realtime-monitoring.md) provides a publication-ready narrative of the architecture, implementation, validation and operational lessons from start to finish.
 
 ## Portfolio safety
 
-Public artifacts must use placeholders for account IDs, buckets, endpoints, load balancers, local usernames, secrets, and signed headers. The project’s tracked examples are designed to be reproducible without revealing a deployed environment.
+Public artifacts must use placeholders for account IDs, buckets, endpoints, load balancers, local usernames, secrets and signed headers. The project’s tracked examples are designed to be reproducible without revealing a deployed environment.
