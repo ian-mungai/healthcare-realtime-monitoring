@@ -40,6 +40,28 @@ class Client:
         return {}
 
 
+class ManifestClient(Client):
+    def __init__(self) -> None:
+        super().__init__([])
+        self.responses: list[dict[str, Any]] = [
+            {
+                "imageIds": [{"imageDigest": "sha256:index"}],
+                "failures": [{"imageId": {"imageDigest": "sha256:child"}, "failureCode": "ImageReferencedByManifestList"}],
+            },
+            {"imageIds": [{"imageDigest": "sha256:child"}], "failures": []},
+        ]
+
+    def batch_delete_image(self, **kwargs: Any) -> dict[str, Any]:
+        self.calls.append(("batch_delete_image", kwargs))
+        return self.responses.pop(0)
+
+
+class ReferencedManifestClient(Client):
+    def batch_delete_image(self, **kwargs: Any) -> dict[str, Any]:
+        self.calls.append(("batch_delete_image", kwargs))
+        return {"failures": [{"imageId": {"imageDigest": "sha256:child"}, "failureCode": "ImageReferencedByManifestList"}]}
+
+
 def test_lists_versions_and_delete_markers() -> None:
     client = Client([{"Versions": [{"Key": "data.json", "VersionId": "1"}], "DeleteMarkers": [{"Key": "old.json", "VersionId": "2"}]}])
 
@@ -58,9 +80,28 @@ def test_storage_deletes_use_aws_batch_limits() -> None:
 
 
 def test_lists_all_ecr_images() -> None:
-    client = Client([{"imageIds": [{"imageDigest": "sha256:one"}]}, {"imageIds": [{"imageTag": "release"}]}])
+    client = Client(
+        [{"imageIds": [{"imageDigest": "sha256:one", "imageTag": "release"}]}, {"imageIds": [{"imageDigest": "sha256:one"}, {"imageDigest": "sha256:two"}]}]
+    )
 
-    assert list_ecr_images(client, "images") == [{"imageDigest": "sha256:one"}, {"imageTag": "release"}]
+    assert list_ecr_images(client, "images") == [{"imageDigest": "sha256:one"}, {"imageDigest": "sha256:two"}]
+
+
+def test_retries_manifest_children_after_deleting_parent_indexes() -> None:
+    client = ManifestClient()
+
+    delete_ecr_images(client, "images", [{"imageDigest": "sha256:child"}, {"imageDigest": "sha256:index"}])
+
+    delete_calls = [call for call in client.calls if call[0] == "batch_delete_image"]
+    assert len(delete_calls) == 2
+    assert delete_calls[1][1]["imageIds"] == [{"imageDigest": "sha256:child"}]
+
+
+def test_fails_when_manifest_references_cannot_be_removed() -> None:
+    client = ReferencedManifestClient([])
+
+    with pytest.raises(RuntimeError, match="still referenced by manifest lists"):
+        delete_ecr_images(client, "images", [{"imageDigest": "sha256:child"}])
 
 
 def test_refuses_to_clean_state_bucket() -> None:

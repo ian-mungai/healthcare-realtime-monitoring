@@ -32,18 +32,35 @@ def delete_s3_object_versions(client: Any, bucket: str, objects: list[dict[str, 
 
 
 def list_ecr_images(client: Any, repository: str) -> list[dict[str, str]]:
-    images: list[dict[str, str]] = []
+    images: dict[str, dict[str, str]] = {}
     paginator = client.get_paginator("list_images")
     for page in paginator.paginate(repositoryName=repository, filter={"tagStatus": "ANY"}):
-        images.extend(page.get("imageIds", []))
-    return images
+        for image in page.get("imageIds", []):
+            if digest := image.get("imageDigest"):
+                images[digest] = {"imageDigest": digest}
+    return list(images.values())
 
 
 def delete_ecr_images(client: Any, repository: str, images: list[dict[str, str]]) -> None:
-    for batch in chunks(images, 100):
-        response = client.batch_delete_image(repositoryName=repository, imageIds=batch)
-        if failures := response.get("failures"):
-            raise RuntimeError(f"ECR rejected {len(failures)} image deletions from {repository}")
+    pending = images
+    while pending:
+        retryable: list[dict[str, str]] = []
+        deleted_any = False
+        for batch in chunks(pending, 100):
+            response = client.batch_delete_image(repositoryName=repository, imageIds=batch)
+            failures = response.get("failures", [])
+            hard_failures = [failure for failure in failures if failure.get("failureCode") != "ImageReferencedByManifestList"]
+            if hard_failures:
+                raise RuntimeError(f"ECR rejected {len(hard_failures)} image deletions from {repository}")
+
+            retryable.extend(failure["imageId"] for failure in failures)
+            deleted_any = deleted_any or len(failures) < len(batch)
+
+        if not retryable:
+            return
+        if not deleted_any:
+            raise RuntimeError(f"ECR could not delete {len(retryable)} images still referenced by manifest lists in {repository}")
+        pending = retryable
 
 
 def validate_targets(buckets: list[str], protected_buckets: set[str]) -> None:
