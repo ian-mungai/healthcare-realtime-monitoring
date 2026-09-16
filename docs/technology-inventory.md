@@ -31,9 +31,10 @@ This inventory lists technologies used by committed code, infrastructure, tests 
 | dbt Core and dbt-athena | Staging, Kimball dimensions/fact, fixed-window features, model inputs and prediction views |
 | Great Expectations and Soda | Processed-table expectations plus analytical contracts and prediction freshness |
 | OpenLineage and Marquez | START/COMPLETE/FAIL lineage events, shared collector, SigV4 transport and S3 fallback |
-| pandas, PyAthena, scikit-learn, joblib | Athena feature loading, logistic regression, evaluation, serialization and approved-model scoring |
+| Python, SQL, pandas, NumPy, PyAthena, scikit-learn and joblib | Data preparation, Athena analysis, feature engineering, logistic regression, evaluation, serialization and approved-model scoring |
 | Kimball modeling and SCD Type 2 | Conformed dimensions, observation fact grain, surrogate keys and provider-history preservation |
 | JSON, NDJSON, Parquet and YAML | API/event contracts, partitioned model predictions, analytical storage and declarative configuration |
+| Analytical methods | Cohort filtering, data profiling, dimensional modeling, deterministic patient splits, fixed feature/outcome windows, classification metrics and synthetic proxy labeling |
 
 ## Application, delivery and testing
 
@@ -45,6 +46,6 @@ This inventory lists technologies used by committed code, infrastructure, tests 
 | Infrastructure and delivery | Terraform AWS/AWSCC providers, Docker Buildx, Git, GitHub Actions, OIDC, protected environments, immutable image tags |
 | Quality engineering | pytest, unittest, pytest-cov, Ruff, MyPy, Terraform tests, container smoke tests and contract syntax checks |
 | Test-data toolchain | Java 17, Gradle, Synthea, WFDB, deterministic seeds and patient/encounter mapping |
-| Reporting | Power BI Desktop through the Amazon Athena connector and Athena ODBC 2.x driver; DirectQuery report pages, DAX measures, drillthrough, synchronized slicers and optional private Power BI Service dashboards |
+| Reporting | Power BI Desktop through the Amazon Athena connector and Athena ODBC 2.x driver; DirectQuery report pages, DAX measures, drillthrough and synchronized slicers; the `.pbix` remains outside the repository |
 
 Versions are pinned in Terraform constraints, Python requirements, Docker build arguments, GitHub workflows and the Synthea version file. Review those machine-readable files rather than copying version numbers from prose.

@@ -76,7 +76,7 @@ Operational failure paths are equally deliberate. SQS dead-letter queues retain 
 
 ## Presenting the analytical result in Power BI
 
-Power BI connects to Athena through the Amazon Athena ODBC driver. The report uses DirectQuery for the public portfolio artifact, reducing the amount of analytical data embedded in the file.
+Power BI was connected to Athena through the Amazon Athena ODBC driver. The completed local report uses DirectQuery so its visuals query the analytical layer without importing the full dataset into the file.
 
 The report design includes four pages:
 
@@ -85,12 +85,17 @@ The report design includes four pages:
 3. Encounter analysis with drillthrough, provider context and feature-window summaries.
 4. Model analytics with probability, proxy risk band, model version and prominent nonclinical labeling.
 
-Publishing to Power BI Service is optional and restricted to a private workspace. The project explicitly avoids Publish to web. Before the `.pbix` is committed, credentials and data-source permissions must be cleared, connection metadata and cached previews must be inspected and deployment-specific identifiers must be removed. DirectQuery reduces exposure but does not make a binary report automatically safe to publish.
+The `.pbix` remains outside the repository because it is a binary file that can retain connection metadata and cached previews. Publishing to Power BI Service is optional and restricted to a private workspace. The project does not use Publish to web.
 
-## What the project demonstrated
+## Technology and methods used
 
-The most valuable work happened at the boundaries: preserving encounter identity through every schema, merging partial realtime updates correctly, distinguishing event time from replay time, separating immutable history from an active analytical cohort and making lineage and quality checks part of orchestration.
+| Discipline | Tools and methods |
+| --- | --- |
+| Data engineering | Python, Boto3, HTTPX, FHIR R4, HAPI FHIR, Synthea with Java and Gradle, PhysioNet BIDMC, WFDB, Kinesis Data Streams, Data Firehose, Lambda, DynamoDB, S3, Glue with PySpark, Apache Iceberg, Athena, dbt, Airflow, MWAA Serverless, ECS Fargate and Docker |
+| Data analytics | SQL, Athena validation queries, Kimball dimensional modeling, SCD Type 2 provider history, cohort filtering, observation grain tests, fixed encounter windows and Power BI DirectQuery reporting |
+| Data science | pandas, NumPy, PyAthena, scikit-learn logistic regression, deterministic patient-level splits, classification metrics, joblib model serialization, versioned model approval and synthetic proxy scoring |
+| Quality and governance | FHIR profile validation, dbt tests, Great Expectations, Soda contracts, quarantine and replay, OpenLineage, Marquez, dataset fingerprints and synthetic-data labeling |
+| Platform and delivery | Terraform, AWS and AWSCC providers, IAM, SigV4, Secrets Manager, KMS, CloudWatch, SQS dead-letter queues, Amazon ECR, Git, GitHub Actions, GitHub OIDC, pytest, Ruff, MyPy, container smoke tests and Postman |
+| Application and visualization | Streamlit, Altair, REST polling, WebSockets, API Gateway, Power BI, DAX, drillthrough, synchronized slicers and nursing-oriented freshness indicators |
 
-The result is a portfolio platform that can be recreated, operated, observed, tested and explained. It shows how realtime monitoring and historical analytics can share one governed data path without confusing a synthetic engineering demonstration for a clinical system.
-
-The code, infrastructure, test suites, runbooks, architecture documentation and security controls are all maintained in the same repository. That makes the project more than a screenshot of a successful run. It is evidence of the engineering decisions required to make the run repeatable.
+The repository contains the application code, infrastructure, tests, runbooks and architecture documentation needed to deploy and examine the system. The dataset and deterioration label remain synthetic and the project is not intended for patient care.
