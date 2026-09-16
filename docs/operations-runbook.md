@@ -124,7 +124,7 @@ Inspect rejected rows through Athena before replaying anything:
 
 ```sql
 SELECT rejection_reason, count(*) AS rejected_rows
-FROM healthcare_realtime.quarantined_fhir_observations
+FROM ${ATHENA_SOURCE_DATABASE}.${ATHENA_QUARANTINE_TABLE}
 GROUP BY rejection_reason
 ORDER BY rejected_rows DESC;
 ```

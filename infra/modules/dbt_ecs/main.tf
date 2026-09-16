@@ -49,7 +49,7 @@ resource "aws_glue_catalog_database" "ml" {
 }
 
 resource "aws_glue_catalog_table" "predictions" {
-  name          = "ml_predictions_published"
+  name          = var.ml_predictions_published_table_name
   database_name = aws_glue_catalog_database.ml.name
   table_type    = "EXTERNAL_TABLE"
 
@@ -235,7 +235,7 @@ data "aws_iam_policy_document" "task" {
     resources = [
       "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:catalog",
       "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:database/${var.ml_database_name}",
-      "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:table/${var.ml_database_name}/ml_predictions_published"
+      "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:table/${var.ml_database_name}/${var.ml_predictions_published_table_name}"
     ]
   }
 
@@ -419,7 +419,7 @@ resource "aws_ecs_task_definition" "dbt" {
         "/app"
       ]
 
-      environment = [
+      environment = concat([
         {
           name  = "AWS_REGION"
           value = data.aws_region.current.region
@@ -436,7 +436,10 @@ resource "aws_ecs_task_definition" "dbt" {
           name  = "ML_APPROVED_MODEL_VERSION"
           value = var.approved_model_version
         }
-      ]
+        ], [for name, value in var.data_identifiers : {
+          name  = name
+          value = value
+      }])
 
       logConfiguration = {
         logDriver = "awslogs"

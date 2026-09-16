@@ -7,14 +7,27 @@ from lineage.openlineage.great_expectations_lineage import emit_great_expectatio
 from services.vital_signs import SUPPORTED_LOINC_CODES
 
 AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
-ATHENA_DATABASE = os.getenv("ATHENA_DATABASE", "healthcare_realtime")
-ATHENA_TABLE = os.getenv("ATHENA_TABLE", "processed_fhir_observations")
-DATA_BUCKET_NAME = os.getenv("DATA_BUCKET_NAME", "<project-data-bucket>")
-ATHENA_OUTPUT = os.getenv("ATHENA_OUTPUT", f"s3://{DATA_BUCKET_NAME}/athena_results/")
+ATHENA_DATABASE = os.getenv("ATHENA_SOURCE_DATABASE")
+ATHENA_TABLE = os.getenv("ATHENA_PROCESSED_TABLE")
+DATA_BUCKET_NAME = os.getenv("DATA_BUCKET_NAME")
+ATHENA_OUTPUT = os.getenv("ATHENA_OUTPUT")
+SODA_DATA_SOURCE_NAME = os.getenv("SODA_DATA_SOURCE_NAME")
 VALID_LOINC_CODES = list(SUPPORTED_LOINC_CODES)
 
 
 def build_connection_string() -> str:
+    missing = [
+        name
+        for name, value in {
+            "AWS_REGION": AWS_REGION,
+            "ATHENA_SOURCE_DATABASE": ATHENA_DATABASE,
+            "ATHENA_PROCESSED_TABLE": ATHENA_TABLE,
+            "ATHENA_OUTPUT": ATHENA_OUTPUT,
+        }.items()
+        if not value
+    ]
+    if missing:
+        raise ValueError(f"Missing Great Expectations environment variables: {', '.join(missing)}")
     return f"awsathena+rest://@athena.{AWS_REGION}.amazonaws.com:443/{ATHENA_DATABASE}?s3_staging_dir={ATHENA_OUTPUT}"
 
 
@@ -23,9 +36,11 @@ def build_context():
 
 
 def build_validator(context):
-    datasource = context.data_sources.add_sql(name="healthcare_realtime_athena", connection_string=build_connection_string())
+    if not SODA_DATA_SOURCE_NAME:
+        raise ValueError("SODA_DATA_SOURCE_NAME is required")
+    datasource = context.data_sources.add_sql(name=SODA_DATA_SOURCE_NAME, connection_string=build_connection_string())
 
-    asset = datasource.add_table_asset(name="processed_fhir_observations", table_name=ATHENA_TABLE)
+    asset = datasource.add_table_asset(name=ATHENA_TABLE, table_name=ATHENA_TABLE)
 
     batch_definition = asset.add_batch_definition_whole_table(name="processed_fhir_observations_full_table")
 

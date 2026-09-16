@@ -5,11 +5,17 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 
+source "$REPO_ROOT/scripts/infrastructure/project_env.sh"
+load_project_env "${PROJECT_ENV_FILE:-$REPO_ROOT/.env}"
+
 if [[ -z "${PYTHON_BIN:-}" && -x "$REPO_ROOT/.venv/bin/python" ]]; then
   PYTHON_BIN="$REPO_ROOT/.venv/bin/python"
 else
   PYTHON_BIN="${PYTHON_BIN:-python3}"
 fi
+
+TERRAFORM_VAR_FILE="${TERRAFORM_VAR_FILE:-$REPO_ROOT/infra/development.tfvars}"
+eval "$("$PYTHON_BIN" "$REPO_ROOT/scripts/infrastructure/terraform_runtime_env.py" "$TERRAFORM_VAR_FILE")"
 
 DBT_TASK_DEFINITION="$(terraform -chdir=infra output -raw dbt_ecs_task_definition_family)"
 DBT_SECURITY_GROUP="$(terraform -chdir=infra output -raw dbt_ecs_security_group_id)"
@@ -17,6 +23,7 @@ SODA_TASK_DEFINITION="$(terraform -chdir=infra output -raw soda_ecs_task_definit
 SODA_SECURITY_GROUP="$(terraform -chdir=infra output -raw soda_ecs_security_group_id)"
 DATA_JOBS_CLUSTER="$(terraform -chdir=infra output -raw dbt_ecs_cluster_name)"
 RAW_BUCKET="$(terraform -chdir=infra output -raw raw_s3_bucket_name)"
+GLUE_JOB_NAME="$(terraform -chdir=infra output -raw glue_job_name)"
 OPENLINEAGE_URL="${OPENLINEAGE_URL:-$(terraform -chdir=infra output -raw openlineage_collector_url 2>/dev/null || true)}"
 PRIVATE_SUBNETS="$(terraform -chdir=infra output -json private_subnet_ids | "$PYTHON_BIN" -c 'import json,sys; print(",".join(json.load(sys.stdin)))')"
 MWAA_SERVERLESS_START_DATE="$("$PYTHON_BIN" -c 'from datetime import UTC, datetime, timedelta; print((datetime.now(UTC) + timedelta(minutes=10)).isoformat())')"
@@ -28,6 +35,7 @@ export AIRFLOW__SODA__ECS_SUBNETS="$PRIVATE_SUBNETS"
 export DBT_ECS_TASK_DEFINITION="$DBT_TASK_DEFINITION"
 export SODA_ECS_TASK_DEFINITION="$SODA_TASK_DEFINITION"
 export DATA_JOBS_ECS_CLUSTER="$DATA_JOBS_CLUSTER"
+export GLUE_JOB_NAME
 export MWAA_SERVERLESS_START_DATE
 export RAW_BUCKET
 export OPENLINEAGE_URL

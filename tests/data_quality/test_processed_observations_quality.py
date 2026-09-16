@@ -58,6 +58,17 @@ def test_quality_container_packages_great_expectations_runner():
     assert 'CMD ["python", "/app/run_soda_with_lineage.py"]' in dockerfile
 
 
+def test_connection_string_uses_dedicated_great_expectations_output(monkeypatch):
+    monkeypatch.setattr(validate_processed_observations, "AWS_REGION", "example-region-1")
+    monkeypatch.setattr(validate_processed_observations, "ATHENA_DATABASE", "example_database")
+    monkeypatch.setattr(validate_processed_observations, "ATHENA_TABLE", "example_table")
+    monkeypatch.setattr(validate_processed_observations, "ATHENA_OUTPUT", "s3://example-bucket/athena_results/great_expectations/")
+
+    connection_string = validate_processed_observations.build_connection_string()
+
+    assert "s3_staging_dir=s3://example-bucket/athena_results/great_expectations/" in connection_string
+
+
 def test_validate_runs_suite_once_and_emits_complete_lineage(monkeypatch):
     validation_result = SimpleNamespace(
         success=True,

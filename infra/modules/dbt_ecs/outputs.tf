@@ -38,6 +38,14 @@ output "task_definition_family" {
   value       = aws_ecs_task_definition.dbt.family
 }
 
+output "task_environment_names" {
+  description = "Names of environment variables injected into the dbt task."
+  value = sort(concat(
+    ["AWS_REGION", "DATA_BUCKET_NAME", "OPENLINEAGE_URL", "ML_APPROVED_MODEL_VERSION"],
+    keys(var.data_identifiers),
+  ))
+}
+
 output "predictions_database_name" {
   description = "Terraform-managed Glue database containing published model predictions."
   value       = aws_glue_catalog_database.ml.name

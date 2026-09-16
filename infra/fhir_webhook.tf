@@ -10,13 +10,9 @@ module "fhir_webhook" {
   kinesis_stream_arn  = module.kinesis.stream_arn
 
   lambda_zip_path   = "${path.root}/../build/lambda/fhir_webhook.zip"
-  webhook_secret_id = "healthcare-realtime/fhir-webhook"
+  webhook_secret_id = var.fhir_webhook_secret_id
 
-  tags = {
-    Project     = "healthcare_realtime_monitoring"
-    Environment = "development"
-    ManagedBy   = "terraform"
-  }
+  tags = local.common_tags
 }
 
 output "fhir_webhook_url" {

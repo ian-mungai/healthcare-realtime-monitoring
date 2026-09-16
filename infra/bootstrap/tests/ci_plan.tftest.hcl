@@ -5,6 +5,7 @@ run "state_bucket_plan" {
 
   variables {
     aws_region                        = "example-region-1"
+    project_name                      = "example-project"
     state_bucket_name                 = "ci-healthcare-realtime-terraform-state"
     noncurrent_version_retention_days = 90
   }
@@ -20,7 +21,7 @@ run "state_bucket_plan" {
   }
 
   assert {
-    condition     = output.main_backend_key == "healthcare-realtime-monitoring/terraform/terraform.tfstate"
+    condition     = output.main_backend_key == "example-project/terraform/terraform.tfstate"
     error_message = "The main backend key must remain stable across local and GitHub deployments."
   }
 }

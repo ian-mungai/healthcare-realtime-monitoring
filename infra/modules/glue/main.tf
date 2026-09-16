@@ -110,7 +110,7 @@ resource "aws_glue_catalog_database" "healthcare_realtime" {
 }
 
 resource "aws_glue_catalog_table" "quarantined_fhir_observations" {
-  name          = "quarantined_fhir_observations"
+  name          = var.quarantine_table_name
   database_name = aws_glue_catalog_database.healthcare_realtime.name
   table_type    = "EXTERNAL_TABLE"
 
@@ -227,8 +227,9 @@ resource "aws_glue_job" "raw_to_processed" {
     "--datalake-formats"             = "iceberg"
     "--RAW_PATH"                     = "s3://${var.bucket_name}/raw/fhir_observations/"
     "--DATA_BUCKET_NAME"             = var.bucket_name
+    "--PROJECT_NAME"                 = var.project_name
     "--DATABASE_NAME"                = var.database_name
-    "--TABLE_NAME"                   = "processed_fhir_observations"
+    "--TABLE_NAME"                   = var.processed_table_name
     "--job-bookmark-option"          = "job-bookmark-enable"
     "--QUARANTINE_PATH"              = var.quarantine_path
     "--METRICS_PATH"                 = var.metrics_path

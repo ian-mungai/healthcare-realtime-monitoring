@@ -32,13 +32,11 @@ variable "tags" {
 variable "dbt_task_definition_family" {
   description = "dbt ECS task-definition family."
   type        = string
-  default     = "healthcare_realtime_dbt"
 }
 
 variable "soda_task_definition_family" {
   description = "Soda ECS task-definition family."
   type        = string
-  default     = "healthcare_realtime_soda"
 }
 
 variable "alarm_topic_arn" {

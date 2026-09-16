@@ -21,7 +21,7 @@ Keep the DSN, credentials, account details, and bucket value private. Do not com
 1. Open **Home > Get data**, search for **Amazon Athena**, and select **Connect**.
 2. Enter the DSN name and choose **Import** for this small portfolio dataset or **DirectQuery** for live Athena queries.
 3. Choose **Use Data Source Configuration** when prompted for authentication.
-4. In Navigator, expand `AwsDataCatalog`, then `healthcare_realtime_dbt`.
-5. Confirm these tables are visible: `dim_patient`, `dim_encounter`, `dim_provider`, `fct_encounter_vital_features`, and `ml_predictions_latest`.
+4. In Navigator, expand the catalog and analytical database named by `ATHENA_CATALOG` and `ATHENA_DBT_DATABASE` in `.env`.
+5. Confirm the tables named by `DBT_DIM_PATIENT_TABLE`, `DBT_DIM_ENCOUNTER_TABLE`, `DBT_DIM_PROVIDER_TABLE`, `DBT_ENCOUNTER_FEATURES_TABLE`, and `DBT_ML_PREDICTIONS_LATEST_TABLE` are visible.
 
 Successful table discovery completes this tutorial. Report construction is intentionally separate and is not required by this repository.

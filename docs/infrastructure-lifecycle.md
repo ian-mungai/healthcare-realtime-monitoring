@@ -21,9 +21,9 @@ CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
 ./scripts/infrastructure/bootstrap.sh main-init
 ```
 
-The bootstrap stack intentionally uses local state and protects its bucket with `prevent_destroy`. The `state-backup` action saves the ignored bootstrap state at `s3://<terraform-state-bucket>/healthcare-realtime-monitoring/terraform/bootstrap/terraform.tfstate`. If local state is lost, restore this protected backup instead of trying to create a duplicate bucket.
+The bootstrap stack intentionally uses local state and protects its bucket with `prevent_destroy`. The `state-backup` action saves the ignored bootstrap state at `s3://<terraform-state-bucket>/<project-name>/terraform/bootstrap/terraform.tfstate`. If local state is lost, restore this protected backup instead of trying to create a duplicate bucket.
 
-The main state object uses `s3://<terraform-state-bucket>/healthcare-realtime-monitoring/terraform/terraform.tfstate`, keeping this project's state below a project-specific folder and Terraform subfolder.
+The main state object uses `s3://<terraform-state-bucket>/<project-name>/terraform/terraform.tfstate`, keeping this project's state below a project-specific folder and Terraform subfolder.
 
 To move an existing main stack from another backend, run `main-migrate` instead of `main-init` and approve Terraform's state migration:
 
