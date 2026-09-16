@@ -199,4 +199,4 @@ def test_published_prediction_lines_exclude_partition_column(tmp_path: Path) -> 
 
 def test_athena_loader_rejects_unsafe_identifiers() -> None:
     with pytest.raises(ValueError, match="Invalid Athena identifier"):
-        load_athena_records("healthcare_realtime_dbt; drop table x", "ml_training_dataset", "s3://example/results/", "us-east-1")
+        load_athena_records("healthcare_realtime_dbt; drop table x", "ml_training_dataset", "s3://example/results/", "example-region-1")

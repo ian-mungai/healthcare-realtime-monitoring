@@ -40,10 +40,10 @@ done
 aws ecr get-login-password --region "$AWS_REGION" |
   docker login --username AWS --password-stdin "$registry"
 
-docker buildx build --platform linux/amd64 --file "$REPO_ROOT/services/vitals_simulator/Dockerfile" --tag "$simulator_url:$IMAGE_TAG" --push "$REPO_ROOT"
-docker buildx build --platform linux/amd64 --file "$REPO_ROOT/deploy/dbt/Dockerfile" --tag "$dbt_url:$IMAGE_TAG" --push "$REPO_ROOT"
-docker buildx build --platform linux/amd64 --file "$REPO_ROOT/deploy/soda/Dockerfile" --tag "$soda_url:$IMAGE_TAG" --push "$REPO_ROOT"
-docker buildx build --platform linux/amd64 --file "$REPO_ROOT/deploy/marquez/Dockerfile" --tag "$marquez_url:$IMAGE_TAG" --push "$REPO_ROOT/deploy/marquez"
+docker buildx build --platform linux/amd64 --provenance=false --file "$REPO_ROOT/services/vitals_simulator/Dockerfile" --tag "$simulator_url:$IMAGE_TAG" --push "$REPO_ROOT"
+docker buildx build --platform linux/amd64 --provenance=false --file "$REPO_ROOT/deploy/dbt/Dockerfile" --tag "$dbt_url:$IMAGE_TAG" --push "$REPO_ROOT"
+docker buildx build --platform linux/amd64 --provenance=false --file "$REPO_ROOT/deploy/soda/Dockerfile" --tag "$soda_url:$IMAGE_TAG" --push "$REPO_ROOT"
+docker buildx build --platform linux/amd64 --provenance=false --file "$REPO_ROOT/deploy/marquez/Dockerfile" --tag "$marquez_url:$IMAGE_TAG" --push "$REPO_ROOT/deploy/marquez"
 
 printf '\nSet these ignored Terraform inputs:\n'
 printf 'vitals_simulator_image_tag = "%s"\n' "$IMAGE_TAG"

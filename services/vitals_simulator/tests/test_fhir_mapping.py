@@ -33,7 +33,7 @@ def test_load_fhir_resource_map_from_s3(monkeypatch):
 
     monkeypatch.setenv("FHIR_RESOURCE_MAP_S3_BUCKET", "healthcare-test")
     monkeypatch.setenv("FHIR_RESOURCE_MAP_S3_KEY", "config/vitals_simulator/fhir_resource_map.json")
-    monkeypatch.setattr(mapping.boto3, "client", lambda service_name: FakeS3Client())
+    monkeypatch.setattr(mapping.boto3, "client", lambda _service_name: FakeS3Client())
 
     loaded = mapping.load_fhir_resource_map()
 

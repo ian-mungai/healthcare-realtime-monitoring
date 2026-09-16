@@ -111,6 +111,7 @@ aws ecr get-login-password --region "$AWS_REGION" |
 
 docker buildx build \
   --platform linux/amd64 \
+  --provenance=false \
   --file deploy/marquez/Dockerfile \
   --tag "${MARQUEZ_REPOSITORY_URL}:${MARQUEZ_IMAGE_TAG}" \
   --push \
