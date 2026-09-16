@@ -200,8 +200,8 @@ resource "aws_s3_object" "glue_script" {
 resource "aws_s3_object" "glue_lineage_package" {
   bucket = var.bucket_name
   key    = "glue/dependencies/healthcare_realtime_lineage.zip"
-  source = "${path.root}/../tmp/healthcare_realtime_lineage.zip"
-  etag   = filemd5("${path.root}/../tmp/healthcare_realtime_lineage.zip")
+  source = "${path.root}/../build/glue/healthcare_realtime_lineage.zip"
+  etag   = filemd5("${path.root}/../build/glue/healthcare_realtime_lineage.zip")
 }
 
 resource "aws_glue_job" "raw_to_processed" {

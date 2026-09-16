@@ -38,6 +38,22 @@ models:
                 values: [0, 1]
                 quote: false
 
+      - name: outcome_heart_rate_extreme_count
+        tests:
+          - not_null
+
+      - name: outcome_respiratory_rate_extreme_count
+        tests:
+          - not_null
+
+      - name: outcome_spo2_extreme_count
+        tests:
+          - not_null
+
+      - name: outcome_systolic_bp_extreme_count
+        tests:
+          - not_null
+
       - name: label_definition_version
         tests:
           - not_null

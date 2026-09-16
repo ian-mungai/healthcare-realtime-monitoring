@@ -47,7 +47,7 @@ Review the generated history before replacing the synthetic seed. Do not commit 
 
 `${ATHENA_DBT_DATABASE}.${DBT_ENCOUNTER_FEATURES_TABLE}` uses absolute windows that are independent of the encounter's eventual duration. The first 15 minutes produce model-ready vital aggregates and the following 15 minutes produce the binary `deterioration_proxy_label`. The tables named by `DBT_ML_SCORING_TABLE` and `DBT_ML_TRAINING_TABLE` become eligible after the feature and outcome windows respectively.
 
-The versioned `news2-extreme-proxy-v1` label is `1` when the outcome window contains heart rate at or below 40 or at or above 131, respiratory rate at or below 8 or at or above 25, oxygen saturation at or below 91, or systolic pressure at or below 90. `is_training_eligible` requires observations in both windows.
+The versioned `news2-repeated-extreme-proxy-v2` label is `1` when at least two observations of the same vital cross a NEWS2 extreme threshold during the outcome window: heart rate at or below 40 or at or above 131, respiratory rate at or below 8 or at or above 25, oxygen saturation at or below 91, or systolic pressure at or below 90. Requiring repeated threshold crossings prevents one isolated synthetic measurement from determining the encounter label. The minimum count is declared by `deterioration_min_repeated_extreme_observations` in `dbt_project.yml`. `is_training_eligible` requires observations in both windows.
 
 This label is a synthetic engineering proxy derived from NEWS2 extreme thresholds. It is not a diagnosis, a validated clinical outcome, or suitable for patient care or clinical model training.
 
@@ -82,4 +82,4 @@ join ${ATHENA_DBT_DATABASE}.${DBT_DIM_DATE_TABLE} as d
     on f.date_key = d.date_key
 ```
 
-dbt tests enforce unique dimension keys, non-overlapping provider versions, one current provider row, the compound fact grain, every fact-to-dimension relationship, and valid binary labels. Soda independently checks table population, missing keys, duplicate keys, and accepted label values.
+dbt tests enforce unique dimension keys, non-overlapping provider versions, one current provider row, the compound fact grain, every fact-to-dimension relationship, valid binary labels, and both label classes in each training split. Soda independently checks table population, missing keys, duplicate keys, and accepted label values.

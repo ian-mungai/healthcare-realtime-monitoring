@@ -7,6 +7,7 @@ profile: healthcare_realtime
 vars:
   feature_window_minutes: 15
   outcome_window_minutes: 15
+  deterioration_min_repeated_extreme_observations: 2
   vital_sign_loinc_codes:
     heart_rate: "8867-4"
     respiratory_rate: "9279-1"
