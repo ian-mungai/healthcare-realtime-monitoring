@@ -4,7 +4,7 @@
 
 Use this checklist to close a portfolio release of the healthcare realtime monitoring project. All published evidence must use synthetic data and replace deployment-specific values with placeholders.
 
-The portfolio release includes the documented Power BI-to-Athena connection and the separately reviewed root-level `.pbix` artifact. Power BI Service publishing remains optional and private.
+The portfolio release includes the completed Power BI-to-Athena connection and reporting documentation. The local `.pbix` remains outside the repository. Power BI Service publishing remains optional and private.
 
 ## Source and CI
 
@@ -59,9 +59,9 @@ Before committing screenshots, diagrams, examples or portfolio documents:
 - [ ] Remove secrets, signed authorization headers, API keys, webhook values, Terraform state and terminal output containing any of them.
 - [ ] Replace environment values with reproducible placeholders such as `<aws-region>`, `<project-data-bucket>` and `<api-id>`.
 - [ ] Review every redaction-scan match manually; do not replace implementation configuration merely to conceal documentation.
-- [ ] Open the root-level `.pbix`, clear data-source permissions and confirm it uses DirectQuery with a generic local DSN.
-- [ ] Manually inspect Power Query, parameters, report text, cached previews and data-source settings because binary `.pbix` content is not covered reliably by text scans.
-- [ ] Confirm the `.pbix` contains only the ten-patient synthetic cohort and no deployment identifiers, credentials, signed headers, email addresses or local user paths.
+- [x] Confirm Power BI Desktop can connect to the Athena analytical tables through the Amazon Athena ODBC driver.
+- [x] Complete the local Power BI report and keep the `.pbix` outside the repository.
+- [x] Confirm the public release does not contain a `.pbix` binary or exported DSN.
 
 ## Release tag
 

@@ -2,7 +2,9 @@
 
 ## Scope
 
-This tutorial ends when Power BI Desktop can browse the project's Athena tables. Report construction is maintained separately from the committed connection guide.
+Status: completed.
+
+This tutorial records the verified connection between Power BI Desktop and the project's Athena tables. Report construction is maintained locally and the `.pbix` is intentionally excluded from the repository.
 
 Power BI Desktop runs on Windows. Install the current Amazon Athena ODBC 2.x driver on the same Windows computer. AWS documents both the [driver setup](https://docs.aws.amazon.com/athena/latest/ug/connect-with-odbc.html) and the [Power BI connector](https://docs.aws.amazon.com/athena/latest/ug/connect-with-odbc-and-power-bi.html).
 
@@ -24,4 +26,4 @@ Keep the DSN, credentials, account details and bucket value private. Do not comm
 4. In Navigator, expand the catalog and analytical database named by `ATHENA_CATALOG` and `ATHENA_DBT_DATABASE` in `.env`.
 5. Confirm the tables named by `DBT_DIM_PATIENT_TABLE`, `DBT_DIM_ENCOUNTER_TABLE`, `DBT_DIM_PROVIDER_TABLE`, `DBT_ENCOUNTER_FEATURES_TABLE` and `DBT_ML_PREDICTIONS_LATEST_TABLE` are visible.
 
-Successful table discovery completes this connection tutorial.
+Successful table discovery completed the repository's Power BI connection requirement. The report file remains a private local artifact and is not required to reproduce the AWS data platform.
