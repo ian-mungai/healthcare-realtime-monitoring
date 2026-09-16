@@ -87,7 +87,7 @@ def test_validate_runs_suite_once_and_emits_complete_lineage(monkeypatch):
 
     monkeypatch.setattr(validate_processed_observations, "build_context", lambda: object())
     monkeypatch.setattr(validate_processed_observations, "build_validator", lambda context: validator)
-    monkeypatch.setattr(validate_processed_observations, "add_expectations", lambda current_validator: None)
+    monkeypatch.setattr(validate_processed_observations, "add_expectations", lambda _current_validator: None)
     monkeypatch.setattr(
         validate_processed_observations, "emit_great_expectations_lineage", lambda state, run_id=None: lineage_calls.append((state, run_id)) or "quality-run-id"
     )

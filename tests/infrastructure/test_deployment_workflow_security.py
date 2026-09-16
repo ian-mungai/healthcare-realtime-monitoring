@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import yaml
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -39,3 +41,20 @@ def test_sync_script_uses_shared_prefix_and_bucket_encryption() -> None:
     assert 'CONFIG_KEY="$TF_STATE_PREFIX/config/deployment.auto.tfvars.json"' in script
     assert 'EXPECTED_STATE_PREFIX="$PROJECT_NAME/terraform"' in script
     assert 'PYTHON_BIN="$(command -v python3)"' in script
+
+
+def test_published_images_use_ecr_scannable_manifests() -> None:
+    script = (REPO_ROOT / "scripts/infrastructure/push_images.sh").read_text(encoding="utf-8")
+
+    assert script.count("docker buildx build") == 4
+    assert script.count("--provenance=false") == 4
+
+
+def test_dependabot_covers_all_dependency_manifests() -> None:
+    config = yaml.safe_load((REPO_ROOT / ".github/dependabot.yml").read_text(encoding="utf-8"))
+    updates = {entry["package-ecosystem"]: entry for entry in config["updates"]}
+
+    assert set(updates) == {"docker", "github-actions", "pip", "terraform"}
+    assert set(updates["pip"]["directories"]) == {"/", "/airflow", "/airflow/serverless", "/dashboard", "/services/vitals_simulator"}
+    assert set(updates["docker"]["directories"]) == {"/deploy/dbt", "/deploy/marquez", "/deploy/soda", "/services/vitals_simulator"}
+    assert set(updates["terraform"]["directories"]) == {"/infra", "/infra/bootstrap"}

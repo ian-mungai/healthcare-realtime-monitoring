@@ -12,6 +12,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_s3_policy.json"
+ECR_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_ecr_policy.json"
 RENDERER_PATH = REPO_ROOT / "infra/iam/scripts/render_policy.py"
 EXPORTER_PATH = REPO_ROOT / "infra/iam/scripts/export_policies.py"
 
@@ -31,6 +32,15 @@ def test_state_policy_limits_object_access_to_backend_prefix() -> None:
     assert statements["ManageTerraformStateBucket"]["Resource"] == "arn:aws:s3:::${TF_STATE_BUCKET}"
     assert statements["ManageTerraformStateObjects"]["Resource"] == ("arn:aws:s3:::${TF_STATE_BUCKET}/${PROJECT_NAME}/terraform/*")
     assert "s3:DeleteBucket" not in statements["ManageTerraformStateBucket"]["Action"]
+
+
+def test_ecr_policy_can_read_image_scan_findings() -> None:
+    policy = json.loads(ECR_POLICY_PATH.read_text(encoding="utf-8"))
+    statements = {statement["Sid"]: statement for statement in policy["Statement"]}
+
+    actions = statements["ManageHealthcareRealtimeRepositories"]["Action"]
+    assert "ecr:DescribeImageScanFindings" in actions
+    assert "ecr:StartImageScan" in actions
 
 
 def test_renderer_replaces_state_bucket_placeholder(tmp_path: Path) -> None:
