@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 ARG DBT_CORE_VERSION=1.12.3
 ARG DBT_ATHENA_VERSION=1.11.0
