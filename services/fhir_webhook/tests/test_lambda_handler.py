@@ -74,6 +74,7 @@ def test_unauthenticated_request_is_rejected_before_body_parsing():
         "GET /webhooks/fhir",
         "HEAD /webhooks/fhir",
         "GET /webhooks/fhir/metadata",
+        "GET /webhooks/fhir/StructureDefinition/healthcare-realtime-vital-observation",
         "POST /webhooks/fhir",
         "PUT /webhooks/fhir/{resource_type}/{resource_id}",
     ],
@@ -197,6 +198,23 @@ def test_fhir_metadata():
     assert payload["rest"][0]["resource"][0]["profile"].endswith("/healthcare-realtime-vital-observation")
     assert "Encounter reference" in payload["rest"][0]["documentation"]
     assert payload["rest"][0]["resource"][0]["interaction"] == [{"code": "update"}]
+
+
+def test_fhir_observation_profile_requires_encounter():
+    response = lambda_handler({"routeKey": "GET /webhooks/fhir/StructureDefinition/healthcare-realtime-vital-observation"}, None)
+
+    assert response["statusCode"] == 200
+    assert response["headers"]["content-type"] == "application/fhir+json"
+
+    payload = json.loads(response["body"])
+    encounter = payload["differential"]["element"][0]
+
+    assert payload["resourceType"] == "StructureDefinition"
+    assert payload["url"] == webhook_lambda_handler.FHIR_OBSERVATION_PROFILE
+    assert payload["baseDefinition"] == "http://hl7.org/fhir/StructureDefinition/Observation"
+    assert encounter["path"] == "Observation.encounter"
+    assert encounter["min"] == 1
+    assert encounter["max"] == "1"
 
 
 @patch("services.fhir_webhook.app.lambda_handler.KinesisPublisher")

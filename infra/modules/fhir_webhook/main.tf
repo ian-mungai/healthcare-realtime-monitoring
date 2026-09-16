@@ -140,6 +140,14 @@ resource "aws_apigatewayv2_route" "fhir_webhook_metadata" {
   target             = "integrations/${aws_apigatewayv2_integration.fhir_webhook.id}"
 }
 
+resource "aws_apigatewayv2_route" "fhir_webhook_observation_profile" {
+  api_id = var.api_id
+
+  route_key          = "GET /webhooks/fhir/StructureDefinition/healthcare-realtime-vital-observation"
+  authorization_type = "NONE"
+  target             = "integrations/${aws_apigatewayv2_integration.fhir_webhook.id}"
+}
+
 resource "aws_apigatewayv2_route" "fhir_webhook_update" {
   api_id = var.api_id
 
@@ -204,6 +212,16 @@ resource "aws_lambda_permission" "fhir_webhook_metadata" {
   principal     = "apigateway.amazonaws.com"
 
   source_arn = "arn:${data.aws_partition.current.partition}:execute-api:${var.aws_region}:${data.aws_caller_identity.current.account_id}:${var.api_id}/*/GET/webhooks/fhir/metadata"
+}
+
+resource "aws_lambda_permission" "fhir_webhook_observation_profile" {
+  statement_id = "AllowApiGatewayFHIRWebhookObservationProfileInvoke"
+
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.fhir_webhook.function_name
+  principal     = "apigateway.amazonaws.com"
+
+  source_arn = "arn:${data.aws_partition.current.partition}:execute-api:${var.aws_region}:${data.aws_caller_identity.current.account_id}:${var.api_id}/*/GET/webhooks/fhir/StructureDefinition/healthcare-realtime-vital-observation"
 }
 
 resource "aws_lambda_permission" "fhir_webhook_update" {
