@@ -34,7 +34,7 @@ Simulator -> HAPI FHIR -> webhook -> Kinesis -> Lambda -> DynamoDB -> REST/WebSo
 | `data_quality/` | Great Expectations and Soda validation assets |
 | `lineage/` | OpenLineage event emitters |
 | `scripts/` | Build, test-data, load-test and demo helpers |
-| `docs/` | Architecture, governance, operations, demo and Power BI report documentation |
+| `docs/` | Architecture, governance, operations, demo and Power BI connection documentation |
 
 ## Prerequisites
 
@@ -44,7 +44,7 @@ Simulator -> HAPI FHIR -> webhook -> Kinesis -> Lambda -> DynamoDB -> REST/WebSo
 - AWS CLI authenticated to the target account
 - Docker, when building ECS images locally
 - Java 17 and Gradle, when generating Synthea data
-- Power BI Desktop and the Amazon Athena ODBC driver, only for the optional reporting connection
+- Power BI Desktop and the Amazon Athena ODBC driver, only when reproducing the completed reporting connection
 - An AWS environment provisioned from this repository
 
 ## Local setup
@@ -134,7 +134,7 @@ The [data governance guide](docs/data-governance.md) documents datasets, schema 
 
 The [analytics star schema](docs/analytics-star-schema.md) defines the observation fact grain, conformed dimensions, key strategy, active-cohort and encounter-boundary rules and bus matrix.
 
-The [model-training guide](docs/model-training.md) defines the inference-safe training windows and reproducible logistic-regression baseline. The [model-predictions guide](docs/model-predictions.md) covers daily approved-model scoring and Athena presentation datasets. The [Power BI connection guide](docs/power-bi-connection.md) documents the Athena connection used by the separately reviewed root-level portfolio `.pbix` artifact.
+The [model-training guide](docs/model-training.md) defines the inference-safe training windows and reproducible logistic-regression baseline. The [model-predictions guide](docs/model-predictions.md) covers daily approved-model scoring and Athena presentation datasets. The [Power BI connection guide](docs/power-bi-connection.md) documents the completed Athena connection. The local `.pbix` remains outside the repository and is not a release artifact.
 
 The [technology inventory](docs/technology-inventory.md) lists the standards, AWS services, frameworks, libraries, delivery tools and testing methods used by the project.
 
