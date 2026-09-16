@@ -18,6 +18,14 @@
       "Resource": "*"
     },
     {
+      "Sid": "ReadHealthcareRealtimeServiceQuotas",
+      "Effect": "Allow",
+      "Action": [
+        "servicequotas:GetServiceQuota"
+      ],
+      "Resource": "*"
+    },
+    {
       "Sid": "ManageHealthcareRealtimeBudgets",
       "Effect": "Allow",
       "Action": [

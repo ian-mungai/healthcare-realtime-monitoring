@@ -13,14 +13,19 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_s3_policy.json"
 ECR_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_ecr_policy.json"
+IAM_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_iam_policy.json"
+CLOUDFORMATION_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_cloudformation_policy.json"
+COST_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_cost_management_policy.json"
 RENDERER_PATH = REPO_ROOT / "infra/iam/scripts/render_policy.py"
 EXPORTER_PATH = REPO_ROOT / "infra/iam/scripts/export_policies.py"
+MANAGER_PATH = REPO_ROOT / "infra/iam/scripts/manage_policies.py"
 
 
 def load_module(path: Path, name: str) -> ModuleType:
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -41,6 +46,17 @@ def test_ecr_policy_can_read_image_scan_findings() -> None:
     actions = statements["ManageHealthcareRealtimeRepositories"]["Action"]
     assert "ecr:DescribeImageScanFindings" in actions
     assert "ecr:StartImageScan" in actions
+
+
+def test_region_readiness_permissions_are_tracked() -> None:
+    documents = [
+        json.loads(IAM_POLICY_PATH.read_text(encoding="utf-8")),
+        json.loads(CLOUDFORMATION_POLICY_PATH.read_text(encoding="utf-8")),
+        json.loads(COST_POLICY_PATH.read_text(encoding="utf-8")),
+    ]
+    actions = {action for document in documents for statement in document["Statement"] for action in statement["Action"]}
+
+    assert {"iam:GetAccountSummary", "cloudformation:DescribeType", "servicequotas:GetServiceQuota"} <= actions
 
 
 def test_renderer_replaces_state_bucket_placeholder(tmp_path: Path) -> None:
@@ -69,3 +85,59 @@ def test_exporter_redacts_state_bucket(monkeypatch: pytest.MonkeyPatch) -> None:
     assert exporter.sanitize_string("arn:aws:s3:::private-state-bucket/example-project/terraform/terraform.tfstate") == (
         "arn:aws:s3:::${TF_STATE_BUCKET}/example-project/terraform/terraform.tfstate"
     )
+
+
+class PolicyPaginator:
+    def __init__(self, policies: list[dict[str, object]]) -> None:
+        self.policies = policies
+
+    def paginate(self, **kwargs: object) -> list[dict[str, object]]:
+        assert kwargs == {"Scope": "Local"}
+        return [{"Policies": self.policies}]
+
+
+class EmptyAccountIam:
+    def __init__(self) -> None:
+        self.created: list[dict[str, object]] = []
+
+    def get_paginator(self, name: str) -> PolicyPaginator:
+        assert name == "list_policies"
+        return PolicyPaginator([])
+
+    def create_policy(self, **kwargs: object) -> None:
+        self.created.append(kwargs)
+
+
+def test_policy_manager_plans_and_creates_every_policy_in_an_empty_account(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.syspath_prepend(str(MANAGER_PATH.parent))
+    manager = load_module(MANAGER_PATH, "manage_policies_for_test")
+    iam = EmptyAccountIam()
+    documents = {
+        "healthcare_realtime_example_one": {"Version": "2012-10-17", "Statement": []},
+        "healthcare_realtime_example_two": {"Version": "2012-10-17", "Statement": []},
+    }
+
+    changes = manager.plan_changes(iam, documents)
+    manager.apply_changes(iam, documents, changes)
+
+    assert [change.action for change in changes] == ["create", "create"]
+    assert [call["PolicyName"] for call in iam.created] == sorted(documents)
+
+
+def test_policy_manager_loads_ignored_environment_values(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.syspath_prepend(str(MANAGER_PATH.parent))
+    manager = load_module(MANAGER_PATH, "manage_policies_environment_for_test")
+    environment_file = tmp_path / ".env"
+    environment_file.write_text("AWS_PROFILE=example\nTF_STATE_BUCKET='example-state'\n", encoding="utf-8")
+
+    assert manager.load_environment_file(environment_file) == {"AWS_PROFILE": "example", "TF_STATE_BUCKET": "example-state"}
+
+
+def test_policy_manager_can_limit_an_update_to_selected_templates(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.syspath_prepend(str(MANAGER_PATH.parent))
+    manager = load_module(MANAGER_PATH, "manage_policies_selection_for_test")
+    environment = {"AWS_ACCOUNT_ID": "111111111111", "AWS_REGION": "example-region-1", "PROJECT_NAME": "example-project"}
+
+    documents = manager.load_documents(REPO_ROOT / "infra/development.tfvars.example", environment, {"healthcare_realtime_cloudformation_policy"})
+
+    assert set(documents) == {"healthcare_realtime_cloudformation_policy"}

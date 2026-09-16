@@ -44,6 +44,25 @@ def load_terraform_variables(path: Path | None) -> dict[str, str]:
     return {placeholder: normalize(values[variable]) for placeholder, variable in TERRAFORM_VARIABLES.items() if variable in values}
 
 
+def render_policy_document(source_path: Path, terraform_var_file: Path | None = None, environment: dict[str, str] | None = None) -> dict[str, object]:
+    content = source_path.read_text(encoding="utf-8")
+    terraform_values = load_terraform_variables(terraform_var_file)
+    values = {**terraform_values, **(environment or dict(os.environ))}
+
+    placeholders = set(re.findall(r"\$\{([A-Z0-9_]+)\}", content))
+    unresolved = sorted(name for name in placeholders if not values.get(name))
+    if unresolved:
+        raise ValueError(f"missing values for: {', '.join(unresolved)}")
+
+    for name in placeholders:
+        content = content.replace(f"${{{name}}}", values[name])
+
+    document = json.loads(content)
+    if not isinstance(document, dict):
+        raise ValueError("policy document must be a JSON object")
+    return document
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("policy")
@@ -55,22 +74,13 @@ def main() -> None:
     source_path = Path(arguments.policy)
     output_path = Path(arguments.output)
 
-    content = source_path.read_text(encoding="utf-8")
-    terraform_values = load_terraform_variables(arguments.terraform_var_file)
-    values = {**terraform_values, **os.environ}
-
-    placeholders = set(re.findall(r"\$\{([A-Z0-9_]+)\}", content))
-    unresolved = sorted(name for name in placeholders if not values.get(name))
-    if unresolved:
-        parser.error(f"missing values for: {', '.join(unresolved)}")
-
-    for name in placeholders:
-        content = content.replace(f"${{{name}}}", values[name])
-
-    json.loads(content)
+    try:
+        document = render_policy_document(source_path, arguments.terraform_var_file)
+    except ValueError as error:
+        parser.error(str(error))
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(content, encoding="utf-8")
+    output_path.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":

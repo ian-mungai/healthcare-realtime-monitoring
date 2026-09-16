@@ -20,6 +20,7 @@
         "iam:GetGroupPolicy",
         "iam:GetPolicy",
         "iam:GetPolicyVersion",
+        "iam:GetAccountSummary",
         "iam:ListAttachedGroupPolicies",
         "iam:ListGroupPolicies",
         "iam:ListPolicies",
