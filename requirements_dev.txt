@@ -1,17 +1,17 @@
 pytest==9.1.1
 pytest-cov==7.1.0
 pip-audit==2.10.1
-ruff==0.16.3
+ruff==0.16.7
 mypy==2.3.1
 python-hcl2==8.1.4
 -r requirements_ml.txt
 httpx==0.28.1
 respx==0.23.1
 wfdb==4.3.1
-boto3==1.43.87
+boto3==1.43.93
 great-expectations==1.22.0
 sqlalchemy==2.0.54
 openlineage-python[fsspec]==1.53.0
-s3fs==0.4.2
-soda-athena==4.22.0
+s3fs==2026.7.0
+soda-athena==4.23.1
 -r dashboard/requirements.txt

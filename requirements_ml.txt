@@ -1,3 +1,3 @@
-boto3==1.43.87
+boto3==1.43.93
 pyathena==3.36.0
 scikit-learn==1.9.1
