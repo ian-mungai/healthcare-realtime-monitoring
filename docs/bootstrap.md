@@ -72,6 +72,12 @@ terraform -chdir=infra plan -var-file=development.tfvars
 
 The final plan must report `No changes`. Run `./scripts/infrastructure/check_prerequisites.sh` to verify the external configuration without printing private values. During bootstrap the workflow remains manual-only because no approved model exists yet. The [external prerequisite inventory](external-prerequisites.md) identifies the account and third-party configuration that Terraform does not create.
 
+After the GitHub OIDC deployment role exists, synchronize the ignored deployment inputs to encrypted AWS storage and configure the protected GitHub environment as described in [deployment.md](deployment.md):
+
+```zsh
+./scripts/infrastructure/sync_deployment_config.sh
+```
+
 ## 4. Seed FHIR and register delivery
 
 Install and generate the pinned Synthea cohort, then load the selected Patient and Encounter resources into the deployed HAPI endpoint:
