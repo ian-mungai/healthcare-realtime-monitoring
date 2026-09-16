@@ -47,6 +47,7 @@ fi
 export AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-$AWS_REGION}"
 TF_STATE_KEY="${PROJECT_NAME}/terraform/terraform.tfstate"
 TF_BOOTSTRAP_STATE_KEY="${PROJECT_NAME}/terraform/bootstrap/terraform.tfstate"
+TF_DEPLOYMENT_CONFIG_KEY="${PROJECT_NAME}/terraform/config/deployment.auto.tfvars.json"
 
 python_version="$($REPO_ROOT/.venv/bin/python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || true)"
 [[ "$python_version" == "3.12" ]] && pass "Python 3.12 environment" || fail "Python 3.12 environment"
@@ -70,6 +71,13 @@ if aws s3api head-object --bucket "$TF_STATE_BUCKET" --key "$TF_BOOTSTRAP_STATE_
 else
   fail "bootstrap Terraform state backup"
 fi
+deployment_config_encryption="$(aws s3api head-object \
+  --bucket "$TF_STATE_BUCKET" \
+  --key "$TF_DEPLOYMENT_CONFIG_KEY" \
+  --query ServerSideEncryption \
+  --output text 2>/dev/null || true)"
+[[ "$deployment_config_encryption" == "AES256" ]] \
+  && pass "encrypted private deployment configuration" || fail "encrypted private deployment configuration"
 
 [[ "$(aws s3api get-bucket-versioning --bucket "$TF_STATE_BUCKET" --query Status --output text 2>/dev/null)" == "Enabled" ]] \
   && pass "state bucket versioning" || fail "state bucket versioning"
@@ -109,15 +117,24 @@ else
   fail "GitHub OIDC provider"
 fi
 
-deploy_role_arn="$(terraform -chdir="$REPO_ROOT/infra" output -raw github_deployment_role_arn 2>/dev/null || true)"
 github_region="$(gh variable get AWS_REGION --repo "$GITHUB_REPOSITORY" --env "$GITHUB_DEPLOYMENT_ENVIRONMENT" 2>/dev/null || true)"
-github_state_bucket="$(gh variable get TF_STATE_BUCKET --repo "$GITHUB_REPOSITORY" --env "$GITHUB_DEPLOYMENT_ENVIRONMENT" 2>/dev/null || true)"
-github_role="$(gh variable get AWS_DEPLOY_ROLE_ARN --repo "$GITHUB_REPOSITORY" --env "$GITHUB_DEPLOYMENT_ENVIRONMENT" 2>/dev/null || true)"
 [[ "$github_region" == "$AWS_REGION" ]] && pass "GitHub AWS_REGION" || fail "GitHub AWS_REGION"
-[[ "$github_state_bucket" == "$TF_STATE_BUCKET" ]] && pass "GitHub TF_STATE_BUCKET" || fail "GitHub TF_STATE_BUCKET"
-[[ -n "$deploy_role_arn" && "$github_role" == "$deploy_role_arn" ]] && pass "GitHub AWS_DEPLOY_ROLE_ARN" || fail "GitHub AWS_DEPLOY_ROLE_ARN"
-gh secret list --repo "$GITHUB_REPOSITORY" --env "$GITHUB_DEPLOYMENT_ENVIRONMENT" --json name --jq '.[].name' 2>/dev/null \
-  | grep -Fxq TERRAFORM_VARIABLES_JSON && pass "GitHub TERRAFORM_VARIABLES_JSON" || fail "GitHub TERRAFORM_VARIABLES_JSON"
+github_variables="$(gh variable list --repo "$GITHUB_REPOSITORY" --env "$GITHUB_DEPLOYMENT_ENVIRONMENT" --json name --jq '.[].name' 2>/dev/null || true)"
+if grep -Eq '^(AWS_DEPLOY_ROLE_ARN|TF_STATE_BUCKET|TF_STATE_PREFIX|TERRAFORM_VARIABLES_JSON)$' <<<"$github_variables"; then
+  fail "GitHub environment variables contain private deployment identifiers"
+else
+  pass "GitHub environment variables contain no private deployment identifiers"
+fi
+github_secrets="$(gh secret list --repo "$GITHUB_REPOSITORY" --env "$GITHUB_DEPLOYMENT_ENVIRONMENT" --json name --jq '.[].name' 2>/dev/null || true)"
+for secret_name in AWS_DEPLOY_ROLE_ARN TF_STATE_BUCKET TF_STATE_PREFIX; do
+  grep -Fxq "$secret_name" <<<"$github_secrets" \
+    && pass "GitHub secret: $secret_name" || fail "GitHub secret: $secret_name"
+done
+if grep -Fxq TERRAFORM_VARIABLES_JSON <<<"$github_secrets"; then
+  fail "obsolete GitHub bulk Terraform secret"
+else
+  pass "obsolete GitHub bulk Terraform secret removed"
+fi
 
 alert_topic_arn="$(terraform -chdir="$REPO_ROOT/infra" output -raw realtime_alert_topic_arn 2>/dev/null || true)"
 confirmed_subscriptions="$(aws sns list-subscriptions-by-topic --topic-arn "$alert_topic_arn" --query 'length(Subscriptions[?SubscriptionArn != `PendingConfirmation`])' --output text 2>/dev/null || echo 0)"

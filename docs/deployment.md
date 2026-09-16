@@ -57,17 +57,29 @@ The trust policy accepts only tokens issued for the configured repository and pr
 
 ## Protected GitHub environment
 
-Create the protected GitHub environment named by `github_deployment_environment`, restrict it to `main`, and require approval for deployment. Configure these environment variables:
+Create the protected GitHub environment named by `github_deployment_environment`, restrict it to `main`, and require approval for deployment. Configure this non-sensitive environment variable:
+
+| Name | Value |
+| --- | --- |
+| `AWS_REGION` | Target AWS region |
+
+Add three environment secrets:
 
 | Name | Value |
 | --- | --- |
 | `AWS_DEPLOY_ROLE_ARN` | Terraform `github_deployment_role_arn` output |
-| `AWS_REGION` | Target AWS region |
 | `TF_STATE_BUCKET` | Dedicated persistent state bucket created by `infra/bootstrap` |
+| `TF_STATE_PREFIX` | `<project-name>/terraform` |
 
-Add one environment secret named `TERRAFORM_VARIABLES_JSON`. Its value is a JSON object containing the same private inputs as `infra/development.tfvars`. Never commit or print this value.
+Synchronize the larger private configuration from the ignored Terraform input file into encrypted, versioned AWS storage:
 
-Run the **Deploy** workflow manually, select the protected environment, and choose `action=plan`. Review its Terraform output, then run it again with `action=apply`. The apply run creates a fresh saved plan, applies exactly that plan, and verifies convergence. Container image tags in the secret must already refer to immutable images published by the project build process.
+```zsh
+./scripts/infrastructure/sync_deployment_config.sh
+```
+
+The object is stored under `<project-name>/terraform/config/` in the persistent state bucket. The Deploy workflow authenticates through GitHub OIDC before retrieving it. Do not create a bulk `TERRAFORM_VARIABLES_JSON` GitHub secret, and do not expose account-specific identifiers as GitHub variables.
+
+Run a full local Terraform plan to review resource details without publishing private identifiers. Then run the **Deploy** workflow manually, select the protected environment, and choose `action=plan` for a summary-only remote verification. Run it again with `action=apply` after approval. The apply run creates a fresh saved plan, applies exactly that plan, and verifies convergence. Container image tags in the private AWS configuration must already refer to immutable images published by the project build process.
 
 ## Shared OpenLineage collector
 
@@ -114,7 +126,7 @@ openlineage_collector_desired_count = 1
 openlineage_collector_url           = ""
 ```
 
-Update the protected GitHub `TERRAFORM_VARIABLES_JSON` secret with the same values before using the Deploy workflow. Then create and review a full Terraform plan. The plan creates Marquez ECS, encrypted RDS, an internal load balancer, and the IAM-authorized API route; it also updates Glue, MWAA, dbt, and Soda with the collector URL and route-specific `execute-api:Invoke` permission.
+Run `./scripts/infrastructure/sync_deployment_config.sh` after updating the ignored Terraform inputs, then create and review a full Terraform plan. The plan creates Marquez ECS, encrypted RDS, an internal load balancer, and the IAM-authorized API route; it also updates Glue, MWAA, dbt, and Soda with the collector URL and route-specific `execute-api:Invoke` permission.
 
 After apply, run the analytical workflow. Confirm the collector has namespaces and jobs using the project's SigV4 session:
 
