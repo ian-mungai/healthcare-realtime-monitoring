@@ -100,6 +100,6 @@ The loader writes the local patient/encounter mapping used by the simulator. The
 
 ## 5. Validate the deployment
 
-First run dbt through the deployed task to materialize the table named by `DBT_ML_TRAINING_TABLE`. Use the [model training guide](model-training.md) to train and publish the first reviewed model, then place its exact version in the ignored `infra/development.tfvars` and apply a reviewed saved plan. That update narrows model-read permissions, updates the task definition, and enables the daily schedule configured by `AIRFLOW_PIPELINE_SCHEDULE`.
+First run dbt through the deployed task to materialize the table named by `DBT_ML_TRAINING_TABLE`. Use the [model training guide](model-training.md) to train and publish the first reviewed model, then place its exact version in the ignored `infra/development.tfvars` and apply a reviewed saved plan. That update narrows model-read permissions, updates the task definition and enables the daily schedule configured by `AIRFLOW_PIPELINE_SCHEDULE`.
 
-Use the [demo guide](demo-guide.md) for live Streamlit, Postman REST/WebSocket, and CloudWatch checks. After starting an MWAA run, allow 15 minutes before checking its final result; verify Glue, Athena, Great Expectations, dbt, approved-model scoring, prediction refresh, Soda, and OpenLineage.
+Use the [demo guide](demo-guide.md) for live Streamlit, Postman REST/WebSocket and CloudWatch checks. After starting an MWAA run, allow 30 minutes before checking its final result; recent complete runs have taken 26 to 28 minutes. Verify Glue, Athena, Great Expectations, dbt, approved-model scoring, prediction refresh, Soda and OpenLineage.

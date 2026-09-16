@@ -25,6 +25,7 @@ TEST_ENVIRONMENT = {
     "DBT_DIM_DATE_TABLE": "example_dim_date",
     "DBT_FACT_OBSERVATIONS_TABLE": "example_fact_observations",
     "DBT_ENCOUNTER_FEATURES_TABLE": "example_encounter_features",
+    "ACTIVE_PATIENT_IDS": "patient-01,patient-02,patient-03,patient-04,patient-05,patient-06,patient-07,patient-08,patient-09,patient-10",
     "DBT_ML_TRAINING_TABLE": "example_ml_training",
 }
 

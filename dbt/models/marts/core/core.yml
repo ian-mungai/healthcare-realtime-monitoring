@@ -34,7 +34,7 @@ models:
           - unique
 
   - name: dim_encounter
-    description: Encounter analysis windows derived from the first and last observation timestamps.
+    description: Encounter analysis windows for the configured active cohort, derived from the first and last observation timestamps.
 
     columns:
       - name: encounter_key
@@ -51,6 +51,10 @@ models:
                 field: patient_key
 
       - name: patient_id
+        tests:
+          - not_null
+
+      - name: encounter_id
         tests:
           - not_null
 
@@ -171,7 +175,9 @@ models:
           - not_null
 
       - name: encounter_id
-        description: Encounter associated with the source FHIR Observation. Historical schema 1.0 rows may be null.
+        description: Required encounter associated with the source FHIR Observation.
+        tests:
+          - not_null
 
       - name: loinc_code
         tests:

@@ -14,7 +14,7 @@ export AWS_PROFILE="<aws-profile>"
 export AWS_REGION="<aws-region>"
 ```
 
-Never place credentials, signed headers, account identifiers, endpoint identifiers, or secret values in shell history, screenshots, or public evidence.
+Never place credentials, signed headers, account identifiers, endpoint identifiers or secret values in shell history, screenshots or public evidence.
 
 ### Patient access policy
 
@@ -29,7 +29,7 @@ realtime_patient_access_policy = {
 
 The default empty policy denies all patient access. Use an exact IAM user ARN or a narrowly scoped assumed-role session pattern; do not use a wildcard principal. Add `load_test_patient_*` only for principals that run the isolated load test.
 
-All supported FHIR webhook routes require `X-Webhook-Secret`, including health, metadata, the Observation profile, and subscription handshake requests. The metadata response advertises the project-specific vital-sign Observation profile. That profile makes `Observation.encounter` mandatory because the encounter defines the analytics window; otherwise-valid generic FHIR R4 Observations without an Encounter are rejected. Retrieve the machine-readable profile from `GET /webhooks/fhir/StructureDefinition/healthcare-realtime-vital-observation`. The Lambda refreshes its cached Secrets Manager value within five minutes, so secret rotation does not require a cold start.
+All supported FHIR webhook routes require `X-Webhook-Secret`, including health, metadata, the Observation profile and subscription handshake requests. The metadata response advertises the project-specific vital-sign Observation profile. That profile makes `Observation.encounter` mandatory because the encounter defines the analytics window; otherwise-valid generic FHIR R4 Observations without an Encounter are rejected. Retrieve the machine-readable profile from `GET /webhooks/fhir/StructureDefinition/healthcare-realtime-vital-observation`. The Lambda refreshes its cached Secrets Manager value within five minutes, so secret rotation does not require a cold start.
 
 Create the local Terraform input file from its tracked template, then replace every placeholder with values for the target AWS environment:
 
@@ -65,7 +65,7 @@ Confirm that the state object exists in the configured bucket before removing an
 
 ## CI and Deployment Gate
 
-The CI workflow runs Python tests, linting, type checks, Soda syntax checks, Terraform format and validation, generated-workflow validation, deployment-package checks, and container builds on pull requests and updates to `main`. Infrastructure deployment uses the manual OIDC-authenticated workflow and protected environment described in the [deployment guide](deployment.md).
+The CI workflow runs Python tests, linting, type checks, Soda syntax checks, Terraform format and validation, generated-workflow validation, deployment-package checks and container builds on pull requests and updates to `main`. Infrastructure deployment uses the manual OIDC-authenticated workflow and protected environment described in the [deployment guide](deployment.md).
 
 Before infrastructure deployment, run:
 
@@ -111,12 +111,12 @@ Use temporary Postman variables for endpoints and authorization. Do not export c
 
 ## Incident Triage and Recovery
 
-1. Check the two CloudWatch dashboards for processor errors, Kinesis iterator age, processing latency, and WebSocket delivery failures.
+1. Check the two CloudWatch dashboards for processor errors, Kinesis iterator age, processing latency and WebSocket delivery failures.
 2. Check the simulator task status and its CloudWatch log stream.
 3. Check the webhook Lambda log stream for authorization or secret-retrieval failures.
 4. For processing failures, inspect the encrypted failure queue and replay dead-letter queue before redriving any message.
 5. Correct the underlying data or deployment cause, then use the replay workflow only with a reviewed sequence range and a bounded replay attempt.
-6. Verify fresh current-state records, dashboard updates, and alarm recovery before closing the incident.
+6. Verify fresh current-state records, dashboard updates and alarm recovery before closing the incident.
 
 ### Analytical quarantine recovery
 
@@ -129,7 +129,7 @@ GROUP BY rejection_reason
 ORDER BY rejected_rows DESC;
 ```
 
-Export a bounded reason group to local JSONL, correct the rejected fields, and validate the file without publishing:
+Export a bounded reason group to local JSONL, correct the rejected fields and validate the file without publishing:
 
 ```zsh
 export DATA_BUCKET="$(terraform -chdir=infra output -raw raw_s3_bucket_name)"
@@ -146,13 +146,13 @@ export QUARANTINE_REVIEW_FILE="${TMPDIR:-/tmp}/healthcare-realtime-quarantine-re
   --stream-name "$VITALS_STREAM"
 ```
 
-Review the validated count, then publish the corrected rows by repeating the replay command with `--confirm-replay`. Replayed rows retain the original observation ID, use `source=quarantine_replay`, pass through Firehose and Glue again, and remain idempotent at the analytical `(observation_id, loinc_code)` grain.
+Review the validated count, then publish the corrected rows by repeating the replay command with `--confirm-replay`. Replayed rows retain the original observation ID, use `source=quarantine_replay`, pass through Firehose and Glue again and remain idempotent at the analytical `(observation_id, loinc_code)` grain.
 
 ### Simulator publication failures
 
 The simulator isolates FHIR publication failures by patient. The HAPI client owns the single bounded retry policy and reuses deterministic observation identifiers, so partial retries do not create duplicate observations. Patients with permanent failures are disabled for the remainder of the task while healthy patient streams continue.
 
-Each cycle emits a structured summary with `status`, patient counts, disabled patients, the retryable failure ratio, and consecutive systemic failure cycles. The task exits only when retryable failures meet the configured cohort ratio for three consecutive cycles. Cycle overruns and patient publication failures publish CloudWatch metrics from structured log entries and notify through the project alert topic.
+Each cycle emits a structured summary with `status`, patient counts, disabled patients, the retryable failure ratio and consecutive systemic failure cycles. The task exits only when retryable failures meet the configured cohort ratio for three consecutive cycles. Cycle overruns and patient publication failures publish CloudWatch metrics from structured log entries and notify through the project alert topic.
 
 The deployed defaults are controlled by:
 
@@ -161,7 +161,7 @@ The deployed defaults are controlled by:
 - `SIMULATOR_MAX_CONSECUTIVE_FAILED_CYCLES=3`
 - `SIMULATOR_FAILURE_RATIO_THRESHOLD=0.5`
 
-For a degraded cycle, inspect the associated `patient_publish_failed` entry and correct the underlying FHIR, database, or networking problem. Restart the short-lived simulator task only after HAPI is healthy.
+For a degraded cycle, inspect the associated `patient_publish_failed` entry and correct the underlying FHIR, database or networking problem. Restart the short-lived simulator task only after HAPI is healthy.
 
 ## Demo Shutdown and Cost Control
 
@@ -172,8 +172,8 @@ Stop the simulator immediately after validation or a recorded demo:
 ./scripts/demo/status_vitals_demo.sh
 ```
 
-The simulator is the intentionally short-lived Fargate workload. Do not stop the HAPI service or data-processing resources as part of ordinary demo shutdown. Review CloudWatch logs, Fargate task count, NAT gateway usage, managed database size, and retained object storage periodically when the environment is not being demonstrated.
+The simulator is the intentionally short-lived Fargate workload. Do not stop the HAPI service or data-processing resources as part of ordinary demo shutdown. Review CloudWatch logs, Fargate task count, NAT gateway usage, managed database size and retained object storage periodically when the environment is not being demonstrated.
 
 ## Evidence Handoff
 
-Record the commit, CI result, Terraform convergence result, dashboard/alarm state, and the outcome of REST and WebSocket checks. Redact all account-specific values and secrets before publishing portfolio evidence.
+Record the commit, CI result, Terraform convergence result, dashboard/alarm state and the outcome of REST and WebSocket checks. Redact all account-specific values and secrets before publishing portfolio evidence.

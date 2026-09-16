@@ -41,3 +41,6 @@ def test_dbt_models_preserve_encounter_context() -> None:
 
     assert "encounter_id" in staging_model
     assert "encounter_id" in fact_model
+    assert "ACTIVE_PATIENT_IDS" in staging_model
+    assert "where encounter_id is not null" in staging_model
+    assert "__legacy_unknown__" not in fact_model

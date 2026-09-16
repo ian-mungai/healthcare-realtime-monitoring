@@ -24,6 +24,14 @@ def test_fact_contains_stable_primary_and_foreign_keys() -> None:
         assert key in fact
 
 
+def test_encounters_require_real_active_cohort_context() -> None:
+    encounter = read_model("dim_encounter")
+
+    assert "__legacy_unknown__" not in encounter
+    assert "is_legacy_unknown" not in encounter
+    assert "concat('Encounter/', encounters.encounter_id)" in encounter
+
+
 def test_dimensions_are_descriptive_not_observation_summaries() -> None:
     patient = read_model("dim_patient")
     observation_type = read_model("dim_observation_type")
@@ -63,7 +71,7 @@ def test_provider_dimension_declares_scd2_validity() -> None:
 
 
 def test_encounter_feature_model_separates_feature_and_outcome_windows() -> None:
-    feature_model = (ANALYTICS_MODELS / "fct_encounter_vital_features.sql").read_text()
+    feature_model = (ANALYTICS_MODELS / "fact_encounter_vital_features.sql").read_text()
 
     assert "var('feature_window_minutes')" in feature_model
     assert "var('outcome_window_minutes')" in feature_model
@@ -91,7 +99,7 @@ def test_non_string_accepted_values_are_not_quoted() -> None:
     core_contract = yaml.safe_load((CORE_MODELS / "core.yml").read_text())
     analytics_contract = yaml.safe_load((ANALYTICS_MODELS / "analytics.yml").read_text())
     provider = next(model for model in core_contract["models"] if model["name"] == "dim_provider")
-    features = next(model for model in analytics_contract["models"] if model["name"] == "fct_encounter_vital_features")
+    features = next(model for model in analytics_contract["models"] if model["name"] == "fact_encounter_vital_features")
 
     for model, column_name in ((provider, "is_current"), (features, "deterioration_proxy_label")):
         column = next(column for column in model["columns"] if column["name"] == column_name)
@@ -101,6 +109,7 @@ def test_non_string_accepted_values_are_not_quoted() -> None:
 
 def test_ml_training_dataset_uses_patient_grouped_split() -> None:
     training_model = (ANALYTICS_MODELS / "ml_training_dataset.sql").read_text()
+    class_readiness_test = (ROOT / "dbt/tests/assert_ml_training_dataset_has_both_classes.sql").read_text()
 
     assert "patient_key" in training_model
     assert "split_bucket" in training_model
@@ -109,6 +118,7 @@ def test_ml_training_dataset_uses_patient_grouped_split() -> None:
     assert (ROOT / "dbt/tests/assert_ml_training_dataset_no_patient_leakage.sql").is_file()
     assert (ROOT / "dbt/tests/assert_ml_training_dataset_has_both_splits.sql").is_file()
     assert (ROOT / "dbt/tests/assert_ml_training_dataset_has_both_classes.sql").is_file()
+    assert "config(severity='warn')" in class_readiness_test
 
 
 def test_latest_predictions_require_the_approved_model_version() -> None:
