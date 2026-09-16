@@ -57,7 +57,7 @@ models:
         +materialized: table
         +table_type: iceberg
         +format: parquet
-        fct_encounter_vital_features:
+        fact_encounter_vital_features:
           +alias: "{{ env_var('DBT_ENCOUNTER_FEATURES_TABLE') }}"
         ml_training_dataset:
           +alias: "{{ env_var('DBT_ML_TRAINING_TABLE') }}"

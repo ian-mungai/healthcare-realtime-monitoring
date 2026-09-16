@@ -4,14 +4,14 @@
 
 Use this checklist to close a portfolio release of the healthcare realtime monitoring project. All published evidence must use synthetic data and replace deployment-specific values with placeholders.
 
-Only the documented Power BI-to-Athena connection is in scope. Report construction, DAX, visuals, publishing, and gateway setup are intentionally excluded.
+The portfolio release includes the documented Power BI-to-Athena connection and the separately reviewed root-level `.pbix` artifact. Power BI Service publishing remains optional and private.
 
 ## Source and CI
 
 - [ ] Working tree is clean.
 - [ ] The intended commit is on `main` and pushed to the remote.
-- [ ] GitHub Actions CI is green for that commit, including Python checks, Terraform checks, container builds, and Synthea validation when applicable.
-- [ ] The release notes identify the commit without publishing account IDs, endpoint identifiers, bucket names, or secret material.
+- [ ] GitHub Actions CI is green for that commit, including Python checks, Terraform checks, container builds and Synthea validation when applicable.
+- [ ] The release notes identify the commit without publishing account IDs, endpoint identifiers, bucket names or secret material.
 
 ## Infrastructure convergence
 
@@ -19,13 +19,13 @@ Only the documented Power BI-to-Athena connection is in scope. Report constructi
 - [ ] Run `terraform -chdir=infra fmt -check -recursive`.
 - [ ] Run `terraform -chdir=infra validate`.
 - [ ] Review `terraform -chdir=infra plan -var-file=development.tfvars`.
-- [ ] Confirm each action is an intended deployment change. Do not apply a plan containing unexplained replacement, deletion, or permission broadening.
+- [ ] Confirm each action is an intended deployment change. Do not apply a plan containing unexplained replacement, deletion or permission broadening.
 - [ ] Apply only an approved saved plan.
 - [ ] Regenerate the MWAA Serverless workflow from the deployed Terraform outputs before applying workflow changes.
 - [ ] Run Terraform plan again after deployment and confirm `No changes`.
 - [ ] Confirm the main state backend is separate from both application buckets and the bootstrap state is backed up privately.
 
-The portability rollout intentionally changes the Glue job arguments, MWAA workflow definition, and dbt/Soda ECS task-definition revisions. These changes make the target bucket and region runtime configuration rather than repository constants.
+The portability rollout intentionally changes the Glue job arguments, MWAA workflow definition and dbt/Soda ECS task-definition revisions. These changes make the target bucket and region runtime configuration rather than repository constants.
 
 ## Realtime evidence
 
@@ -43,26 +43,29 @@ Detailed instructions are in [demo-guide.md](demo-guide.md).
 ## Data and operations evidence
 
 - [ ] Confirm the end-to-end pipeline dashboard is healthy.
-- [ ] Confirm the realtime dashboard shows current processing, low iterator age, and no sustained delivery errors.
+- [ ] Confirm the realtime dashboard shows current processing, low iterator age and no sustained delivery errors.
 - [ ] Confirm the live processing-latency and WebSocket-delivery alarms are `OK`.
-- [x] Record a successful MWAA workflow and its Glue, Athena, Great Expectations, dbt, approved-model scoring, prediction refresh, and Soda task outcomes.
-- [x] Record successful Great Expectations, Soda, and OpenLineage validation outcomes.
+- [x] Record a successful MWAA workflow and its Glue, Athena, Great Expectations, dbt, approved-model scoring, prediction refresh and Soda task outcomes.
+- [x] Record successful Great Expectations, Soda and OpenLineage validation outcomes.
 - [ ] Verify the failure queue and replay dead-letter queue are empty or contain only reviewed synthetic test records.
 
 Verified release evidence on 2026-09-16: the cohort dashboard displayed current measurements for all ten configured simulated patients; one MWAA Serverless run completed all nine workflow tasks successfully; and the shared collector contained successful runs for all five expected analytical lineage jobs. Deployment-specific identifiers are intentionally omitted.
 
 ## Public-artifact redaction
 
-Before committing screenshots, diagrams, examples, or portfolio documents:
+Before committing screenshots, diagrams, examples or portfolio documents:
 
-- [ ] Remove account IDs, ARNs, ECR registry URLs, bucket names, API IDs, load-balancer names, endpoint URLs, connection IDs, private IPs, local usernames, and email addresses.
-- [ ] Remove secrets, signed authorization headers, API keys, webhook values, Terraform state, and terminal output containing any of them.
-- [ ] Replace environment values with reproducible placeholders such as `<aws-region>`, `<project-data-bucket>`, and `<api-id>`.
+- [ ] Remove account IDs, ARNs, ECR registry URLs, bucket names, API IDs, load-balancer names, endpoint URLs, connection IDs, private IPs, local usernames and email addresses.
+- [ ] Remove secrets, signed authorization headers, API keys, webhook values, Terraform state and terminal output containing any of them.
+- [ ] Replace environment values with reproducible placeholders such as `<aws-region>`, `<project-data-bucket>` and `<api-id>`.
 - [ ] Review every redaction-scan match manually; do not replace implementation configuration merely to conceal documentation.
+- [ ] Open the root-level `.pbix`, clear data-source permissions and confirm it uses DirectQuery with a generic local DSN.
+- [ ] Manually inspect Power Query, parameters, report text, cached previews and data-source settings because binary `.pbix` content is not covered reliably by text scans.
+- [ ] Confirm the `.pbix` contains only the ten-patient synthetic cohort and no deployment identifiers, credentials, signed headers, email addresses or local user paths.
 
 ## Release tag
 
-Create a release tag only after CI is green, Terraform has converged, and the evidence checklist is complete:
+Create a release tag only after CI is green, Terraform has converged and the evidence checklist is complete:
 
 ```zsh
 git tag -a v1.0.0 -m "Portfolio release v1.0.0"

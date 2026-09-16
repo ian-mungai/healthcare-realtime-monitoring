@@ -45,6 +45,10 @@ columns:
     checks:
       - missing:
 
+  - name: encounter_id
+    checks:
+      - missing:
+
   - name: loinc_code
     checks:
       - missing:

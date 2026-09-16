@@ -57,7 +57,7 @@ The trust policy accepts only tokens issued for the configured repository and pr
 
 ## Protected GitHub environment
 
-Create the protected GitHub environment named by `github_deployment_environment`, restrict it to `main`, and require approval for deployment. Configure this non-sensitive environment variable:
+Create the protected GitHub environment named by `github_deployment_environment`, restrict it to `main` and require approval for deployment. Configure this non-sensitive environment variable:
 
 | Name | Value |
 | --- | --- |
@@ -77,9 +77,9 @@ Synchronize the larger private configuration from the ignored Terraform input fi
 ./scripts/infrastructure/sync_deployment_config.sh
 ```
 
-The object is stored under `$TF_STATE_PREFIX/config/` in the persistent state bucket. `TF_STATE_PREFIX` must equal `<project-name>/terraform`; the synchronization and prerequisite scripts enforce that relationship. The Deploy workflow authenticates through GitHub OIDC before retrieving it. The bucket and prefix remain protected secrets because this public portfolio treats deployment identifiers as private; redacted plan diagnostics preserve useful errors without exposing those identifiers. Do not create a bulk `TERRAFORM_VARIABLES_JSON` GitHub secret, and do not expose account-specific identifiers as GitHub variables.
+The object is stored under `$TF_STATE_PREFIX/config/` in the persistent state bucket. `TF_STATE_PREFIX` must equal `<project-name>/terraform`; the synchronization and prerequisite scripts enforce that relationship. The Deploy workflow authenticates through GitHub OIDC before retrieving it. The bucket and prefix remain protected secrets because this public portfolio treats deployment identifiers as private; redacted plan diagnostics preserve useful errors without exposing those identifiers. Do not create a bulk `TERRAFORM_VARIABLES_JSON` GitHub secret and do not expose account-specific identifiers as GitHub variables.
 
-Run a full local Terraform plan to review resource details without publishing private identifiers. Then run the **Deploy** workflow manually, select the protected environment, and choose `action=plan` for remote verification. The workflow publishes a value-free table of resource addresses and actions to the job summary and prints redacted diagnostics if planning fails. Run it again with `action=apply` after approval. The apply run creates a fresh saved plan, applies exactly that plan, and verifies convergence. Container image tags in the private AWS configuration must already refer to immutable images published by the project build process.
+Run a full local Terraform plan to review resource details without publishing private identifiers. Then run the **Deploy** workflow manually, select the protected environment and choose `action=plan` for remote verification. The workflow publishes a value-free table of resource addresses and actions to the job summary and prints redacted diagnostics if planning fails. Run it again with `action=apply` after approval. The apply run creates a fresh saved plan, applies exactly that plan and verifies convergence. Container image tags in the private AWS configuration must already refer to immutable images published by the project build process.
 
 ## Shared OpenLineage collector
 
@@ -126,7 +126,7 @@ openlineage_collector_desired_count = 1
 openlineage_collector_url           = ""
 ```
 
-Run `./scripts/infrastructure/sync_deployment_config.sh` after updating the ignored Terraform inputs, then create and review a full Terraform plan. The plan creates Marquez ECS, encrypted RDS, an internal load balancer, and the IAM-authorized API route; it also updates Glue, MWAA, dbt, and Soda with the collector URL and route-specific `execute-api:Invoke` permission.
+Run `./scripts/infrastructure/sync_deployment_config.sh` after updating the ignored Terraform inputs, then create and review a full Terraform plan. The plan creates Marquez ECS, encrypted RDS, an internal load balancer and the IAM-authorized API route; it also updates Glue, MWAA, dbt and Soda with the collector URL and route-specific `execute-api:Invoke` permission.
 
 After apply, run the analytical workflow. Confirm the collector has namespaces and jobs using the project's SigV4 session:
 

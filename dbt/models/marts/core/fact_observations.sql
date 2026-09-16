@@ -1,7 +1,7 @@
 with observations as (
     select
         *,
-        {{ stable_key("coalesce(nullif(trim(encounter_id), ''), concat('__legacy_unknown__|', patient_id))") }} as encounter_key
+        {{ stable_key("trim(encounter_id)") }} as encounter_key
     from {{ ref('stg_fhir_observations') }}
 )
 

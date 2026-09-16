@@ -28,6 +28,7 @@ dbt_dim_observation_type_table_name  = "<dbt-observation-type-dimension-table>"
 dbt_dim_date_table_name              = "<dbt-date-dimension-table>"
 dbt_fact_observations_table_name     = "<dbt-observation-fact-table>"
 dbt_encounter_features_table_name    = "<dbt-encounter-features-table>"
+active_patient_ids                   = ["<patient-id-1>", "<patient-id-2>", "<patient-id-3>", "<patient-id-4>", "<patient-id-5>", "<patient-id-6>", "<patient-id-7>", "<patient-id-8>", "<patient-id-9>", "<patient-id-10>"]
 dbt_ml_training_table_name           = "<dbt-ml-training-table>"
 dbt_ml_scoring_table_name            = "<dbt-ml-scoring-table>"
 dbt_ml_predictions_serving_table_name = "<dbt-ml-predictions-serving-table>"

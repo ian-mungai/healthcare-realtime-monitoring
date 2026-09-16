@@ -22,7 +22,7 @@ export ML_APPROVED_MODEL_VERSION="<reviewed-model-version>"
   --publish-s3
 ```
 
-The scorer verifies the model and manifest SHA-256 metadata, checks the feature order, requires an evaluated threshold, scores without retraining, and writes the selected model-version partition idempotently.
+The scorer verifies the model and manifest SHA-256 metadata, checks the feature order, requires an evaluated threshold, scores without retraining and writes the selected model-version partition idempotently.
 
 ## Athena presentation
 
@@ -39,6 +39,6 @@ The native Airflow DAG and generated MWAA Serverless workflow run this sequence 
 dbt feature build -> approved-model scoring -> prediction-view refresh -> Soda freshness and contract checks
 ```
 
-The scorer reads `${ATHENA_DBT_DATABASE}.${DBT_ML_SCORING_TABLE}`, which does not require a completed outcome window or training label. It resolves the exact artifact from `ML_APPROVED_MODEL_VERSION`, never a mutable `latest` pointer, and does not retrain. Soda fails the workflow when the newest `scored_at` is 26 hours old or older.
+The scorer reads `${ATHENA_DBT_DATABASE}.${DBT_ML_SCORING_TABLE}`, which does not require a completed outcome window or training label. It resolves the exact artifact from `ML_APPROVED_MODEL_VERSION`, never a mutable `latest` pointer and does not retrain. Soda fails the workflow when the newest `scored_at` is 26 hours old or older.
 
 The Streamlit dashboard's separate **Model analytics** mode reads `${DBT_ML_PREDICTIONS_LATEST_TABLE}` through Athena and shows one latest prediction per patient. Results are cached for five minutes and cannot alter the live cohort's vital-warning priorities.

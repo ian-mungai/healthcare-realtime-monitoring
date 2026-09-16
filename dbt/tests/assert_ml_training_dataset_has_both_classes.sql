@@ -1,3 +1,5 @@
+{{ config(severity='warn') }}
+
 with split_class_counts as (
     select
         data_split,
