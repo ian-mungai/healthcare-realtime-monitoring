@@ -26,31 +26,31 @@ def test_runtime_client_uses_shared_http_collector(monkeypatch, capsys) -> None:
     openlineage_client = Mock()
     monkeypatch.setenv("OPENLINEAGE_URL", "https://lineage.example.com/")
     monkeypatch.setenv("OPENLINEAGE_ENDPOINT", "/api/v1/lineage/")
-    monkeypatch.setenv("OPENLINEAGE_AWS_REGION", "us-east-1")
+    monkeypatch.setenv("OPENLINEAGE_AWS_REGION", "example-region-1")
     monkeypatch.setattr(client, "AwsSigV4HttpTransport", sigv4_transport)
     monkeypatch.setattr(client, "OpenLineageClient", openlineage_client)
 
     client.build_runtime_openlineage_client("s3://project-bucket/lineage/event")
 
-    sigv4_transport.assert_called_once_with("https://lineage.example.com/", "api/v1/lineage", "us-east-1")
+    sigv4_transport.assert_called_once_with("https://lineage.example.com/", "api/v1/lineage", "example-region-1")
     openlineage_client.assert_called_once_with(transport=transport)
-    assert "OpenLineage transport selected: SigV4 HTTP in us-east-1" in capsys.readouterr().out
+    assert "OpenLineage transport selected: SigV4 HTTP in example-region-1" in capsys.readouterr().out
 
 
 def test_runtime_client_sigv4_signs_managed_collector(monkeypatch) -> None:
     transport = Mock()
     sigv4_transport = Mock(return_value=transport)
     openlineage_client = Mock()
-    monkeypatch.setenv("OPENLINEAGE_URL", "https://collector-id.execute-api.us-east-1.amazonaws.com/development")
-    monkeypatch.setenv("OPENLINEAGE_AWS_REGION", "us-east-1")
+    monkeypatch.setenv("OPENLINEAGE_URL", "https://collector-id.execute-api.example-region-1.amazonaws.com/development")
+    monkeypatch.setenv("OPENLINEAGE_AWS_REGION", "example-region-1")
     monkeypatch.setattr(client, "AwsSigV4HttpTransport", sigv4_transport)
     monkeypatch.setattr(client, "OpenLineageClient", openlineage_client)
 
     client.build_runtime_openlineage_client("s3://project-bucket/lineage/event")
 
     url, endpoint, region = sigv4_transport.call_args.args
-    assert urljoin(url, endpoint) == "https://collector-id.execute-api.us-east-1.amazonaws.com/development/api/v1/lineage"
-    assert region == "us-east-1"
+    assert urljoin(url, endpoint) == "https://collector-id.execute-api.example-region-1.amazonaws.com/development/api/v1/lineage"
+    assert region == "example-region-1"
     openlineage_client.assert_called_once_with(transport=transport)
 
 
@@ -64,11 +64,13 @@ def test_sigv4_transport_sends_the_signed_aws_request(monkeypatch) -> None:
     monkeypatch.setattr(client.boto3, "Session", Mock(return_value=boto_session))
     monkeypatch.setattr(client.Serde, "to_json", Mock(return_value='{"eventType":"START"}'))
 
-    transport = client.AwsSigV4HttpTransport("https://collector-id.execute-api.us-east-1.amazonaws.com/development/", "api/v1/lineage", "us-east-1")
+    transport = client.AwsSigV4HttpTransport(
+        "https://collector-id.execute-api.example-region-1.amazonaws.com/development/", "api/v1/lineage", "example-region-1"
+    )
 
     assert transport.emit(Mock()) is response
     request = http_session.send.call_args.args[0]
-    assert request.url == "https://collector-id.execute-api.us-east-1.amazonaws.com/development/api/v1/lineage"
+    assert request.url == "https://collector-id.execute-api.example-region-1.amazonaws.com/development/api/v1/lineage"
     assert request.body == b'{"eventType":"START"}'
     assert request.headers["Authorization"].startswith("AWS4-HMAC-SHA256")
     assert request.headers["X-Amz-Security-Token"] == "session-token"
