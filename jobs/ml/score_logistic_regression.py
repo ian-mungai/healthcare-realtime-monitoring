@@ -114,14 +114,7 @@ def main() -> None:
         if not bucket:
             raise SystemExit("Set DATA_BUCKET_NAME before using --publish-s3")
         published = publish_predictions(args.output, bucket, manifest["model_version"])
-        register_predictions_partition(
-            args.predictions_database,
-            args.predictions_table,
-            staging_dir,
-            args.region,
-            bucket,
-            manifest["model_version"],
-        )
+        register_predictions_partition(args.predictions_database, args.predictions_table, staging_dir, args.region, bucket, manifest["model_version"])
     print(json.dumps({"model_version": manifest["model_version"], "prediction_count": len(predictions), "published": published}, indent=2))
 
 

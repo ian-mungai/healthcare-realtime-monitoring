@@ -31,7 +31,7 @@ The portability rollout intentionally changes the Glue job arguments, MWAA workf
 
 - [ ] Start exactly one simulator task using `scripts/demo/start_vitals_demo.sh`.
 - [ ] Confirm the simulator is running with `scripts/demo/status_vitals_demo.sh`.
-- [ ] Open the cohort dashboard and verify current measurements for every configured simulated patient.
+- [x] Open the cohort dashboard and verify current measurements for every configured simulated patient.
 - [ ] Confirm trend focus and cohort return behavior without losing other patient lines.
 - [ ] Verify a REST latest-vitals response with AWS IAM authorization.
 - [ ] Verify a WebSocket update with AWS IAM authorization.
@@ -45,9 +45,11 @@ Detailed instructions are in [demo-guide.md](demo-guide.md).
 - [ ] Confirm the end-to-end pipeline dashboard is healthy.
 - [ ] Confirm the realtime dashboard shows current processing, low iterator age, and no sustained delivery errors.
 - [ ] Confirm the live processing-latency and WebSocket-delivery alarms are `OK`.
-- [ ] Record a successful MWAA workflow and its Glue, Athena, Great Expectations, dbt, approved-model scoring, prediction refresh, and Soda task outcomes.
-- [ ] Record successful Great Expectations, Soda, and OpenLineage validation outcomes.
+- [x] Record a successful MWAA workflow and its Glue, Athena, Great Expectations, dbt, approved-model scoring, prediction refresh, and Soda task outcomes.
+- [x] Record successful Great Expectations, Soda, and OpenLineage validation outcomes.
 - [ ] Verify the failure queue and replay dead-letter queue are empty or contain only reviewed synthetic test records.
+
+Verified release evidence on 2026-09-16: the cohort dashboard displayed current measurements for all ten configured simulated patients; one MWAA Serverless run completed all nine workflow tasks successfully; and the shared collector contained successful runs for all five expected analytical lineage jobs. Deployment-specific identifiers are intentionally omitted.
 
 ## Public-artifact redaction
 

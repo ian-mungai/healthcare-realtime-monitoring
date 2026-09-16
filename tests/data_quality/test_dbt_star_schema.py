@@ -48,13 +48,7 @@ def test_bus_matrix_documents_fact_grain_and_dimensions() -> None:
     bus_matrix = (ROOT / "docs/analytics-star-schema.md").read_text()
 
     assert "one vital-sign measurement per `observation_id` and `loinc_code`" in bus_matrix
-    for dimension in (
-        "DBT_DIM_PATIENT_TABLE",
-        "DBT_DIM_ENCOUNTER_TABLE",
-        "DBT_DIM_OBSERVATION_TYPE_TABLE",
-        "DBT_DIM_DATE_TABLE",
-        "DBT_DIM_PROVIDER_TABLE",
-    ):
+    for dimension in ("DBT_DIM_PATIENT_TABLE", "DBT_DIM_ENCOUNTER_TABLE", "DBT_DIM_OBSERVATION_TYPE_TABLE", "DBT_DIM_DATE_TABLE", "DBT_DIM_PROVIDER_TABLE"):
         assert dimension in bus_matrix
 
 

@@ -65,14 +65,7 @@ def get_invalid_row_count(athena_client, query_execution_id: str) -> int:
 
 
 def run_athena_validation(
-    data_bucket_name: str,
-    aws_region: str,
-    database: str,
-    table: str,
-    workgroup: str,
-    athena_output: str,
-    project_name: str,
-    openlineage_url: str = "",
+    data_bucket_name: str, aws_region: str, database: str, table: str, workgroup: str, athena_output: str, project_name: str, openlineage_url: str = ""
 ) -> str:
     os.environ["DATA_BUCKET_NAME"] = data_bucket_name
     os.environ["PROJECT_NAME"] = project_name
