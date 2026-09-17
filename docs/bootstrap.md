@@ -13,7 +13,7 @@ cp .env.example .env
 
 Use the root requirements file as the single local dependency entry point. It includes the pinned Airflow workflow-generator requirements and keeps Apache Airflow 3.3.1 compatible with SQLAlchemy 2.0.50 in the project virtual environment.
 
-Replace every placeholder in `.env`, enter the target region once as `AWS_REGION`, use globally unique names for the state and application-data buckets and render both Terraform inputs:
+Replace every placeholder in `.env` except `PATIENT_IDS`, enter the target region once as `AWS_REGION`, use globally unique names for the state and application-data buckets and render both Terraform inputs. The generated HAPI cohort replaces `PATIENT_IDS` before the full application plan:
 
 ```zsh
 ./scripts/infrastructure/render_project_config.sh
@@ -78,9 +78,6 @@ set -o pipefail
 ./scripts/infrastructure/bootstrap.sh foundation-plan 2>&1 | tee /tmp/healthcare-foundation-plan.log
 CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap ./scripts/infrastructure/bootstrap.sh foundation-apply 2>&1 | tee /tmp/healthcare-foundation-apply.log
 terraform -chdir=infra output -raw glue_job_name
-./scripts/infrastructure/bootstrap.sh application-plan 2>&1 | tee /tmp/healthcare-application-plan.log
-CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap ./scripts/infrastructure/bootstrap.sh application-apply 2>&1 | tee /tmp/healthcare-application-apply.log
-terraform -chdir=infra plan 2>&1 | tee /tmp/healthcare-convergence-plan.log
 ```
 
 The foundation wrapper builds the Glue lineage package before its targeted plan. The `glue_job_name` command must return a nonempty value before application generation begins. The final plan must report `No changes`. During bootstrap the workflow remains manual-only because no approved model exists yet. The [external prerequisite inventory](external-prerequisites.md) identifies the account and third-party configuration that Terraform does not create.
@@ -107,12 +104,14 @@ POPULATION=10 SEED=12345 ./scripts/synthea_loader/scripts/generate.sh
 export FHIR_BASE_URL="$(terraform -chdir=infra output -raw hapi_fhir_base_url)"
 .venv/bin/python -m scripts.synthea_loader.src.load_fhir
 
-aws s3 cp \
-  scripts/synthea_loader/state/fhir_resource_map.json \
-  "s3://${DATA_BUCKET_NAME}/${FHIR_RESOURCE_MAP_S3_KEY}" \
-  --profile "$AWS_PROFILE" \
-  --region "$AWS_REGION"
+.venv/bin/python -m scripts.synthea_loader.src.publish_resource_map
+
+./scripts/infrastructure/bootstrap.sh application-plan 2>&1 | tee /tmp/healthcare-application-plan.log
+CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap ./scripts/infrastructure/bootstrap.sh application-apply 2>&1 | tee /tmp/healthcare-application-apply.log
+terraform -chdir=infra plan 2>&1 | tee /tmp/healthcare-convergence-plan.log
 ```
+
+The publisher uploads the generated map, replaces `PATIENT_IDS` in `.env` with the ten HAPI patient IDs and rerenders the ignored Terraform inputs. Review the application plan before applying it. The final convergence plan must report `No changes`.
 
 Using an approved identity with the tracked Secrets Manager policy, retrieve the webhook secret for the registration process only. The policy scopes `secretsmanager:GetSecretValue` to `FHIR_WEBHOOK_SECRET_ID`. Register the HAPI Subscription without writing the value to `.env` or printing it:
 
