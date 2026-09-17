@@ -11,4 +11,4 @@ else
   PYTHON_BIN="$(command -v python3)"
 fi
 
-exec "$PYTHON_BIN" "$REPO_ROOT/scripts/infrastructure/render_project_config.py" "$@"
+exec env PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}" "$PYTHON_BIN" "$REPO_ROOT/scripts/infrastructure/render_project_config.py" "$@"

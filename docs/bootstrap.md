@@ -13,7 +13,7 @@ cp .env.example .env
 
 Use the root requirements file as the single local dependency entry point. It includes the pinned Airflow workflow-generator requirements and keeps Apache Airflow 3.3.1 compatible with SQLAlchemy 2.0.50 in the project virtual environment.
 
-Replace every placeholder in `.env` except `PATIENT_IDS`, enter the target region once as `AWS_REGION`, use globally unique names for the state and application-data buckets and render both Terraform inputs. The generated HAPI cohort replaces `PATIENT_IDS` before the full application plan:
+Replace every placeholder in `.env`, enter the target region once as `AWS_REGION`, use globally unique names for the state and application-data buckets and render both Terraform inputs. Patient IDs are generated from the HAPI cohort before the full application plan:
 
 ```zsh
 ./scripts/infrastructure/render_project_config.sh
@@ -111,7 +111,7 @@ CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap ./scripts/infrastructure/b
 terraform -chdir=infra plan 2>&1 | tee /tmp/healthcare-convergence-plan.log
 ```
 
-The publisher uploads the generated map, replaces `PATIENT_IDS` in `.env` with the ten HAPI patient IDs and rerenders the ignored Terraform inputs. Review the application plan before applying it. The final convergence plan must report `No changes`.
+The publisher uploads the generated map and rerenders the ignored Terraform inputs with the ten HAPI patient IDs. The live dashboard reads the same generated map directly. Review the application plan before applying it. The final convergence plan must report `No changes`.
 
 Using an approved identity with the tracked Secrets Manager policy, retrieve the webhook secret for the registration process only. The policy scopes `secretsmanager:GetSecretValue` to `FHIR_WEBHOOK_SECRET_ID`. Register the HAPI Subscription without writing the value to `.env` or printing it:
 

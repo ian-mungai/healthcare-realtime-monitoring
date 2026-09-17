@@ -43,6 +43,18 @@
     "openlineage_skip_final_snapshot": false,
     "openlineage_final_snapshot_identifier": "healthcare-realtime-marquez-final"
   },
+  "bootstrap_patient_ids": [
+    "bootstrap-patient-01",
+    "bootstrap-patient-02",
+    "bootstrap-patient-03",
+    "bootstrap-patient-04",
+    "bootstrap-patient-05",
+    "bootstrap-patient-06",
+    "bootstrap-patient-07",
+    "bootstrap-patient-08",
+    "bootstrap-patient-09",
+    "bootstrap-patient-10"
+  ],
   "github_deployment_policy_names": [
     "healthcare_realtime_apigateway_policy",
     "healthcare_realtime_cloudformation_policy",
