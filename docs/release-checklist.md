@@ -8,10 +8,10 @@ The portfolio release includes the completed Power BI-to-Athena connection and r
 
 ## Source and CI
 
-- [ ] Working tree is clean before tagging.
-- [ ] The release commit is on `main` and pushed to the remote.
-- [ ] GitHub Actions CI is green for the release commit, including Python checks, Terraform checks and container builds. Synthea validation may be skipped when its paths are unchanged.
-- [ ] The release notes identify the release scope without publishing account IDs, endpoint identifiers, bucket names or secret material.
+- [x] Working tree is clean before tagging.
+- [x] The release commit is on `main` and pushed to the remote.
+- [x] GitHub Actions CI is green for the release commit, including Python checks, Terraform checks and container builds. Synthea validation may be skipped when its paths are unchanged.
+- [x] The release notes identify the release scope without publishing account IDs, endpoint identifiers, bucket names or secret material.
 
 ## Infrastructure convergence
 
