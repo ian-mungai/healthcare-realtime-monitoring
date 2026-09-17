@@ -65,7 +65,7 @@ terraform_plan_args=(
 )
 
 cleanup_args() {
-  local data_bucket mwaa_bucket simulator_repository dbt_repository soda_repository marquez_repository
+  local data_bucket simulator_repository dbt_repository soda_repository marquez_repository
   local aws_region="${AWS_REGION:-${AWS_DEFAULT_REGION:-}}"
   if [[ -z "$aws_region" ]]; then
     echo "Set AWS_REGION before inspecting or cleaning storage." >&2
@@ -73,7 +73,6 @@ cleanup_args() {
   fi
 
   data_bucket="$(terraform -chdir="$INFRA_DIR" output -raw raw_s3_bucket_name)"
-  mwaa_bucket="$(terraform -chdir="$INFRA_DIR" output -raw mwaa_source_bucket_name)"
   simulator_repository="$(terraform -chdir="$INFRA_DIR" output -raw vitals_simulator_ecr_repository_name)"
   dbt_repository="$(basename "$(terraform -chdir="$INFRA_DIR" output -raw dbt_ecr_repository_url)")"
   soda_repository="$(basename "$(terraform -chdir="$INFRA_DIR" output -raw soda_ecr_repository_url)")"
@@ -82,7 +81,6 @@ cleanup_args() {
   CLEANUP_ARGS=(
     --region "$aws_region"
     --s3-bucket "$data_bucket"
-    --s3-bucket "$mwaa_bucket"
     --protected-bucket "$TF_STATE_BUCKET"
     --ecr-repository "$simulator_repository"
     --ecr-repository "$dbt_repository"

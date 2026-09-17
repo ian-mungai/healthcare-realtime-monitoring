@@ -66,7 +66,6 @@ def test_renderer_replaces_state_bucket_placeholder(tmp_path: Path) -> None:
         "AWS_ACCOUNT_ID": "111111111111",
         "AWS_REGION": "example-region-1",
         "DATA_BUCKET_NAME": "example-data",
-        "MWAA_BUCKET_NAME": "example-mwaa",
         "TF_STATE_BUCKET": "example-state",
         "PROJECT_NAME": "example-project",
     }

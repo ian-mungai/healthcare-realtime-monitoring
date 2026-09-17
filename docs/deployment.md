@@ -64,14 +64,13 @@ Create the protected GitHub environment named by `github_deployment_environment`
 | --- | --- |
 | `AWS_REGION` | Target AWS region |
 
-Add four environment secrets:
+Add three environment secrets:
 
 | Name | Value |
 | --- | --- |
 | `AWS_DEPLOY_ROLE_ARN` | Terraform `github_deployment_role_arn` output |
 | `TF_STATE_BUCKET` | Dedicated persistent state bucket created by `infra/bootstrap` |
 | `TF_STATE_PREFIX` | `<project-name>/terraform` |
-| `TF_STATE_REGION` | Region containing the persistent state bucket |
 
 Synchronize the generated private configuration from `.env` into encrypted, versioned AWS storage:
 
@@ -79,7 +78,7 @@ Synchronize the generated private configuration from `.env` into encrypted, vers
 ./scripts/infrastructure/sync_deployment_config.sh
 ```
 
-The object is stored under `$TF_STATE_PREFIX/config/` in the persistent state bucket. `TF_STATE_PREFIX` must equal `<project-name>/terraform`; the synchronization and prerequisite scripts enforce that relationship. The Deploy workflow authenticates through GitHub OIDC before retrieving it. The bucket and prefix remain protected secrets because this public portfolio treats deployment identifiers as private; redacted plan diagnostics preserve useful errors without exposing those identifiers. Do not create a bulk `TERRAFORM_VARIABLES_JSON` GitHub secret and do not expose account-specific identifiers as GitHub variables.
+The object is stored under `$TF_STATE_PREFIX/config/` in the persistent state bucket. `TF_STATE_PREFIX` must equal `<project-name>/terraform`; the synchronization and prerequisite scripts enforce that relationship. The Deploy workflow authenticates through GitHub OIDC before retrieving it and uses the single `AWS_REGION` environment variable for both Terraform state and application resources. The bucket and prefix remain protected secrets because this public portfolio treats deployment identifiers as private; redacted plan diagnostics preserve useful errors without exposing those identifiers. Do not create a bulk `TERRAFORM_VARIABLES_JSON` GitHub secret and do not expose account-specific identifiers as GitHub variables.
 
 Run a full local Terraform plan to review resource details without publishing private identifiers. Then run the **Deploy** workflow manually, select the protected environment and choose `action=plan` for remote verification. The workflow publishes a value-free table of resource addresses and actions to the job summary and prints redacted diagnostics if planning fails. Run it again with `action=apply` after approval. The apply run creates a fresh saved plan, applies exactly that plan and verifies convergence. Container image tags in the private AWS configuration must already refer to immutable images published by the project build process.
 

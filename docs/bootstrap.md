@@ -11,7 +11,7 @@ python3.12 -m venv .venv
 cp .env.example .env
 ```
 
-Replace every placeholder in `.env`, use globally unique bucket names, leave `TF_STATE_REGION` empty for a state bucket in the target region and render both Terraform inputs:
+Replace every placeholder in `.env`, enter the target region once as `AWS_REGION`, use globally unique names for the state and application-data buckets and render both Terraform inputs:
 
 ```zsh
 ./scripts/infrastructure/render_project_config.sh
@@ -43,7 +43,7 @@ CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
 ./scripts/infrastructure/bootstrap.sh main-init
 ```
 
-The state bucket is separate from `data_bucket_name` and `mwaa_source_bucket_name`. See [infrastructure-lifecycle.md](infrastructure-lifecycle.md) before migrating old state or deleting an environment.
+The state bucket is separate from `data_bucket_name`. MWAA Serverless source artifacts use the application-data bucket under `orchestration/mwaa-serverless/`. See [infrastructure-lifecycle.md](infrastructure-lifecycle.md) before migrating old state or deleting an environment.
 
 ## 2. Bootstrap protected inputs and packages
 

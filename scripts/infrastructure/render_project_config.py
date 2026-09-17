@@ -16,7 +16,6 @@ STRING_VARIABLES = {
     "AWS_REGION": "aws_region",
     "PROJECT_NAME": "project_name",
     "DATA_BUCKET_NAME": "data_bucket_name",
-    "MWAA_SOURCE_BUCKET_NAME": "mwaa_source_bucket_name",
     "REALTIME_ALERT_EMAIL": "realtime_alert_email",
     "FHIR_WEBHOOK_SECRET_ID": "fhir_webhook_secret_id",
     "OPENLINEAGE_COLLECTOR_URL": "openlineage_collector_url",
@@ -44,11 +43,7 @@ REQUIRED_ENVIRONMENT = {
     "ENABLE_GITHUB_OIDC",
     "ENABLE_OPENLINEAGE_COLLECTOR",
     "FHIR_WEBHOOK_SECRET_ID",
-    "GITHUB_DEPLOYMENT_ENVIRONMENT",
-    "GITHUB_OIDC_SUBJECT_PREFIX",
-    "GITHUB_REPOSITORY",
     "ML_APPROVED_MODEL_VERSION",
-    "MWAA_SOURCE_BUCKET_NAME",
     "OPENLINEAGE_COLLECTOR_DESIRED_COUNT",
     "OPENLINEAGE_COLLECTOR_URL",
     "PATIENT_IDS",
@@ -135,6 +130,11 @@ def build_configuration(environment: dict[str, str], defaults: dict[str, Any]) -
         raise ConfigurationError("PATIENT_IDS must contain exactly ten patient identifiers")
     principals = parse_csv(require_value(effective, "REALTIME_PATIENT_ACCESS_PRINCIPALS"), "REALTIME_PATIENT_ACCESS_PRINCIPALS")
 
+    github_oidc_enabled = parse_boolean(require_value(effective, "ENABLE_GITHUB_OIDC"), "ENABLE_GITHUB_OIDC")
+    if github_oidc_enabled:
+        require_value(effective, "GITHUB_REPOSITORY")
+        require_value(effective, "GITHUB_DEPLOYMENT_ENVIRONMENT")
+
     deployment = dict(defaults["terraform"])
     for environment_name, terraform_name in STRING_VARIABLES.items():
         deployment[terraform_name] = effective.get(environment_name, "").strip()
@@ -158,8 +158,11 @@ def build_configuration(environment: dict[str, str], defaults: dict[str, Any]) -
     deployment["github_deployment_policy_arns"] = [f"arn:aws:iam::{account_id}:policy/{name}" for name in defaults["github_deployment_policy_names"]]
 
     project_name = require_value(effective, "PROJECT_NAME")
-    state_region = effective.get("TF_STATE_REGION", "").strip() or require_value(effective, "AWS_REGION")
-    bootstrap = {"aws_region": state_region, "project_name": project_name, "state_bucket_name": require_value(effective, "TF_STATE_BUCKET")}
+    bootstrap = {
+        "aws_region": require_value(effective, "AWS_REGION"),
+        "project_name": project_name,
+        "state_bucket_name": require_value(effective, "TF_STATE_BUCKET"),
+    }
     return deployment, bootstrap
 
 

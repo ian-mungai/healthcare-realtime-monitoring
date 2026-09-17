@@ -9,7 +9,6 @@ load_project_env "${PROJECT_ENV_FILE:-$REPO_ROOT/.env}"
 : "${AWS_REGION:?Set AWS_REGION in .env or the current shell.}"
 : "${PROJECT_NAME:?Set PROJECT_NAME in .env or the current shell.}"
 : "${TF_STATE_BUCKET:?Set TF_STATE_BUCKET in .env or the current shell.}"
-: "${TF_STATE_REGION:?Set TF_STATE_REGION in .env or the current shell.}"
 
 EXPECTED_STATE_PREFIX="$PROJECT_NAME/terraform"
 if [[ "$TF_STATE_PREFIX" != "$EXPECTED_STATE_PREFIX" ]]; then
@@ -31,7 +30,7 @@ aws s3api put-object \
   --key "$CONFIG_KEY" \
   --body "$TFVARS_FILE" \
   --content-type application/json \
-  --region "$TF_STATE_REGION" \
+  --region "$AWS_REGION" \
   >/dev/null
 
 encryption="$(aws s3api head-object \
@@ -39,7 +38,7 @@ encryption="$(aws s3api head-object \
   --key "$CONFIG_KEY" \
   --query ServerSideEncryption \
   --output text \
-  --region "$TF_STATE_REGION")"
+  --region "$AWS_REGION")"
 case "$encryption" in
   AES256 | aws:kms) ;;
   *)

@@ -31,8 +31,4 @@ load_project_env() {
     export TF_STATE_PREFIX
   fi
 
-  if [[ -z "${TF_STATE_REGION:-}" && -n "${AWS_REGION:-}" ]]; then
-    TF_STATE_REGION="$AWS_REGION"
-    export TF_STATE_REGION
-  fi
 }
