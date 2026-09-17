@@ -79,7 +79,6 @@ run "plan" {
   variables {
     aws_region                 = "example-region-1"
     data_bucket_name           = "ci-project-data-bucket"
-    mwaa_source_bucket_name    = "ci-project-mwaa-source-bucket"
     realtime_alert_email       = "alerts@example.com"
     vitals_simulator_image_tag = "sha-ci"
     dbt_image_tag              = "sha-ci"
@@ -130,7 +129,6 @@ run "bootstrap_plan" {
   variables {
     aws_region                 = "example-region-1"
     data_bucket_name           = "ci-project-data-bucket"
-    mwaa_source_bucket_name    = "ci-project-mwaa-source-bucket"
     realtime_alert_email       = "alerts@example.com"
     vitals_simulator_image_tag = "sha-ci"
     dbt_image_tag              = "sha-ci"
@@ -150,7 +148,6 @@ run "github_oidc_plan" {
   variables {
     aws_region                 = "example-region-1"
     data_bucket_name           = "ci-project-data-bucket"
-    mwaa_source_bucket_name    = "ci-project-mwaa-source-bucket"
     realtime_alert_email       = "alerts@example.com"
     vitals_simulator_image_tag = "sha-ci"
     dbt_image_tag              = "sha-ci"
@@ -177,7 +174,6 @@ run "openlineage_collector_plan" {
   variables {
     aws_region                 = "example-region-1"
     data_bucket_name           = "ci-project-data-bucket"
-    mwaa_source_bucket_name    = "ci-project-mwaa-source-bucket"
     realtime_alert_email       = "alerts@example.com"
     vitals_simulator_image_tag = "sha-ci"
     dbt_image_tag              = "sha-ci"

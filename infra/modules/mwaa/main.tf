@@ -2,53 +2,19 @@ data "aws_caller_identity" "current" {}
 
 data "aws_region" "current" {}
 
-resource "aws_s3_bucket" "mwaa" {
-  bucket        = var.source_bucket_name
-  force_destroy = var.force_destroy
-
-  tags = var.tags
-}
-
-resource "aws_s3_bucket_versioning" "mwaa" {
-  bucket = aws_s3_bucket.mwaa.id
-
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-resource "aws_s3_bucket_public_access_block" "mwaa" {
-  bucket = aws_s3_bucket.mwaa.id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
 resource "aws_s3_object" "workflow_definition" {
-  bucket       = aws_s3_bucket.mwaa.id
-  key          = "workflows/healthcare_realtime_pipeline.yml"
+  bucket       = var.data_bucket_name
+  key          = "${var.source_prefix}/workflows/healthcare_realtime_pipeline.yml"
   source       = "${path.root}/../airflow/serverless/generated/healthcare_realtime_pipeline.yaml"
   source_hash  = filemd5("${path.root}/../airflow/serverless/generated/healthcare_realtime_pipeline.yaml")
   content_type = "application/x-yaml"
-
-  depends_on = [
-    aws_s3_bucket_versioning.mwaa,
-    aws_s3_bucket_public_access_block.mwaa,
-  ]
 }
 
 resource "aws_s3_object" "workflow_code" {
-  bucket = aws_s3_bucket.mwaa.id
-  key    = "code/healthcare_realtime_mwaa_serverless_code.zip"
+  bucket = var.data_bucket_name
+  key    = "${var.source_prefix}/code/healthcare_realtime_mwaa_serverless_code.zip"
   source = "${path.root}/../build/mwaa/healthcare_realtime_mwaa_serverless_code.zip"
   etag   = filemd5("${path.root}/../build/mwaa/healthcare_realtime_mwaa_serverless_code.zip")
-
-  depends_on = [
-    aws_s3_bucket_versioning.mwaa,
-    aws_s3_bucket_public_access_block.mwaa,
-  ]
 }
 
 data "aws_iam_policy_document" "mwaa_serverless_assume_role" {
@@ -85,7 +51,7 @@ data "aws_iam_policy_document" "mwaa_s3_access" {
     ]
 
     resources = [
-      "${aws_s3_bucket.mwaa.arn}/workflows/*"
+      "arn:aws:s3:::${var.data_bucket_name}/${var.source_prefix}/*"
     ]
   }
 
@@ -312,14 +278,14 @@ resource "awscc_mwaaserverless_workflow" "healthcare_realtime" {
   trigger_mode = var.enable_schedule ? "scheduled" : "manual_only"
 
   definition_s3_location = {
-    bucket     = aws_s3_bucket.mwaa.bucket
+    bucket     = var.data_bucket_name
     object_key = aws_s3_object.workflow_definition.key
     version_id = aws_s3_object.workflow_definition.version_id
   }
 
   code = {
     s3_location = {
-      bucket     = aws_s3_bucket.mwaa.bucket
+      bucket     = var.data_bucket_name
       object_key = aws_s3_object.workflow_code.key
       version_id = aws_s3_object.workflow_code.version_id
     }

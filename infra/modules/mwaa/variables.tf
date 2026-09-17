@@ -3,20 +3,15 @@ variable "workflow_name" {
   type        = string
 }
 
-variable "source_bucket_name" {
-  description = "S3 bucket used by Amazon MWAA Serverless"
-  type        = string
-}
-
-variable "force_destroy" {
-  description = "Allow Terraform to delete all MWAA source object versions during an explicitly approved teardown."
-  type        = bool
-  default     = false
-}
-
 variable "data_bucket_name" {
   description = "Healthcare realtime data bucket"
   type        = string
+}
+
+variable "source_prefix" {
+  description = "Prefix in the healthcare data bucket for MWAA Serverless source artifacts."
+  type        = string
+  default     = "orchestration/mwaa-serverless"
 }
 
 variable "enable_schedule" {

@@ -10,7 +10,6 @@ TERRAFORM_VARIABLES = {
     "PROJECT_NAME": "project_name",
     "AWS_REGION": "aws_region",
     "DATA_BUCKET_NAME": "data_bucket_name",
-    "MWAA_BUCKET_NAME": "mwaa_source_bucket_name",
     "KINESIS_STREAM_NAME": "kinesis_stream_name",
     "LOAD_TEST_KINESIS_STREAM_NAME": "load_test_kinesis_stream_name",
     "FIREHOSE_DELIVERY_STREAM_NAME": "firehose_delivery_stream_name",

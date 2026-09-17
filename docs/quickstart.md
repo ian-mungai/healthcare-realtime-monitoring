@@ -19,7 +19,18 @@ python3.12 -m venv .venv
 cp .env.example .env
 ```
 
-Replace every placeholder in `.env`. Use globally unique names for the state, application-data and MWAA source buckets. Leave `TF_STATE_REGION` empty so the new state bucket is created in `AWS_REGION`. Leave `ML_APPROVED_MODEL_VERSION` empty for the first deployment. Image tags are not first-deployment inputs; the image publishing script generates and records them later.
+Replace every placeholder in `.env`. Enter the deployment region once as `AWS_REGION` and use globally unique names for the state and application-data buckets. The state bucket and every regional service are created in `AWS_REGION`. MWAA Serverless definitions and code are stored under `orchestration/mwaa-serverless/` in the application-data bucket. Leave `ML_APPROVED_MODEL_VERSION` empty for the first deployment. Image tags are not first-deployment inputs; the image publishing script generates and records them later.
+
+Find the AWS identity that will sign the dashboard REST and WebSocket requests:
+
+```zsh
+aws sts get-caller-identity \
+  --profile <aws-profile> \
+  --query Arn \
+  --output text
+```
+
+Set `REALTIME_PATIENT_ACCESS_PRINCIPALS` to that ARN. For an assumed-role or AWS SSO identity, replace only the changing session-name suffix with `*`, for example `arn:aws:sts::<aws-account-id>:assumed-role/<role-name>/*`. Use a comma-separated list for multiple approved identities. Do not use a wildcard for the account, role name or entire principal.
 
 Render the two ignored Terraform input files. Do not edit the generated files directly:
 

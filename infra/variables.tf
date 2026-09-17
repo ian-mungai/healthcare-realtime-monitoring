@@ -198,11 +198,6 @@ variable "data_bucket_name" {
   type        = string
 }
 
-variable "mwaa_source_bucket_name" {
-  description = "Globally unique S3 bucket name for MWAA Serverless source artifacts."
-  type        = string
-}
-
 variable "allow_destructive_teardown" {
   description = "Opt in to disabling deletion protection and allowing Terraform to empty managed S3/ECR resources during a reviewed teardown."
   type        = bool

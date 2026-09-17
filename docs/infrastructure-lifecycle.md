@@ -8,7 +8,7 @@ The teardown workflow is deliberately two phase. The first reviewed apply disabl
 
 ## Persistent state bootstrap
 
-Complete `.env`, render the ignored Terraform inputs, review the state-bucket plan and apply it. `TF_STATE_REGION` identifies the persistent state bucket region and may differ from the new application's `AWS_REGION` during a cross-region recreation.
+Complete `.env`, render the ignored Terraform inputs, review the state-bucket plan and apply it. The persistent state bucket and application resources use the single `AWS_REGION` value. A new regional deployment therefore creates a new state bucket in that region.
 
 ```zsh
 ./scripts/infrastructure/render_project_config.sh

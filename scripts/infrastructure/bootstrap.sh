@@ -75,9 +75,9 @@ case "$ACTION" in
       --key "$bootstrap_state_key" \
       --body "$BOOTSTRAP_DIR/terraform.tfstate" \
       --server-side-encryption AES256 \
-      --region "$TF_STATE_REGION" \
+      --region "$AWS_REGION" \
       >/dev/null
-    aws s3api head-object --bucket "$TF_STATE_BUCKET" --key "$bootstrap_state_key" --region "$TF_STATE_REGION" >/dev/null
+    aws s3api head-object --bucket "$TF_STATE_BUCKET" --key "$bootstrap_state_key" --region "$AWS_REGION" >/dev/null
     echo "Bootstrap state backup verified."
     ;;
   main-init)
