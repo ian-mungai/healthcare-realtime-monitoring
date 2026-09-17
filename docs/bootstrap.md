@@ -108,7 +108,7 @@ export FHIR_BASE_URL="$(terraform -chdir=infra output -raw hapi_fhir_base_url)"
 .venv/bin/python -m scripts.synthea_loader.src.load_fhir
 ```
 
-Using an approved identity with `secretsmanager:GetSecretValue`, retrieve the webhook secret for the registration process only. Register the HAPI Subscription without writing the value to `.env` or printing it:
+Using an approved identity with the tracked Secrets Manager policy, retrieve the webhook secret for the registration process only. The policy scopes `secretsmanager:GetSecretValue` to `FHIR_WEBHOOK_SECRET_ID`. Register the HAPI Subscription without writing the value to `.env` or printing it:
 
 ```zsh
 export FHIR_WEBHOOK_URL="$(terraform -chdir=infra output -raw fhir_webhook_url)"
