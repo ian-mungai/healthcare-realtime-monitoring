@@ -1,6 +1,7 @@
 import os
 import signal
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
@@ -8,10 +9,12 @@ from threading import Event
 
 from services.vitals_simulator.app.bidmc.source import VitalReading, fetch_remote_bidmc_record
 from services.vitals_simulator.app.fhir.client import FHIRRetryableError, HAPIFHIRClient
+from services.vitals_simulator.app.fhir.encounter import build_simulator_encounter
 from services.vitals_simulator.app.fhir.mapping import FHIRPatientContext, get_patient_cohort
 from services.vitals_simulator.app.fhir.observation import utc_now
 from services.vitals_simulator.app.fhir.publisher import PublishedSimulatorEvent, publish_simulator_event
 from services.vitals_simulator.app.simulation.cycle import build_simulator_event
+from services.vitals_simulator.app.simulation.scenario import NORMAL_SCENARIO, apply_vital_scenario, choose_patient_scenarios
 from services.vitals_simulator.app.synthea.blood_pressure import load_synthea_blood_pressure_readings, readings_for_patient
 from services.vitals_simulator.app.synthea.blood_pressure_cadence import BloodPressureCadence
 
@@ -37,6 +40,7 @@ class SimulatorSettings:
     fhir_retry_backoff_seconds: float = DEFAULT_PUBLISH_RETRY_BACKOFF_SECONDS
     max_consecutive_failed_cycles: int = DEFAULT_MAX_CONSECUTIVE_FAILED_CYCLES
     failure_ratio_threshold: float = DEFAULT_FAILURE_RATIO_THRESHOLD
+    scenario_seed: str | None = None
 
 
 @dataclass
@@ -45,6 +49,7 @@ class PatientSimulation:
     bidmc_record_number: int
     readings: list[VitalReading]
     bp_cadence: BloodPressureCadence
+    scenario: str = NORMAL_SCENARIO
 
 
 @dataclass(frozen=True)
@@ -118,6 +123,7 @@ def load_settings() -> SimulatorSettings:
         max_consecutive_failed_cycles=parse_optional_positive_int(os.getenv("SIMULATOR_MAX_CONSECUTIVE_FAILED_CYCLES"), DEFAULT_MAX_CONSECUTIVE_FAILED_CYCLES)
         or DEFAULT_MAX_CONSECUTIVE_FAILED_CYCLES,
         failure_ratio_threshold=parse_ratio(os.getenv("SIMULATOR_FAILURE_RATIO_THRESHOLD"), DEFAULT_FAILURE_RATIO_THRESHOLD),
+        scenario_seed=os.getenv("SIMULATOR_SCENARIO_SEED") or None,
     )
 
 
@@ -168,6 +174,21 @@ def get_cycle_simulation_start(cycle_timestamp: datetime, reading: VitalReading)
     return cycle_timestamp - timedelta(seconds=reading.offset_seconds)
 
 
+def initialize_simulation_run(
+    simulations: list[PatientSimulation], started_at: datetime, seed: str | int | None = None, client: HAPIFHIRClient | None = None, run_id: str | None = None
+) -> tuple[str, list[PatientSimulation]]:
+    run_id = run_id or uuid.uuid4().hex
+    client = client or HAPIFHIRClient()
+    scenarios = choose_patient_scenarios([simulation.context.hapi_patient_id for simulation in simulations], seed)
+    initialized = []
+    for simulation in simulations:
+        patient_id = simulation.context.hapi_patient_id
+        created = client.post_resource(build_simulator_encounter(patient_id, run_id, started_at))
+        context = replace(simulation.context, hapi_encounter_id=created.resource_id)
+        initialized.append(replace(simulation, context=context, scenario=scenarios[patient_id]))
+    return run_id, initialized
+
+
 def publish_patient_cycle(
     simulation: PatientSimulation,
     cycle_index: int,
@@ -180,6 +201,8 @@ def publish_patient_cycle(
 ) -> PublishedSimulatorEvent:
     source_reading = simulation.readings[cycle_index]
     reading = get_replay_reading(source_reading, replay_index, available_cycles)
+    scenario_elapsed_seconds = reading.offset_seconds if bp_elapsed_seconds is None else bp_elapsed_seconds
+    reading = apply_vital_scenario(reading, simulation.scenario, scenario_elapsed_seconds)
     simulation_start = get_cycle_simulation_start(cycle_timestamp, reading)
     event = build_simulator_event(
         reading=reading,
@@ -188,6 +211,7 @@ def publish_patient_cycle(
         simulation_start=simulation_start,
         bp_cadence=simulation.bp_cadence,
         bp_elapsed_seconds=bp_elapsed_seconds,
+        scenario=simulation.scenario,
     )
     client = HAPIFHIRClient(max_retries=fhir_max_attempts, retry_delay_seconds=fhir_retry_backoff_seconds)
     return publish_simulator_event(event, client)
@@ -264,6 +288,13 @@ def run_realtime_cohort(settings: SimulatorSettings | None = None) -> int:
     settings = settings or load_settings()
     shutdown_event.clear()
     simulations = load_patient_simulations(settings.bp_interval_seconds)
+    run_started_at = utc_now()
+    run_id, simulations = initialize_simulation_run(
+        simulations,
+        started_at=run_started_at,
+        seed=settings.scenario_seed,
+        client=HAPIFHIRClient(max_retries=settings.fhir_max_attempts, retry_delay_seconds=settings.fhir_retry_backoff_seconds),
+    )
     available_cycles = get_available_cycle_count(simulations)
     total_published_events = 0
     completed_cycles = 0
@@ -280,6 +311,15 @@ def run_realtime_cohort(settings: SimulatorSettings | None = None) -> int:
     print(f"FHIR retry backoff: {settings.fhir_retry_backoff_seconds} seconds")
     print(f"Maximum consecutive degraded cycles: {settings.max_consecutive_failed_cycles}")
     print(f"Retryable failure ratio threshold: {settings.failure_ratio_threshold:g}")
+    print(f"Simulation run ID: {run_id}")
+    print(f"Scenario seed: {settings.scenario_seed or 'random'}")
+    for simulation in simulations:
+        print(
+            "scenario_assigned "
+            f"patient_id={simulation.context.hapi_patient_id} "
+            f"encounter_id={simulation.context.hapi_encounter_id} "
+            f"scenario={simulation.scenario}"
+        )
     print()
     with ThreadPoolExecutor(max_workers=COHORT_SIZE) as executor:
         while not shutdown_event.is_set():
