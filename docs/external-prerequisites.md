@@ -33,9 +33,9 @@ CONFIRM_IAM_POLICIES=apply-healthcare-realtime-policies \
   --region "$AWS_REGION"
 ```
 
-The command obtains the account ID from STS, uses `TF_STATE_BUCKET` from `.env`, creates missing policies and publishes a new default version only when an existing document changed. It never creates users or groups and never attaches policies to an identity. Removing a template does not delete its deployed customer-managed policy; review and delete obsolete policies separately after confirming that no identity still uses them.
+The command obtains the account ID from STS, uses `TF_STATE_BUCKET` from `.env`, creates missing policies and publishes a new default version only when an existing document changed. It never creates users or groups and never attaches policies to an identity. Confirm attachment separately for the bootstrap user, group or role before Terraform deployment. Removing a template does not delete its deployed customer-managed policy; review and delete obsolete policies separately after confirming that no identity still uses them.
 
-The policy command reads project inputs from `.env` and the generated Terraform JSON. Explicit `--profile` and `--region` arguments select the authenticated AWS session without changing generated project configuration.
+The policy command reads project inputs from `.env` and the generated Terraform JSON. Explicit `--profile` and `--region` arguments select the authenticated AWS session without changing generated project configuration. Tag-scoped permissions, including KMS key creation and management, use the rendered `PROJECT_NAME`; publish a new policy version whenever that project name changes.
 
 Copy `.env.example` to the ignored `.env`, complete its placeholders and run `./scripts/infrastructure/render_project_config.sh`. Infrastructure and demo scripts treat `.env` as authoritative. The renderer creates both ignored Terraform JSON files, so the same value is never entered twice. Verify every automatable prerequisite without displaying secret values:
 

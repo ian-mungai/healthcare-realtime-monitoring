@@ -76,6 +76,8 @@ CONFIRM_IAM_POLICIES=apply-healthcare-realtime-policies \
   --region "$AWS_REGION"
 ```
 
+The policy command creates or updates customer-managed policies but does not attach them. Before deploying, attach every tracked service policy to the bootstrap identity through the account's approved group or role model. The KMS policy renders its request-tag and resource-tag conditions from `PROJECT_NAME`, so rerun the policy plan and apply after changing that value.
+
 Create the Secrets Manager secret named by `FHIR_WEBHOOK_SECRET_ID` with one JSON key named by `FHIR_WEBHOOK_SECRET_KEY`. Enter the value through Secrets Manager or another approved secret workflow. Do not place the value in `.env`, Terraform input or shell history.
 
 Create the protected GitHub environment only when GitHub deployment is required. A local first deployment does not need GitHub OIDC before the application stack exists.
@@ -115,6 +117,8 @@ terraform -chdir=infra plan 2>&1 | tee /tmp/healthcare-convergence-plan.log
 ```
 
 The foundation wrapper builds the Glue lineage package and provisions Glue with the other resources required by application generation. The `glue_job_name` command must return a nonempty value before `application-plan` runs. The final plan must report `No changes`. Confirm the SNS email subscription when AWS sends the request. Configure GitHub OIDC later using the [deployment guide](deployment.md) when remote deployment is required.
+
+If application apply fails with an IAM denial, correct and apply the tracked policy first. Do not reuse the failed saved plan because Terraform state may contain resources created before the error. Run `application-plan` again, review its new add/change/destroy summary and apply that new saved plan.
 
 ## 4. Seed the ten-patient cohort
 

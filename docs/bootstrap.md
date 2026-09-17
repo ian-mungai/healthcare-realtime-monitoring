@@ -32,7 +32,7 @@ Run the local and regional checks before creating resources:
   --region "$AWS_REGION"
 ```
 
-Render and review every tracked customer-managed IAM policy, then apply them with the guarded policy command documented in the [first-deployment quickstart](quickstart.md). Use an approved bootstrap identity because Terraform cannot create the identity and permissions needed to start itself.
+Render and review every tracked customer-managed IAM policy, then apply them with the guarded policy command documented in the [first-deployment quickstart](quickstart.md). Policy publication does not attach permissions, so confirm the bootstrap identity receives every tracked service policy through the approved account group or role model. Use an approved bootstrap identity because Terraform cannot create the identity and permissions needed to start itself.
 
 Create the persistent state bucket before initializing the application stack:
 
@@ -84,6 +84,8 @@ terraform -chdir=infra plan 2>&1 | tee /tmp/healthcare-convergence-plan.log
 ```
 
 The foundation wrapper builds the Glue lineage package before its targeted plan. The `glue_job_name` command must return a nonempty value before application generation begins. The final plan must report `No changes`. During bootstrap the workflow remains manual-only because no approved model exists yet. The [external prerequisite inventory](external-prerequisites.md) identifies the account and third-party configuration that Terraform does not create.
+
+After any partial apply failure, fix the external prerequisite and run the corresponding plan wrapper again. Review and apply the newly saved plan instead of reusing the plan from the failed operation.
 
 After the GitHub OIDC deployment role exists, synchronize the ignored deployment inputs to encrypted AWS storage and configure the protected GitHub environment as described in [deployment.md](deployment.md):
 
