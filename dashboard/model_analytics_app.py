@@ -8,10 +8,7 @@ import streamlit as st
 
 from dashboard.analytics import load_latest_predictions
 
-RISK_LABELS = {
-    "baseline_proxy": "Baseline proxy",
-    "elevated_proxy": "Elevated proxy",
-}
+RISK_LABELS = {"baseline_proxy": "Baseline proxy", "elevated_proxy": "Elevated proxy"}
 FEATURE_COLUMNS = {
     "heart_rate_mean": ("Mean heart rate", "bpm"),
     "respiratory_rate_mean": ("Mean respiratory rate", "/min"),
@@ -91,12 +88,7 @@ def prepare_predictions(predictions: list[dict[str, str | None]]) -> pd.DataFram
     if dataframe.empty:
         return dataframe
 
-    numeric_columns = [
-        "deterioration_probability",
-        "decision_threshold",
-        "feature_observation_count",
-        *FEATURE_COLUMNS,
-    ]
+    numeric_columns = ["deterioration_probability", "decision_threshold", "feature_observation_count", *FEATURE_COLUMNS]
     for column in numeric_columns:
         dataframe[column] = pd.to_numeric(dataframe.get(column), errors="coerce")
 
@@ -189,9 +181,7 @@ def render_dashboard() -> None:
         .encode(
             x=alt.X("deterioration_probability:Q", title="Deterioration proxy probability", scale=alt.Scale(domain=[0, 1]), axis=alt.Axis(format="%")),
             y=alt.Y("patient_id:N", title="Patient", sort=dataframe["patient_id"].tolist()),
-            color=alt.Color(
-                "risk_label:N", title="Proxy band", scale=alt.Scale(domain=["Baseline proxy", "Elevated proxy"], range=["#2563eb", "#dc2626"])
-            ),
+            color=alt.Color("risk_label:N", title="Proxy band", scale=alt.Scale(domain=["Baseline proxy", "Elevated proxy"], range=["#2563eb", "#dc2626"])),
             tooltip=[
                 alt.Tooltip("patient_id:N", title="Patient"),
                 alt.Tooltip("encounter_id:N", title="Encounter"),
@@ -205,9 +195,7 @@ def render_dashboard() -> None:
     )
     probability_labels = bars.mark_text(align="left", baseline="middle", dx=4, color="#111827").encode(text="probability_label:N")
     threshold = (
-        alt.Chart(pd.DataFrame({"threshold": [decision_threshold]}))
-        .mark_rule(color="#475569", strokeDash=[5, 4], strokeWidth=2)
-        .encode(x="threshold:Q")
+        alt.Chart(pd.DataFrame({"threshold": [decision_threshold]})).mark_rule(color="#475569", strokeDash=[5, 4], strokeWidth=2).encode(x="threshold:Q")
     )
     st.altair_chart(bars + probability_labels + threshold, width="stretch")
     st.caption(f"Approved decision threshold: {decision_threshold:.1%}")
