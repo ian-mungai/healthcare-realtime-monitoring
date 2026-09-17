@@ -144,6 +144,12 @@ POPULATION=10 SEED=12345 ./scripts/synthea_loader/scripts/generate.sh
 export FHIR_BASE_URL="$(terraform -chdir=infra output -raw hapi_fhir_base_url)"
 .venv/bin/python -m scripts.synthea_loader.src.load_fhir
 
+aws s3 cp \
+  scripts/synthea_loader/state/fhir_resource_map.json \
+  "s3://${DATA_BUCKET_NAME}/${FHIR_RESOURCE_MAP_S3_KEY}" \
+  --profile "$AWS_PROFILE" \
+  --region "$AWS_REGION"
+
 export FHIR_WEBHOOK_URL="$(terraform -chdir=infra output -raw fhir_webhook_url)"
 FHIR_WEBHOOK_SECRET="$(
   aws secretsmanager get-secret-value \

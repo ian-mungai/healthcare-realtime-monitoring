@@ -198,6 +198,11 @@ variable "data_bucket_name" {
   type        = string
 }
 
+variable "fhir_resource_map_s3_key" {
+  description = "S3 object key containing the generated Synthea-to-HAPI resource map."
+  type        = string
+}
+
 variable "allow_destructive_teardown" {
   description = "Opt in to disabling deletion protection and allowing Terraform to empty managed S3/ECR resources during a reviewed teardown."
   type        = bool
