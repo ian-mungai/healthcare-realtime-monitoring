@@ -8,16 +8,7 @@ The teardown workflow is deliberately two phase. The first reviewed apply disabl
 
 ## Persistent state bootstrap
 
-Complete `.env`, render the ignored Terraform inputs, review the state-bucket plan and apply it. The persistent state bucket and application resources use the single `AWS_REGION` value. A new regional deployment therefore creates a new state bucket in that region.
-
-```zsh
-./scripts/infrastructure/render_project_config.sh
-./scripts/infrastructure/bootstrap.sh state-plan
-CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
-  ./scripts/infrastructure/bootstrap.sh state-apply
-./scripts/infrastructure/bootstrap.sh state-backup
-./scripts/infrastructure/bootstrap.sh main-init
-```
+For a fresh clone with no state bucket, follow the [first-deployment quickstart](quickstart.md). It is the canonical creation procedure. The persistent state bucket and application resources use the single `AWS_REGION` value, so a new regional deployment creates its state bucket in that region.
 
 The bootstrap stack intentionally uses local state and protects its bucket with `prevent_destroy`. The `state-backup` action saves the ignored bootstrap state at `s3://<terraform-state-bucket>/<project-name>/terraform/bootstrap/terraform.tfstate`. If local state is lost, restore this protected backup instead of trying to create a duplicate bucket.
 
@@ -85,7 +76,7 @@ The second command may list retained external prerequisites. Review each result 
 
 ## Recreation
 
-Reuse the persistent state bucket with a new empty state key or remove the old main-state object only after preserving an approved backup. Then follow [bootstrap.md](bootstrap.md) from the application repository at the intended commit.
+Reuse the persistent state bucket with a new empty state key or remove the old main-state object only after preserving an approved backup. Then follow the [first-deployment quickstart](quickstart.md) from the application repository at the intended commit. Use [deployment stages and recovery](bootstrap.md) only when a stage is interrupted.
 
 Bucket names are globally unique and may be unavailable after deletion. Use new names in the ignored configuration when AWS does not immediately release an old name. Recreate the webhook secret, image repositories and images, synthetic FHIR cohort, HAPI subscription, analytical tables and approved model in the documented order.
 
