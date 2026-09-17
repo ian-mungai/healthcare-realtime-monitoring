@@ -61,6 +61,17 @@ def test_bp_cadence_returns_none_between_measurements():
     assert cadence.get_reading(1) is None
 
 
+def test_bp_cadence_emits_once_per_elapsed_interval():
+    readings = [BloodPressureReading("patient_1", "bp_1", 124.0, 78.0)]
+    cadence = BloodPressureCadence(readings=readings, interval_seconds=300)
+
+    assert cadence.get_reading(0) is readings[0]
+    assert cadence.get_reading(60) is None
+    assert cadence.get_reading(299.9) is None
+    assert cadence.get_reading(300) is readings[0]
+    assert cadence.get_reading(301) is None
+
+
 def test_bp_cadence_rejects_empty_readings():
     with pytest.raises(ValueError, match="At least one blood pressure reading is required"):
         BloodPressureCadence(readings=[])
