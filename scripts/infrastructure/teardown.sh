@@ -8,6 +8,7 @@ load_project_env "${PROJECT_ENV_FILE:-$REPO_ROOT/.env}"
 INFRA_DIR="$REPO_ROOT/infra"
 ACTION="${1:-}"
 CONFIRMATION="delete-healthcare-realtime-development"
+"$REPO_ROOT/scripts/infrastructure/render_project_config.sh"
 
 usage() {
   cat <<'EOF'
@@ -59,7 +60,6 @@ build_packages() {
 
 terraform_plan_args=(
   -input=false
-  -var-file=development.tfvars
   -var=allow_destructive_teardown=true
   -var=openlineage_skip_final_snapshot=true
 )

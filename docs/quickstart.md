@@ -1,10 +1,12 @@
-# Clean-Account Quickstart
+# First Deployment Quickstart
 
 ## Goal
 
-Use this path for the shortest reviewed deployment from a fresh clone to a ten-patient live demo in a standard commercial AWS account. Allow 60 to 90 minutes for infrastructure and image builds, then 10 minutes for the realtime demo. The optional full analytical validation adds about 30 minutes.
+Use this path only for the first deployment from a fresh clone when the project has no existing Terraform state bucket, bootstrap state or application resources. It is the shortest reviewed path to a ten-patient live demo in a standard commercial AWS account. Allow 60 to 90 minutes for infrastructure and image builds, then 10 minutes for the realtime demo. The optional full analytical validation adds about 30 minutes.
 
-The target region must provide at least two Availability Zones and support the services checked by the regional readiness command, including MWAA Serverless. Use a new persistent state bucket and an empty Terraform backend when deploying into a different AWS account.
+Do not use this quickstart to recreate a destroyed environment with a retained state bucket or to migrate an existing deployment. Follow the [infrastructure lifecycle guide](infrastructure-lifecycle.md) for those workflows.
+
+The target region must provide at least two Availability Zones and support the services checked by the regional readiness command, including MWAA Serverless. A first deployment creates a new persistent state bucket in the target region and initializes an empty Terraform backend.
 
 ## 1. Prepare the clone
 
@@ -15,11 +17,15 @@ python3.12 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip
 .venv/bin/python -m pip install -r requirements_dev.txt
 cp .env.example .env
-cp infra/development.tfvars.example infra/development.tfvars
-cp infra/bootstrap/terraform.tfvars.example infra/bootstrap/terraform.tfvars
 ```
 
-Replace every placeholder in the three ignored files. Use globally unique names for the state, application-data and MWAA source buckets. Leave `ml_approved_model_version` empty for the first deployment.
+Replace every placeholder in `.env`. Use globally unique names for the state, application-data and MWAA source buckets. Leave `ML_APPROVED_MODEL_VERSION` empty for the first deployment. Patient IDs, bucket names, regions and image tags are entered only in this file.
+
+Render the two ignored Terraform input files. Do not edit the generated files directly:
+
+```zsh
+./scripts/infrastructure/render_project_config.sh
+```
 
 The documented local workflow requires a named AWS CLI profile in `AWS_PROFILE`. An SSO-backed profile is supported after `aws sso login --profile "$AWS_PROFILE"`. Environment-only credentials without a named profile are outside this quickstart.
 
@@ -46,13 +52,11 @@ Use a temporary administrator or approved bootstrap identity for these account-l
 
 ```zsh
 .venv/bin/python infra/iam/scripts/manage_policies.py plan \
-  --terraform-var-file infra/development.tfvars \
   --profile "$AWS_PROFILE" \
   --region "$AWS_REGION"
 
 CONFIRM_IAM_POLICIES=apply-healthcare-realtime-policies \
   .venv/bin/python infra/iam/scripts/manage_policies.py apply \
-  --terraform-var-file infra/development.tfvars \
   --profile "$AWS_PROFILE" \
   --region "$AWS_REGION"
 ```
@@ -75,7 +79,9 @@ CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
 ./scripts/infrastructure/check_prerequisites.sh pre-deploy
 ```
 
-Create the ECR repositories, push immutable images and place the four printed image tags in `infra/development.tfvars`:
+The state plan must create a new bucket. Stop if Terraform refreshes, imports or updates an existing state bucket; that indicates this is not a first deployment and the infrastructure lifecycle workflow applies instead.
+
+Create the ECR repositories and push immutable images. Place the four printed image tags in `.env`, then rerun the renderer:
 
 ```zsh
 ./scripts/infrastructure/bootstrap.sh repositories-plan
@@ -83,6 +89,7 @@ terraform -chdir=infra show -no-color tfplan-bootstrap-ecr
 CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
   ./scripts/infrastructure/bootstrap.sh repositories-apply
 ./scripts/infrastructure/push_images.sh
+./scripts/infrastructure/render_project_config.sh
 ```
 
 Deploy the foundation and full application:
@@ -96,7 +103,7 @@ CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
 terraform -chdir=infra show -no-color tfplan-bootstrap-application
 CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
   ./scripts/infrastructure/bootstrap.sh application-apply
-terraform -chdir=infra plan -var-file=development.tfvars
+terraform -chdir=infra plan
 ```
 
 The final plan must report `No changes`. Confirm the SNS email subscription when AWS sends the request. Configure GitHub OIDC later using the [deployment guide](deployment.md) when remote deployment is required.
@@ -150,9 +157,3 @@ The realtime demo does not require an approved model. To show existing approved-
 ```
 
 For the complete analytical and data-science path, run dbt, follow the [model training guide](model-training.md), apply the approved model version and run MWAA. Allow 30 minutes for that workflow.
-
-## Destroy and recreate
-
-Use the guarded two-phase process in the [infrastructure lifecycle guide](infrastructure-lifecycle.md). It disables deletion protection, previews versioned S3 and ECR cleanup, empties disposable storage and applies a reviewed destroy plan. The state bucket remains protected.
-
-For a new AWS account, create a new state bucket and use a new empty state key. Never point a new account at state that still describes resources from another account.

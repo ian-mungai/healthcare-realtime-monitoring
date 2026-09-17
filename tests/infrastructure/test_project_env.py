@@ -23,7 +23,7 @@ def test_loads_assignments_without_executing_shell(tmp_path: Path) -> None:
     assert result.stdout == "example-region-1|project value"
 
 
-def test_existing_environment_has_precedence(tmp_path: Path) -> None:
+def test_environment_file_has_precedence(tmp_path: Path) -> None:
     env_file = tmp_path / ".env"
     env_file.write_text("REGION=file-region\n", encoding="utf-8")
 
@@ -36,7 +36,7 @@ def test_existing_environment_has_precedence(tmp_path: Path) -> None:
     )
 
     assert result.stdout == "file-region"
-    assert result_with_override.stdout == "shell-region"
+    assert result_with_override.stdout == "file-region"
 
 
 def test_rejects_non_assignment_lines(tmp_path: Path) -> None:

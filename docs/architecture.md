@@ -120,15 +120,16 @@ Alarms cover pipeline task failures, throttling, Firehose delivery, processor er
 
 ## Deployment and configuration
 
-Terraform owns the AWS infrastructure. A clone supplies target-specific configuration through ignored local files and environment variables:
+Terraform owns the AWS infrastructure. A clone supplies target-specific configuration through one ignored local file:
 
 ```text
-infra/development.tfvars        target region, unique bucket names, alert address, image tags
-.env                            local dashboard and integration configuration
-AWS_PROFILE / AWS_REGION        active AWS CLI and SDK context
+.env                                      target-specific inputs entered once
+config/deployment.defaults.json           tracked stable project defaults
+infra/deployment.auto.tfvars.json         generated application Terraform inputs
+infra/bootstrap/deployment.auto.tfvars.json generated state-bootstrap inputs
 ```
 
-Tracked examples contain placeholders only. Generated MWAA workflow definitions, Terraform state, secrets, endpoint identifiers and deployment-specific values remain local to the target environment. Setup and deployment checks are documented in [operations-runbook.md](operations-runbook.md).
+The tracked `.env.example` contains placeholders only. The renderer derives shared settings such as patient access policy and the Terraform state prefix. Generated MWAA workflow definitions, Terraform state, secrets, endpoint identifiers and deployment-specific values remain local to the target environment. Setup and deployment checks are documented in [operations-runbook.md](operations-runbook.md).
 
 ## Trade-offs
 

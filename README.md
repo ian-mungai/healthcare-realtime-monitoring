@@ -59,14 +59,19 @@ python3.12 -m venv .venv
 .venv/bin/python -m pip install -r requirements_dev.txt
 ```
 
-Create local configuration from the tracked examples. These files are ignored by Git and must contain values for your own AWS environment:
+Create the one ignored local configuration file:
 
 ```zsh
 cp .env.example .env
-cp infra/development.tfvars.example infra/development.tfvars
 ```
 
-Infrastructure and demo scripts load missing values from the ignored `.env`; variables already exported in the shell take precedence. Complete the tracked placeholders, then verify the local toolchain and selected AWS identity. Cloud resources are checked in later deployment phases:
+Complete the placeholders in `.env`, then render both Terraform inputs:
+
+```zsh
+./scripts/infrastructure/render_project_config.sh
+```
+
+Stable project defaults live in `config/deployment.defaults.json`. The generated `infra/deployment.auto.tfvars.json` and `infra/bootstrap/deployment.auto.tfvars.json` files are ignored by Git and must not be edited by hand. Infrastructure and demo scripts treat `.env` as authoritative, so stale shell exports cannot silently change deployment configuration. Verify the local toolchain and selected AWS identity after rendering. Cloud resources are checked in later deployment phases:
 
 ```zsh
 ./scripts/infrastructure/check_prerequisites.sh local
@@ -100,13 +105,12 @@ terraform -chdir=infra validate
 Terraform uses a partial S3 backend configuration with native state locking. The protected bootstrap stack creates a private, versioned bucket that is separate from application data and survives application teardown:
 
 ```zsh
-cp infra/bootstrap/terraform.tfvars.example infra/bootstrap/terraform.tfvars
 ./scripts/infrastructure/bootstrap.sh state-plan
 ```
 
 Review and apply the bootstrap plan, run `./scripts/infrastructure/bootstrap.sh state-backup`, then run `./scripts/infrastructure/bootstrap.sh main-init`. For an existing environment, use the guarded `main-migrate` action documented in the lifecycle guide. Bootstrap inputs, backend configuration and state files are ignored by Git.
 
-Start with the [clean-account quickstart](docs/quickstart.md) for the shortest path from clone to live demo. The [bootstrap guide](docs/bootstrap.md) explains the deployment stages in more detail. The [infrastructure lifecycle guide](docs/infrastructure-lifecycle.md) covers persistent state, guarded teardown and recreation. The [external prerequisite inventory](docs/external-prerequisites.md) identifies account configuration outside the application stack. The [deployment guide](docs/deployment.md) covers GitHub OIDC and shared OpenLineage collector setup. Recovery, cost-control and operational checks are in the [operations runbook](docs/operations-runbook.md).
+Start with the [first-deployment quickstart](docs/quickstart.md) for the shortest path from clone to live demo. The [bootstrap guide](docs/bootstrap.md) explains the deployment stages in more detail. The [infrastructure lifecycle guide](docs/infrastructure-lifecycle.md) covers persistent state, guarded teardown and recreation. The [external prerequisite inventory](docs/external-prerequisites.md) identifies account configuration outside the application stack. The [deployment guide](docs/deployment.md) covers GitHub OIDC and shared OpenLineage collector setup. Recovery, cost-control and operational checks are in the [operations runbook](docs/operations-runbook.md).
 
 ## Run the dashboards
 
@@ -122,7 +126,7 @@ Launch the separate model analytics dashboard in another terminal:
 ./scripts/demo/start_model_analytics_dashboard.sh
 ```
 
-The launch scripts load the selected AWS profile and region from `.env`. They retrieve realtime endpoints from Terraform outputs and analytical names from the ignored Terraform variable file. The live dashboard uses AWS IAM credentials to sign REST and WebSocket requests. The model dashboard queries Athena for probability-ranked approved-model scores, feature-window vital summaries, encounter context, freshness and governance labels.
+The launch scripts load the selected AWS profile and region from `.env`. They retrieve realtime endpoints from Terraform outputs and analytical names from generated Terraform configuration. The live dashboard uses AWS IAM credentials to sign REST and WebSocket requests. The model dashboard queries Athena for probability-ranked approved-model scores, feature-window vital summaries, encounter context, freshness and governance labels.
 
 ## Demo and operations
 

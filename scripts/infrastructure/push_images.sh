@@ -45,8 +45,9 @@ docker buildx build --platform linux/amd64 --provenance=false --file "$REPO_ROOT
 docker buildx build --platform linux/amd64 --provenance=false --file "$REPO_ROOT/deploy/soda/Dockerfile" --tag "$soda_url:$IMAGE_TAG" --push "$REPO_ROOT"
 docker buildx build --platform linux/amd64 --provenance=false --file "$REPO_ROOT/deploy/marquez/Dockerfile" --tag "$marquez_url:$IMAGE_TAG" --push "$REPO_ROOT/deploy/marquez"
 
-printf '\nSet these ignored Terraform inputs:\n'
-printf 'vitals_simulator_image_tag = "%s"\n' "$IMAGE_TAG"
-printf 'dbt_image_tag              = "%s"\n' "$IMAGE_TAG"
-printf 'soda_image_tag             = "%s"\n' "$IMAGE_TAG"
-printf 'openlineage_collector_image_tag = "%s"\n' "$IMAGE_TAG"
+printf '\nSet these values once in .env, then rerun the project configuration renderer:\n'
+printf 'VITALS_SIMULATOR_IMAGE_TAG=%s\n' "$IMAGE_TAG"
+printf 'DBT_IMAGE_TAG=%s\n' "$IMAGE_TAG"
+printf 'SODA_IMAGE_TAG=%s\n' "$IMAGE_TAG"
+printf 'OPENLINEAGE_COLLECTOR_IMAGE_TAG=%s\n' "$IMAGE_TAG"
+printf './scripts/infrastructure/render_project_config.sh\n'
