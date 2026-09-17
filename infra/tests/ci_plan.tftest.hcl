@@ -70,6 +70,7 @@ variables {
   websocket_connections_table_name        = "example-websocket-connections"
   api_stage_name                          = "test"
   fhir_webhook_secret_id                  = "example/fhir-webhook"
+  fhir_resource_map_s3_key                = "config/vitals_simulator/fhir_resource_map.json"
   github_deployment_environment           = "test"
 }
 

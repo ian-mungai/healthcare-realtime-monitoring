@@ -19,10 +19,9 @@ Never place credentials, signed headers, account identifiers, endpoint identifie
 
 ### Patient access policy
 
-Before deployment, enter the ten cohort IDs once in `PATIENT_IDS` and authorized IAM principal patterns in `REALTIME_PATIENT_ACCESS_PRINCIPALS` inside `.env`:
+Before the foundation deployment, enter authorized IAM principal patterns in `REALTIME_PATIENT_ACCESS_PRINCIPALS` inside `.env`. After loading the generated cohort into HAPI, run `python -m scripts.synthea_loader.src.publish_resource_map`; it writes the ten HAPI-assigned IDs to `PATIENT_IDS` and rerenders Terraform inputs before the full application plan:
 
 ```dotenv
-PATIENT_IDS=<patient-id-1>,<patient-id-2>,<eight-more-patient-ids>
 REALTIME_PATIENT_ACCESS_PRINCIPALS=arn:aws:iam::<aws-account-id>:user/<dashboard-user>
 ```
 
