@@ -242,6 +242,7 @@ module "vitals_simulator_ecs" {
   fhir_base_url   = module.hapi_ecs.fhir_base_url
 
   data_bucket_name        = module.raw_s3.bucket_name
+  resource_map_s3_key     = var.fhir_resource_map_s3_key
   image_tag               = var.vitals_simulator_image_tag
   force_delete_repository = var.allow_destructive_teardown
   alarm_topic_arn         = module.realtime_observability.alert_topic_arn
