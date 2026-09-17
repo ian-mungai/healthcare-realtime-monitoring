@@ -62,6 +62,8 @@ The machine-learning component is deliberately modest. It trains a logistic-regr
 
 Training records the feature definition, label definition, dataset fingerprint, metrics, threshold and model version. Scoring resolves an explicitly approved model version rather than a mutable `latest` reference. Published predictions are labeled as synthetic portfolio output and not clinically validated.
 
+The simulator creates fresh encounters on each task run and randomly assigns normal or deterioration-proxy outcomes after the feature window. This produces additional independent encounter rows while preserving feature-label timing. Randomness alone does not guarantee a valid patient-grouped split, so the pipeline still refuses to train until both partitions contain both classes.
+
 The pipeline also knows when not to train. If the eligible cohort contains only one label class, scheduled training remains paused because accuracy from that dataset would not be meaningful. This is an important production habit: automation should enforce analytical prerequisites, not merely execute code on schedule.
 
 ## Treating operations and security as product features

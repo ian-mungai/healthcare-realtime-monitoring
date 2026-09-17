@@ -10,6 +10,8 @@ The baseline estimates the synthetic deterioration proxy from encounter-level vi
 
 The committed dbt tests require both partitions, reject patient leakage and warn when either partition lacks both label classes. The training command treats the missing-class warning as a hard failure. Soda validates population, key completeness, split values and label values.
 
+Each simulator task creates a fresh encounter for every patient and randomly assigns either a `normal` or `deterioration_proxy` scenario to that encounter. The first 15 minutes preserve the source BIDMC readings. During the following 15 minutes, the normal scenario constrains measurements below the proxy thresholds while the deterioration scenario emits repeated synthetic threshold crossings. Scenario choices are independent for each patient and each task, so one run does not guarantee both classes in both patient-grouped partitions. Run multiple complete 30-minute simulations and rerun the analytical workflow until the readiness tests confirm both classes without patient leakage.
+
 ## Train locally from Athena
 
 Use the project virtual environment and deployment-specific bucket output without placing that value in documentation:

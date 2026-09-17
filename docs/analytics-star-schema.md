@@ -49,6 +49,8 @@ Review the generated history before replacing the synthetic seed. Do not commit 
 
 The versioned `news2-repeated-extreme-proxy-v2` label is `1` when at least two observations of the same vital cross a NEWS2 extreme threshold during the outcome window: heart rate at or below 40 or at or above 131, respiratory rate at or below 8 or at or above 25, oxygen saturation at or below 91 or systolic pressure at or below 90. Requiring repeated threshold crossings prevents one isolated synthetic measurement from determining the encounter label. The minimum count is declared by `deterioration_min_repeated_extreme_observations` in `dbt_project.yml`. `is_training_eligible` requires observations in both windows.
 
+Every simulator task creates a new encounter for each cohort patient and randomly selects a normal or deterioration-proxy outcome scenario. Source BIDMC measurements remain unchanged during the feature window. Scenario transformations apply only during the outcome window so they cannot leak into model features. Random assignment improves label diversity across repeated complete runs but does not guarantee both classes in either patient-grouped partition after one run.
+
 This label is a synthetic engineering proxy derived from NEWS2 extreme thresholds. It is not a diagnosis, a validated clinical outcome or suitable for patient care or clinical model training.
 
 ## Training dataset
