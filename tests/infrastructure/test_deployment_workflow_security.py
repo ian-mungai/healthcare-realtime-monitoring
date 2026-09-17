@@ -51,3 +51,6 @@ def test_published_images_use_ecr_scannable_manifests() -> None:
 
     assert script.count("docker buildx build") == 4
     assert script.count("--provenance=false") == 4
+    assert "update_env_value" in script
+    assert "VITALS_SIMULATOR_IMAGE_TAG DBT_IMAGE_TAG SODA_IMAGE_TAG OPENLINEAGE_COLLECTOR_IMAGE_TAG" in script
+    assert '"$REPO_ROOT/scripts/infrastructure/render_project_config.sh" --env-file "$ENV_FILE"' in script

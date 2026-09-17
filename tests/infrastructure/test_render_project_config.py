@@ -51,17 +51,11 @@ def test_build_configuration_derives_shared_values() -> None:
 
     patients = [f"patient-{number:02d}" for number in range(1, 11)]
     assert deployment["active_patient_ids"] == patients
-    assert deployment["realtime_patient_access_policy"] == {
-        "arn:aws:iam::111111111111:user/dashboard": patients
-    }
+    assert deployment["realtime_patient_access_policy"] == {"arn:aws:iam::111111111111:user/dashboard": patients}
     assert deployment["athena_results_s3_uri"] == "s3://example-data-bucket/athena_results/"
     assert len(deployment["github_deployment_policy_arns"]) == 20
     assert all(arn.startswith("arn:aws:iam::111111111111:policy/") for arn in deployment["github_deployment_policy_arns"])
-    assert bootstrap == {
-        "aws_region": "us-east-1",
-        "project_name": "healthcare-realtime-monitoring",
-        "state_bucket_name": "example-state-bucket",
-    }
+    assert bootstrap == {"aws_region": "us-east-1", "project_name": "healthcare-realtime-monitoring", "state_bucket_name": "example-state-bucket"}
 
 
 def test_patient_ids_must_be_exactly_ten() -> None:
@@ -70,6 +64,16 @@ def test_patient_ids_must_be_exactly_ten() -> None:
 
     with pytest.raises(renderer.ConfigurationError, match="exactly ten"):
         renderer.build_configuration(values, defaults())
+
+
+def test_new_install_uses_bootstrap_image_tags_until_images_are_published() -> None:
+    values = environment()
+    for name in renderer.GENERATED_STRING_VARIABLES:
+        values.pop(name)
+
+    deployment, _ = renderer.build_configuration(values, defaults())
+
+    assert {deployment[name] for name in renderer.GENERATED_STRING_VARIABLES.values()} == {"sha-bootstrap"}
 
 
 def test_build_configuration_ignores_ambient_shell_values(monkeypatch: pytest.MonkeyPatch) -> None:

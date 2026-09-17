@@ -45,9 +45,21 @@ docker buildx build --platform linux/amd64 --provenance=false --file "$REPO_ROOT
 docker buildx build --platform linux/amd64 --provenance=false --file "$REPO_ROOT/deploy/soda/Dockerfile" --tag "$soda_url:$IMAGE_TAG" --push "$REPO_ROOT"
 docker buildx build --platform linux/amd64 --provenance=false --file "$REPO_ROOT/deploy/marquez/Dockerfile" --tag "$marquez_url:$IMAGE_TAG" --push "$REPO_ROOT/deploy/marquez"
 
-printf '\nSet these values once in .env, then rerun the project configuration renderer:\n'
-printf 'VITALS_SIMULATOR_IMAGE_TAG=%s\n' "$IMAGE_TAG"
-printf 'DBT_IMAGE_TAG=%s\n' "$IMAGE_TAG"
-printf 'SODA_IMAGE_TAG=%s\n' "$IMAGE_TAG"
-printf 'OPENLINEAGE_COLLECTOR_IMAGE_TAG=%s\n' "$IMAGE_TAG"
-printf './scripts/infrastructure/render_project_config.sh\n'
+update_env_value() {
+  local key="$1" value="$2" env_file="$3" temporary
+  temporary="$(mktemp "${TMPDIR:-/tmp}/project-env.XXXXXX")"
+  awk -v key="$key" -v value="$value" '
+    index($0, key "=") == 1 { print key "=" value; found = 1; next }
+    { print }
+    END { if (!found) print key "=" value }
+  ' "$env_file" > "$temporary"
+  mv "$temporary" "$env_file"
+}
+
+ENV_FILE="${PROJECT_ENV_FILE:-$REPO_ROOT/.env}"
+for key in VITALS_SIMULATOR_IMAGE_TAG DBT_IMAGE_TAG SODA_IMAGE_TAG OPENLINEAGE_COLLECTOR_IMAGE_TAG; do
+  update_env_value "$key" "$IMAGE_TAG" "$ENV_FILE"
+done
+"$REPO_ROOT/scripts/infrastructure/render_project_config.sh" --env-file "$ENV_FILE"
+
+printf '\nPublished all four images and recorded %s in .env.\n' "$IMAGE_TAG"
