@@ -176,6 +176,7 @@ def publish_patient_cycle(
     cycle_timestamp: datetime,
     fhir_max_attempts: int = DEFAULT_PUBLISH_MAX_ATTEMPTS,
     fhir_retry_backoff_seconds: float = DEFAULT_PUBLISH_RETRY_BACKOFF_SECONDS,
+    bp_elapsed_seconds: float | None = None,
 ) -> PublishedSimulatorEvent:
     source_reading = simulation.readings[cycle_index]
     reading = get_replay_reading(source_reading, replay_index, available_cycles)
@@ -186,6 +187,7 @@ def publish_patient_cycle(
         encounter_id=simulation.context.hapi_encounter_id,
         simulation_start=simulation_start,
         bp_cadence=simulation.bp_cadence,
+        bp_elapsed_seconds=bp_elapsed_seconds,
     )
     client = HAPIFHIRClient(max_retries=fhir_max_attempts, retry_delay_seconds=fhir_retry_backoff_seconds)
     return publish_simulator_event(event, client)
@@ -200,10 +202,19 @@ def run_cycle(
     cycle_timestamp: datetime,
     fhir_max_attempts: int = DEFAULT_PUBLISH_MAX_ATTEMPTS,
     fhir_retry_backoff_seconds: float = DEFAULT_PUBLISH_RETRY_BACKOFF_SECONDS,
+    bp_elapsed_seconds: float | None = None,
 ) -> CyclePublishResult:
     futures = {
         executor.submit(
-            publish_patient_cycle, simulation, cycle_index, replay_index, available_cycles, cycle_timestamp, fhir_max_attempts, fhir_retry_backoff_seconds
+            publish_patient_cycle,
+            simulation,
+            cycle_index,
+            replay_index,
+            available_cycles,
+            cycle_timestamp,
+            fhir_max_attempts,
+            fhir_retry_backoff_seconds,
+            bp_elapsed_seconds,
         ): simulation
         for simulation in simulations
     }
@@ -294,6 +305,7 @@ def run_realtime_cohort(settings: SimulatorSettings | None = None) -> int:
                 cycle_timestamp=cycle_timestamp,
                 fhir_max_attempts=settings.fhir_max_attempts,
                 fhir_retry_backoff_seconds=settings.fhir_retry_backoff_seconds,
+                bp_elapsed_seconds=completed_cycles * settings.interval_seconds,
             )
             permanent_failures = [failure for failure in cycle_result.failures if not failure.retryable]
             for failure in permanent_failures:
