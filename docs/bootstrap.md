@@ -11,6 +11,8 @@ python3.12 -m venv .venv
 cp .env.example .env
 ```
 
+Use the root requirements file as the single local dependency entry point. It includes the pinned Airflow workflow-generator requirements and keeps Apache Airflow 3.3.1 compatible with SQLAlchemy 2.0.50 in the project virtual environment.
+
 Replace every placeholder in `.env`, enter the target region once as `AWS_REGION`, use globally unique names for the state and application-data buckets and render both Terraform inputs:
 
 ```zsh
