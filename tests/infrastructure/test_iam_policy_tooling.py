@@ -17,6 +17,7 @@ IAM_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_iam_policy
 CLOUDFORMATION_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_cloudformation_policy.json"
 COST_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_cost_management_policy.json"
 KMS_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_kms_policy.json"
+SECRETSMANAGER_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_secretsmanager_policy.json"
 RENDERER_PATH = REPO_ROOT / "infra/iam/scripts/render_policy.py"
 EXPORTER_PATH = REPO_ROOT / "infra/iam/scripts/export_policies.py"
 MANAGER_PATH = REPO_ROOT / "infra/iam/scripts/manage_policies.py"
@@ -88,6 +89,19 @@ def test_kms_policy_uses_configured_project_tag(tmp_path: Path) -> None:
     statements = {statement["Sid"]: statement for statement in document["Statement"]}
     assert statements["CreateHealthcareRealtimeKmsKeys"]["Condition"]["StringEquals"]["aws:RequestTag/Project"] == "example-project"
     assert statements["ManageHealthcareRealtimeKmsKeys"]["Condition"]["StringEquals"]["aws:ResourceTag/Project"] == "example-project"
+
+
+def test_secretsmanager_policy_reads_only_configured_webhook_secret(tmp_path: Path) -> None:
+    rendered_path = tmp_path / "secretsmanager-policy.json"
+    environment = {**os.environ, "AWS_ACCOUNT_ID": "111111111111", "AWS_REGION": "example-region-1", "FHIR_WEBHOOK_SECRET_ID": "example-project/fhir-webhook"}
+
+    subprocess.run([sys.executable, str(RENDERER_PATH), str(SECRETSMANAGER_POLICY_PATH), "--output", str(rendered_path)], check=True, env=environment)
+
+    document = json.loads(rendered_path.read_text(encoding="utf-8"))
+    statements = {statement["Sid"]: statement for statement in document["Statement"]}
+    webhook_access = statements["ReadFHIRWebhookSecret"]
+    assert webhook_access["Action"] == ["secretsmanager:DescribeSecret", "secretsmanager:GetSecretValue"]
+    assert webhook_access["Resource"] == "arn:aws:secretsmanager:example-region-1:111111111111:secret:example-project/fhir-webhook-*"
 
 
 def test_exporter_redacts_state_bucket(monkeypatch: pytest.MonkeyPatch) -> None:

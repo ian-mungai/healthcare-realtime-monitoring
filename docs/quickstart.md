@@ -80,6 +80,8 @@ The policy command creates or updates customer-managed policies but does not att
 
 Create the Secrets Manager secret named by `FHIR_WEBHOOK_SECRET_ID` with one JSON key named by `FHIR_WEBHOOK_SECRET_KEY`. Enter the value through Secrets Manager or another approved secret workflow. Do not place the value in `.env`, Terraform input or shell history.
 
+The tracked Secrets Manager policy grants the bootstrap identity read access only to the configured webhook secret. Apply the policy templates after setting `FHIR_WEBHOOK_SECRET_ID`, then confirm that policy is attached before running the registration command in step 4.
+
 Create the protected GitHub environment only when GitHub deployment is required. A local first deployment does not need GitHub OIDC before the application stack exists.
 
 ## 3. Create state and deploy
