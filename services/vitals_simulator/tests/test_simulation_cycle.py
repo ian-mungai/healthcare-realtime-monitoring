@@ -34,6 +34,18 @@ def test_event_excludes_bp_between_intervals():
     assert "85354-9" not in codes
 
 
+def test_event_uses_publication_elapsed_time_for_bp_cadence():
+    bp_readings = [BloodPressureReading("synthea_patient_1", "bp_1", 124.0, 78.0)]
+    cadence = BloodPressureCadence(readings=bp_readings, interval_seconds=300)
+    simulation_start = datetime(2026, 8, 20, 12, 0, 0, tzinfo=UTC)
+
+    first_event = build_simulator_event(build_test_reading(0), "patient_123", "encounter_456", simulation_start, cadence, bp_elapsed_seconds=0)
+    next_event = build_simulator_event(build_test_reading(60), "patient_123", "encounter_456", simulation_start, cadence, bp_elapsed_seconds=300)
+
+    assert first_event.observation_count == 4
+    assert next_event.observation_count == 4
+
+
 def test_bp_observation_contains_systolic_and_diastolic():
     bp_readings = [BloodPressureReading("synthea_patient_1", "bp_1", 124.0, 78.0)]
     cadence = BloodPressureCadence(readings=bp_readings, interval_seconds=300)

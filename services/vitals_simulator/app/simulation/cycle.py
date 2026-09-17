@@ -8,11 +8,16 @@ from services.vitals_simulator.app.synthea.blood_pressure_cadence import BloodPr
 
 
 def build_simulator_event(
-    reading: VitalReading, patient_id: str, encounter_id: str, simulation_start: datetime, bp_cadence: BloodPressureCadence
+    reading: VitalReading,
+    patient_id: str,
+    encounter_id: str,
+    simulation_start: datetime,
+    bp_cadence: BloodPressureCadence,
+    bp_elapsed_seconds: float | None = None,
 ) -> SimulatorEvent:
     observations = build_observations_from_reading(reading=reading, patient_id=patient_id, encounter_id=encounter_id, simulation_start=simulation_start)
 
-    bp_reading = bp_cadence.get_reading(reading.offset_seconds)
+    bp_reading = bp_cadence.get_reading(reading.offset_seconds if bp_elapsed_seconds is None else bp_elapsed_seconds)
 
     if bp_reading is not None:
         effective_datetime = build_effective_datetime(simulation_start, reading.offset_seconds)
