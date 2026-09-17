@@ -108,10 +108,6 @@ output "mwaa_execution_role_arn" {
   value = module.mwaa.execution_role_arn
 }
 
-output "mwaa_source_bucket_name" {
-  value = module.mwaa.source_bucket_name
-}
-
 output "pipeline_task_failure_alarm_name" {
   description = "CloudWatch alarm raised when an MWAA Serverless pipeline task fails."
   value       = module.mwaa.task_failure_alarm_name

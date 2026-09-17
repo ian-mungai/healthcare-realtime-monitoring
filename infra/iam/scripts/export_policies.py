@@ -58,7 +58,6 @@ def get_policy_document(policy_arn: str) -> dict[str, Any]:
 
 def sanitize_string(value: str) -> str:
     data_bucket_name = os.environ.get("DATA_BUCKET_NAME")
-    mwaa_bucket_name = os.environ.get("MWAA_BUCKET_NAME")
     state_bucket_name = os.environ.get("TF_STATE_BUCKET")
 
     value = re.sub(r"(?<!\d)\d{12}(?!\d)", "${AWS_ACCOUNT_ID}", value)
@@ -67,9 +66,6 @@ def sanitize_string(value: str) -> str:
 
     if state_bucket_name:
         value = value.replace(state_bucket_name, "${TF_STATE_BUCKET}")
-
-    if mwaa_bucket_name:
-        value = value.replace(mwaa_bucket_name, "${MWAA_BUCKET_NAME}")
 
     if data_bucket_name:
         value = value.replace(data_bucket_name, "${DATA_BUCKET_NAME}")

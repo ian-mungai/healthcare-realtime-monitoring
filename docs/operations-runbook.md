@@ -26,7 +26,7 @@ PATIENT_IDS=<patient-id-1>,<patient-id-2>,<eight-more-patient-ids>
 REALTIME_PATIENT_ACCESS_PRINCIPALS=arn:aws:iam::<aws-account-id>:user/<dashboard-user>
 ```
 
-The renderer gives each listed principal access to the same canonical patient cohort. An empty principal list denies all patient access. Use exact IAM user ARNs or narrowly scoped assumed-role session patterns; do not use a wildcard principal.
+Obtain the principal ARN used by the dashboard with `aws sts get-caller-identity --profile "$AWS_PROFILE" --query Arn --output text`. The renderer gives each comma-separated principal access to the same canonical patient cohort. Use an exact IAM user ARN. For an assumed-role or AWS SSO identity, replace only the changing session-name suffix with `*`, for example `arn:aws:sts::<aws-account-id>:assumed-role/<role-name>/*`. Do not use a wildcard for the account, role name or entire principal.
 
 All supported FHIR webhook routes require `X-Webhook-Secret`, including health, metadata, the Observation profile and subscription handshake requests. The metadata response advertises the project-specific vital-sign Observation profile. That profile makes `Observation.encounter` mandatory because the encounter defines the analytics window; otherwise-valid generic FHIR R4 Observations without an Encounter are rejected. Retrieve the machine-readable profile from `GET /webhooks/fhir/StructureDefinition/healthcare-realtime-vital-observation`. The Lambda refreshes its cached Secrets Manager value within five minutes, so secret rotation does not require a cold start.
 
@@ -39,7 +39,7 @@ cp .env.example .env
 
 ### Terraform state
 
-Use the dedicated, private, versioned state bucket created by `infra/bootstrap`. It must be separate from the application data and MWAA source buckets so application teardown cannot remove its own state:
+Use the dedicated, private, versioned state bucket created by `infra/bootstrap`. It must be separate from the application-data bucket so application teardown cannot remove its own state. MWAA Serverless source artifacts live under `orchestration/mwaa-serverless/` in the application-data bucket:
 
 ```zsh
 ./scripts/infrastructure/bootstrap.sh state-plan

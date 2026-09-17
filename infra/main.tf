@@ -102,11 +102,9 @@ module "network" {
 module "mwaa" {
   source = "./modules/mwaa"
 
-  workflow_name      = "healthcare_realtime_pipeline"
-  source_bucket_name = var.mwaa_source_bucket_name
-  force_destroy      = var.allow_destructive_teardown
-  data_bucket_name   = module.raw_s3.bucket_name
-  enable_schedule    = var.ml_approved_model_version != ""
+  workflow_name    = "healthcare_realtime_pipeline"
+  data_bucket_name = module.raw_s3.bucket_name
+  enable_schedule  = var.ml_approved_model_version != ""
 
   dbt_ecs_task_definition_family  = module.dbt_ecs.task_definition_family
   dbt_ecs_task_role_arn           = module.dbt_ecs.task_role_arn
@@ -129,6 +127,8 @@ module "mwaa" {
   ]
 
   tags = local.common_tags
+
+  depends_on = [module.raw_s3]
 }
 
 module "observability" {

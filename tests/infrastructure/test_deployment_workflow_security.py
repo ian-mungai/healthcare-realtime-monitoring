@@ -10,14 +10,14 @@ def test_deployment_workflow_retrieves_private_config_after_oidc() -> None:
     assert "${{ secrets.AWS_DEPLOY_ROLE_ARN }}" in workflow
     assert "${{ secrets.TF_STATE_BUCKET }}" in workflow
     assert "${{ secrets.TF_STATE_PREFIX }}" in workflow
-    assert "${{ secrets.TF_STATE_REGION }}" in workflow
+    assert "TF_STATE_REGION" not in workflow
     assert "${{ vars.AWS_DEPLOY_ROLE_ARN }}" not in workflow
     assert "${{ vars.TF_STATE_BUCKET }}" not in workflow
     assert "${{ vars.TF_STATE_PREFIX }}" not in workflow
     assert workflow.index("Configure temporary AWS credentials") < workflow.index("Retrieve private Terraform inputs")
     assert workflow.index("Configure temporary AWS credentials") < workflow.index("Validate authenticated deployment access")
     assert "aws sts get-caller-identity --query Arn --output text" in workflow
-    assert 'aws s3api head-bucket --bucket "$TF_STATE_BUCKET" --region "$TF_STATE_REGION"' in workflow
+    assert 'aws s3api head-bucket --bucket "$TF_STATE_BUCKET" --region "$AWS_REGION"' in workflow
     assert "aws s3api get-object" in workflow
     assert 'deployment_config_key="$TF_STATE_PREFIX/config/deployment.auto.tfvars.json"' in workflow
     assert 'test "$TF_STATE_PREFIX" = "$(jq -r \'.project_name\' infra/deployment.auto.tfvars.json)/terraform"' in workflow
@@ -43,7 +43,7 @@ def test_sync_script_uses_shared_prefix_and_bucket_encryption() -> None:
     assert "--server-side-encryption" not in script
     assert 'CONFIG_KEY="$TF_STATE_PREFIX/config/deployment.auto.tfvars.json"' in script
     assert 'EXPECTED_STATE_PREFIX="$PROJECT_NAME/terraform"' in script
-    assert '--region "$TF_STATE_REGION"' in script
+    assert '--region "$AWS_REGION"' in script
 
 
 def test_published_images_use_ecr_scannable_manifests() -> None:

@@ -181,13 +181,13 @@ fi
 github_region="$(gh variable get AWS_REGION --repo "$GITHUB_REPOSITORY" --env "$GITHUB_DEPLOYMENT_ENVIRONMENT" 2>/dev/null || true)"
 [[ "$github_region" == "$AWS_REGION" ]] && pass "GitHub AWS_REGION" || fail "GitHub AWS_REGION"
 github_variables="$(gh variable list --repo "$GITHUB_REPOSITORY" --env "$GITHUB_DEPLOYMENT_ENVIRONMENT" --json name --jq '.[].name' 2>/dev/null || true)"
-if grep -Eq '^(AWS_DEPLOY_ROLE_ARN|TF_STATE_BUCKET|TF_STATE_PREFIX|TF_STATE_REGION|TERRAFORM_VARIABLES_JSON)$' <<<"$github_variables"; then
+if grep -Eq '^(AWS_DEPLOY_ROLE_ARN|TF_STATE_BUCKET|TF_STATE_PREFIX|TERRAFORM_VARIABLES_JSON)$' <<<"$github_variables"; then
   fail "GitHub environment variables contain private deployment identifiers"
 else
   pass "GitHub environment variables contain no private deployment identifiers"
 fi
 github_secrets="$(gh secret list --repo "$GITHUB_REPOSITORY" --env "$GITHUB_DEPLOYMENT_ENVIRONMENT" --json name --jq '.[].name' 2>/dev/null || true)"
-for secret_name in AWS_DEPLOY_ROLE_ARN TF_STATE_BUCKET TF_STATE_PREFIX TF_STATE_REGION; do
+for secret_name in AWS_DEPLOY_ROLE_ARN TF_STATE_BUCKET TF_STATE_PREFIX; do
   grep -Fxq "$secret_name" <<<"$github_secrets" \
     && pass "GitHub secret: $secret_name" || fail "GitHub secret: $secret_name"
 done
