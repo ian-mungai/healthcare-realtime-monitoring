@@ -120,6 +120,18 @@ The foundation wrapper builds the Glue lineage package and provisions Glue with 
 
 If application apply fails with an IAM denial, correct and apply the tracked policy first. Do not reuse the failed saved plan because Terraform state may contain resources created before the error. Run `application-plan` again, review its new add/change/destroy summary and apply that new saved plan.
 
+Run direct Terraform commands from the repository root with `-chdir=infra`; running `terraform apply` at the root has no configuration and must not be used. Both AWS providers take their region from the generated Terraform input, so they do not depend on a stale shell region.
+
+When a plan reports only a computed MWAA workflow-version output change, reconcile state with a reviewed refresh-only plan:
+
+```zsh
+terraform -chdir=infra plan -refresh-only -input=false -out=tfrefresh
+terraform -chdir=infra show -no-color tfrefresh
+terraform -chdir=infra apply -input=false tfrefresh
+```
+
+Apply `tfrefresh` only when the reviewed plan contains state or output reconciliation and no resource changes.
+
 ## 4. Seed the ten-patient cohort
 
 Generate the pinned synthetic cohort, load it into HAPI FHIR and register the webhook subscription:
