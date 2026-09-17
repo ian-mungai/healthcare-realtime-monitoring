@@ -23,7 +23,7 @@ Actions:
   main-migrate Migrate an existing application state into the persistent bucket.
   repositories-plan  Save a plan containing only the four ECR repositories.
   repositories-apply Apply the reviewed ECR repository plan.
-  foundation-plan  Save the network, data-bucket, HAPI, dbt, and Soda foundation plan.
+  foundation-plan  Save the network, data-bucket, HAPI, Glue, dbt, and Soda foundation plan.
   foundation-apply Apply the reviewed foundation plan after images are published.
   application-plan Generate MWAA assets and save the complete application plan.
   application-apply Apply the reviewed complete application plan.
@@ -103,10 +103,12 @@ case "$ACTION" in
     terraform -chdir="$INFRA_DIR" apply -input=false tfplan-bootstrap-ecr
     ;;
   foundation-plan)
+    "$REPO_ROOT/scripts/glue/build_lineage_package.sh"
     terraform -chdir="$INFRA_DIR" plan "${application_plan_args[@]}" \
       -target=module.network \
       -target=module.raw_s3 \
       -target=module.hapi_ecs \
+      -target=module.glue \
       -target=module.dbt_ecs \
       -target=module.soda_ecs \
       -out=tfplan-bootstrap-foundation

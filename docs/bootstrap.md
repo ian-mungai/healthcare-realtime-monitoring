@@ -36,9 +36,7 @@ Create the persistent state bucket before initializing the application stack:
 
 ```zsh
 ./scripts/infrastructure/bootstrap.sh state-plan
-terraform -chdir=infra/bootstrap show -no-color tfplan-state-bootstrap
-CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
-  ./scripts/infrastructure/bootstrap.sh state-apply
+CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap ./scripts/infrastructure/bootstrap.sh state-apply
 ./scripts/infrastructure/bootstrap.sh state-backup
 ./scripts/infrastructure/bootstrap.sh main-init
 ```
@@ -49,7 +47,7 @@ The state bucket is separate from `data_bucket_name`. MWAA Serverless source art
 
 Create the Secrets Manager secret `healthcare-realtime/fhir-webhook` in the target region with one JSON key named `FHIR_WEBHOOK_SECRET`. Enter the value through Secrets Manager or another approved secret-management workflow, not in tracked files or terminal output.
 
-Build generated deployment artifacts before Terraform reads their hashes:
+The bootstrap wrappers build generated deployment artifacts before Terraform reads their hashes. When running Terraform directly instead of through the wrappers, build them first:
 
 ```zsh
 for builder in scripts/lambda/build_*.sh; do "$builder"; done
@@ -65,29 +63,25 @@ Bootstrap the four ECR repositories with a reviewed targeted plan, then build an
 
 ```zsh
 ./scripts/infrastructure/bootstrap.sh repositories-plan
-terraform -chdir=infra show -no-color tfplan-bootstrap-ecr
-CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
-  ./scripts/infrastructure/bootstrap.sh repositories-apply
+CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap ./scripts/infrastructure/bootstrap.sh repositories-apply
 ./scripts/infrastructure/push_images.sh
 ```
 
 After all four pushes succeed, `push_images.sh` records the generated immutable tag in `.env` and rerenders Terraform inputs. The image script refuses to overwrite an existing ECR tag.
 
-Generate the MWAA definition only after the task definitions and network outputs exist:
+Generate the MWAA definition only after the task definitions, network outputs and Glue job exist. Run each command separately and capture the complete output:
 
 ```zsh
-./scripts/infrastructure/bootstrap.sh foundation-plan
-terraform -chdir=infra show -no-color tfplan-bootstrap-foundation
-CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
-  ./scripts/infrastructure/bootstrap.sh foundation-apply
-./scripts/infrastructure/bootstrap.sh application-plan
-terraform -chdir=infra show -no-color tfplan-bootstrap-application
-CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
-  ./scripts/infrastructure/bootstrap.sh application-apply
-terraform -chdir=infra plan
+set -o pipefail
+./scripts/infrastructure/bootstrap.sh foundation-plan 2>&1 | tee /tmp/healthcare-foundation-plan.log
+CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap ./scripts/infrastructure/bootstrap.sh foundation-apply 2>&1 | tee /tmp/healthcare-foundation-apply.log
+terraform -chdir=infra output -raw glue_job_name
+./scripts/infrastructure/bootstrap.sh application-plan 2>&1 | tee /tmp/healthcare-application-plan.log
+CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap ./scripts/infrastructure/bootstrap.sh application-apply 2>&1 | tee /tmp/healthcare-application-apply.log
+terraform -chdir=infra plan 2>&1 | tee /tmp/healthcare-convergence-plan.log
 ```
 
-The final plan must report `No changes`. During bootstrap the workflow remains manual-only because no approved model exists yet. The [external prerequisite inventory](external-prerequisites.md) identifies the account and third-party configuration that Terraform does not create.
+The foundation wrapper builds the Glue lineage package before its targeted plan. The `glue_job_name` command must return a nonempty value before application generation begins. The final plan must report `No changes`. During bootstrap the workflow remains manual-only because no approved model exists yet. The [external prerequisite inventory](external-prerequisites.md) identifies the account and third-party configuration that Terraform does not create.
 
 After the GitHub OIDC deployment role exists, synchronize the ignored deployment inputs to encrypted AWS storage and configure the protected GitHub environment as described in [deployment.md](deployment.md):
 

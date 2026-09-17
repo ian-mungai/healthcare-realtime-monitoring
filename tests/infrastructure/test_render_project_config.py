@@ -31,7 +31,6 @@ def environment() -> dict[str, str]:
         "REALTIME_PATIENT_ACCESS_PRINCIPALS": "arn:aws:iam::111111111111:user/dashboard",
         "ENABLE_OPENLINEAGE_COLLECTOR": "true",
         "OPENLINEAGE_COLLECTOR_DESIRED_COUNT": "1",
-        "OPENLINEAGE_COLLECTOR_URL": "",
         "VITALS_SIMULATOR_IMAGE_TAG": "sha-example",
         "DBT_IMAGE_TAG": "sha-example",
         "SODA_IMAGE_TAG": "sha-example",
@@ -72,6 +71,17 @@ def test_new_install_uses_bootstrap_image_tags_until_images_are_published() -> N
     deployment, _ = renderer.build_configuration(values, defaults())
 
     assert {deployment[name] for name in renderer.GENERATED_STRING_VARIABLES.values()} == {"sha-bootstrap"}
+
+
+def test_external_openlineage_url_is_an_optional_explicit_override() -> None:
+    deployment, _ = renderer.build_configuration(environment(), defaults())
+    assert deployment["external_openlineage_collector_url"] == ""
+
+    values = environment()
+    values["EXTERNAL_OPENLINEAGE_COLLECTOR_URL"] = "https://lineage.example.com"
+    deployment, _ = renderer.build_configuration(values, defaults())
+
+    assert deployment["external_openlineage_collector_url"] == "https://lineage.example.com"
 
 
 def test_disabled_github_oidc_allows_empty_repository_configuration() -> None:

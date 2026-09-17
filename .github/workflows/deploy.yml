@@ -95,7 +95,7 @@ jobs:
           jq -e '.project_name | type == "string" and length > 0' infra/deployment.auto.tfvars.json >/dev/null
           test "$(jq -r '.aws_region' infra/deployment.auto.tfvars.json)" = "$AWS_REGION"
           test "$TF_STATE_PREFIX" = "$(jq -r '.project_name' infra/deployment.auto.tfvars.json)/terraform"
-          echo "OPENLINEAGE_URL=$(jq -r '.openlineage_collector_url // ""' infra/deployment.auto.tfvars.json)" >> "$GITHUB_ENV"
+          echo "OPENLINEAGE_URL=$(jq -r '.external_openlineage_collector_url // ""' infra/deployment.auto.tfvars.json)" >> "$GITHUB_ENV"
           jq -r '
             {
               PROJECT_NAME: .project_name,
