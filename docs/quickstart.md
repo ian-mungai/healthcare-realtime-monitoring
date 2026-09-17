@@ -19,7 +19,7 @@ python3.12 -m venv .venv
 cp .env.example .env
 ```
 
-Replace every placeholder in `.env`. Use globally unique names for the state, application-data and MWAA source buckets. Leave `ML_APPROVED_MODEL_VERSION` empty for the first deployment. Patient IDs, bucket names, regions and image tags are entered only in this file.
+Replace every placeholder in `.env`. Use globally unique names for the state, application-data and MWAA source buckets. Leave `TF_STATE_REGION` empty so the new state bucket is created in `AWS_REGION`. Leave `ML_APPROVED_MODEL_VERSION` empty for the first deployment. Image tags are not first-deployment inputs; the image publishing script generates and records them later.
 
 Render the two ignored Terraform input files. Do not edit the generated files directly:
 
@@ -79,9 +79,9 @@ CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
 ./scripts/infrastructure/check_prerequisites.sh pre-deploy
 ```
 
-The state plan must create a new bucket. Stop if Terraform refreshes, imports or updates an existing state bucket; that indicates this is not a first deployment and the infrastructure lifecycle workflow applies instead.
+The state plan must create a new bucket and its protection controls. Stop if Terraform refreshes, imports or updates an existing state bucket; that indicates stale local metadata or a non-first deployment. Do not continue to `main-init` until the state-bucket apply and backup both succeed.
 
-Create the ECR repositories and push immutable images. Place the four printed image tags in `.env`, then rerun the renderer:
+Create the ECR repositories and push immutable images. The publishing script records the generated immutable tag in `.env` and rerenders Terraform inputs only after all four pushes succeed:
 
 ```zsh
 ./scripts/infrastructure/bootstrap.sh repositories-plan
@@ -89,7 +89,6 @@ terraform -chdir=infra show -no-color tfplan-bootstrap-ecr
 CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
   ./scripts/infrastructure/bootstrap.sh repositories-apply
 ./scripts/infrastructure/push_images.sh
-./scripts/infrastructure/render_project_config.sh
 ```
 
 Deploy the foundation and full application:

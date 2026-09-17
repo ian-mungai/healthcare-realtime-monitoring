@@ -19,31 +19,28 @@ STRING_VARIABLES = {
     "MWAA_SOURCE_BUCKET_NAME": "mwaa_source_bucket_name",
     "REALTIME_ALERT_EMAIL": "realtime_alert_email",
     "FHIR_WEBHOOK_SECRET_ID": "fhir_webhook_secret_id",
-    "OPENLINEAGE_COLLECTOR_IMAGE_TAG": "openlineage_collector_image_tag",
     "OPENLINEAGE_COLLECTOR_URL": "openlineage_collector_url",
     "GITHUB_REPOSITORY": "github_repository",
     "GITHUB_OIDC_SUBJECT_PREFIX": "github_oidc_subject_prefix",
     "GITHUB_DEPLOYMENT_ENVIRONMENT": "github_deployment_environment",
-    "VITALS_SIMULATOR_IMAGE_TAG": "vitals_simulator_image_tag",
-    "DBT_IMAGE_TAG": "dbt_image_tag",
-    "SODA_IMAGE_TAG": "soda_image_tag",
     "ML_APPROVED_MODEL_VERSION": "ml_approved_model_version",
 }
 
-BOOLEAN_VARIABLES = {
-    "ENABLE_OPENLINEAGE_COLLECTOR": "enable_openlineage_collector",
-    "ENABLE_GITHUB_OIDC": "enable_github_oidc",
+GENERATED_STRING_VARIABLES = {
+    "VITALS_SIMULATOR_IMAGE_TAG": "vitals_simulator_image_tag",
+    "DBT_IMAGE_TAG": "dbt_image_tag",
+    "SODA_IMAGE_TAG": "soda_image_tag",
+    "OPENLINEAGE_COLLECTOR_IMAGE_TAG": "openlineage_collector_image_tag",
 }
 
-INTEGER_VARIABLES = {
-    "OPENLINEAGE_COLLECTOR_DESIRED_COUNT": "openlineage_collector_desired_count",
-}
+BOOLEAN_VARIABLES = {"ENABLE_OPENLINEAGE_COLLECTOR": "enable_openlineage_collector", "ENABLE_GITHUB_OIDC": "enable_github_oidc"}
+
+INTEGER_VARIABLES = {"OPENLINEAGE_COLLECTOR_DESIRED_COUNT": "openlineage_collector_desired_count"}
 
 REQUIRED_ENVIRONMENT = {
     "AWS_ACCOUNT_ID",
     "AWS_REGION",
     "DATA_BUCKET_NAME",
-    "DBT_IMAGE_TAG",
     "ENABLE_GITHUB_OIDC",
     "ENABLE_OPENLINEAGE_COLLECTOR",
     "FHIR_WEBHOOK_SECRET_ID",
@@ -53,15 +50,12 @@ REQUIRED_ENVIRONMENT = {
     "ML_APPROVED_MODEL_VERSION",
     "MWAA_SOURCE_BUCKET_NAME",
     "OPENLINEAGE_COLLECTOR_DESIRED_COUNT",
-    "OPENLINEAGE_COLLECTOR_IMAGE_TAG",
     "OPENLINEAGE_COLLECTOR_URL",
     "PATIENT_IDS",
     "PROJECT_NAME",
     "REALTIME_ALERT_EMAIL",
     "REALTIME_PATIENT_ACCESS_PRINCIPALS",
-    "SODA_IMAGE_TAG",
     "TF_STATE_BUCKET",
-    "VITALS_SIMULATOR_IMAGE_TAG",
 }
 
 
@@ -144,6 +138,9 @@ def build_configuration(environment: dict[str, str], defaults: dict[str, Any]) -
     deployment = dict(defaults["terraform"])
     for environment_name, terraform_name in STRING_VARIABLES.items():
         deployment[terraform_name] = effective.get(environment_name, "").strip()
+    for environment_name, terraform_name in GENERATED_STRING_VARIABLES.items():
+        if value := effective.get(environment_name, "").strip():
+            deployment[terraform_name] = value
     for environment_name, terraform_name in BOOLEAN_VARIABLES.items():
         deployment[terraform_name] = parse_boolean(require_value(effective, environment_name), environment_name)
     for environment_name, terraform_name in INTEGER_VARIABLES.items():
@@ -158,17 +155,11 @@ def build_configuration(environment: dict[str, str], defaults: dict[str, Any]) -
     deployment["athena_results_s3_uri"] = f"s3://{data_bucket}/{results_prefix}/"
     deployment["active_patient_ids"] = patient_ids
     deployment["realtime_patient_access_policy"] = {principal: patient_ids for principal in principals}
-    deployment["github_deployment_policy_arns"] = [
-        f"arn:aws:iam::{account_id}:policy/{name}" for name in defaults["github_deployment_policy_names"]
-    ]
+    deployment["github_deployment_policy_arns"] = [f"arn:aws:iam::{account_id}:policy/{name}" for name in defaults["github_deployment_policy_names"]]
 
     project_name = require_value(effective, "PROJECT_NAME")
     state_region = effective.get("TF_STATE_REGION", "").strip() or require_value(effective, "AWS_REGION")
-    bootstrap = {
-        "aws_region": state_region,
-        "project_name": project_name,
-        "state_bucket_name": require_value(effective, "TF_STATE_BUCKET"),
-    }
+    bootstrap = {"aws_region": state_region, "project_name": project_name, "state_bucket_name": require_value(effective, "TF_STATE_BUCKET")}
     return deployment, bootstrap
 
 

@@ -11,7 +11,7 @@ python3.12 -m venv .venv
 cp .env.example .env
 ```
 
-Replace every placeholder in `.env`, use globally unique bucket names and render both Terraform inputs:
+Replace every placeholder in `.env`, use globally unique bucket names, leave `TF_STATE_REGION` empty for a state bucket in the target region and render both Terraform inputs:
 
 ```zsh
 ./scripts/infrastructure/render_project_config.sh
@@ -71,7 +71,7 @@ CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
 ./scripts/infrastructure/push_images.sh
 ```
 
-Place the four tags printed by `push_images.sh` into `.env`, then run `./scripts/infrastructure/render_project_config.sh`. The image script refuses to overwrite an existing tag.
+After all four pushes succeed, `push_images.sh` records the generated immutable tag in `.env` and rerenders Terraform inputs. The image script refuses to overwrite an existing ECR tag.
 
 Generate the MWAA definition only after the task definitions and network outputs exist:
 
