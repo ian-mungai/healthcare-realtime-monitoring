@@ -120,6 +120,14 @@ def test_glue_emits_start_lineage_event() -> None:
     assert "lineage_run_id = emit_s3_glue_lineage(RunState.START)" in content
 
 
+def test_glue_treats_openlineage_url_as_optional() -> None:
+    content = GLUE_SCRIPT.read_text()
+
+    assert 'if "--OPENLINEAGE_URL" in sys.argv:' in content
+    assert 'args.update(getResolvedOptions(sys.argv, ["OPENLINEAGE_URL"]))' in content
+    assert 'args.get("OPENLINEAGE_URL")' in content
+
+
 def test_glue_emits_complete_lineage_event() -> None:
     content = GLUE_SCRIPT.read_text()
 
