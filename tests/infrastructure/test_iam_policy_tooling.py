@@ -16,6 +16,7 @@ ECR_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_ecr_policy
 IAM_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_iam_policy.json"
 CLOUDFORMATION_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_cloudformation_policy.json"
 COST_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_cost_management_policy.json"
+KMS_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_kms_policy.json"
 RENDERER_PATH = REPO_ROOT / "infra/iam/scripts/render_policy.py"
 EXPORTER_PATH = REPO_ROOT / "infra/iam/scripts/export_policies.py"
 MANAGER_PATH = REPO_ROOT / "infra/iam/scripts/manage_policies.py"
@@ -75,6 +76,23 @@ def test_renderer_replaces_state_bucket_placeholder(tmp_path: Path) -> None:
     rendered = rendered_path.read_text(encoding="utf-8")
     assert "${TF_STATE_BUCKET}" not in rendered
     assert "arn:aws:s3:::example-state/example-project/terraform/*" in rendered
+
+
+def test_kms_policy_uses_configured_project_tag(tmp_path: Path) -> None:
+    rendered_path = tmp_path / "kms-policy.json"
+    environment = {
+        **os.environ,
+        "AWS_ACCOUNT_ID": "111111111111",
+        "AWS_REGION": "example-region-1",
+        "PROJECT_NAME": "example-project",
+    }
+
+    subprocess.run([sys.executable, str(RENDERER_PATH), str(KMS_POLICY_PATH), "--output", str(rendered_path)], check=True, env=environment)
+
+    document = json.loads(rendered_path.read_text(encoding="utf-8"))
+    statements = {statement["Sid"]: statement for statement in document["Statement"]}
+    assert statements["CreateHealthcareRealtimeKmsKeys"]["Condition"]["StringEquals"]["aws:RequestTag/Project"] == "example-project"
+    assert statements["ManageHealthcareRealtimeKmsKeys"]["Condition"]["StringEquals"]["aws:ResourceTag/Project"] == "example-project"
 
 
 def test_exporter_redacts_state_bucket(monkeypatch: pytest.MonkeyPatch) -> None:
