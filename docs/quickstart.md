@@ -21,7 +21,7 @@ cp .env.example .env
 
 The root requirements file installs the workflow-generator dependencies in the same environment. The verified compatibility set uses Apache Airflow 3.3.1 with SQLAlchemy 2.0.50; do not install Airflow 3.0.x or downgrade SQLAlchemy separately because that recreates the incompatible dependency set.
 
-Replace every placeholder in `.env` except `PATIENT_IDS`. The generated HAPI cohort replaces that value before the full application plan. Enter the deployment region once as `AWS_REGION` and use globally unique names for the state and application-data buckets. The state bucket and every regional service are created in `AWS_REGION`. MWAA Serverless definitions and code are stored under `orchestration/mwaa-serverless/` in the application-data bucket. Leave `ML_APPROVED_MODEL_VERSION` empty for the first deployment. Image tags are not first-deployment inputs; the image publishing script generates and records them later.
+Replace every placeholder in `.env`. Patient IDs are not user inputs: the generated FHIR resource map supplies them before the full application plan. Enter the deployment region once as `AWS_REGION` and use globally unique names for the state and application-data buckets. The state bucket and every regional service are created in `AWS_REGION`. MWAA Serverless definitions and code are stored under `orchestration/mwaa-serverless/` in the application-data bucket. Leave `ML_APPROVED_MODEL_VERSION` empty for the first deployment. Image tags are not first-deployment inputs; the image publishing script generates and records them later.
 
 Set `ENABLE_OPENLINEAGE_COLLECTOR=true` to create the managed collector. Do not add its URL to `.env`; Terraform generates the URL and passes it to project services. When the setting is `false`, lineage uses durable S3 fallback unless the optional external-collector override documented in the [deployment guide](deployment.md) is added.
 
@@ -157,7 +157,7 @@ FHIR_WEBHOOK_SECRET="$(
 )" .venv/bin/python -m services.fhir_webhook.app.register_subscription
 ```
 
-The publisher uploads the generated map, replaces `PATIENT_IDS` in `.env` with the ten HAPI patient IDs and rerenders the ignored Terraform inputs. Review the application plan before applying it. The final convergence plan must report `No changes`. Confirm the SNS email subscription when AWS sends the request. Configure GitHub OIDC later using the [deployment guide](deployment.md) when remote deployment is required.
+The publisher uploads the generated map and rerenders the ignored Terraform inputs with the ten HAPI patient IDs. The live dashboard reads the same generated map directly. Review the application plan before applying it. The final convergence plan must report `No changes`. Confirm the SNS email subscription when AWS sends the request. Configure GitHub OIDC later using the [deployment guide](deployment.md) when remote deployment is required.
 
 ## 5. Run the fastest live demo
 

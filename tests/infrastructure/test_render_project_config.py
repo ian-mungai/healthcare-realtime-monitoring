@@ -28,7 +28,6 @@ def environment() -> dict[str, str]:
         "GITHUB_OIDC_SUBJECT_PREFIX": "repo:example@1/healthcare-realtime-monitoring@2",
         "ENABLE_GITHUB_OIDC": "true",
         "FHIR_WEBHOOK_SECRET_ID": "healthcare-realtime/fhir-webhook",
-        "PATIENT_IDS": ",".join(f"patient-{number:02d}" for number in range(1, 11)),
         "REALTIME_PATIENT_ACCESS_PRINCIPALS": "arn:aws:iam::111111111111:user/dashboard",
         "ENABLE_OPENLINEAGE_COLLECTOR": "true",
         "OPENLINEAGE_COLLECTOR_DESIRED_COUNT": "1",
@@ -45,11 +44,11 @@ def defaults() -> dict[str, object]:
 
 
 def test_build_configuration_derives_shared_values() -> None:
-    deployment, bootstrap = renderer.build_configuration(environment(), defaults())
+    patients = tuple(f"patient-{number:02d}" for number in range(1, 11))
+    deployment, bootstrap = renderer.build_configuration(environment(), defaults(), patients)
 
-    patients = [f"patient-{number:02d}" for number in range(1, 11)]
-    assert deployment["active_patient_ids"] == patients
-    assert deployment["realtime_patient_access_policy"] == {"arn:aws:iam::111111111111:user/dashboard": patients}
+    assert deployment["active_patient_ids"] == list(patients)
+    assert deployment["realtime_patient_access_policy"] == {"arn:aws:iam::111111111111:user/dashboard": list(patients)}
     assert deployment["athena_results_s3_uri"] == "s3://example-data-bucket/athena_results/"
     assert deployment["fhir_resource_map_s3_key"] == "config/vitals_simulator/fhir_resource_map.json"
     assert len(deployment["github_deployment_policy_arns"]) == 20
@@ -57,12 +56,15 @@ def test_build_configuration_derives_shared_values() -> None:
     assert bootstrap == {"aws_region": "us-west-2", "project_name": "healthcare-realtime-monitoring", "state_bucket_name": "example-state-bucket"}
 
 
-def test_patient_ids_must_be_exactly_ten() -> None:
-    values = environment()
-    values["PATIENT_IDS"] = "patient-01,patient-02"
-
+def test_generated_patient_ids_must_be_exactly_ten() -> None:
     with pytest.raises(renderer.ConfigurationError, match="exactly ten"):
-        renderer.build_configuration(values, defaults())
+        renderer.build_configuration(environment(), defaults(), ("patient-01", "patient-02"))
+
+
+def test_missing_resource_map_uses_internal_bootstrap_patient_ids() -> None:
+    deployment, _ = renderer.build_configuration(environment(), defaults())
+
+    assert deployment["active_patient_ids"] == [f"bootstrap-patient-{number:02d}" for number in range(1, 11)]
 
 
 def test_new_install_uses_bootstrap_image_tags_until_images_are_published() -> None:

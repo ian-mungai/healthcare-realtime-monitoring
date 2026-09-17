@@ -38,10 +38,8 @@ def test_cohort_patient_ids_requires_exactly_ten_unique_ids(tmp_path: Path) -> N
         publisher.cohort_patient_ids(path)
 
 
-def test_update_patient_ids_replaces_single_environment_assignment(tmp_path: Path) -> None:
+def test_environment_does_not_require_patient_ids(tmp_path: Path) -> None:
     path = tmp_path / ".env"
-    path.write_text("AWS_REGION=us-west-2\nPATIENT_IDS=old\nPROJECT_NAME=example\n", encoding="utf-8")
+    path.write_text("AWS_REGION=us-west-2\nPROJECT_NAME=example\n", encoding="utf-8")
 
-    publisher.update_patient_ids(path, tuple(str(patient_id) for patient_id in range(1000, 1020, 2)))
-
-    assert path.read_text(encoding="utf-8") == ("AWS_REGION=us-west-2\nPATIENT_IDS=1000,1002,1004,1006,1008,1010,1012,1014,1016,1018\nPROJECT_NAME=example\n")
+    assert publisher.load_environment(path) == {"AWS_REGION": "us-west-2", "PROJECT_NAME": "example"}

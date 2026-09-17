@@ -6,6 +6,7 @@ import time
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
@@ -25,12 +26,13 @@ from dashboard.state import (
     measurement_age_seconds,
     measurement_delta,
     merge_vitals,
-    parse_patient_ids,
     patient_priority,
     vital_timestamp_key,
 )
+from scripts.synthea_loader.src.cohort import cohort_patient_ids
 
-PATIENT_IDS = parse_patient_ids(os.getenv("PATIENT_IDS", "1000,1002,1004,1006,1008,1010,1012,1014,1016,1018"))
+FHIR_RESOURCE_MAP_FILE = Path(os.getenv("FHIR_RESOURCE_MAP_FILE", "scripts/synthea_loader/state/fhir_resource_map.json"))
+PATIENT_IDS = cohort_patient_ids(FHIR_RESOURCE_MAP_FILE)
 API_ENDPOINT = os.environ["VITALS_API_ENDPOINT"].rstrip("/")
 WEBSOCKET_URL = os.environ["VITALS_WEBSOCKET_URL"]
 

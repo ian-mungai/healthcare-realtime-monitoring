@@ -115,10 +115,6 @@ def freshness_status(age_seconds: float | None, fresh_threshold_seconds: float, 
     return "Stale"
 
 
-def parse_patient_ids(value: str) -> tuple[str, ...]:
-    return tuple(patient_id.strip() for patient_id in value.split(",") if patient_id.strip())
-
-
 def vital_warning_parameter_score(field: str, value: Any) -> int | None:
     if value is None:
         return None

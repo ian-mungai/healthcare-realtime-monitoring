@@ -6,11 +6,14 @@ import re
 from pathlib import Path
 from typing import Any
 
+from scripts.synthea_loader.src.cohort import cohort_patient_ids
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ENV_FILE = REPO_ROOT / ".env"
 DEFAULT_DEFAULTS_FILE = REPO_ROOT / "config" / "deployment.defaults.json"
 DEFAULT_DEPLOYMENT_OUTPUT = REPO_ROOT / "infra" / "deployment.auto.tfvars.json"
 DEFAULT_BOOTSTRAP_OUTPUT = REPO_ROOT / "infra" / "bootstrap" / "deployment.auto.tfvars.json"
+DEFAULT_RESOURCE_MAP_FILE = REPO_ROOT / "scripts" / "synthea_loader" / "state" / "fhir_resource_map.json"
 
 STRING_VARIABLES = {
     "AWS_REGION": "aws_region",
@@ -47,7 +50,6 @@ REQUIRED_ENVIRONMENT = {
     "FHIR_RESOURCE_MAP_S3_KEY",
     "ML_APPROVED_MODEL_VERSION",
     "OPENLINEAGE_COLLECTOR_DESIRED_COUNT",
-    "PATIENT_IDS",
     "PROJECT_NAME",
     "REALTIME_ALERT_EMAIL",
     "REALTIME_PATIENT_ACCESS_PRINCIPALS",
@@ -108,12 +110,18 @@ def load_defaults(path: Path) -> dict[str, Any]:
         values = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise ConfigurationError(f"unable to load deployment defaults: {error}") from error
-    if not isinstance(values.get("terraform"), dict) or not isinstance(values.get("github_deployment_policy_names"), list):
-        raise ConfigurationError("deployment defaults must contain terraform and github_deployment_policy_names")
+    if (
+        not isinstance(values.get("terraform"), dict)
+        or not isinstance(values.get("bootstrap_patient_ids"), list)
+        or not isinstance(values.get("github_deployment_policy_names"), list)
+    ):
+        raise ConfigurationError("deployment defaults must contain terraform, bootstrap_patient_ids and github_deployment_policy_names")
     return values
 
 
-def build_configuration(environment: dict[str, str], defaults: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+def build_configuration(
+    environment: dict[str, str], defaults: dict[str, Any], patient_ids: tuple[str, ...] | None = None
+) -> tuple[dict[str, Any], dict[str, Any]]:
     effective = environment
     for name in sorted(REQUIRED_ENVIRONMENT):
         if name == "ML_APPROVED_MODEL_VERSION":
@@ -126,9 +134,11 @@ def build_configuration(environment: dict[str, str], defaults: dict[str, Any]) -
     if not re.fullmatch(r"[0-9]{12}", account_id):
         raise ConfigurationError("AWS_ACCOUNT_ID must contain 12 digits")
 
-    patient_ids = parse_csv(require_value(effective, "PATIENT_IDS"), "PATIENT_IDS")
-    if len(patient_ids) != 10:
-        raise ConfigurationError("PATIENT_IDS must contain exactly ten patient identifiers")
+    resolved_patient_ids = list(patient_ids or tuple(defaults["bootstrap_patient_ids"]))
+    if len(resolved_patient_ids) != 10:
+        raise ConfigurationError("generated patient cohort must contain exactly ten patient identifiers")
+    if len(set(resolved_patient_ids)) != 10 or any(not patient_id.strip() for patient_id in resolved_patient_ids):
+        raise ConfigurationError("generated patient cohort must contain ten unique non-empty patient identifiers")
     principals = parse_csv(require_value(effective, "REALTIME_PATIENT_ACCESS_PRINCIPALS"), "REALTIME_PATIENT_ACCESS_PRINCIPALS")
 
     github_oidc_enabled = parse_boolean(require_value(effective, "ENABLE_GITHUB_OIDC"), "ENABLE_GITHUB_OIDC")
@@ -154,8 +164,8 @@ def build_configuration(environment: dict[str, str], defaults: dict[str, Any]) -
     data_bucket = require_value(effective, "DATA_BUCKET_NAME")
     results_prefix = str(deployment.pop("athena_results_prefix")).strip("/")
     deployment["athena_results_s3_uri"] = f"s3://{data_bucket}/{results_prefix}/"
-    deployment["active_patient_ids"] = patient_ids
-    deployment["realtime_patient_access_policy"] = {principal: patient_ids for principal in principals}
+    deployment["active_patient_ids"] = resolved_patient_ids
+    deployment["realtime_patient_access_policy"] = {principal: resolved_patient_ids for principal in principals}
     deployment["github_deployment_policy_arns"] = [f"arn:aws:iam::{account_id}:policy/{name}" for name in defaults["github_deployment_policy_names"]]
 
     project_name = require_value(effective, "PROJECT_NAME")
@@ -188,15 +198,18 @@ def main() -> None:
     parser.add_argument("--defaults-file", type=Path, default=DEFAULT_DEFAULTS_FILE)
     parser.add_argument("--deployment-output", type=Path, default=DEFAULT_DEPLOYMENT_OUTPUT)
     parser.add_argument("--bootstrap-output", type=Path, default=DEFAULT_BOOTSTRAP_OUTPUT)
+    parser.add_argument("--resource-map", type=Path, default=DEFAULT_RESOURCE_MAP_FILE)
     parser.add_argument("--check", action="store_true")
     arguments = parser.parse_args()
 
     try:
         environment = load_environment_file(arguments.env_file)
-        deployment, bootstrap = build_configuration(environment, load_defaults(arguments.defaults_file))
+        defaults = load_defaults(arguments.defaults_file)
+        patient_ids = cohort_patient_ids(arguments.resource_map) if arguments.resource_map.is_file() else None
+        deployment, bootstrap = build_configuration(environment, defaults, patient_ids)
         write_or_check(arguments.deployment_output, rendered_json(deployment), arguments.check)
         write_or_check(arguments.bootstrap_output, rendered_json(bootstrap), arguments.check)
-    except ConfigurationError as error:
+    except (ConfigurationError, OSError, ValueError) as error:
         parser.error(str(error))
 
     action = "Verified" if arguments.check else "Rendered"

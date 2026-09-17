@@ -10,7 +10,6 @@ from dashboard.state import (
     measurement_delta,
     merge_vitals,
     parse_event_timestamp,
-    parse_patient_ids,
     patient_priority,
     vital_warning_parameter_score,
 )
@@ -88,10 +87,6 @@ def test_event_age_uses_latest_measurement_when_vitals_have_different_cadences()
 
 def test_parse_event_timestamp_rejects_invalid_values() -> None:
     assert parse_event_timestamp("not-a-timestamp") is None
-
-
-def test_parse_patient_ids_ignores_empty_values_and_whitespace() -> None:
-    assert parse_patient_ids("1000, 1002,,1004 ") == ("1000", "1002", "1004")
 
 
 def test_vital_warning_parameter_score_uses_adult_warning_boundaries() -> None:
