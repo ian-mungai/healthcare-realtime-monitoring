@@ -1,0 +1,14 @@
+{
+  "cohort": {
+    "synthea-01": {"hapi_patient_id": "1000"},
+    "synthea-02": {"hapi_patient_id": "1002"},
+    "synthea-03": {"hapi_patient_id": "1004"},
+    "synthea-04": {"hapi_patient_id": "1006"},
+    "synthea-05": {"hapi_patient_id": "1008"},
+    "synthea-06": {"hapi_patient_id": "1010"},
+    "synthea-07": {"hapi_patient_id": "1012"},
+    "synthea-08": {"hapi_patient_id": "1014"},
+    "synthea-09": {"hapi_patient_id": "1016"},
+    "synthea-10": {"hapi_patient_id": "1018"}
+  }
+}

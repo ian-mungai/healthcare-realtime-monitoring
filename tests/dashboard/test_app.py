@@ -4,12 +4,13 @@ import os
 import queue
 from collections import deque
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
 
 os.environ["VITALS_API_ENDPOINT"] = "https://api.example.com/development"
 os.environ["VITALS_WEBSOCKET_URL"] = "wss://websocket.example.com/development"
-os.environ["PATIENT_IDS"] = "1000,1002,1004,1006,1008,1010,1012,1014,1016,1018"
+os.environ["FHIR_RESOURCE_MAP_FILE"] = str(Path(__file__).resolve().parents[1] / "fixtures" / "dashboard_fhir_resource_map.json")
 
 from dashboard import app
 
