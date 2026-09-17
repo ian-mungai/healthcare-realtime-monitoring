@@ -80,12 +80,7 @@ def test_renderer_replaces_state_bucket_placeholder(tmp_path: Path) -> None:
 
 def test_kms_policy_uses_configured_project_tag(tmp_path: Path) -> None:
     rendered_path = tmp_path / "kms-policy.json"
-    environment = {
-        **os.environ,
-        "AWS_ACCOUNT_ID": "111111111111",
-        "AWS_REGION": "example-region-1",
-        "PROJECT_NAME": "example-project",
-    }
+    environment = {**os.environ, "AWS_ACCOUNT_ID": "111111111111", "AWS_REGION": "example-region-1", "PROJECT_NAME": "example-project"}
 
     subprocess.run([sys.executable, str(RENDERER_PATH), str(KMS_POLICY_PATH), "--output", str(rendered_path)], check=True, env=environment)
 
