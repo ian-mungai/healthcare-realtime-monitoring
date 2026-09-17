@@ -256,9 +256,10 @@ def write_metrics(spark, metrics_path: str, run_started_at: str, candidate_count
 
 def main():
     args = getResolvedOptions(
-        sys.argv,
-        ["JOB_NAME", "RAW_PATH", "QUARANTINE_PATH", "METRICS_PATH", "DATABASE_NAME", "TABLE_NAME", "DATA_BUCKET_NAME", "PROJECT_NAME", "OPENLINEAGE_URL"],
+        sys.argv, ["JOB_NAME", "RAW_PATH", "QUARANTINE_PATH", "METRICS_PATH", "DATABASE_NAME", "TABLE_NAME", "DATA_BUCKET_NAME", "PROJECT_NAME"]
     )
+    if "--OPENLINEAGE_URL" in sys.argv:
+        args.update(getResolvedOptions(sys.argv, ["OPENLINEAGE_URL"]))
     run_started_at = datetime.now(UTC).isoformat()
     spark_context = SparkContext()
     glue_context = GlueContext(spark_context)
@@ -270,8 +271,8 @@ def main():
     os.environ["GLUE_JOB_NAME"] = args["JOB_NAME"]
     os.environ["ATHENA_SOURCE_DATABASE"] = args["DATABASE_NAME"]
     os.environ["ATHENA_PROCESSED_TABLE"] = args["TABLE_NAME"]
-    if args["OPENLINEAGE_URL"]:
-        os.environ["OPENLINEAGE_URL"] = args["OPENLINEAGE_URL"]
+    if openlineage_url := args.get("OPENLINEAGE_URL"):
+        os.environ["OPENLINEAGE_URL"] = openlineage_url
     lineage_run_id = emit_s3_glue_lineage(RunState.START)
 
     try:

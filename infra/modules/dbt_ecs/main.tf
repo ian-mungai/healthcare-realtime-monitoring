@@ -44,6 +44,10 @@ resource "aws_cloudwatch_log_metric_filter" "openlineage_emission_failures" {
   }
 }
 
+resource "aws_glue_catalog_database" "dbt" {
+  name = var.dbt_database_name
+}
+
 resource "aws_glue_catalog_database" "ml" {
   name = var.ml_database_name
 }

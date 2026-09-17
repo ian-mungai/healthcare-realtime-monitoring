@@ -188,3 +188,5 @@ The realtime demo does not require an approved model. To show existing approved-
 ```
 
 For the complete analytical and data-science path, run dbt, follow the [model training guide](model-training.md), apply the approved model version and run MWAA. Allow 30 minutes for that workflow.
+
+A fresh ten-patient cohort may initially contain only one proxy-label class. In that state, model training stops by design. Keep `ML_APPROVED_MODEL_VERSION` empty and MWAA in manual-only mode until the analytical dataset contains both classes in both patient-grouped splits and a reviewed immutable model artifact has been published. Do not bypass the class-readiness gate to complete a first deployment.

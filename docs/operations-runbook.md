@@ -147,6 +147,14 @@ export QUARANTINE_REVIEW_FILE="${TMPDIR:-/tmp}/healthcare-realtime-quarantine-re
 
 Review the validated count, then publish the corrected rows by repeating the replay command with `--confirm-replay`. Replayed rows retain the original observation ID, use `source=quarantine_replay`, pass through Firehose and Glue again and remain idempotent at the analytical `(observation_id, loinc_code)` grain.
 
+### Optional lineage collector
+
+The analytical workflow always emits OpenLineage events. When the shared collector is disabled, Glue, Athena, dbt, Great Expectations and Soda store events in the project data bucket. Terraform omits the optional `--OPENLINEAGE_URL` Glue argument when no collector URL is configured. Do not add the argument with an empty value because AWS Glue treats an empty option as a missing command-line value.
+
+After correcting a Glue deployment failure, apply the reviewed Terraform change and start a fresh MWAA workflow run. The Glue sensor may retry while the failed job reaches its terminal state; verify the new Glue run ID before interpreting a sensor retry as another processing attempt.
+
+Terraform creates both the dbt presentation database and the published-model database before analytical ECS tasks run. The dbt task role manages tables and partitions inside its assigned database but cannot create new Glue databases. If a first dbt run reports `glue:CreateDatabase`, confirm the Terraform-managed dbt database exists before changing IAM permissions.
+
 ### Simulator publication failures
 
 The simulator isolates FHIR publication failures by patient. The HAPI client owns the single bounded retry policy and reuses deterministic observation identifiers, so partial retries do not create duplicate observations. Patients with permanent failures are disabled for the remainder of the task while healthy patient streams continue.

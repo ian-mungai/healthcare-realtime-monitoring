@@ -219,7 +219,7 @@ resource "aws_glue_job" "raw_to_processed" {
     python_version  = "3"
   }
 
-  default_arguments = {
+  default_arguments = merge({
     "--job-language"                 = "python"
     "--enable-job-insights"          = "true"
     "--enable-metrics"               = "true"
@@ -233,13 +233,14 @@ resource "aws_glue_job" "raw_to_processed" {
     "--job-bookmark-option"          = "job-bookmark-enable"
     "--QUARANTINE_PATH"              = var.quarantine_path
     "--METRICS_PATH"                 = var.metrics_path
-    "--OPENLINEAGE_URL"              = var.openlineage_collector_url
     "--extra-py-files"               = "s3://${var.bucket_name}/glue/dependencies/healthcare_realtime_lineage.zip"
     "--additional-python-modules"    = "openlineage-python[fsspec]==1.52.0,s3fs"
     "--enable-observability-metrics" = "true"
     "--continuous-log-logGroup"      = aws_cloudwatch_log_group.glue.name
     "--conf"                         = "spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions --conf spark.sql.catalog.glue_catalog=org.apache.iceberg.spark.SparkCatalog --conf spark.sql.catalog.glue_catalog.warehouse=s3://${var.bucket_name}/processed/ --conf spark.sql.catalog.glue_catalog.catalog-impl=org.apache.iceberg.aws.glue.GlueCatalog --conf spark.sql.catalog.glue_catalog.io-impl=org.apache.iceberg.aws.s3.S3FileIO"
-  }
+    }, trimspace(var.openlineage_collector_url) != "" ? {
+    "--OPENLINEAGE_URL" = var.openlineage_collector_url
+  } : {})
 
   tags = var.tags
 
