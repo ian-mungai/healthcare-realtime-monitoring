@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 import pytest
 
 from services.vitals_simulator.app.bidmc.source import VitalReading
-from services.vitals_simulator.app.fhir.client import FHIRPermanentError, FHIRRetryableError
+from services.vitals_simulator.app.fhir.client import CreatedFHIRResource, FHIRPermanentError, FHIRRetryableError
 from services.vitals_simulator.app.fhir.mapping import FHIRPatientContext
 from services.vitals_simulator.app.fhir.publisher import PublishedSimulatorEvent
 from services.vitals_simulator.app.simulation import realtime_cohort_runner
@@ -16,6 +16,7 @@ from services.vitals_simulator.app.simulation.realtime_cohort_runner import (
     get_available_cycle_count,
     get_cycle_simulation_start,
     get_replay_reading,
+    initialize_simulation_run,
     load_settings,
     parse_bool,
     parse_optional_positive_int,
@@ -149,6 +150,29 @@ def test_cycle_simulation_start_makes_effective_time_equal_publication_time():
     assert simulation_start.isoformat() == "2026-09-03T16:55:38+00:00"
 
 
+def test_initialize_simulation_run_creates_fresh_encounters_and_assigns_scenarios():
+    simulations = [
+        PatientSimulation(context=build_context(patient_id), bidmc_record_number=index, readings=[], bp_cadence=None)
+        for index, patient_id in enumerate(("1000", "1001"), start=1)
+    ]
+    resources = []
+
+    class FakeClient:
+        def post_resource(self, resource):
+            resources.append(resource)
+            patient_id = resource["subject"]["reference"].removeprefix("Patient/")
+            return CreatedFHIRResource("Encounter", f"run-encounter-{patient_id}", f"Encounter/run-encounter-{patient_id}", 201)
+
+    run_id, initialized = initialize_simulation_run(
+        simulations, started_at=datetime(2026, 9, 17, 12, 0, tzinfo=UTC), seed="test-seed", client=FakeClient(), run_id="run-123"
+    )
+
+    assert run_id == "run-123"
+    assert [simulation.context.hapi_encounter_id for simulation in initialized] == ["run-encounter-1000", "run-encounter-1001"]
+    assert all(resource["identifier"][0]["value"].startswith("run-123:") for resource in resources)
+    assert all(simulation.scenario in {"normal", "deterioration_proxy"} for simulation in initialized)
+
+
 def test_publish_patient_cycle_delegates_retries_to_hapi_client(monkeypatch):
     simulation = PatientSimulation(
         context=build_context("1001"), bidmc_record_number=1, readings=[VitalReading("bidmc01n", 0, 80.0, 18.0, 98.0)], bp_cadence=None
@@ -251,6 +275,7 @@ def test_realtime_cohort_stops_only_at_consecutive_failure_threshold(monkeypatch
     cycle_calls = []
 
     monkeypatch.setattr(realtime_cohort_runner, "load_patient_simulations", lambda _interval: [simulation])
+    monkeypatch.setattr(realtime_cohort_runner, "initialize_simulation_run", lambda simulations, **_kwargs: ("run-test", simulations))
     monkeypatch.setattr(realtime_cohort_runner, "wait_for_next_cycle", lambda *_args: None)
 
     def degraded_cycle(**_kwargs):
@@ -277,6 +302,7 @@ def test_realtime_cohort_disables_permanent_failure_and_continues(monkeypatch):
     active_patient_sets = []
 
     monkeypatch.setattr(realtime_cohort_runner, "load_patient_simulations", lambda _interval: simulations)
+    monkeypatch.setattr(realtime_cohort_runner, "initialize_simulation_run", lambda simulations, **_kwargs: ("run-test", simulations))
     monkeypatch.setattr(realtime_cohort_runner, "wait_for_next_cycle", lambda *_args: 0.0)
 
     def run_test_cycle(**kwargs):

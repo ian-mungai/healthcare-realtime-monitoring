@@ -76,6 +76,8 @@ The committed provider history is a synthetic NPPES-compatible fixture. It conta
 
 The encounter feature table uses the first fixed 15 minutes for features and the following fixed 15 minutes for the outcome proxy. The boundary is computable while an encounter is in progress and does not depend on its eventual end time. The outcome window produces a versioned deterioration proxy that requires repeated observations of the same vital beyond a NEWS2 extreme threshold, reducing sensitivity to isolated synthetic measurements. This proxy supports pipeline demonstration only and is not a diagnosis, a validated clinical outcome or approved training data for clinical use.
 
+The simulator creates fresh encounter identifiers at task startup and randomly assigns each patient encounter a normal or deterioration-proxy scenario. Transformations are confined to the outcome window. The assignment is recorded in simulator logs for audit while the analytical split remains grouped by patient to prevent leakage.
+
 The training dataset excludes ineligible encounters and assigns complete patient histories to either training or testing. Its feature schema, label definition, split rule and source-row fingerprint are recorded with every baseline model artifact. Generated model files remain under the ignored `build/` directory unless a reviewed private artifact store is configured.
 
 Historical quality checkpoint before the star-schema expansion, verified on 2026-09-03:

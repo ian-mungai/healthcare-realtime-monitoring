@@ -36,6 +36,8 @@ Wait until the task reports `RUNNING`. The script starts one Fargate simulator t
 
 In the simulator log stream, healthy cycles report `status=healthy`, `patients_succeeded=10` and `patients_failed=0`. Investigate any `status=degraded` cycle before using the run as release evidence.
 
+Task startup logs one `scenario_assigned` record per patient with a fresh encounter identifier and a randomly selected `normal` or `deterioration_proxy` scenario. A realtime-only demonstration can remain short. A run intended to create model-training rows must continue for at least 30 minutes so every encounter has a complete feature window and outcome window.
+
 ## Start the dashboards
 
 Start the live cohort dashboard in its own terminal:
@@ -102,6 +104,8 @@ Confirm that the live processing-latency and WebSocket-delivery alarms are `OK`.
 ## Analytics and recovery evidence
 
 For an extended demonstration, show a successful MWAA workflow run and its Glue, Athena, Great Expectations, dbt, approved-model scoring, prediction refresh and Soda tasks. Confirm that prediction freshness and OpenLineage validation completed successfully. When the `openlineage_collector_url` Terraform output is nonempty, confirm the shared collector contains matching START and COMPLETE events for the same run IDs.
+
+For training-data generation, let the simulator run for at least 30 minutes before stopping it. Random scenarios do not guarantee that one run supplies both labels to both patient-grouped partitions. Repeat the complete run only when the dbt readiness test reports a missing class.
 
 Stop the simulator before starting the analytical workflow so Firehose can settle and the run processes a bounded cohort snapshot. After starting MWAA Serverless, wait 30 minutes before checking the final state; recent runs have taken 26 to 28 minutes.
 
