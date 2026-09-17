@@ -26,7 +26,7 @@ This inventory lists technologies used by committed code, infrastructure, tests 
 
 | Technology | Project use |
 | --- | --- |
-| Apache Airflow 3 | Portable native DAG and source contract for the generated serverless workflow |
+| Apache Airflow 3.3.1 and SQLAlchemy 2.0.50 | Portable native DAG, workflow-generation contract and SQL persistence compatibility in the pinned local toolchain |
 | MWAA Serverless | Daily AWS-managed orchestration without a continuously running Airflow environment |
 | dbt Core and dbt-athena | Staging, Kimball dimensions/fact, fixed-window features, model inputs and prediction views |
 | Great Expectations and Soda | Processed-table expectations plus analytical contracts and prediction freshness |
@@ -48,4 +48,4 @@ This inventory lists technologies used by committed code, infrastructure, tests 
 | Test-data toolchain | Java 17, Gradle, Synthea, WFDB, deterministic seeds and patient/encounter mapping |
 | Reporting | Power BI Desktop through the Amazon Athena connector and Athena ODBC 2.x driver; DirectQuery report pages, DAX measures, drillthrough and synchronized slicers; the `.pbix` remains outside the repository |
 
-Versions are pinned in Terraform constraints, Python requirements, Docker build arguments, GitHub workflows and the Synthea version file. Review those machine-readable files rather than copying version numbers from prose.
+Versions are pinned in Terraform constraints, Python requirements, Docker build arguments, GitHub workflows and the Synthea version file. The root development requirements include the Airflow generator requirements so a fresh clone resolves one tested environment. Review those machine-readable files rather than copying version numbers from prose.
