@@ -14,7 +14,7 @@ else
   PYTHON_BIN="${PYTHON_BIN:-python3}"
 fi
 
-TERRAFORM_VAR_FILE="${TERRAFORM_VAR_FILE:-$REPO_ROOT/infra/development.tfvars}"
+TERRAFORM_VAR_FILE="${TERRAFORM_VAR_FILE:-$REPO_ROOT/infra/deployment.auto.tfvars.json}"
 eval "$("$PYTHON_BIN" "$REPO_ROOT/scripts/infrastructure/terraform_runtime_env.py" "$TERRAFORM_VAR_FILE")"
 
 DBT_TASK_DEFINITION="$(terraform -chdir=infra output -raw dbt_ecs_task_definition_family)"

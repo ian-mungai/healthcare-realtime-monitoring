@@ -48,7 +48,7 @@ for command_name in "${required_commands[@]}"; do
   check_command "$command_name"
 done
 
-required_variables=(AWS_PROFILE AWS_REGION PROJECT_NAME TF_STATE_BUCKET TF_STATE_PREFIX FHIR_WEBHOOK_SECRET_ID FHIR_WEBHOOK_SECRET_KEY)
+required_variables=(AWS_PROFILE AWS_REGION PROJECT_NAME TF_STATE_BUCKET FHIR_WEBHOOK_SECRET_ID FHIR_WEBHOOK_SECRET_KEY)
 if [[ "$PHASE" == "post-deploy" ]]; then
   required_variables+=(GITHUB_REPOSITORY GITHUB_DEPLOYMENT_ENVIRONMENT)
 fi
@@ -75,6 +75,12 @@ elif [[ -x "$REPO_ROOT/.venv/bin/python" ]]; then
   PYTHON_BIN="$REPO_ROOT/.venv/bin/python"
 else
   PYTHON_BIN="$(command -v python3)"
+fi
+
+if "$REPO_ROOT/scripts/infrastructure/render_project_config.sh" >/dev/null; then
+  pass "single-source project configuration"
+else
+  fail "single-source project configuration"
 fi
 
 python_version="$("$PYTHON_BIN" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || true)"
@@ -175,13 +181,13 @@ fi
 github_region="$(gh variable get AWS_REGION --repo "$GITHUB_REPOSITORY" --env "$GITHUB_DEPLOYMENT_ENVIRONMENT" 2>/dev/null || true)"
 [[ "$github_region" == "$AWS_REGION" ]] && pass "GitHub AWS_REGION" || fail "GitHub AWS_REGION"
 github_variables="$(gh variable list --repo "$GITHUB_REPOSITORY" --env "$GITHUB_DEPLOYMENT_ENVIRONMENT" --json name --jq '.[].name' 2>/dev/null || true)"
-if grep -Eq '^(AWS_DEPLOY_ROLE_ARN|TF_STATE_BUCKET|TF_STATE_PREFIX|TERRAFORM_VARIABLES_JSON)$' <<<"$github_variables"; then
+if grep -Eq '^(AWS_DEPLOY_ROLE_ARN|TF_STATE_BUCKET|TF_STATE_PREFIX|TF_STATE_REGION|TERRAFORM_VARIABLES_JSON)$' <<<"$github_variables"; then
   fail "GitHub environment variables contain private deployment identifiers"
 else
   pass "GitHub environment variables contain no private deployment identifiers"
 fi
 github_secrets="$(gh secret list --repo "$GITHUB_REPOSITORY" --env "$GITHUB_DEPLOYMENT_ENVIRONMENT" --json name --jq '.[].name' 2>/dev/null || true)"
-for secret_name in AWS_DEPLOY_ROLE_ARN TF_STATE_BUCKET TF_STATE_PREFIX; do
+for secret_name in AWS_DEPLOY_ROLE_ARN TF_STATE_BUCKET TF_STATE_PREFIX TF_STATE_REGION; do
   grep -Fxq "$secret_name" <<<"$github_secrets" \
     && pass "GitHub secret: $secret_name" || fail "GitHub secret: $secret_name"
 done

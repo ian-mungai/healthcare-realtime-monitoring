@@ -13,7 +13,8 @@ source .env
 set +a
 
 scripts/lambda/build_vitals_stream_processor.sh
-terraform -chdir=infra plan -var-file=development.tfvars -out=tfplan-load-test
+./scripts/infrastructure/render_project_config.sh --check
+terraform -chdir=infra plan -out=tfplan-load-test
 terraform -chdir=infra show -no-color tfplan-load-test
 terraform -chdir=infra apply tfplan-load-test
 ```

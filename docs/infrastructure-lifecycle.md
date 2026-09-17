@@ -8,12 +8,10 @@ The teardown workflow is deliberately two phase. The first reviewed apply disabl
 
 ## Persistent state bootstrap
 
-Create the ignored bootstrap inputs, review the state-bucket plan and apply it:
-
-Replace the placeholders in `infra/bootstrap/terraform.tfvars` before running the following commands.
+Complete `.env`, render the ignored Terraform inputs, review the state-bucket plan and apply it. `TF_STATE_REGION` identifies the persistent state bucket region and may differ from the new application's `AWS_REGION` during a cross-region recreation.
 
 ```zsh
-cp infra/bootstrap/terraform.tfvars.example infra/bootstrap/terraform.tfvars
+./scripts/infrastructure/render_project_config.sh
 ./scripts/infrastructure/bootstrap.sh state-plan
 CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
   ./scripts/infrastructure/bootstrap.sh state-apply

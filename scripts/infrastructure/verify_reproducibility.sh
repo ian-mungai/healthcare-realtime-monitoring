@@ -28,7 +28,28 @@ build_artifacts() {
     "$builder"
   done
   "$REPO_ROOT/scripts/glue/build_lineage_package.sh"
-  "$REPO_ROOT/airflow/serverless/convert_healthcare_realtime_pipeline.sh"
+  env \
+    AIRFLOW__DBT__ECS_SECURITY_GROUP=sg-reproducibility \
+    AIRFLOW__DBT__ECS_SUBNETS=subnet-reproducibility-a,subnet-reproducibility-b \
+    AIRFLOW__SODA__ECS_SECURITY_GROUP=sg-reproducibility \
+    AIRFLOW__SODA__ECS_SUBNETS=subnet-reproducibility-a,subnet-reproducibility-b \
+    AIRFLOW_PIPELINE_SCHEDULE='0 5 * * *' \
+    ATHENA_PROCESSED_TABLE=processed_observations \
+    ATHENA_RESULTS_S3_URI=s3://reproducibility-bucket/athena-results/ \
+    ATHENA_SOURCE_DATABASE=healthcare_realtime \
+    ATHENA_WORKGROUP=healthcare-realtime \
+    AWS_REGION=example-region-1 \
+    DATA_JOBS_ECS_CLUSTER=healthcare-realtime-data-jobs \
+    DBT_ECS_TASK_DEFINITION=healthcare_realtime_dbt \
+    GLUE_JOB_NAME=healthcare_realtime_fhir_to_iceberg \
+    MWAA_SERVERLESS_START_DATE=2099-01-01T00:00:00+00:00 \
+    OPENLINEAGE_URL=https://lineage.example.invalid \
+    PROJECT_NAME=healthcare-realtime-monitoring \
+    PYTHONPATH="$REPO_ROOT/airflow/dags:$REPO_ROOT" \
+    RAW_BUCKET=reproducibility-bucket \
+    RAW_PREFIX=raw/fhir/ \
+    SODA_ECS_TASK_DEFINITION=healthcare_realtime_soda \
+    "$PYTHON_BIN" "$REPO_ROOT/airflow/serverless/generate_healthcare_realtime_pipeline.py"
   "$REPO_ROOT/airflow/serverless/build_code_package.sh"
 }
 

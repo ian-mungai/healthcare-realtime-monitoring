@@ -201,27 +201,12 @@ def test_policy_manager_loads_ignored_environment_values(tmp_path: Path, monkeyp
     assert manager.load_environment_file(environment_file) == {"AWS_PROFILE": "example", "TF_STATE_BUCKET": "example-state"}
 
 
-def test_policy_manager_warns_when_environment_values_override_other_sources(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.syspath_prepend(str(MANAGER_PATH.parent))
-    manager = load_module(MANAGER_PATH, "manage_policies_precedence_for_test")
-    terraform_var_file = tmp_path / "development.tfvars"
-    terraform_var_file.write_text('project_name = "terraform-project"\naws_region = "example-region-1"\n', encoding="utf-8")
-
-    warnings = manager.configuration_warnings(
-        terraform_var_file, {"PROJECT_NAME": "file-project", "AWS_REGION": "example-region-1"}, {"PROJECT_NAME": "shell-project"}
-    )
-
-    assert warnings == [
-        "PROJECT_NAME from the shell overrides the value in the environment file",
-        "PROJECT_NAME from the shell overrides the Terraform variable file",
-    ]
-
-
 def test_policy_manager_can_limit_an_update_to_selected_templates(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.syspath_prepend(str(MANAGER_PATH.parent))
     manager = load_module(MANAGER_PATH, "manage_policies_selection_for_test")
     environment = {"AWS_ACCOUNT_ID": "111111111111", "AWS_REGION": "example-region-1", "PROJECT_NAME": "example-project"}
+    terraform_var_file = REPO_ROOT / "config/deployment.defaults.json"
 
-    documents = manager.load_documents(REPO_ROOT / "infra/development.tfvars.example", environment, {"healthcare_realtime_cloudformation_policy"})
+    documents = manager.load_documents(terraform_var_file, environment, {"healthcare_realtime_cloudformation_policy"})
 
     assert set(documents) == {"healthcare_realtime_cloudformation_policy"}
