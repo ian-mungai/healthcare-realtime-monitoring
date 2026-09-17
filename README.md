@@ -102,15 +102,9 @@ terraform -chdir=infra validate
 
 ## Infrastructure workflow
 
-Terraform uses a partial S3 backend configuration with native state locking. The protected bootstrap stack creates a private, versioned bucket that is separate from application data and survives application teardown:
+Start with the [first-deployment quickstart](docs/quickstart.md). It is the only complete command sequence for a fresh clone, account or region. Terraform uses a protected S3 backend with native state locking and generated ignored inputs derived from `.env`.
 
-```zsh
-./scripts/infrastructure/bootstrap.sh state-plan
-```
-
-Review and apply the bootstrap plan, run `./scripts/infrastructure/bootstrap.sh state-backup`, then run `./scripts/infrastructure/bootstrap.sh main-init`. For an existing environment, use the guarded `main-migrate` action documented in the lifecycle guide. Bootstrap inputs, backend configuration and state files are ignored by Git.
-
-Start with the [first-deployment quickstart](docs/quickstart.md) for the shortest path from clone to live demo. The [bootstrap guide](docs/bootstrap.md) explains the deployment stages in more detail. The [infrastructure lifecycle guide](docs/infrastructure-lifecycle.md) covers persistent state, guarded teardown and recreation. The [external prerequisite inventory](docs/external-prerequisites.md) identifies account configuration outside the application stack. The [deployment guide](docs/deployment.md) covers GitHub OIDC and shared OpenLineage collector setup. Recovery, cost-control and operational checks are in the [operations runbook](docs/operations-runbook.md).
+The [deployment stages and recovery guide](docs/bootstrap.md) explains interrupted stages. The [infrastructure lifecycle guide](docs/infrastructure-lifecycle.md) covers state migration, guarded teardown and recreation. The [external prerequisite inventory](docs/external-prerequisites.md) identifies account configuration outside the application stack. The [deployment guide](docs/deployment.md) covers GitHub OIDC and the optional shared OpenLineage collector. Recovery, cost control and operational checks are in the [operations runbook](docs/operations-runbook.md).
 
 ## Run the dashboards
 
