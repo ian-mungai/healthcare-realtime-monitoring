@@ -21,6 +21,7 @@ def environment() -> dict[str, str]:
         "PROJECT_NAME": "healthcare-realtime-monitoring",
         "TF_STATE_BUCKET": "example-state-bucket",
         "DATA_BUCKET_NAME": "example-data-bucket",
+        "FHIR_RESOURCE_MAP_S3_KEY": "config/vitals_simulator/fhir_resource_map.json",
         "REALTIME_ALERT_EMAIL": "alerts@example.com",
         "GITHUB_REPOSITORY": "example/healthcare-realtime-monitoring",
         "GITHUB_DEPLOYMENT_ENVIRONMENT": "development",
@@ -50,6 +51,7 @@ def test_build_configuration_derives_shared_values() -> None:
     assert deployment["active_patient_ids"] == patients
     assert deployment["realtime_patient_access_policy"] == {"arn:aws:iam::111111111111:user/dashboard": patients}
     assert deployment["athena_results_s3_uri"] == "s3://example-data-bucket/athena_results/"
+    assert deployment["fhir_resource_map_s3_key"] == "config/vitals_simulator/fhir_resource_map.json"
     assert len(deployment["github_deployment_policy_arns"]) == 20
     assert all(arn.startswith("arn:aws:iam::111111111111:policy/") for arn in deployment["github_deployment_policy_arns"])
     assert bootstrap == {"aws_region": "us-west-2", "project_name": "healthcare-realtime-monitoring", "state_bucket_name": "example-state-bucket"}
