@@ -71,7 +71,7 @@ Complete the placeholders in `.env`, then render both Terraform inputs:
 ./scripts/infrastructure/render_project_config.sh
 ```
 
-Stable project defaults live in `config/deployment.defaults.json`. The generated `infra/deployment.auto.tfvars.json` and `infra/bootstrap/deployment.auto.tfvars.json` files are ignored by Git and must not be edited by hand. Infrastructure and demo scripts treat `.env` as authoritative, so stale shell exports cannot silently change deployment configuration. Verify the local toolchain and selected AWS identity after rendering. Cloud resources are checked in later deployment phases:
+Stable project defaults live in `config/deployment.defaults.json`. The generated `infra/deployment.auto.tfvars.json` and `infra/bootstrap/deployment.auto.tfvars.json` files are ignored by Git and must not be edited by hand. Infrastructure and demo scripts treat `.env` as authoritative, so stale shell exports cannot silently change deployment configuration. Image tags are generated after ECR repository creation and recorded in `.env` by the publishing script. Verify the local toolchain and selected AWS identity after rendering. Cloud resources are checked in later deployment phases:
 
 ```zsh
 ./scripts/infrastructure/check_prerequisites.sh local
