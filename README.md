@@ -140,6 +140,8 @@ The [technology inventory](docs/technology-inventory.md) lists the standards, AW
 
 The [project build article](docs/building-healthcare-realtime-monitoring.md) provides a publication-ready narrative of the architecture, implementation, validation and operational lessons from start to finish.
 
+The [v1.0.0 release notes](docs/release-notes-v1.0.0.md) summarize the verified release scope, acceptance evidence and documented limitations.
+
 ## Portfolio safety
 
 Public artifacts must use placeholders for account IDs, buckets, endpoints, load balancers, local usernames, secrets and signed headers. The project’s tracked examples are designed to be reproducible without revealing a deployed environment.
