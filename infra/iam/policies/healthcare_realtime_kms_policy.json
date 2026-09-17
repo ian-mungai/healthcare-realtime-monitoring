@@ -24,7 +24,7 @@
       "Resource": "*",
       "Condition": {
         "StringEquals": {
-          "aws:RequestTag/Project": "healthcare_realtime_monitoring",
+          "aws:RequestTag/Project": "${PROJECT_NAME}",
           "aws:RequestTag/ManagedBy": "terraform"
         }
       }
@@ -59,7 +59,7 @@
       "Resource": "arn:aws:kms:${AWS_REGION}:${AWS_ACCOUNT_ID}:key/*",
       "Condition": {
         "StringEquals": {
-          "aws:ResourceTag/Project": "healthcare_realtime_monitoring"
+          "aws:ResourceTag/Project": "${PROJECT_NAME}"
         }
       }
     },
