@@ -21,7 +21,7 @@ The portfolio release includes the completed Power BI-to-Athena connection and r
 - [ ] Run `./scripts/infrastructure/check_prerequisites.sh post-deploy` and confirm every automated prerequisite passes.
 - [ ] Run `terraform -chdir=infra fmt -check -recursive`.
 - [ ] Run `terraform -chdir=infra validate`.
-- [ ] Review `terraform -chdir=infra plan -var-file=development.tfvars`.
+- [ ] Run `./scripts/infrastructure/render_project_config.sh --check`, then review `terraform -chdir=infra plan`.
 - [ ] Confirm each action is an intended deployment change. Do not apply a plan containing unexplained replacement, deletion or permission broadening.
 - [ ] Apply only an approved saved plan.
 - [ ] Regenerate the MWAA Serverless workflow from the deployed Terraform outputs before applying workflow changes.

@@ -9,6 +9,7 @@ BOOTSTRAP_DIR="$REPO_ROOT/infra/bootstrap"
 INFRA_DIR="$REPO_ROOT/infra"
 ACTION="${1:-}"
 CONFIRMATION="apply-healthcare-realtime-bootstrap"
+"$REPO_ROOT/scripts/infrastructure/render_project_config.sh"
 
 usage() {
   cat <<'EOF'
@@ -48,12 +49,12 @@ write_backend_config() {
   echo "Wrote ignored backend configuration for the persistent state bucket."
 }
 
-application_plan_args=(-input=false -var-file=development.tfvars)
+application_plan_args=(-input=false)
 
 case "$ACTION" in
   state-plan)
     terraform -chdir="$BOOTSTRAP_DIR" init
-    terraform -chdir="$BOOTSTRAP_DIR" plan -input=false -var-file=terraform.tfvars -out=tfplan-state-bootstrap
+    terraform -chdir="$BOOTSTRAP_DIR" plan -input=false -out=tfplan-state-bootstrap
     terraform -chdir="$BOOTSTRAP_DIR" show -no-color tfplan-state-bootstrap
     ;;
   state-apply)
@@ -74,9 +75,9 @@ case "$ACTION" in
       --key "$bootstrap_state_key" \
       --body "$BOOTSTRAP_DIR/terraform.tfstate" \
       --server-side-encryption AES256 \
-      --region "${AWS_REGION:-${AWS_DEFAULT_REGION:-}}" \
+      --region "$TF_STATE_REGION" \
       >/dev/null
-    aws s3api head-object --bucket "$TF_STATE_BUCKET" --key "$bootstrap_state_key" --region "${AWS_REGION:-${AWS_DEFAULT_REGION:-}}" >/dev/null
+    aws s3api head-object --bucket "$TF_STATE_BUCKET" --key "$bootstrap_state_key" --region "$TF_STATE_REGION" >/dev/null
     echo "Bootstrap state backup verified."
     ;;
   main-init)

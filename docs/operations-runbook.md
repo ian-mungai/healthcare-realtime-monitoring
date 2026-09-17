@@ -19,23 +19,22 @@ Never place credentials, signed headers, account identifiers, endpoint identifie
 
 ### Patient access policy
 
-Before deployment, configure `realtime_patient_access_policy` in the ignored `infra/development.tfvars` file. Each key is an IAM principal ARN pattern and each value lists the patient ID patterns that principal may read or subscribe to:
+Before deployment, enter the ten cohort IDs once in `PATIENT_IDS` and authorized IAM principal patterns in `REALTIME_PATIENT_ACCESS_PRINCIPALS` inside `.env`:
 
-```hcl
-realtime_patient_access_policy = {
-  "arn:aws:iam::<aws-account-id>:user/<dashboard-user>"      = ["<patient-id-1>", "<patient-id-2>"]
-  "arn:aws:sts::<aws-account-id>:assumed-role/<role-name>/*" = ["<patient-id-1>", "<patient-id-2>", "load_test_patient_*"]
-}
+```dotenv
+PATIENT_IDS=<patient-id-1>,<patient-id-2>,<eight-more-patient-ids>
+REALTIME_PATIENT_ACCESS_PRINCIPALS=arn:aws:iam::<aws-account-id>:user/<dashboard-user>
 ```
 
-The default empty policy denies all patient access. Use an exact IAM user ARN or a narrowly scoped assumed-role session pattern; do not use a wildcard principal. Add `load_test_patient_*` only for principals that run the isolated load test.
+The renderer gives each listed principal access to the same canonical patient cohort. An empty principal list denies all patient access. Use exact IAM user ARNs or narrowly scoped assumed-role session patterns; do not use a wildcard principal.
 
 All supported FHIR webhook routes require `X-Webhook-Secret`, including health, metadata, the Observation profile and subscription handshake requests. The metadata response advertises the project-specific vital-sign Observation profile. That profile makes `Observation.encounter` mandatory because the encounter defines the analytics window; otherwise-valid generic FHIR R4 Observations without an Encounter are rejected. Retrieve the machine-readable profile from `GET /webhooks/fhir/StructureDefinition/healthcare-realtime-vital-observation`. The Lambda refreshes its cached Secrets Manager value within five minutes, so secret rotation does not require a cold start.
 
-Create the local Terraform input file from its tracked template, then replace every placeholder with values for the target AWS environment:
+Create the one local input file, complete it and render both Terraform configurations:
 
 ```zsh
-cp infra/development.tfvars.example infra/development.tfvars
+cp .env.example .env
+./scripts/infrastructure/render_project_config.sh
 ```
 
 ### Terraform state
@@ -43,7 +42,6 @@ cp infra/development.tfvars.example infra/development.tfvars
 Use the dedicated, private, versioned state bucket created by `infra/bootstrap`. It must be separate from the application data and MWAA source buckets so application teardown cannot remove its own state:
 
 ```zsh
-cp infra/bootstrap/terraform.tfvars.example infra/bootstrap/terraform.tfvars
 ./scripts/infrastructure/bootstrap.sh state-plan
 ```
 
@@ -73,7 +71,8 @@ Before infrastructure deployment, run:
 ```zsh
 terraform -chdir=infra fmt -check -recursive
 terraform -chdir=infra validate
-terraform -chdir=infra plan -var-file=development.tfvars -out=tfplan-operations
+./scripts/infrastructure/render_project_config.sh --check
+terraform -chdir=infra plan -out=tfplan-operations
 terraform -chdir=infra show -no-color tfplan-operations
 ```
 

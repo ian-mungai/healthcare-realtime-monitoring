@@ -3,13 +3,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import boto3
-from render_policy import load_terraform_variables, render_policy_document
+from render_policy import render_policy_document
 
 POLICIES_DIRECTORY = Path(__file__).resolve().parents[1] / "policies"
 CONFIRMATION = "apply-healthcare-realtime-policies"
@@ -48,21 +47,6 @@ def load_environment_file(path: Path) -> dict[str, str]:
             value = value[1:-1]
         values[name] = value
     return values
-
-
-def configuration_warnings(terraform_var_file: Path, file_environment: dict[str, str], process_environment: dict[str, str]) -> list[str]:
-    warnings: list[str] = []
-    for name in sorted(file_environment.keys() & process_environment.keys()):
-        if file_environment[name] != process_environment[name]:
-            warnings.append(f"{name} from the shell overrides the value in the environment file")
-
-    terraform_values = load_terraform_variables(terraform_var_file)
-    effective_environment = {**file_environment, **process_environment}
-    for name in sorted(terraform_values.keys() & effective_environment.keys()):
-        if terraform_values[name] != effective_environment[name]:
-            source = "shell" if name in process_environment else "environment file"
-            warnings.append(f"{name} from the {source} overrides the Terraform variable file")
-    return warnings
 
 
 def normalize_iam_value(value: Any, normalize_lists: bool = False) -> Any:
@@ -163,18 +147,14 @@ def load_documents(terraform_var_file: Path, environment: dict[str, str], select
 def main() -> None:
     parser = argparse.ArgumentParser(description="Plan or apply all tracked customer-managed IAM policy templates.")
     parser.add_argument("action", choices=("plan", "apply"))
-    parser.add_argument("--terraform-var-file", type=Path, default=Path("infra/development.tfvars"))
+    parser.add_argument("--terraform-var-file", type=Path, default=Path("infra/deployment.auto.tfvars.json"))
     parser.add_argument("--env-file", type=Path, default=Path(".env"))
     parser.add_argument("--profile")
     parser.add_argument("--region")
     parser.add_argument("--policy", action="append", dest="policies", help="Limit the operation to one tracked policy name. Repeat as needed.")
     arguments = parser.parse_args()
 
-    file_environment = load_environment_file(arguments.env_file)
-    process_environment = dict(os.environ)
-    for warning in configuration_warnings(arguments.terraform_var_file, file_environment, process_environment):
-        print(f"WARNING: {warning}", file=sys.stderr)
-    environment = {**file_environment, **process_environment}
+    environment = load_environment_file(arguments.env_file)
     profile = arguments.profile or environment.get("AWS_PROFILE")
     region = arguments.region or environment.get("AWS_REGION")
     session = boto3.Session(profile_name=profile, region_name=region)

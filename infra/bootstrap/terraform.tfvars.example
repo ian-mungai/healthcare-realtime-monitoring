@@ -1,3 +1,0 @@
-aws_region        = "<aws-region>"
-state_bucket_name = "<globally-unique-terraform-state-bucket>"
-project_name      = "<project-name>"

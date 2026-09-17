@@ -7,7 +7,8 @@ source "$REPO_ROOT/scripts/infrastructure/project_env.sh"
 load_project_env "${PROJECT_ENV_FILE:-$REPO_ROOT/.env}"
 
 : "${AWS_REGION:?Set AWS_REGION in the project environment file.}"
-TFVARS_FILE="${TFVARS_FILE:-$REPO_ROOT/infra/development.tfvars}"
+"$REPO_ROOT/scripts/infrastructure/render_project_config.sh" >/dev/null
+TFVARS_FILE="${TFVARS_FILE:-$REPO_ROOT/infra/deployment.auto.tfvars.json}"
 
 MODEL_CONFIG="$({
   printf '%s\n' \

@@ -17,7 +17,8 @@ set +a
 Confirm the deployment is converged and that the simulator is not already running:
 
 ```zsh
-terraform -chdir=infra plan -var-file=development.tfvars -out=tfplan-demo-check
+./scripts/infrastructure/render_project_config.sh --check
+terraform -chdir=infra plan -out=tfplan-demo-check
 terraform -chdir=infra show -no-color tfplan-demo-check
 ./scripts/demo/status_vitals_demo.sh
 ```
@@ -57,7 +58,7 @@ Start the separate model analytics dashboard in another terminal:
 ./scripts/demo/start_model_analytics_dashboard.sh
 ```
 
-Confirm it shows the latest approved synthetic proxy score, feature-window vital summaries, encounter reference, freshness and model-governance labels for each scored patient. The launch scripts retrieve deployment-specific configuration from Terraform outputs and the ignored Terraform variable file, so do not copy those values into `.env`, documentation or screenshots.
+Confirm it shows the latest approved synthetic proxy score, feature-window vital summaries, encounter reference, freshness and model-governance labels for each scored patient. The launch scripts retrieve Terraform-created endpoints from outputs and analytical names from generated configuration, so do not copy those values into `.env`, documentation or screenshots.
 
 ## Postman REST check
 

@@ -9,11 +9,15 @@ python3.12 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip
 .venv/bin/python -m pip install -r requirements_dev.txt
 cp .env.example .env
-cp infra/development.tfvars.example infra/development.tfvars
-cp infra/bootstrap/terraform.tfvars.example infra/bootstrap/terraform.tfvars
 ```
 
-Replace every placeholder in the ignored files and use globally unique bucket names. `.env` contains only local or externally managed prerequisites; Terraform-created endpoints and resource identifiers come from Terraform outputs. Values already exported in the shell take precedence. Leave `ml_approved_model_version` empty for the first deployment; this keeps MWAA in manual-only mode while the training dataset and first model are created. Never commit these files.
+Replace every placeholder in `.env`, use globally unique bucket names and render both Terraform inputs:
+
+```zsh
+./scripts/infrastructure/render_project_config.sh
+```
+
+Stable project defaults live in `config/deployment.defaults.json`. The generated Terraform JSON files are ignored and must not be edited directly. Terraform-created endpoints and resource identifiers come from Terraform outputs. `.env` is authoritative for deployment inputs, so stale shell exports cannot change generated configuration. Leave `ML_APPROVED_MODEL_VERSION` empty for the first deployment; this keeps MWAA in manual-only mode while the training dataset and first model are created. Never commit `.env` or generated configuration.
 
 The documented local workflow requires a named AWS CLI profile in `AWS_PROFILE`. An SSO-backed profile is supported after `aws sso login --profile "$AWS_PROFILE"`.
 
@@ -26,7 +30,7 @@ Run the local and regional checks before creating resources:
   --region "$AWS_REGION"
 ```
 
-Render and review every tracked customer-managed IAM policy, then apply them with the guarded policy command documented in the [clean-account quickstart](quickstart.md). Use an approved bootstrap identity because Terraform cannot create the identity and permissions needed to start itself.
+Render and review every tracked customer-managed IAM policy, then apply them with the guarded policy command documented in the [first-deployment quickstart](quickstart.md). Use an approved bootstrap identity because Terraform cannot create the identity and permissions needed to start itself.
 
 Create the persistent state bucket before initializing the application stack:
 
@@ -67,7 +71,7 @@ CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
 ./scripts/infrastructure/push_images.sh
 ```
 
-Place the four tags printed by `push_images.sh` into the ignored `infra/development.tfvars`. The script refuses to overwrite an existing tag.
+Place the four tags printed by `push_images.sh` into `.env`, then run `./scripts/infrastructure/render_project_config.sh`. The image script refuses to overwrite an existing tag.
 
 Generate the MWAA definition only after the task definitions and network outputs exist:
 
@@ -80,7 +84,7 @@ CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
 terraform -chdir=infra show -no-color tfplan-bootstrap-application
 CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
   ./scripts/infrastructure/bootstrap.sh application-apply
-terraform -chdir=infra plan -var-file=development.tfvars
+terraform -chdir=infra plan
 ```
 
 The final plan must report `No changes`. During bootstrap the workflow remains manual-only because no approved model exists yet. The [external prerequisite inventory](external-prerequisites.md) identifies the account and third-party configuration that Terraform does not create.
@@ -121,6 +125,6 @@ The loader writes the local patient/encounter mapping used by the simulator. The
 
 ## 5. Validate the deployment
 
-First run dbt through the deployed task to materialize the table named by `DBT_ML_TRAINING_TABLE`. Use the [model training guide](model-training.md) to train and publish the first reviewed model, then place its exact version in the ignored `infra/development.tfvars` and apply a reviewed saved plan. That update narrows model-read permissions, updates the task definition and enables the daily schedule configured by `AIRFLOW_PIPELINE_SCHEDULE`.
+First run dbt through the deployed task to materialize the table named by `DBT_ML_TRAINING_TABLE`. Use the [model training guide](model-training.md) to train and publish the first reviewed model, then place its exact version in `.env`, rerun the renderer and apply a reviewed saved plan. That update narrows model-read permissions, updates the task definition and enables the daily schedule configured by `AIRFLOW_PIPELINE_SCHEDULE`.
 
 Use the [demo guide](demo-guide.md) for live Streamlit, Postman REST/WebSocket and CloudWatch checks. After starting an MWAA run, allow 30 minutes before checking its final result; recent complete runs have taken 26 to 28 minutes. Verify Glue, Athena, Great Expectations, dbt, approved-model scoring, prediction refresh, Soda and OpenLineage.

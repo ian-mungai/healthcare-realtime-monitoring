@@ -30,7 +30,7 @@ def load_terraform_variables(path: Path | None) -> dict[str, str]:
     if path is None:
         return {}
     with path.open(encoding="utf-8") as stream:
-        values = hcl2.load(stream)
+        values = json.load(stream) if path.suffix == ".json" else hcl2.load(stream)
 
     def normalize(value: object) -> str:
         if isinstance(value, str):

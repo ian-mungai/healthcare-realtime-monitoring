@@ -48,7 +48,8 @@ When `use_immutable_subject` is enabled, the prefix contains numeric owner and r
 Bootstrap the identity once from an authenticated local shell:
 
 ```zsh
-terraform -chdir=infra plan -var-file=development.tfvars -out=tfplan-oidc
+./scripts/infrastructure/render_project_config.sh --check
+terraform -chdir=infra plan -out=tfplan-oidc
 terraform -chdir=infra apply tfplan-oidc
 terraform -chdir=infra output -raw github_deployment_role_arn
 ```
@@ -63,15 +64,16 @@ Create the protected GitHub environment named by `github_deployment_environment`
 | --- | --- |
 | `AWS_REGION` | Target AWS region |
 
-Add three environment secrets:
+Add four environment secrets:
 
 | Name | Value |
 | --- | --- |
 | `AWS_DEPLOY_ROLE_ARN` | Terraform `github_deployment_role_arn` output |
 | `TF_STATE_BUCKET` | Dedicated persistent state bucket created by `infra/bootstrap` |
 | `TF_STATE_PREFIX` | `<project-name>/terraform` |
+| `TF_STATE_REGION` | Region containing the persistent state bucket |
 
-Synchronize the larger private configuration from the ignored Terraform input file into encrypted, versioned AWS storage:
+Synchronize the generated private configuration from `.env` into encrypted, versioned AWS storage:
 
 ```zsh
 ./scripts/infrastructure/sync_deployment_config.sh
@@ -93,7 +95,6 @@ source .env
 set +a
 
 terraform -chdir=infra plan \
-  -var-file=development.tfvars \
   -target=module.openlineage_collector.aws_ecr_repository.marquez \
   -target=module.openlineage_collector.aws_ecr_lifecycle_policy.marquez \
   -out=tfplan-openlineage-ecr

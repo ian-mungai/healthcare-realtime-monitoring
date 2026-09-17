@@ -21,9 +21,18 @@ load_project_env() {
       value="${value:1:${#value}-2}"
     fi
 
-    if [[ -z "${!key+x}" ]]; then
-      printf -v "$key" '%s' "$value"
-      export "$key"
-    fi
+    printf -v "$key" '%s' "$value"
+    export "$key"
   done < "$env_file"
+
+  if [[ -n "${PROJECT_NAME:-}" ]]; then
+    local derived_state_prefix="${PROJECT_NAME}/terraform"
+    TF_STATE_PREFIX="$derived_state_prefix"
+    export TF_STATE_PREFIX
+  fi
+
+  if [[ -z "${TF_STATE_REGION:-}" && -n "${AWS_REGION:-}" ]]; then
+    TF_STATE_REGION="$AWS_REGION"
+    export TF_STATE_REGION
+  fi
 }
