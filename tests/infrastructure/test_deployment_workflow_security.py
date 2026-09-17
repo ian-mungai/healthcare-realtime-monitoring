@@ -14,8 +14,12 @@ def test_deployment_workflow_retrieves_private_config_after_oidc() -> None:
     assert "${{ vars.TF_STATE_BUCKET }}" not in workflow
     assert "${{ vars.TF_STATE_PREFIX }}" not in workflow
     assert workflow.index("Configure temporary AWS credentials") < workflow.index("Retrieve private Terraform inputs")
+    assert workflow.index("Configure temporary AWS credentials") < workflow.index("Validate authenticated deployment access")
+    assert "aws sts get-caller-identity --query Arn --output text" in workflow
+    assert 'aws s3api head-bucket --bucket "$TF_STATE_BUCKET"' in workflow
     assert "aws s3api get-object" in workflow
     assert 'deployment_config_key="$TF_STATE_PREFIX/config/deployment.auto.tfvars.json"' in workflow
+    assert 'test "$TF_STATE_PREFIX" = "$(jq -r \'.project_name\' infra/deployment.auto.tfvars.json)/terraform"' in workflow
 
 
 def test_deployment_workflow_publishes_value_free_plan_summary() -> None:

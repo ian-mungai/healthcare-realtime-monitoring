@@ -35,7 +35,9 @@ CONFIRM_IAM_POLICIES=apply-healthcare-realtime-policies \
   --region "$AWS_REGION"
 ```
 
-The command obtains the account ID from STS, uses `TF_STATE_BUCKET` from `.env`, creates missing policies and publishes a new default version only when an existing document changed. It never creates users or groups and never attaches policies to an identity.
+The command obtains the account ID from STS, uses `TF_STATE_BUCKET` from `.env`, creates missing policies and publishes a new default version only when an existing document changed. It never creates users or groups and never attaches policies to an identity. Removing a template does not delete its deployed customer-managed policy; review and delete obsolete policies separately after confirming that no identity still uses them.
+
+Explicit shell variables override `.env`, and `.env` values override matching Terraform variables during policy rendering. The command prints variable-name-only warnings whenever different values collide. It never prints the values themselves.
 
 Copy `.env.example` to the ignored `.env` and complete its placeholders. Infrastructure and demo scripts load missing values from that file while preserving explicit shell overrides. Verify every automatable prerequisite without displaying secret values:
 
@@ -43,4 +45,4 @@ Copy `.env.example` to the ignored `.env` and complete its placeholders. Infrast
 ./scripts/infrastructure/check_prerequisites.sh pre-deploy
 ```
 
-After the full application deployment and GitHub environment setup, run `./scripts/infrastructure/check_prerequisites.sh post-deploy`. Mailbox confirmation, account quota increases, PhysioNet availability, Postman installation and optional Power BI installation require human or account-owner action.
+After the full application deployment and GitHub environment setup, run `./scripts/infrastructure/check_prerequisites.sh post-deploy`. GitHub does not permit reading encrypted secret values back through its API, so this local check confirms their names only. The Deploy workflow validates the role, state bucket and state prefix by using them after OIDC authentication without printing them. Mailbox confirmation, account quota increases, PhysioNet availability, Postman installation and optional Power BI installation require human or account-owner action.

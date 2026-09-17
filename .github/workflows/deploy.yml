@@ -57,6 +57,13 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           role-session-name: ${{ github.event.repository.name }}-deploy
 
+      - name: Validate authenticated deployment access
+        env:
+          TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+        run: |
+          test -n "$(aws sts get-caller-identity --query Arn --output text)"
+          aws s3api head-bucket --bucket "$TF_STATE_BUCKET"
+
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
@@ -86,6 +93,7 @@ jobs:
           jq -e . infra/deployment.auto.tfvars.json >/dev/null
           jq -e '.project_name | type == "string" and length > 0' infra/deployment.auto.tfvars.json >/dev/null
           test "$(jq -r '.aws_region' infra/deployment.auto.tfvars.json)" = "$AWS_REGION"
+          test "$TF_STATE_PREFIX" = "$(jq -r '.project_name' infra/deployment.auto.tfvars.json)/terraform"
           echo "OPENLINEAGE_URL=$(jq -r '.openlineage_collector_url // ""' infra/deployment.auto.tfvars.json)" >> "$GITHUB_ENV"
           jq -r '
             {

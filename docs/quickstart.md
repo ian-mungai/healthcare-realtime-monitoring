@@ -21,6 +21,8 @@ cp infra/bootstrap/terraform.tfvars.example infra/bootstrap/terraform.tfvars
 
 Replace every placeholder in the three ignored files. Use globally unique names for the state, application-data and MWAA source buckets. Leave `ml_approved_model_version` empty for the first deployment.
 
+The documented local workflow requires a named AWS CLI profile in `AWS_PROFILE`. An SSO-backed profile is supported after `aws sso login --profile "$AWS_PROFILE"`. Environment-only credentials without a named profile are outside this quickstart.
+
 Load the non-secret local settings into the current shell:
 
 ```zsh
@@ -134,7 +136,7 @@ In a second terminal, start the live cohort dashboard:
 ./scripts/demo/start_live_dashboard.sh
 ```
 
-Confirm all ten patients are present and current values are no more than ten seconds old. Run the REST, WebSocket and CloudWatch checks in the [demo guide](demo-guide.md), then stop the simulator:
+Confirm all ten patients are present. Heart rate, respiratory rate and oxygen saturation must be no more than ten seconds old. Blood pressure follows its separate five-minute publication cadence and remains current for up to 310 seconds. Run the REST, WebSocket and CloudWatch checks in the [demo guide](demo-guide.md), then stop the simulator:
 
 ```zsh
 ./scripts/demo/stop_vitals_demo.sh

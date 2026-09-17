@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import boto3
+from botocore.exceptions import ClientError
 
 MWAA_SERVERLESS_TYPE = "AWS::MWAAServerless::Workflow"
 VPC_QUOTA_CODE = "L-F678F1CE"
 ELASTIC_IP_QUOTA_CODE = "L-0263D0A3"
 FARGATE_VCPU_QUOTA_CODE = "L-3032A538"
+FARGATE_REQUIRED_VCPUS = 2.0
 RDS_INSTANCE_QUOTA_CODE = "L-7B6409FD"
 
 
@@ -26,10 +29,28 @@ def quota_value(service_quotas: Any, service_code: str, quota_code: str) -> floa
     return float(response["Quota"]["Value"])
 
 
+def fargate_usage_vcpus(cloudwatch: Any) -> float:
+    end_time = datetime.now(UTC)
+    response = cloudwatch.get_metric_statistics(
+        Namespace="AWS/Usage",
+        MetricName="ResourceCount",
+        Dimensions=[
+            {"Name": "Service", "Value": "Fargate"},
+            {"Name": "Type", "Value": "Resource"},
+            {"Name": "Resource", "Value": "vCPU"},
+            {"Name": "Class", "Value": "Standard/OnDemand"},
+        ],
+        StartTime=end_time - timedelta(minutes=5),
+        EndTime=end_time,
+        Period=60,
+        Statistics=["Maximum"],
+    )
+    return max((float(point["Maximum"]) for point in response.get("Datapoints", [])), default=0.0)
+
+
 def run_checks(session: Any, policy_template_names: set[str]) -> list[Check]:
     checks: list[Check] = []
-    account_id = session.client("sts").get_caller_identity()["Account"]
-    checks.append(Check("AWS identity", bool(account_id), "authenticated account detected"))
+    session.client("sts").get_caller_identity()
 
     ec2 = session.client("ec2")
     zones = ec2.describe_availability_zones(Filters=[{"Name": "state", "Values": ["available"]}])["AvailabilityZones"]
@@ -39,8 +60,11 @@ def run_checks(session: Any, policy_template_names: set[str]) -> list[Check]:
     try:
         cloudformation.describe_type(Type="RESOURCE", TypeName=MWAA_SERVERLESS_TYPE)
         checks.append(Check("MWAA Serverless", True, "CloudFormation resource type is available"))
-    except Exception as error:  # botocore exposes service-specific exception classes at runtime.
-        checks.append(Check("MWAA Serverless", False, f"resource type unavailable: {type(error).__name__}"))
+    except ClientError as error:
+        if error.response.get("Error", {}).get("Code") == "TypeNotFoundException":
+            checks.append(Check("MWAA Serverless", False, "CloudFormation resource type is unavailable in this region"))
+        else:
+            raise
 
     iam = session.client("iam")
     iam_summary = iam.get_account_summary()["SummaryMap"]
@@ -61,10 +85,18 @@ def run_checks(session: Any, policy_template_names: set[str]) -> list[Check]:
     checks.append(Check("Elastic IP quota", address_quota - address_count >= 1, f"{int(address_quota - address_count)} free; 1 required"))
 
     fargate_quota = quota_value(service_quotas, "fargate", FARGATE_VCPU_QUOTA_CODE)
-    checks.append(Check("Fargate quota", fargate_quota >= 2, f"{fargate_quota:g} on-demand vCPUs; 2 required"))
+    fargate_usage = fargate_usage_vcpus(session.client("cloudwatch"))
+    fargate_available = max(fargate_quota - fargate_usage, 0.0)
+    checks.append(
+        Check(
+            "Fargate quota",
+            fargate_available >= FARGATE_REQUIRED_VCPUS,
+            f"{fargate_available:g} free of {fargate_quota:g}; {FARGATE_REQUIRED_VCPUS:g} required",
+        )
+    )
 
     rds = session.client("rds")
-    database_count = len(rds.describe_db_instances()["DBInstances"])
+    database_count = sum(len(page.get("DBInstances", [])) for page in rds.get_paginator("describe_db_instances").paginate())
     database_quota = quota_value(service_quotas, "rds", RDS_INSTANCE_QUOTA_CODE)
     checks.append(Check("RDS quota", database_quota - database_count >= 2, f"{int(database_quota - database_count)} free; 2 required"))
     return checks

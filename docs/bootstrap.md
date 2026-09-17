@@ -15,6 +15,8 @@ cp infra/bootstrap/terraform.tfvars.example infra/bootstrap/terraform.tfvars
 
 Replace every placeholder in the ignored files and use globally unique bucket names. `.env` contains only local or externally managed prerequisites; Terraform-created endpoints and resource identifiers come from Terraform outputs. Values already exported in the shell take precedence. Leave `ml_approved_model_version` empty for the first deployment; this keeps MWAA in manual-only mode while the training dataset and first model are created. Never commit these files.
 
+The documented local workflow requires a named AWS CLI profile in `AWS_PROFILE`. An SSO-backed profile is supported after `aws sso login --profile "$AWS_PROFILE"`.
+
 Run the local and regional checks before creating resources:
 
 ```zsh

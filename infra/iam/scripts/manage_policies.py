@@ -3,15 +3,17 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import boto3
-from render_policy import render_policy_document
+from render_policy import load_terraform_variables, render_policy_document
 
 POLICIES_DIRECTORY = Path(__file__).resolve().parents[1] / "policies"
 CONFIRMATION = "apply-healthcare-realtime-policies"
+IAM_SCALAR_OR_LIST_FIELDS = {"Action", "NotAction", "Resource", "NotResource", "Principal", "NotPrincipal"}
 
 
 @dataclass(frozen=True)
@@ -19,6 +21,14 @@ class PolicyChange:
     name: str
     action: str
     arn: str | None = None
+
+
+@dataclass(frozen=True)
+class PolicyApplyResult:
+    name: str
+    action: str
+    status: str
+    detail: str
 
 
 def load_environment_file(path: Path) -> dict[str, str]:
@@ -40,8 +50,36 @@ def load_environment_file(path: Path) -> dict[str, str]:
     return values
 
 
+def configuration_warnings(terraform_var_file: Path, file_environment: dict[str, str], process_environment: dict[str, str]) -> list[str]:
+    warnings: list[str] = []
+    for name in sorted(file_environment.keys() & process_environment.keys()):
+        if file_environment[name] != process_environment[name]:
+            warnings.append(f"{name} from the shell overrides the value in the environment file")
+
+    terraform_values = load_terraform_variables(terraform_var_file)
+    effective_environment = {**file_environment, **process_environment}
+    for name in sorted(terraform_values.keys() & effective_environment.keys()):
+        if terraform_values[name] != effective_environment[name]:
+            source = "shell" if name in process_environment else "environment file"
+            warnings.append(f"{name} from the {source} overrides the Terraform variable file")
+    return warnings
+
+
+def normalize_iam_value(value: Any, normalize_lists: bool = False) -> Any:
+    if isinstance(value, dict):
+        return {key: normalize_iam_value(child, normalize_lists or key in IAM_SCALAR_OR_LIST_FIELDS) for key, child in sorted(value.items())}
+    if isinstance(value, list):
+        normalized = [normalize_iam_value(child, normalize_lists) for child in value]
+        if not normalize_lists:
+            return normalized
+        normalized.sort(key=lambda child: json.dumps(child, sort_keys=True, separators=(",", ":")))
+        return normalized[0] if len(normalized) == 1 else normalized
+    return value
+
+
 def canonical(document: dict[str, Any]) -> str:
-    return json.dumps(document, sort_keys=True, separators=(",", ":"))
+    normalized = normalize_iam_value(document)
+    return json.dumps(normalized, sort_keys=True, separators=(",", ":"))
 
 
 def list_local_policies(iam: Any) -> dict[str, dict[str, Any]]:
@@ -82,16 +120,29 @@ def remove_oldest_nondefault_version(iam: Any, policy_arn: str) -> None:
     iam.delete_policy_version(PolicyArn=policy_arn, VersionId=candidates[0]["VersionId"])
 
 
-def apply_changes(iam: Any, documents: dict[str, dict[str, Any]], changes: list[PolicyChange]) -> None:
+def apply_changes(iam: Any, documents: dict[str, dict[str, Any]], changes: list[PolicyChange]) -> list[PolicyApplyResult]:
+    results: list[PolicyApplyResult] = []
     for change in changes:
+        if change.action == "no-change":
+            results.append(PolicyApplyResult(change.name, change.action, "unchanged", "policy already matches the template"))
+            continue
         document = json.dumps(documents[change.name], separators=(",", ":"))
-        if change.action == "create":
-            iam.create_policy(PolicyName=change.name, PolicyDocument=document, Description="Healthcare realtime monitoring deployment policy")
-        elif change.action == "update":
-            if change.arn is None:
-                raise RuntimeError(f"missing ARN for policy update: {change.name}")
-            remove_oldest_nondefault_version(iam, change.arn)
-            iam.create_policy_version(PolicyArn=change.arn, PolicyDocument=document, SetAsDefault=True)
+        try:
+            if change.action == "create":
+                iam.create_policy(PolicyName=change.name, PolicyDocument=document, Description="Healthcare realtime monitoring deployment policy")
+            elif change.action == "update":
+                if change.arn is None:
+                    raise RuntimeError(f"missing ARN for policy update: {change.name}")
+                # IAM permits five versions, so capacity must be freed before creating version six.
+                remove_oldest_nondefault_version(iam, change.arn)
+                iam.create_policy_version(PolicyArn=change.arn, PolicyDocument=document, SetAsDefault=True)
+            else:
+                raise ValueError(f"unsupported policy action: {change.action}")
+        except Exception as error:
+            results.append(PolicyApplyResult(change.name, change.action, "failed", f"{type(error).__name__}: {error}"))
+        else:
+            results.append(PolicyApplyResult(change.name, change.action, "applied", "completed"))
+    return results
 
 
 def load_documents(terraform_var_file: Path, environment: dict[str, str], selected_policies: set[str] | None = None) -> dict[str, dict[str, Any]]:
@@ -120,7 +171,10 @@ def main() -> None:
     arguments = parser.parse_args()
 
     file_environment = load_environment_file(arguments.env_file)
-    environment = {**file_environment, **os.environ}
+    process_environment = dict(os.environ)
+    for warning in configuration_warnings(arguments.terraform_var_file, file_environment, process_environment):
+        print(f"WARNING: {warning}", file=sys.stderr)
+    environment = {**file_environment, **process_environment}
     profile = arguments.profile or environment.get("AWS_PROFILE")
     region = arguments.region or environment.get("AWS_REGION")
     session = boto3.Session(profile_name=profile, region_name=region)
@@ -139,8 +193,16 @@ def main() -> None:
     if arguments.action == "apply":
         if os.environ.get("CONFIRM_IAM_POLICIES") != CONFIRMATION:
             parser.error(f"set CONFIRM_IAM_POLICIES={CONFIRMATION} before applying")
-        apply_changes(iam, documents, changes)
-        print("Customer-managed policy templates applied.")
+        results = apply_changes(iam, documents, changes)
+        print("Apply results:")
+        for result in results:
+            print(f"{result.status.upper():9} {result.action.upper():9} {result.name}: {result.detail}")
+        failures = [result for result in results if result.status == "failed"]
+        if failures:
+            raise SystemExit(f"{len(failures)} customer-managed policy update(s) failed.")
+        applied = sum(result.status == "applied" for result in results)
+        unchanged = sum(result.status == "unchanged" for result in results)
+        print(f"Customer-managed policy templates applied: {applied} changed, {unchanged} unchanged.")
 
 
 if __name__ == "__main__":

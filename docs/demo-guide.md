@@ -47,7 +47,7 @@ In the live dashboard, verify that:
 
 1. The cohort view contains every configured simulated patient.
 2. Heart rate, oxygen saturation, respiratory rate and blood pressure update while the simulator is running.
-3. Current-monitoring values are no more than 10 seconds old; older values are suppressed rather than presented as live.
+3. Heart rate, oxygen saturation and respiratory rate are no more than 10 seconds old; blood pressure follows its separate five-minute cadence and remains current for up to 310 seconds.
 4. The chart time axis advances with full timestamps.
 5. Selecting **View trends** focuses a patient without hiding the rest of the cohort.
 
