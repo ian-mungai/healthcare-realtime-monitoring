@@ -239,14 +239,14 @@ variable "realtime_patient_access_policy" {
   default     = {}
 }
 
-variable "openlineage_collector_url" {
+variable "external_openlineage_collector_url" {
   description = "Optional external OpenLineage HTTP collector base URL. Empty retains durable S3 event storage when the managed collector is disabled."
   type        = string
   default     = ""
 
   validation {
-    condition     = var.openlineage_collector_url == "" || can(regex("^https?://[^/]+", var.openlineage_collector_url))
-    error_message = "openlineage_collector_url must be empty or an absolute HTTP or HTTPS URL."
+    condition     = var.external_openlineage_collector_url == "" || can(regex("^https?://[^/]+", var.external_openlineage_collector_url))
+    error_message = "external_openlineage_collector_url must be empty or an absolute HTTP or HTTPS URL."
   }
 }
 

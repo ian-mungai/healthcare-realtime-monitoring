@@ -124,7 +124,6 @@ Enable the managed collector in the ignored Terraform inputs:
 enable_openlineage_collector        = true
 openlineage_collector_image_tag     = "sha-<commit>"
 openlineage_collector_desired_count = 1
-openlineage_collector_url           = ""
 ```
 
 Run `./scripts/infrastructure/sync_deployment_config.sh` after updating the ignored Terraform inputs, then create and review a full Terraform plan. The plan creates Marquez ECS, encrypted RDS, an internal load balancer and the IAM-authorized API route; it also updates Glue, MWAA, dbt and Soda with the collector URL and route-specific `execute-api:Invoke` permission.
@@ -158,4 +157,4 @@ PY
 
 For cost-controlled shutdown, set `openlineage_collector_desired_count = 0` and apply. Stop the Marquez RDS instance from AWS when the analytical workflow is not being demonstrated; AWS automatically restarts a stopped RDS instance after seven days. Restore the database and desired count before running the pipeline.
 
-To use an externally managed collector instead, leave `enable_openlineage_collector = false` and set `openlineage_collector_url` to its HTTPS base URL. Every non-local remote collector request is SigV4-signed for `execute-api`; use a local endpoint for unsigned development transport.
+To use an externally managed collector instead, leave `ENABLE_OPENLINEAGE_COLLECTOR=false`, add `EXTERNAL_OPENLINEAGE_COLLECTOR_URL=<https-base-url>` to `.env` and rerender the ignored Terraform inputs. The external override is intentionally absent from `.env.example` because a standard deployment creates the managed collector or uses durable S3 fallback. Every non-local remote collector request is SigV4-signed for `execute-api`; use a local endpoint for unsigned development transport.

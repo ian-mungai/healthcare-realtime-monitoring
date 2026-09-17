@@ -18,7 +18,7 @@ STRING_VARIABLES = {
     "DATA_BUCKET_NAME": "data_bucket_name",
     "REALTIME_ALERT_EMAIL": "realtime_alert_email",
     "FHIR_WEBHOOK_SECRET_ID": "fhir_webhook_secret_id",
-    "OPENLINEAGE_COLLECTOR_URL": "openlineage_collector_url",
+    "EXTERNAL_OPENLINEAGE_COLLECTOR_URL": "external_openlineage_collector_url",
     "GITHUB_REPOSITORY": "github_repository",
     "GITHUB_OIDC_SUBJECT_PREFIX": "github_oidc_subject_prefix",
     "GITHUB_DEPLOYMENT_ENVIRONMENT": "github_deployment_environment",
@@ -45,7 +45,6 @@ REQUIRED_ENVIRONMENT = {
     "FHIR_WEBHOOK_SECRET_ID",
     "ML_APPROVED_MODEL_VERSION",
     "OPENLINEAGE_COLLECTOR_DESIRED_COUNT",
-    "OPENLINEAGE_COLLECTOR_URL",
     "PATIENT_IDS",
     "PROJECT_NAME",
     "REALTIME_ALERT_EMAIL",
@@ -115,7 +114,7 @@ def load_defaults(path: Path) -> dict[str, Any]:
 def build_configuration(environment: dict[str, str], defaults: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     effective = environment
     for name in sorted(REQUIRED_ENVIRONMENT):
-        if name == "ML_APPROVED_MODEL_VERSION" or name == "OPENLINEAGE_COLLECTOR_URL":
+        if name == "ML_APPROVED_MODEL_VERSION":
             if name not in effective:
                 raise ConfigurationError(f"set {name} in .env; an empty value is allowed")
             continue

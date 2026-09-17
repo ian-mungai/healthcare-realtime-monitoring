@@ -21,6 +21,8 @@ cp .env.example .env
 
 Replace every placeholder in `.env`. Enter the deployment region once as `AWS_REGION` and use globally unique names for the state and application-data buckets. The state bucket and every regional service are created in `AWS_REGION`. MWAA Serverless definitions and code are stored under `orchestration/mwaa-serverless/` in the application-data bucket. Leave `ML_APPROVED_MODEL_VERSION` empty for the first deployment. Image tags are not first-deployment inputs; the image publishing script generates and records them later.
 
+Set `ENABLE_OPENLINEAGE_COLLECTOR=true` to create the managed collector. Do not add its URL to `.env`; Terraform generates the URL and passes it to project services. When the setting is `false`, lineage uses durable S3 fallback unless the optional external-collector override documented in the [deployment guide](deployment.md) is added.
+
 Find the AWS identity that will sign the dashboard REST and WebSocket requests:
 
 ```zsh
@@ -82,9 +84,7 @@ Create the protected state bucket and initialize a new empty main backend:
 
 ```zsh
 ./scripts/infrastructure/bootstrap.sh state-plan
-terraform -chdir=infra/bootstrap show -no-color tfplan-state-bootstrap
-CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
-  ./scripts/infrastructure/bootstrap.sh state-apply
+CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap ./scripts/infrastructure/bootstrap.sh state-apply
 ./scripts/infrastructure/bootstrap.sh state-backup
 ./scripts/infrastructure/bootstrap.sh main-init
 ./scripts/infrastructure/check_prerequisites.sh pre-deploy
@@ -96,27 +96,23 @@ Create the ECR repositories and push immutable images. The publishing script rec
 
 ```zsh
 ./scripts/infrastructure/bootstrap.sh repositories-plan
-terraform -chdir=infra show -no-color tfplan-bootstrap-ecr
-CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
-  ./scripts/infrastructure/bootstrap.sh repositories-apply
+CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap ./scripts/infrastructure/bootstrap.sh repositories-apply
 ./scripts/infrastructure/push_images.sh
 ```
 
-Deploy the foundation and full application:
+Deploy the foundation and full application one command at a time. `pipefail` preserves Terraform failures while `tee` stores complete output in untracked temporary logs:
 
 ```zsh
-./scripts/infrastructure/bootstrap.sh foundation-plan
-terraform -chdir=infra show -no-color tfplan-bootstrap-foundation
-CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
-  ./scripts/infrastructure/bootstrap.sh foundation-apply
-./scripts/infrastructure/bootstrap.sh application-plan
-terraform -chdir=infra show -no-color tfplan-bootstrap-application
-CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
-  ./scripts/infrastructure/bootstrap.sh application-apply
-terraform -chdir=infra plan
+set -o pipefail
+./scripts/infrastructure/bootstrap.sh foundation-plan 2>&1 | tee /tmp/healthcare-foundation-plan.log
+CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap ./scripts/infrastructure/bootstrap.sh foundation-apply 2>&1 | tee /tmp/healthcare-foundation-apply.log
+terraform -chdir=infra output -raw glue_job_name
+./scripts/infrastructure/bootstrap.sh application-plan 2>&1 | tee /tmp/healthcare-application-plan.log
+CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap ./scripts/infrastructure/bootstrap.sh application-apply 2>&1 | tee /tmp/healthcare-application-apply.log
+terraform -chdir=infra plan 2>&1 | tee /tmp/healthcare-convergence-plan.log
 ```
 
-The final plan must report `No changes`. Confirm the SNS email subscription when AWS sends the request. Configure GitHub OIDC later using the [deployment guide](deployment.md) when remote deployment is required.
+The foundation wrapper builds the Glue lineage package and provisions Glue with the other resources required by application generation. The `glue_job_name` command must return a nonempty value before `application-plan` runs. The final plan must report `No changes`. Confirm the SNS email subscription when AWS sends the request. Configure GitHub OIDC later using the [deployment guide](deployment.md) when remote deployment is required.
 
 ## 4. Seed the ten-patient cohort
 

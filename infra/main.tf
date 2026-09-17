@@ -55,7 +55,7 @@ locals {
     Environment = var.deployment_environment
     ManagedBy   = "terraform"
   }
-  effective_openlineage_collector_url = var.enable_openlineage_collector ? module.openlineage_collector.collector_url : var.openlineage_collector_url
+  effective_openlineage_collector_url = var.enable_openlineage_collector ? module.openlineage_collector.collector_url : var.external_openlineage_collector_url
   openlineage_collector_invoke_arn    = var.enable_openlineage_collector ? module.openlineage_collector.invoke_arn : ""
 }
 
