@@ -108,6 +108,32 @@ class EmptyAccountIam:
         self.created.append(kwargs)
 
 
+class ExistingAccountIam:
+    def __init__(self, document: dict[str, object]) -> None:
+        self.document = document
+
+    def get_paginator(self, name: str) -> PolicyPaginator:
+        assert name == "list_policies"
+        return PolicyPaginator(
+            [{"PolicyName": "healthcare_realtime_example", "Arn": "arn:aws:iam::111111111111:policy/healthcare_realtime_example", "DefaultVersionId": "v1"}]
+        )
+
+    def get_policy_version(self, **kwargs: object) -> dict[str, object]:
+        assert kwargs["VersionId"] == "v1"
+        return {"PolicyVersion": {"Document": self.document}}
+
+
+class PartiallyFailingIam:
+    def __init__(self) -> None:
+        self.created: list[str] = []
+
+    def create_policy(self, **kwargs: object) -> None:
+        name = str(kwargs["PolicyName"])
+        if name == "healthcare_realtime_example_one":
+            raise RuntimeError("simulated IAM failure")
+        self.created.append(name)
+
+
 def test_policy_manager_plans_and_creates_every_policy_in_an_empty_account(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.syspath_prepend(str(MANAGER_PATH.parent))
     manager = load_module(MANAGER_PATH, "manage_policies_for_test")
@@ -124,6 +150,48 @@ def test_policy_manager_plans_and_creates_every_policy_in_an_empty_account(monke
     assert [call["PolicyName"] for call in iam.created] == sorted(documents)
 
 
+def test_policy_manager_normalizes_aws_scalar_lists_and_order(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.syspath_prepend(str(MANAGER_PATH.parent))
+    manager = load_module(MANAGER_PATH, "manage_policies_normalization_for_test")
+    stored_document: dict[str, object] = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {"Effect": "Allow", "Action": "servicequotas:GetServiceQuota", "Resource": "*", "Principal": {"Service": "ecs-tasks.amazonaws.com"}},
+            {"Effect": "Allow", "Action": ["s3:PutObject", "s3:GetObject"], "Resource": "arn:aws:s3:::example/*"},
+        ],
+    }
+    template_document = {
+        "Statement": [
+            {"Resource": ["*"], "Principal": {"Service": ["ecs-tasks.amazonaws.com"]}, "Action": ["servicequotas:GetServiceQuota"], "Effect": "Allow"},
+            {"Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject"], "Resource": ["arn:aws:s3:::example/*"]},
+        ],
+        "Version": "2012-10-17",
+    }
+
+    changes = manager.plan_changes(ExistingAccountIam(stored_document), {"healthcare_realtime_example": template_document})
+
+    assert [change.action for change in changes] == ["no-change"]
+
+
+def test_policy_manager_collects_failures_and_continues(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.syspath_prepend(str(MANAGER_PATH.parent))
+    manager = load_module(MANAGER_PATH, "manage_policies_failure_manifest_for_test")
+    iam = PartiallyFailingIam()
+    documents = {
+        "healthcare_realtime_example_one": {"Version": "2012-10-17", "Statement": []},
+        "healthcare_realtime_example_two": {"Version": "2012-10-17", "Statement": []},
+    }
+    changes = [manager.PolicyChange(name, "create") for name in sorted(documents)]
+
+    results = manager.apply_changes(iam, documents, changes)
+
+    assert [(result.name, result.status) for result in results] == [
+        ("healthcare_realtime_example_one", "failed"),
+        ("healthcare_realtime_example_two", "applied"),
+    ]
+    assert iam.created == ["healthcare_realtime_example_two"]
+
+
 def test_policy_manager_loads_ignored_environment_values(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.syspath_prepend(str(MANAGER_PATH.parent))
     manager = load_module(MANAGER_PATH, "manage_policies_environment_for_test")
@@ -131,6 +199,22 @@ def test_policy_manager_loads_ignored_environment_values(tmp_path: Path, monkeyp
     environment_file.write_text("AWS_PROFILE=example\nTF_STATE_BUCKET='example-state'\n", encoding="utf-8")
 
     assert manager.load_environment_file(environment_file) == {"AWS_PROFILE": "example", "TF_STATE_BUCKET": "example-state"}
+
+
+def test_policy_manager_warns_when_environment_values_override_other_sources(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.syspath_prepend(str(MANAGER_PATH.parent))
+    manager = load_module(MANAGER_PATH, "manage_policies_precedence_for_test")
+    terraform_var_file = tmp_path / "development.tfvars"
+    terraform_var_file.write_text('project_name = "terraform-project"\naws_region = "example-region-1"\n', encoding="utf-8")
+
+    warnings = manager.configuration_warnings(
+        terraform_var_file, {"PROJECT_NAME": "file-project", "AWS_REGION": "example-region-1"}, {"PROJECT_NAME": "shell-project"}
+    )
+
+    assert warnings == [
+        "PROJECT_NAME from the shell overrides the value in the environment file",
+        "PROJECT_NAME from the shell overrides the Terraform variable file",
+    ]
 
 
 def test_policy_manager_can_limit_an_update_to_selected_templates(monkeypatch: pytest.MonkeyPatch) -> None:
