@@ -87,6 +87,8 @@ The foundation wrapper builds the Glue lineage package before its targeted plan.
 
 After any partial apply failure, fix the external prerequisite and run the corresponding plan wrapper again. Review and apply the newly saved plan instead of reusing the plan from the failed operation.
 
+Run direct Terraform commands with `terraform -chdir=infra ...` from the repository root. Both the AWS and AWSCC providers use the generated `aws_region` input. For computed MWAA workflow-version drift, create, review and apply a saved `-refresh-only` plan as shown in the [first-deployment quickstart](quickstart.md); do not run an unsaved root-level `terraform apply`.
+
 After the GitHub OIDC deployment role exists, synchronize the ignored deployment inputs to encrypted AWS storage and configure the protected GitHub environment as described in [deployment.md](deployment.md):
 
 ```zsh
