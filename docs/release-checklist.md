@@ -57,14 +57,14 @@ Verified release evidence on 2026-09-16: the cohort dashboard displayed current 
 
 Verified release evidence on 2026-09-17: a fresh regional deployment completed from the quickstart; post-deployment prerequisites passed; GitHub OIDC was active; CI passed; Terraform converged; all ten live patients were current with active WebSocket connections; all realtime alarms were `OK`; and both failure queues were empty. The simulator published blood pressure on its documented five-minute wall-clock cadence. A later validation deployed random per-run scenarios, created fresh encounters for all ten patients and completed a healthy first cycle. Deployment-specific identifiers are intentionally omitted.
 
-## Deferred model activation
+## Model activation
 
-These post-release operational steps are intentionally deferred and do not block the reproducible infrastructure, realtime or analytical platform release:
+- [x] Run enough complete 30-minute simulator sessions to produce both proxy-label classes in both patient-grouped partitions.
+- [x] Train, review and publish an immutable model artifact.
+- [x] Set `ML_APPROVED_MODEL_VERSION`, apply the reviewed Terraform plan and confirm MWAA changes from manual-only to the daily schedule.
+- [x] Run the full workflow and validate model scoring, prediction refresh and the populated model analytics dashboard in the fresh region.
 
-- [ ] Run enough complete 30-minute simulator sessions to produce both proxy-label classes in both patient-grouped partitions.
-- [ ] Train, review and publish an immutable model artifact.
-- [ ] Set `ML_APPROVED_MODEL_VERSION`, apply the reviewed Terraform plan and confirm MWAA changes from manual-only to the daily schedule.
-- [ ] Run the full workflow and validate model scoring, prediction refresh and the populated model analytics dashboard in the fresh region.
+Verified model evidence on 2026-09-18: the patient-grouped training and test partitions both contained proxy-label classes `0` and `1`; the reviewed immutable baseline was published; the downstream scoring, prediction-refresh and Soda tasks passed independently; and a final MWAA Serverless run completed all nine workflow tasks successfully. The approved-model Athena view returned one current score for each of the ten configured patients. Fresh S3-backed OpenLineage events were present for Glue, Athena, Great Expectations, dbt and Soda. Terraform reported `No changes` after refresh-only reconciliation of computed workflow metadata. Model results remain synthetic portfolio evidence and are not clinically validated.
 
 ## Public-artifact redaction
 
