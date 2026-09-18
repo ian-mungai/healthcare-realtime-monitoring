@@ -109,12 +109,17 @@ This design prefers controlled replay over blind redrive: an operator should ide
 
 ## Observability
 
-Two CloudWatch dashboards support different questions:
+Two CloudWatch dashboards support different questions. Resolve their deployed names from Terraform outputs instead of assuming an environment-specific name:
+
+```zsh
+terraform -chdir=infra output -raw cloudwatch_dashboard_name
+terraform -chdir=infra output -raw realtime_observability_dashboard_name
+```
 
 | Dashboard | Operational focus |
 | --- | --- |
-| `healthcare-realtime-monitoring` | End-to-end pipeline: Kinesis, Firehose, Glue, MWAA, dbt, Soda and analytical failures |
-| `healthcare-realtime-live-development` | Realtime state: processor errors, iterator age, processing latency, WebSocket delivery and simulator activity |
+| Pipeline observability output | End-to-end pipeline: Kinesis, Firehose, Glue, MWAA, dbt, Soda and analytical failures |
+| Realtime observability output | Realtime state: processor errors, iterator age, processing latency, WebSocket delivery and simulator activity |
 
 Alarms cover pipeline task failures, throttling, Firehose delivery, processor errors and throttles, iterator age, live processing latency, WebSocket-delivery failures, collector health, missing lineage events and client-side lineage-emission failures. Operational validation is complete only when current state advances, monitoring clients receive updates and the relevant alarms are `OK`.
 
