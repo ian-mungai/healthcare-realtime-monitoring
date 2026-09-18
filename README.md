@@ -138,7 +138,7 @@ The [model-training guide](docs/model-training.md) defines the inference-safe tr
 
 The [technology inventory](docs/technology-inventory.md) lists the standards, AWS services, frameworks, libraries, delivery tools and testing methods used by the project.
 
-The [v1.0.0 release notes](docs/release-notes-v1.0.0.md) summarize the verified release scope, acceptance evidence and documented limitations.
+The [v1.0.1 release notes](docs/release-notes-v1.0.1.md) summarize the current verified release scope, acceptance evidence and documented limitations. The [v1.0.0 release notes](docs/release-notes-v1.0.0.md) remain available as the initial release record.
 
 ## Portfolio safety
 

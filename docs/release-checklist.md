@@ -83,6 +83,6 @@ Before committing screenshots, diagrams, examples or portfolio documents:
 Create a release tag only after CI is green, Terraform has converged and the evidence checklist is complete:
 
 ```zsh
-git tag -a v1.0.0 -m "Portfolio release v1.0.0"
-git push origin v1.0.0
+git tag -a v1.0.1 -m "Portfolio release v1.0.1"
+git push origin v1.0.1
 ```
