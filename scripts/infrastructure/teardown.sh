@@ -40,9 +40,9 @@ require_separate_state_bucket() {
     exit 2
   fi
 
-  local data_bucket
-  data_bucket="$(terraform -chdir="$INFRA_DIR" output -raw raw_s3_bucket_name)"
-  if [[ "$TF_STATE_BUCKET" == "$data_bucket" ]]; then
+  local data_bucket=""
+  data_bucket="$(terraform -chdir="$INFRA_DIR" output -raw raw_s3_bucket_name 2>/dev/null || true)"
+  if [[ -n "$data_bucket" && "$TF_STATE_BUCKET" == "$data_bucket" ]]; then
     echo "Refusing teardown because Terraform state is stored in the application data bucket." >&2
     exit 2
   fi
@@ -56,6 +56,37 @@ build_packages() {
   "$REPO_ROOT/scripts/glue/build_lineage_package.sh"
   "$REPO_ROOT/airflow/serverless/convert_healthcare_realtime_pipeline.sh"
   "$REPO_ROOT/airflow/serverless/build_code_package.sh"
+}
+
+build_or_verify_destroy_packages() {
+  if terraform -chdir="$INFRA_DIR" output -json private_subnet_ids >/dev/null 2>&1; then
+    build_packages
+    return
+  fi
+
+  local required_files=(
+    "$REPO_ROOT/build/lambda/fhir_webhook.zip"
+    "$REPO_ROOT/build/lambda/vitals_api.zip"
+    "$REPO_ROOT/build/lambda/vitals_replay.zip"
+    "$REPO_ROOT/build/lambda/vitals_stream_processor.zip"
+    "$REPO_ROOT/build/lambda/websocket_handler.zip"
+    "$REPO_ROOT/build/glue/healthcare_realtime_lineage.zip"
+    "$REPO_ROOT/airflow/serverless/generated/healthcare_realtime_pipeline.yaml"
+    "$REPO_ROOT/build/mwaa/healthcare_realtime_mwaa_serverless_code.zip"
+  )
+  local missing=0 required_file
+  for required_file in "${required_files[@]}"; do
+    if [[ ! -s "$required_file" ]]; then
+      echo "Required destroy artifact is missing: $required_file" >&2
+      missing=1
+    fi
+  done
+  if [[ "$missing" -ne 0 ]]; then
+    echo "Restore the build artifacts or backend state before retrying the destroy plan." >&2
+    exit 2
+  fi
+
+  echo "Deployment outputs are incomplete after a partial destroy; reusing verified local artifacts."
 }
 
 terraform_plan_args=(
@@ -117,7 +148,7 @@ case "$ACTION" in
     ;;
   destroy-plan)
     require_separate_state_bucket
-    build_packages
+    build_or_verify_destroy_packages
     terraform -chdir="$INFRA_DIR" plan -destroy "${terraform_plan_args[@]}" -out=tfplan-teardown-destroy
     terraform -chdir="$INFRA_DIR" show -no-color tfplan-teardown-destroy
     ;;

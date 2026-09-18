@@ -94,9 +94,9 @@ Realtime state is keyed by `patient_id`. DynamoDB accepts an update only when it
 
 ## Failure handling and replay
 
-Kinesis batch item failures are sent to the encrypted `healthcare-realtime-vitals-failures-development` SQS queue. The replay Lambda retrieves the original Kinesis sequence range and republishes it with an incremented `_replay_attempt`.
+Kinesis batch item failures are sent to the encrypted failure queue provisioned by the realtime failure-handling module. The replay Lambda retrieves the original Kinesis sequence range and republishes it with an incremented `_replay_attempt`.
 
-Automatic replay is limited to one attempt. After five failed SQS receives, the message moves to `healthcare-realtime-vitals-replay-dlq-development`. Both queues retain messages for 14 days and use SQS-managed server-side encryption. Operators must inspect and correct records in the replay DLQ before any manual redrive.
+Automatic replay is limited to one attempt. After five failed SQS receives, the message moves to the module-managed replay dead-letter queue. Both queues retain messages for 14 days and use SQS-managed server-side encryption. Operators must inspect and correct records in the replay DLQ before any manual redrive.
 
 Analytical quarantine recovery is separate from SQS transport recovery. Operators query the quarantine table, export a bounded set with `scripts/quarantine/manage_quarantine.py`, correct and validate the JSONL file, then explicitly confirm publication to Kinesis. Corrected records retain their analytical identity so Iceberg replay remains idempotent.
 

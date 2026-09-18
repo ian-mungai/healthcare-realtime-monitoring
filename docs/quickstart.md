@@ -25,11 +25,19 @@ Replace every placeholder in `.env`. Patient IDs are not user inputs: the genera
 
 Set `ENABLE_OPENLINEAGE_COLLECTOR=true` to create the managed collector. Do not add its URL to `.env`; Terraform generates the URL and passes it to project services. When the setting is `false`, lineage uses durable S3 fallback unless the optional external-collector override documented in the [deployment guide](deployment.md) is added.
 
-Find the AWS identity that will sign the dashboard REST and WebSocket requests:
+Load the completed local settings before using any AWS command:
+
+```zsh
+set -a
+source .env
+set +a
+```
+
+Find the AWS identity that will sign the dashboard REST and WebSocket requests. The profile comes from `.env`; do not enter it a second time:
 
 ```zsh
 aws sts get-caller-identity \
-  --profile <aws-profile> \
+  --profile "$AWS_PROFILE" \
   --query Arn \
   --output text
 ```
@@ -43,14 +51,6 @@ Render the two ignored Terraform input files. Do not edit the generated files di
 ```
 
 The documented local workflow requires a named AWS CLI profile in `AWS_PROFILE`. An SSO-backed profile is supported after `aws sso login --profile "$AWS_PROFILE"`. Environment-only credentials without a named profile are outside this quickstart.
-
-Load the non-secret local settings into the current shell:
-
-```zsh
-set -a
-source .env
-set +a
-```
 
 Confirm the local toolchain and selected AWS identity:
 
