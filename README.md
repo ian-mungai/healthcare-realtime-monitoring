@@ -140,7 +140,7 @@ The [technology inventory](docs/technology-inventory.md) lists the standards, AW
 
 The [project build article](docs/building-healthcare-realtime-monitoring.md) provides a publication-ready narrative of the architecture, implementation, validation and operational lessons from start to finish.
 
-The [v1.0.0 release notes](docs/release-notes-v1.0.0.md) summarize the verified release scope, acceptance evidence and documented limitations.
+The [v1.0.1 release notes](docs/release-notes-v1.0.1.md) summarize the current verified release scope, acceptance evidence and documented limitations. The [v1.0.0 release notes](docs/release-notes-v1.0.0.md) remain available as the initial release record.
 
 ## Portfolio safety
 
