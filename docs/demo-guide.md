@@ -92,12 +92,17 @@ Use AWS IAM signing for the target API Gateway WebSocket connection. Connect whi
 
 ## CloudWatch check
 
-Open the two Terraform-managed dashboards in the target AWS account:
+Read the two Terraform-managed dashboard names, then open them in the target AWS account:
+
+```zsh
+terraform -chdir=infra output -raw realtime_observability_dashboard_name
+terraform -chdir=infra output -raw cloudwatch_dashboard_name
+```
 
 | Dashboard | What to show |
 | --- | --- |
-| `healthcare-realtime-live-development` | Current processing latency, Kinesis iterator age, processor errors, WebSocket delivery and simulator activity |
-| `healthcare-realtime-monitoring` | Kinesis, Firehose, Glue, MWAA, dbt, Soda and end-to-end pipeline health |
+| Realtime observability output | Current processing latency, Kinesis iterator age, processor errors, WebSocket delivery and simulator activity |
+| Pipeline observability output | Kinesis, Firehose, Glue, MWAA, dbt, Soda and end-to-end pipeline health |
 
 Confirm that the live processing-latency and WebSocket-delivery alarms are `OK`. The realtime dashboard should show fresh activity without sustained processor errors or an increasing iterator age.
 
