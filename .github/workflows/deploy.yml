@@ -159,7 +159,7 @@ jobs:
           TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
           TF_STATE_PREFIX: ${{ secrets.TF_STATE_PREFIX }}
         run: |
-          if ! terraform -chdir=infra plan -out=tfplan-deploy >"$RUNNER_TEMP/tfplan.log" 2>&1; then
+          if ! terraform -chdir=infra plan -var-file=deployment.auto.tfvars.json -out=tfplan-deploy >"$RUNNER_TEMP/tfplan.log" 2>&1; then
             python scripts/infrastructure/sanitize_terraform_output.py \
               "$RUNNER_TEMP/tfplan.log" \
               --redact "$TF_STATE_BUCKET" \
@@ -180,4 +180,4 @@ jobs:
       - name: Verify convergence
         if: inputs.action == 'apply'
         run: |
-          terraform -chdir=infra plan -detailed-exitcode
+          terraform -chdir=infra plan -var-file=deployment.auto.tfvars.json -detailed-exitcode

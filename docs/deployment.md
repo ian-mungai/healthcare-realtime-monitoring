@@ -27,7 +27,7 @@ Bootstrap the identity once from an authenticated local shell:
 
 ```zsh
 ./scripts/infrastructure/render_project_config.sh --check
-terraform -chdir=infra plan -out=tfplan-oidc
+terraform -chdir=infra plan -var-file=deployment.auto.tfvars.json -out=tfplan-oidc
 terraform -chdir=infra show -no-color tfplan-oidc
 terraform -chdir=infra apply tfplan-oidc
 terraform -chdir=infra output -raw github_deployment_role_arn
@@ -74,7 +74,7 @@ set -a
 source .env
 set +a
 
-terraform -chdir=infra plan \
+terraform -chdir=infra plan -var-file=deployment.auto.tfvars.json \
   -target=module.openlineage_collector.aws_ecr_repository.marquez \
   -target=module.openlineage_collector.aws_ecr_lifecycle_policy.marquez \
   -out=tfplan-openlineage-ecr

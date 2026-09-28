@@ -93,6 +93,7 @@ build_or_verify_destroy_packages() {
 
 terraform_plan_args=(
   -input=false
+  -var-file=deployment.auto.tfvars.json
   -var=allow_destructive_teardown=true
   -var=openlineage_skip_final_snapshot=true
 )

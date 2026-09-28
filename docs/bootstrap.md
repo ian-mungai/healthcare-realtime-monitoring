@@ -28,7 +28,7 @@ Use these checks before continuing:
 ```zsh
 ./scripts/infrastructure/render_project_config.sh --check
 terraform -chdir=infra validate
-terraform -chdir=infra plan
+terraform -chdir=infra plan -var-file=deployment.auto.tfvars.json
 ```
 
 The final plan must contain only understood changes. An unexplained replacement, deletion or permission expansion must be reviewed before apply.

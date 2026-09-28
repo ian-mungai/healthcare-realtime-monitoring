@@ -64,13 +64,14 @@ write_backend_config() {
   echo "Wrote ignored backend configuration for the persistent state bucket."
 }
 
-application_plan_args=(-input=false)
+# Name the environment's rendered variable file explicitly on every plan.
+application_plan_args=(-input=false -var-file=deployment.auto.tfvars.json)
 
 case "$ACTION" in
   state-plan)
     terraform -chdir="$BOOTSTRAP_DIR" init
     select_bootstrap_workspace
-    terraform -chdir="$BOOTSTRAP_DIR" plan -input=false -out=tfplan-state-bootstrap-$ENVIRONMENT
+    terraform -chdir="$BOOTSTRAP_DIR" plan -input=false -var-file=deployment.auto.tfvars.json -out=tfplan-state-bootstrap-$ENVIRONMENT
     terraform -chdir="$BOOTSTRAP_DIR" show -no-color tfplan-state-bootstrap-$ENVIRONMENT
     ;;
   state-apply)

@@ -71,7 +71,7 @@ Before infrastructure deployment, run:
 terraform -chdir=infra fmt -check -recursive
 terraform -chdir=infra validate
 ./scripts/infrastructure/render_project_config.sh --check
-terraform -chdir=infra plan -out=tfplan-operations
+terraform -chdir=infra plan -var-file=deployment.auto.tfvars.json -out=tfplan-operations
 terraform -chdir=infra show -no-color tfplan-operations
 ```
 
