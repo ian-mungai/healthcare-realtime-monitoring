@@ -1,9 +1,30 @@
 import json
+import logging
 import os
+import sys
 from base64 import b64encode
 from typing import Any
 
 import boto3
+
+
+class _CurrentStdoutHandler(logging.Handler):
+    """Write each record to the current sys.stdout, where CloudWatch collects this runtime's output."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            sys.stdout.write(f"{self.format(record)}\n")
+        except (OSError, ValueError):
+            self.handleError(record)
+
+
+LOGGER = logging.getLogger(__name__)
+if not LOGGER.handlers:
+    _handler = _CurrentStdoutHandler()
+    _handler.setFormatter(logging.Formatter("%(message)s"))
+    LOGGER.addHandler(_handler)
+    LOGGER.setLevel(logging.INFO)
+    LOGGER.propagate = False
 
 AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
 KINESIS_STREAM_ARN = os.environ["KINESIS_STREAM_ARN"]
@@ -116,7 +137,7 @@ def replay_records(records: list[dict[str, Any]]) -> int:
                 "data_base64": b64encode(record.get("Data", b"")).decode("ascii"),
             }
             sqs.send_message(QueueUrl=REPLAY_DLQ_URL, MessageBody=json.dumps(terminal_body, separators=(",", ":")))
-            print(f"Sent terminal replay record {record.get('SequenceNumber')} to the replay DLQ: {error}")
+            LOGGER.info(f"Sent terminal replay record {record.get('SequenceNumber')} to the replay DLQ: {error}")
 
     if not entries:
         return 0
@@ -147,10 +168,10 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, list[dict[s
         try:
             replayed_count = process_sqs_record(record)
 
-            print(f"Replayed {replayed_count} Kinesis record(s) for SQS message {message_id}")
+            LOGGER.info(f"Replayed {replayed_count} Kinesis record(s) for SQS message {message_id}")
 
         except Exception as error:
-            print(f"Failed replay for SQS message {message_id}: {error}")
+            LOGGER.warning(f"Failed replay for SQS message {message_id}: {error}")
 
             batch_item_failures.append({"itemIdentifier": message_id})
 

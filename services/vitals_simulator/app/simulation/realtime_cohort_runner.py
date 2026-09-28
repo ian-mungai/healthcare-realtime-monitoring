@@ -1,5 +1,7 @@
+import logging
 import os
 import signal
+import sys
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -17,6 +19,25 @@ from services.vitals_simulator.app.simulation.cycle import build_simulator_event
 from services.vitals_simulator.app.simulation.scenario import NORMAL_SCENARIO, apply_vital_scenario, choose_patient_scenarios
 from services.vitals_simulator.app.synthea.blood_pressure import load_synthea_blood_pressure_readings, readings_for_patient
 from services.vitals_simulator.app.synthea.blood_pressure_cadence import BloodPressureCadence
+
+
+class _CurrentStdoutHandler(logging.Handler):
+    """Write each record to the current sys.stdout, where CloudWatch collects this runtime's output."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            sys.stdout.write(f"{self.format(record)}\n")
+        except (OSError, ValueError):
+            self.handleError(record)
+
+
+LOGGER = logging.getLogger(__name__)
+if not LOGGER.handlers:
+    _handler = _CurrentStdoutHandler()
+    _handler.setFormatter(logging.Formatter("%(message)s"))
+    LOGGER.addHandler(_handler)
+    LOGGER.setLevel(logging.INFO)
+    LOGGER.propagate = False
 
 COHORT_SIZE = 10
 DEFAULT_INTERVAL_SECONDS = 1.0
@@ -129,8 +150,8 @@ def load_settings() -> SimulatorSettings:
 
 def handle_shutdown(signum: int, frame: object) -> None:
     del frame
-    print()
-    print(f"Shutdown signal received: {signal.Signals(signum).name}")
+    LOGGER.info("")
+    LOGGER.info(f"Shutdown signal received: {signal.Signals(signum).name}")
     shutdown_event.set()
 
 
@@ -258,7 +279,7 @@ def run_cycle(
                 retryable=isinstance(error, FHIRRetryableError),
             )
             failures.append(failure)
-            print(
+            LOGGER.warning(
                 "patient_publish_failed "
                 f"patient_id={failure.patient_id} "
                 f"bidmc_record={failure.bidmc_record_number} "
@@ -278,7 +299,7 @@ def wait_for_next_cycle(cycle_started: float, interval_seconds: float) -> float:
     elapsed = time.monotonic() - cycle_started
     overrun_seconds = max(0.0, elapsed - interval_seconds)
     if overrun_seconds:
-        print(f"cycle_overrun overrun_seconds={overrun_seconds:.3f} elapsed_seconds={elapsed:.3f} interval_seconds={interval_seconds:g}")
+        LOGGER.warning(f"cycle_overrun overrun_seconds={overrun_seconds:.3f} elapsed_seconds={elapsed:.3f} interval_seconds={interval_seconds:g}")
     sleep_seconds = max(0.0, interval_seconds - elapsed)
     shutdown_event.wait(timeout=sleep_seconds)
     return overrun_seconds
@@ -300,27 +321,27 @@ def run_realtime_cohort(settings: SimulatorSettings | None = None) -> int:
     completed_cycles = 0
     consecutive_failed_cycles = 0
     disabled_patient_ids: set[str] = set()
-    print("Healthcare Realtime Persistent Cohort")
-    print(f"Patients: {len(simulations)}")
-    print(f"Available BIDMC cycles: {available_cycles}")
-    print(f"Cycle interval: {settings.interval_seconds} seconds")
-    print(f"BP interval: {settings.bp_interval_seconds} seconds")
-    print(f"Maximum cycles: {settings.max_cycles if settings.max_cycles is not None else 'unlimited'}")
-    print(f"Replay: {settings.replay}")
-    print(f"FHIR attempts: {settings.fhir_max_attempts}")
-    print(f"FHIR retry backoff: {settings.fhir_retry_backoff_seconds} seconds")
-    print(f"Maximum consecutive degraded cycles: {settings.max_consecutive_failed_cycles}")
-    print(f"Retryable failure ratio threshold: {settings.failure_ratio_threshold:g}")
-    print(f"Simulation run ID: {run_id}")
-    print(f"Scenario seed: {settings.scenario_seed or 'random'}")
+    LOGGER.info("Healthcare Realtime Persistent Cohort")
+    LOGGER.info(f"Patients: {len(simulations)}")
+    LOGGER.info(f"Available BIDMC cycles: {available_cycles}")
+    LOGGER.info(f"Cycle interval: {settings.interval_seconds} seconds")
+    LOGGER.info(f"BP interval: {settings.bp_interval_seconds} seconds")
+    LOGGER.info(f"Maximum cycles: {settings.max_cycles if settings.max_cycles is not None else 'unlimited'}")
+    LOGGER.info(f"Replay: {settings.replay}")
+    LOGGER.info(f"FHIR attempts: {settings.fhir_max_attempts}")
+    LOGGER.info(f"FHIR retry backoff: {settings.fhir_retry_backoff_seconds} seconds")
+    LOGGER.warning(f"Maximum consecutive degraded cycles: {settings.max_consecutive_failed_cycles}")
+    LOGGER.warning(f"Retryable failure ratio threshold: {settings.failure_ratio_threshold:g}")
+    LOGGER.info(f"Simulation run ID: {run_id}")
+    LOGGER.info(f"Scenario seed: {settings.scenario_seed or 'random'}")
     for simulation in simulations:
-        print(
+        LOGGER.info(
             "scenario_assigned "
             f"patient_id={simulation.context.hapi_patient_id} "
             f"encounter_id={simulation.context.hapi_encounter_id} "
             f"scenario={simulation.scenario}"
         )
-    print()
+    LOGGER.info("")
     with ThreadPoolExecutor(max_workers=COHORT_SIZE) as executor:
         while not shutdown_event.is_set():
             if settings.max_cycles is not None and completed_cycles >= settings.max_cycles:
@@ -330,7 +351,7 @@ def run_realtime_cohort(settings: SimulatorSettings | None = None) -> int:
             if replay_index > 0 and source_cycle_index == 0:
                 if not settings.replay:
                     break
-                print(f"Starting replay epoch {replay_index + 1}.")
+                LOGGER.info(f"Starting replay epoch {replay_index + 1}.")
             active_simulations = [simulation for simulation in simulations if simulation.context.hapi_patient_id not in disabled_patient_ids]
             if not active_simulations:
                 raise RuntimeError("Simulator stopped because no active patients remain")
@@ -350,7 +371,7 @@ def run_realtime_cohort(settings: SimulatorSettings | None = None) -> int:
             permanent_failures = [failure for failure in cycle_result.failures if not failure.retryable]
             for failure in permanent_failures:
                 disabled_patient_ids.add(failure.patient_id)
-                print(f"patient_disabled patient_id={failure.patient_id} bidmc_record={failure.bidmc_record_number} reason={failure.error_type}")
+                LOGGER.warning(f"patient_disabled patient_id={failure.patient_id} bidmc_record={failure.bidmc_record_number} reason={failure.error_type}")
             retryable_failure_count = sum(failure.retryable for failure in cycle_result.failures)
             retryable_failure_ratio = retryable_failure_count / len(active_simulations)
             if retryable_failure_ratio >= settings.failure_ratio_threshold:
@@ -362,7 +383,7 @@ def run_realtime_cohort(settings: SimulatorSettings | None = None) -> int:
             source_offset = simulations[0].readings[source_cycle_index].offset_seconds
             replay_offset = replay_index * available_cycles
             effective_offset = source_offset + replay_offset
-            print(
+            LOGGER.warning(
                 f"cycle={completed_cycles} "
                 f"status={'degraded' if cycle_result.failures else 'healthy'} "
                 f"replay_epoch={replay_index + 1} "
@@ -384,9 +405,9 @@ def run_realtime_cohort(settings: SimulatorSettings | None = None) -> int:
             if shutdown_event.is_set():
                 break
             wait_for_next_cycle(cycle_started, settings.interval_seconds)
-    print()
-    print(f"Simulation stopped. Completed cycles: {completed_cycles}")
-    print(f"Published patient events: {total_published_events}")
+    LOGGER.info("")
+    LOGGER.info(f"Simulation stopped. Completed cycles: {completed_cycles}")
+    LOGGER.info(f"Published patient events: {total_published_events}")
     return total_published_events
 
 

@@ -1,7 +1,9 @@
 import base64
 import binascii
 import json
+import logging
 import os
+import sys
 from datetime import UTC, datetime
 from decimal import Decimal
 from functools import lru_cache
@@ -11,6 +13,25 @@ from uuid import uuid4
 import boto3
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
+
+
+class _CurrentStdoutHandler(logging.Handler):
+    """Write each record to the current sys.stdout, where CloudWatch collects this runtime's output."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            sys.stdout.write(f"{self.format(record)}\n")
+        except (OSError, ValueError):
+            self.handleError(record)
+
+
+LOGGER = logging.getLogger(__name__)
+if not LOGGER.handlers:
+    _handler = _CurrentStdoutHandler()
+    _handler.setFormatter(logging.Formatter("%(message)s"))
+    LOGGER.addHandler(_handler)
+    LOGGER.setLevel(logging.INFO)
+    LOGGER.propagate = False
 
 if TYPE_CHECKING:
     from services.vitals_stream_processor.schema import PermanentRecordError, validate_vitals_payload
@@ -93,7 +114,7 @@ def claim_observation(payload: dict[str, Any]) -> str | None:
         )
     except ClientError as error:
         if error.response["Error"]["Code"] == "ConditionalCheckFailedException":
-            print(f"Skipping duplicate observation {observation_id}")
+            LOGGER.info(f"Skipping duplicate observation {observation_id}")
             return None
         raise
 
@@ -167,7 +188,7 @@ def write_latest_vitals(payload: dict[str, Any]) -> bool:
 
     except ClientError as error:
         if error.response["Error"]["Code"] == "ConditionalCheckFailedException":
-            print(f"Ignoring stale vital event for patient {patient_id} at {event_timestamp}")
+            LOGGER.info(f"Ignoring stale vital event for patient {patient_id} at {event_timestamp}")
             return False
 
         raise
@@ -241,7 +262,7 @@ def get_api_gateway_client() -> Any:
 
 def push_vitals(payload: dict[str, Any]) -> tuple[int, int, int]:
     if not WEBSOCKET_ENDPOINT:
-        print("WebSocket endpoint is not configured")
+        LOGGER.warning("WebSocket endpoint is not configured")
         return 0, 0, 0
 
     patient_id = payload.get("patient_id")
@@ -257,19 +278,19 @@ def push_vitals(payload: dict[str, Any]) -> tuple[int, int, int]:
     deliveries = 0
     failures = 0
 
-    print(f"Sending vital update for patient {patient_id} to {len(connection_ids)} WebSocket connection(s)")
+    LOGGER.info(f"Sending vital update for patient {patient_id} to {len(connection_ids)} WebSocket connection(s)")
 
     for connection_id in connection_ids:
         try:
             api_gateway.post_to_connection(ConnectionId=connection_id, Data=message)
 
             deliveries += 1
-            print(f"Sent vital update for patient {patient_id} to connection {connection_id}")
+            LOGGER.info(f"Sent vital update for patient {patient_id} to connection {connection_id}")
 
         except ClientError as error:
             status_code = error.response["ResponseMetadata"]["HTTPStatusCode"]
 
-            print(f"WebSocket delivery failed for {connection_id}: {error}")
+            LOGGER.warning(f"WebSocket delivery failed for {connection_id}: {error}")
 
             if status_code == 410:
                 delete_connection(connection_id)
@@ -293,7 +314,7 @@ def build_metric_data(payload: dict[str, Any], deliveries: int, delivery_failure
         try:
             metric_data.append({"MetricName": "ProcessingLatencyMilliseconds", "Value": calculate_latency_ms(event_timestamp), "Unit": "Milliseconds"})
         except (TypeError, ValueError) as error:
-            print(f"Unable to calculate processing latency for timestamp {event_timestamp!r}: {error}")
+            LOGGER.warning(f"Unable to calculate processing latency for timestamp {event_timestamp!r}: {error}")
 
     return metric_data
 
@@ -341,16 +362,16 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, list[dict[s
             metrics_by_namespace.setdefault(metric_namespace, []).extend(metric_data)
 
         except PermanentRecordError as error:
-            print(f"Rejected permanent Kinesis record {sequence_number}: {error}")
+            LOGGER.warning(f"Rejected permanent Kinesis record {sequence_number}: {error}")
             metrics_by_namespace.setdefault(METRIC_NAMESPACE, []).append({"MetricName": "PermanentRecordsRejected", "Value": 1, "Unit": "Count"})
         except Exception as error:
-            print(f"Failed Kinesis record {sequence_number}: {error}")
+            LOGGER.warning(f"Failed Kinesis record {sequence_number}: {error}")
 
             if claimed_observation_id and claim_token:
                 try:
                     release_observation_claim(claimed_observation_id, claim_token)
                 except Exception as release_error:
-                    print(f"Failed to release idempotency claim for {claimed_observation_id}: {release_error}")
+                    LOGGER.warning(f"Failed to release idempotency claim for {claimed_observation_id}: {release_error}")
 
             batch_item_failures.append({"itemIdentifier": sequence_number})
 
@@ -358,6 +379,6 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, list[dict[s
         try:
             emit_metrics(metric_data, namespace=namespace)
         except Exception as error:
-            print(f"Failed to emit {namespace} metrics: {error}")
+            LOGGER.warning(f"Failed to emit {namespace} metrics: {error}")
 
     return {"batchItemFailures": batch_item_failures}

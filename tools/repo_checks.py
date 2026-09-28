@@ -47,7 +47,7 @@ REASON = re.compile(r"^\s+-\s+\S")
 LAUNCHER = "tools/process.py"
 SUBPROCESS_IMPORT = re.compile(r"^\s*(?:import\s+subprocess\b|from\s+subprocess\s+import\b)", re.MULTILINE)
 
-RUFF_SELECT = {"E", "F", "I", "B", "UP", "SIM"}  # Raise this set as rule families are enabled; never lower it.
+RUFF_SELECT = {"E", "F", "I", "B", "UP", "SIM", "T20"}  # Raise this set as rule families are enabled; never lower it.
 RUFF_LINE_LENGTH = 160
 RUFF_LOOSENING_KEYS = {"ignore", "extend-ignore", "per-file-ignores", "extend-per-file-ignores", "exclude", "extend-exclude", "unfixable"}
 MYPY_BASELINE_EXCLUDES = {"^airflow/", "^build/", "^tmp/", "^\\.venv/", "^scripts/synthea_loader/synthea/"}
