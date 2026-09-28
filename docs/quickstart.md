@@ -187,6 +187,8 @@ The realtime demo does not require an approved model. To show existing approved-
 ./scripts/demo/start_model_analytics_dashboard.sh
 ```
 
+After the first successful MWAA Serverless run creates the processed Iceberg table, set `ENABLE_ICEBERG_TABLE_OPTIMIZERS=true` in `.env`, render the Terraform inputs and apply a reviewed plan to turn on managed compaction, snapshot retention and orphan-file deletion.
+
 For the complete analytical and data-science path, first run the simulator for at least 30 minutes so its fresh encounters complete both analytical windows. Stop the simulator, run dbt, follow the [model training guide](model-training.md), apply the approved model version and run MWAA. Allow another 30 minutes for that workflow.
 
 Each simulator task creates a fresh encounter for every patient and randomly selects a normal or deterioration-proxy scenario. One run may still leave a patient-grouped partition with one class. In that state, model training stops by design. Keep `ML_APPROVED_MODEL_VERSION` empty and MWAA in manual-only mode until repeated complete runs produce both classes in both partitions and a reviewed immutable model artifact has been published. Do not bypass the class-readiness gate to complete a first deployment.

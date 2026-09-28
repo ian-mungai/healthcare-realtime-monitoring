@@ -89,6 +89,22 @@
         "glue:BatchDeletePartition"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "ManageProcessedTableOptimizers",
+      "Effect": "Allow",
+      "Action": [
+        "glue:CreateTableOptimizer",
+        "glue:UpdateTableOptimizer",
+        "glue:DeleteTableOptimizer",
+        "glue:GetTableOptimizer",
+        "glue:ListTableOptimizerRuns"
+      ],
+      "Resource": [
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:catalog",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:database/${SOURCE_DATABASE_NAME}",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/${SOURCE_DATABASE_NAME}/*"
+      ]
     }
   ]
 }
