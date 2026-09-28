@@ -24,7 +24,7 @@ class PublishedModelClient:
     def __init__(self, responses: dict[str, bytes]) -> None:
         self.responses = responses
 
-    def get_object(self, Bucket: str, Key: str) -> dict[str, Any]:  # noqa: N803
+    def get_object(self, Bucket: str, Key: str) -> dict[str, Any]:
         content = self.responses[Key]
         return {"Body": Body(content), "Metadata": {"sha256": hashlib.sha256(content).hexdigest()}}
 

@@ -12,6 +12,9 @@ htmlcov/
 
 # Virtual environments
 .venv/
+
+# Pinned repository tools (tools/install_tools.py)
+.tools/
 .venv_*/
 venv/
 env/
