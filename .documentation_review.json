@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "reviewer": "AI review agent",
-  "reviewed_at_utc": "2026-09-28T23:17:01Z",
-  "snapshot_sha256": "8ec1656b466b8defa0d93ac8ecbe7689e32af1a06e5d477f7ff1e5b345071cd1",
+  "reviewed_at_utc": "2026-09-28T23:18:46Z",
+  "snapshot_sha256": "caf46f850fc9d3ab17058e1f188cb5a9c2b15581e8f0f37b28a70ec2a8ba3f8f",
   "extra_documents": [],
   "documents": [
     {
@@ -19,9 +19,9 @@
     },
     {
       "path": "README.md",
-      "blob": "0ca00ea9d2eb190777301c065f1f68794878ba87",
-      "outcome": "current",
-      "notes": "Deploy and Teardown now links the environments guide; other sections unchanged and current."
+      "blob": "54f62badf3d042394632c30ba262e0c173045ab2",
+      "outcome": "updated",
+      "notes": "E2E Verification now says the load test saves reports under artifacts/e2e/load_test/."
     },
     {
       "path": "docs/analytics-star-schema.md",
@@ -97,9 +97,9 @@
     },
     {
       "path": "docs/load-testing.md",
-      "blob": "776432ffb2a745a06766e19875de02199e28e826",
-      "outcome": "current",
-      "notes": "Exported variables and flags match scripts/load_testing/realtime_load_test.py."
+      "blob": "77866cfaae1435e858ad53a2aef851fe67c25535",
+      "outcome": "updated",
+      "notes": "New E2E artifact section matches the report writer and --artifact-dir flag."
     },
     {
       "path": "docs/model-predictions.md",
@@ -128,7 +128,7 @@
     {
       "path": "docs/quality-checks.md",
       "blob": "3c27e357287a190b50101b4d7e8c2f0b59653cfb",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "Process Launcher section now states the check blocks and that container wrappers use the launcher; hook list matches .pre-commit-config.yaml."
     },
     {

@@ -7,6 +7,7 @@ import threading
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 from uuid import uuid4
@@ -16,11 +17,14 @@ import websocket
 from botocore.auth import SigV4Auth
 from botocore.awsrequest import AWSRequest
 
+from tools.process import run_command
+
 AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
 STREAM_NAME = os.environ["LOAD_TEST_KINESIS_STREAM_NAME"]
 PRIMARY_STREAM_NAME = os.environ["KINESIS_STREAM_NAME"]
 RESULTS_TABLE_NAME = os.environ["LOAD_TEST_RESULTS_TABLE"]
 PATIENT_PREFIX = "load_test_patient_"
+DEFAULT_ARTIFACT_DIR = Path("artifacts/e2e/load_test")
 
 
 @dataclass(frozen=True)
@@ -133,6 +137,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--skip-websocket", action="store_true")
     parser.add_argument("--retain-results", action="store_true")
     parser.add_argument("--region", default=AWS_REGION)
+    parser.add_argument("--artifact-dir", type=Path, default=DEFAULT_ARTIFACT_DIR, help="Folder for the run's JSON and Markdown evidence")
     return parser.parse_args()
 
 
@@ -217,6 +222,20 @@ def cleanup_results(table: Any, observation_ids: set[str]) -> None:
             batch.delete_item(Key={"observation_id": observation_id})
 
 
+def latency_summary(latencies_ms: list[float]) -> dict[str, float | int]:
+    """Summarize latencies in milliseconds for the run artifact."""
+    if not latencies_ms:
+        return {"observed": 0}
+    return {
+        "observed": len(latencies_ms),
+        "mean_ms": round(statistics.mean(latencies_ms), 2),
+        "p50_ms": round(percentile(latencies_ms, 0.50), 2),
+        "p95_ms": round(percentile(latencies_ms, 0.95), 2),
+        "p99_ms": round(percentile(latencies_ms, 0.99), 2),
+        "max_ms": round(max(latencies_ms), 2),
+    }
+
+
 def report_latencies(label: str, latencies_ms: list[float]) -> None:
     sys.stdout.write(f"{label}:\n")
     sys.stdout.write(f"  observed: {len(latencies_ms)}\n")
@@ -239,6 +258,7 @@ def run_load_test(
     websocket_url: str | None = None,
     observation_timeout_seconds: float = 30.0,
     retain_results: bool = False,
+    summary: dict[str, Any] | None = None,
 ) -> None:
     if patients <= 0:
         raise ValueError("patients must be greater than zero")
@@ -265,6 +285,8 @@ def run_load_test(
     expected_observations: dict[str, datetime] = {}
     sequence_number = 0
     run_id = uuid4().hex
+    results: dict[str, Any] = summary if summary is not None else {}
+    results["run_id"] = run_id
 
     sys.stdout.write("Healthcare Realtime Load Test\n")
     sys.stdout.write(f"Run ID: {run_id}\n")
@@ -324,6 +346,15 @@ def run_load_test(
         if batch_latencies_ms:
             sys.stdout.write("\n")
             report_latencies("Kinesis PutRecords batch request latency", batch_latencies_ms)
+        results["producer"] = {
+            "attempted_writes": total_attempted,
+            "successful_writes": successful_writes,
+            "failed_writes": failed_writes,
+            "success_rate_percent": round(success_rate, 2),
+            "elapsed_seconds": round(elapsed_seconds, 2),
+            "achieved_events_per_second": round(achieved_rate, 2),
+            "put_records_latency": latency_summary(batch_latencies_ms),
+        }
 
         expected_ids = set(expected_observations)
         missing_results: set[str] = set()
@@ -339,6 +370,7 @@ def run_load_test(
             sys.stdout.write("\n")
             report_latencies("Kinesis-to-DynamoDB processing latency", processing_latencies)
             sys.stdout.write(f"  missing: {len(missing_results)}\n")
+            results["dynamodb"] = {**latency_summary(processing_latencies), "missing": len(missing_results)}
 
         if websocket_observer:
             received = websocket_observer.wait_for(expected_ids, observation_timeout_seconds)
@@ -349,6 +381,7 @@ def run_load_test(
             sys.stdout.write("\n")
             report_latencies("Kinesis-to-WebSocket delivery latency", delivery_latencies)
             sys.stdout.write(f"  missing: {len(missing_websocket)}\n")
+            results["websocket"] = {**latency_summary(delivery_latencies), "missing": len(missing_websocket)}
 
         if failed_writes or missing_results or missing_websocket:
             raise RuntimeError(
@@ -364,6 +397,48 @@ def run_load_test(
             cleanup_results(results_table, set(expected_observations))
 
 
+def git_revision() -> str:
+    """Return the checked-out commit and whether tracked files had uncommitted changes."""
+    commit = run_command("git", ["rev-parse", "HEAD"]).stdout.strip() or "unknown"
+    dirty = bool(run_command("git", ["status", "--porcelain", "--untracked-files=no"]).stdout.strip())
+    return f"{commit}{' with uncommitted changes' if dirty else ''}"
+
+
+def write_artifact(artifact_dir: Path, report: dict[str, Any]) -> Path:
+    """Write the run's JSON and Markdown evidence; deployment endpoints are never recorded."""
+    run_dir = artifact_dir / f"{report['started_at_utc'].replace(':', '').replace('-', '')}_{str(report.get('run_id', 'not-started'))[:8]}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "report.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    lines = [
+        "# Realtime Load Test Report",
+        "",
+        f"- Status: {report['status']}",
+        f"- Started (UTC): {report['started_at_utc']}",
+        f"- Finished (UTC): {report['finished_at_utc']}",
+        f"- Code revision: {report['code_revision']}",
+        f"- Parameters: {json.dumps(report['parameters'], sort_keys=True)}",
+        f"- WebSocket delivery: {'verified' if report['parameters']['websocket_checked'] else 'skipped'}",
+        "",
+        "## Results",
+        "",
+        "```json",
+        json.dumps({key: report.get(key) for key in ("producer", "dynamodb", "websocket")}, indent=2, sort_keys=True),
+        "```",
+        "",
+        "## Reproduce",
+        "",
+        "Follow docs/load-testing.md with the parameters above against a deployed environment.",
+        "",
+        "## Limits",
+        "",
+        report["limits"],
+    ]
+    if report.get("error"):
+        lines[3:3] = [f"- Error: {report['error']}"]
+    (run_dir / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return run_dir
+
+
 def main() -> None:
     arguments = parse_arguments()
 
@@ -372,17 +447,44 @@ def main() -> None:
     if not arguments.websocket_url and not arguments.skip_websocket:
         raise ValueError("set VITALS_WEBSOCKET_URL, pass --websocket-url, or explicitly use --skip-websocket")
 
-    run_load_test(
-        patients=arguments.patients,
-        events_per_second=arguments.events_per_second,
-        duration_seconds=arguments.duration_seconds,
-        stream_name=arguments.stream_name,
-        region=arguments.region,
-        results_table_name=arguments.results_table,
-        websocket_url=None if arguments.skip_websocket else arguments.websocket_url,
-        observation_timeout_seconds=arguments.observation_timeout_seconds,
-        retain_results=arguments.retain_results,
-    )
+    report: dict[str, Any] = {
+        "started_at_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "code_revision": git_revision(),
+        "parameters": {
+            "patients": arguments.patients,
+            "events_per_second": arguments.events_per_second,
+            "duration_seconds": arguments.duration_seconds,
+            "observation_timeout_seconds": arguments.observation_timeout_seconds,
+            "region": arguments.region,
+            "stream_name": arguments.stream_name,
+            "results_table": arguments.results_table,
+            "websocket_checked": not arguments.skip_websocket,
+        },
+        "limits": "Synthetic load-test events on the isolated stream only; they never reach Firehose, S3 or the analytical path. "
+        "Latency depends on the deployed environment and time of day.",
+    }
+    try:
+        run_load_test(
+            patients=arguments.patients,
+            events_per_second=arguments.events_per_second,
+            duration_seconds=arguments.duration_seconds,
+            stream_name=arguments.stream_name,
+            region=arguments.region,
+            results_table_name=arguments.results_table,
+            websocket_url=None if arguments.skip_websocket else arguments.websocket_url,
+            observation_timeout_seconds=arguments.observation_timeout_seconds,
+            retain_results=arguments.retain_results,
+            summary=report,
+        )
+        report["status"] = "pass"
+    except Exception as error:
+        report["status"] = "fail"
+        report["error"] = f"{type(error).__name__}: {error}"
+        raise
+    finally:
+        report["finished_at_utc"] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        run_dir = write_artifact(arguments.artifact_dir, report)
+        sys.stdout.write(f"\nE2E artifact: {run_dir}\n")
 
 
 if __name__ == "__main__":

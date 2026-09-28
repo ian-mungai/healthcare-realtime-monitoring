@@ -42,6 +42,10 @@ export LOAD_TEST_RESULTS_TABLE="$(terraform -chdir=infra output -raw load_test_r
 
 The runner reads `KINESIS_STREAM_NAME` so it can refuse to write to the production stream. The command fails if an accepted observation does not reach DynamoDB or a subscribed WebSocket within the timeout. It reports Kinesis request latency, Kinesis-to-DynamoDB processing latency and Kinesis-to-WebSocket delivery latency.
 
+## E2E artifact
+
+Every run, passed or failed, writes `report.json` and `report.md` to `artifacts/e2e/load_test/<UTC time>_<run id>/`. They record the code revision (and whether tracked files had uncommitted changes), the parameters, producer, DynamoDB and WebSocket results with latency percentiles, the pass or fail status and error, and the run's limits. The WebSocket URL is never written. Use `--artifact-dir` to choose another folder. Review a report before committing it as release evidence.
+
 ## Cleanup and safeguards
 
 The runner deletes only observation IDs created by its current run. DynamoDB TTL removes abandoned results after 24 hours if the process is interrupted. WebSocket connections close at the end of the run; the production Kinesis stream is explicitly rejected by the runner.
