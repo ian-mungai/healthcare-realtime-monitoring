@@ -225,6 +225,7 @@ resource "aws_security_group" "vitals_simulator" {
   vpc_id      = var.vpc_id
 
   egress {
+    description = "Outbound traffic to HAPI FHIR, PhysioNet and AWS APIs"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"

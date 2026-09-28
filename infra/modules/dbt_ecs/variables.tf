@@ -21,7 +21,6 @@ variable "dbt_database_name" {
 variable "image_tag" {
   description = "ECR image tag used by the dbt ECS task."
   type        = string
-  default     = "latest"
 }
 
 variable "force_delete_repository" {
