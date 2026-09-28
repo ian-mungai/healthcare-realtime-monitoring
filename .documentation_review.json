@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "reviewer": "AI review agent",
-  "reviewed_at_utc": "2026-09-28T23:19:46Z",
-  "snapshot_sha256": "9de04866d788c61ddeabdb5c5f9f3715730457eb7926780ecc94ac245d0ab794",
+  "reviewed_at_utc": "2026-09-28T23:19:56Z",
+  "snapshot_sha256": "e3567dda316fffba78a399c6ee6a6e170bd7062a4c77dd17d721d45859e394b0",
   "extra_documents": [],
   "documents": [
     {
@@ -50,7 +50,7 @@
     {
       "path": "docs/bootstrap.md",
       "blob": "948b86e08bdc860c106f5e555a08df5bf07335b8",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "Recovery plan command names the variable file."
     },
     {
@@ -68,19 +68,19 @@
     {
       "path": "docs/demo-guide.md",
       "blob": "ce55fd032e436c7f05ef9cf151054374bb695d70",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "Convergence plan command names the variable file."
     },
     {
       "path": "docs/deployment.md",
-      "blob": "952b671274d5c07c840a6fcc5db5cb94d84f3263",
+      "blob": "37d398e8a66ae173f33c017c0b5babe8749dec47",
       "outcome": "updated",
-      "notes": "OIDC and collector plan commands name the variable file."
+      "notes": "External collector paragraph now says .env.example lists the override as a commented reference."
     },
     {
       "path": "docs/environments.md",
       "blob": "f48fd70d67a30d03df5dd0056e2f536c5d7ec544",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "Safeguards list now includes the explicit -var-file on every plan."
     },
     {
@@ -98,7 +98,7 @@
     {
       "path": "docs/load-testing.md",
       "blob": "4a1811a948f35231e905470f0966f73b8061148b",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "Lane deployment plan names the variable file."
     },
     {
@@ -116,7 +116,7 @@
     {
       "path": "docs/operations-runbook.md",
       "blob": "eedcb80c957106e84e7f1c77f91a18e96ebf0050",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "Deployment gate plan names the variable file."
     },
     {
@@ -134,7 +134,7 @@
     {
       "path": "docs/quickstart.md",
       "blob": "f3eb48519e9b9974c50fc168143271e383660635",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "Refresh-only and convergence plans name the variable file."
     },
     {
