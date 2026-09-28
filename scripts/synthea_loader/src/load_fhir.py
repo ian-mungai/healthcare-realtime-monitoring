@@ -134,7 +134,7 @@ def select_seed_resources(bundle: dict) -> tuple[dict, dict]:
     return (sanitize_patient(patient), sanitize_encounter(most_recent_encounter))
 
 
-def find_conditional_references(value) -> set[str]:
+def find_conditional_references(value: object) -> set[str]:
     """
     Recursively find references such as:
 
@@ -447,7 +447,7 @@ def ensure_encounter_exists(encounter: dict, hapi_patient_id: str) -> dict:
     return created
 
 
-def main():
+def main() -> None:
     """
     Idempotently seed Synthea Patient and Encounter
     resources into HAPI FHIR.

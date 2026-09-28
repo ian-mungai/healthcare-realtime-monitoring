@@ -1,6 +1,7 @@
 import base64
 import json
 from functools import lru_cache
+from typing import Any
 
 from services.fhir_webhook.app.kinesis.client import KinesisPublisher, KinesisPublisherError
 from services.fhir_webhook.app.parser import InvalidFHIRPayloadError, parse_fhir_payload
@@ -99,7 +100,7 @@ def validate_update_path(event: dict, payload: dict) -> str | None:
     return None
 
 
-def lambda_handler(event: dict, context) -> dict:
+def lambda_handler(event: dict, context: Any) -> dict:
     route_key = event.get("routeKey")
 
     supported_routes = {

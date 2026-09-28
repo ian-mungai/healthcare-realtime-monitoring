@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 import great_expectations as gx
 from openlineage.client.event_v2 import RunState
@@ -31,11 +32,11 @@ def build_connection_string() -> str:
     return f"awsathena+rest://@athena.{AWS_REGION}.amazonaws.com:443/{ATHENA_DATABASE}?s3_staging_dir={ATHENA_OUTPUT}"
 
 
-def build_context():
+def build_context() -> Any:
     return gx.get_context(mode="ephemeral")
 
 
-def build_validator(context):
+def build_validator(context: Any) -> Any:
     if not SODA_DATA_SOURCE_NAME:
         raise ValueError("SODA_DATA_SOURCE_NAME is required")
     datasource = context.data_sources.add_sql(name=SODA_DATA_SOURCE_NAME, connection_string=build_connection_string())
@@ -53,7 +54,7 @@ def build_validator(context):
     return validator
 
 
-def add_expectations(validator) -> None:
+def add_expectations(validator: Any) -> None:
     validator.expect_column_values_to_not_be_null(column="observation_id")
 
     validator.expect_compound_columns_to_be_unique(column_list=["observation_id", "loinc_code"])

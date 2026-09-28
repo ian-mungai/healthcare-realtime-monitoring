@@ -5,7 +5,7 @@ import os
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin, urlparse
 
 import boto3
@@ -20,6 +20,9 @@ from openlineage.client.transport.http import HttpConfig, HttpTransport
 from requests import Response
 from requests.exceptions import HTTPError
 
+if TYPE_CHECKING:
+    from openlineage.client.client import Event
+
 LOCAL_LINEAGE_DIRECTORY = Path("lineage/events")
 
 
@@ -30,7 +33,7 @@ class AwsSigV4HttpTransport(Transport):
         self.region = region
         self.session = URLLib3Session()
 
-    def emit(self, event) -> Any:
+    def emit(self, event: Event) -> Any:
         body = Serde.to_json(event).encode("utf-8")
         request = AWSRequest(method="POST", url=urljoin(self.url, self.endpoint), data=body, headers={"Content-Type": "application/json"})
         credentials = boto3.Session().get_credentials()
@@ -59,7 +62,7 @@ class S3Transport(Transport):
         self.key_prefix = parsed.path.lstrip("/")
         self.s3_client = boto3.client("s3")
 
-    def emit(self, event) -> None:
+    def emit(self, event: Event) -> None:
         timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S.%f")
         key = f"{self.key_prefix}-{timestamp}.json"
         body = json.dumps(Serde.to_dict(event), separators=(",", ":")).encode("utf-8")

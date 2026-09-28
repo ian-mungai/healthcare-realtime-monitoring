@@ -3,12 +3,13 @@ import os
 import boto3
 from botocore.auth import SigV4Auth
 from botocore.awsrequest import AWSRequest
+from botocore.credentials import ReadOnlyCredentials
 
 AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
 SERVICE_NAME = "execute-api"
 
 
-def get_aws_credentials():
+def get_aws_credentials() -> ReadOnlyCredentials:
     if not AWS_REGION:
         raise RuntimeError("Set AWS_REGION or AWS_DEFAULT_REGION for API authentication")
 

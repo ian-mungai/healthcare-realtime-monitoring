@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import time
+from typing import Any
 from uuid import uuid4
 
 import boto3
@@ -43,7 +44,7 @@ def emit_athena_lineage_event(run_state: RunState, lineage_run_id: str | None = 
     return emit_s3_athena_lineage(run_state, lineage_run_id)
 
 
-def wait_for_athena_query(athena_client, query_execution_id: str) -> dict:
+def wait_for_athena_query(athena_client: Any, query_execution_id: str) -> dict:
     while True:
         response = athena_client.get_query_execution(QueryExecutionId=query_execution_id)
         status = response["QueryExecution"]["Status"]
@@ -54,7 +55,7 @@ def wait_for_athena_query(athena_client, query_execution_id: str) -> dict:
         time.sleep(ATHENA_POLL_INTERVAL_SECONDS)
 
 
-def get_invalid_row_count(athena_client, query_execution_id: str) -> int:
+def get_invalid_row_count(athena_client: Any, query_execution_id: str) -> int:
     response = athena_client.get_query_results(QueryExecutionId=query_execution_id)
     rows = response["ResultSet"]["Rows"]
 
