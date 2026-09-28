@@ -1,10 +1,36 @@
 # Healthcare Realtime Monitoring
 
+[![CI](https://github.com/ian-mungai/healthcare-realtime-monitoring/actions/workflows/ci.yml/badge.svg)](https://github.com/ian-mungai/healthcare-realtime-monitoring/actions/workflows/ci.yml)
+
 An AWS portfolio project for synthetic realtime vital-sign monitoring. It ingests BIDMC waveform-derived measurements as FHIR observations, maintains current patient state for live clients and builds governed analytical datasets for quality validation and reporting.
 
 This repository uses synthetic Synthea data and waveform-derived measurements for demonstration only. It is not a clinical decision-support system and must not be used for patient care.
 
-## What it demonstrates
+## Table of Contents
+
+- [Security](#security)
+- [Background](#background)
+- [Install](#install)
+- [Usage](#usage)
+- [Architecture](#architecture)
+- [Data](#data)
+- [Deploy and Teardown](#deploy-and-teardown)
+- [Repository Layout](#repository-layout)
+- [Limitations](#limitations)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Security
+
+Public artifacts must use placeholders for account IDs, buckets, endpoints, load balancers, local usernames, secrets and signed headers. The project’s tracked examples are designed to be reproducible without revealing a deployed environment.
+
+Do not commit secrets, deployment identifiers, Terraform state, signed headers or generated workflow definitions. Every commit message is checked for Conventional Commit subjects and AI attribution by the `.githooks/commit-msg` hook and by CI.
+
+## Background
+
+The project demonstrates a realtime and analytical healthcare data platform built end to end on AWS. Status: releases v1.0.0 and v1.0.1 are complete; the [v1.0.1 release notes](docs/release-notes-v1.0.1.md) summarize the current verified scope. The stack is torn down between demonstrations because it costs money while running.
+
+### What It Demonstrates
 
 - FHIR R4 observation ingestion through HAPI FHIR and a protected webhook.
 - Kinesis-based realtime processing with latest-state delivery over IAM-authorized REST and WebSocket APIs.
@@ -13,31 +39,9 @@ This repository uses synthetic Synthea data and waveform-derived measurements fo
 - Bounded replay through encrypted SQS failure queues and a replay Lambda.
 - Terraform-managed AWS infrastructure, CloudWatch dashboards, alarms and workload-scoped IAM roles.
 
-## Architecture
+## Install
 
-The [architecture guide](docs/architecture.md) describes the realtime path, analytical path, recovery model, security boundaries and observability design.
-
-```text
-Simulator -> HAPI FHIR -> webhook -> Kinesis -> Lambda -> DynamoDB -> REST/WebSocket -> live cohort dashboard
-                                            \-> Firehose -> S3 -> Glue -> Athena -> dbt -> ML scoring -> model analytics dashboard
-                                                                                         \-> Soda
-```
-
-## Repository map
-
-| Path | Contents |
-| --- | --- |
-| `infra/` | Terraform root and AWS service modules |
-| `services/` | Webhook, realtime processor, API, replay, WebSocket and simulator services |
-| `dashboard/` | Streamlit live cohort and model analytics clients |
-| `jobs/` | Glue, dbt and machine-learning runtime jobs |
-| `airflow/` | MWAA Serverless workflow source and generator |
-| `data_quality/` | Great Expectations and Soda validation assets |
-| `lineage/` | OpenLineage event emitters |
-| `scripts/` | Build, test-data, load-test and demo helpers |
-| `docs/` | Architecture, governance, operations, demo and Power BI connection documentation |
-
-## Prerequisites
+### Prerequisites
 
 - macOS or a compatible Unix shell
 - Python 3.12
@@ -48,7 +52,7 @@ Simulator -> HAPI FHIR -> webhook -> Kinesis -> Lambda -> DynamoDB -> REST/WebSo
 - Java 17 and Gradle, when generating Synthea data
 - Power BI Desktop and the Amazon Athena ODBC driver, only when reproducing the completed reporting connection
 
-## Local setup
+### Local Setup
 
 Clone the repository and create a local Python environment:
 
@@ -86,9 +90,11 @@ source .env
 set +a
 ```
 
-Do not commit secrets, deployment identifiers, Terraform state, signed headers or generated workflow definitions.
+## Usage
 
-## Validate the repository
+### Validate the Repository
+
+These commands mirror the local-CI checks in `.github/workflows/ci.yml`:
 
 ```zsh
 .venv/bin/python -m pytest tests scripts/synthea_loader/tests services/fhir_webhook/tests services/vitals_simulator/tests services/vitals_stream_processor/tests services/vitals_replay/tests services/vitals_api/tests services/websocket_handler/tests -q
@@ -101,13 +107,11 @@ terraform -chdir=infra fmt -check -recursive
 terraform -chdir=infra validate
 ```
 
-## Infrastructure workflow
+### End-to-End Verification
 
-Start with the [first-deployment quickstart](docs/quickstart.md). It is the only complete command sequence for a fresh clone, account or region. Terraform uses a protected S3 backend with native state locking and generated ignored inputs derived from `.env`.
+E2E runs need a deployed environment. The [load-testing guide](docs/load-testing.md) runs the isolated Kinesis-to-DynamoDB-to-WebSocket test and prints its latency report to the terminal. The [demo guide](docs/demo-guide.md) and the [release checklist](docs/release-checklist.md) cover the full realtime and analytical path; verified results are recorded in the release notes.
 
-The [deployment stages and recovery guide](docs/bootstrap.md) explains interrupted stages. The [infrastructure lifecycle guide](docs/infrastructure-lifecycle.md) covers state migration, guarded teardown, account retirement and recreation. The [external prerequisite inventory](docs/external-prerequisites.md) identifies account configuration outside the application stack. The [deployment guide](docs/deployment.md) covers GitHub OIDC and the optional shared OpenLineage collector. Recovery, cost control and operational checks are in the [operations runbook](docs/operations-runbook.md).
-
-## Run the dashboards
+### Run the Dashboards
 
 After the target environment is deployed, launch the live cohort dashboard:
 
@@ -123,13 +127,31 @@ Launch the separate model analytics dashboard in another terminal:
 
 The launch scripts load the selected AWS profile and region from `.env`. They retrieve realtime endpoints from Terraform outputs and analytical names from generated Terraform configuration. The live dashboard uses AWS IAM credentials to sign REST and WebSocket requests. The model dashboard queries Athena for probability-ranked approved-model scores, feature-window vital summaries, encounter context, freshness and governance labels.
 
-## Demo and operations
+### Demo and Operations
 
 Use the [demo guide](docs/demo-guide.md) for a complete live walkthrough, including startup, dashboard validation, Postman REST and WebSocket checks, CloudWatch review and shutdown.
 
 Use the [load-testing guide](docs/load-testing.md) to run an isolated test that measures Kinesis-to-DynamoDB processing and WebSocket delivery latency without writing test events into the analytical lakehouse.
 
-## Data governance
+## Architecture
+
+The [architecture guide](docs/architecture.md) describes the realtime path, analytical path, recovery model, security boundaries and observability design.
+
+```text
+Simulator -> HAPI FHIR -> webhook -> Kinesis -> Lambda -> DynamoDB -> REST/WebSocket -> live cohort dashboard
+                                            \-> Firehose -> S3 -> Glue -> Athena -> dbt -> ML scoring -> model analytics dashboard
+                                                                                         \-> Soda
+```
+
+## Data
+
+| Source | Use | Classification | Terms of use |
+| --- | --- | --- | --- |
+| [Synthea](https://github.com/synthetichealth/synthea) v4.0.0 | Synthetic patients and encounters loaded into HAPI FHIR | Synthetic | Synthea software is Apache License 2.0 |
+| [BIDMC PPG and Respiration Dataset](https://physionet.org/content/bidmc/1.0.0/) (PhysioNet) | De-identified waveform-derived heart rate, respiratory rate and SpO₂ readings replayed by the simulator | Public | Open Data Commons Attribution License v1.0; cite Pimentel et al., IEEE Transactions on Biomedical Engineering 64(8), 2016, and PhysioNet |
+| Committed provider seed (`dbt/seeds/provider_history.csv`) | NPPES-compatible provider history for the type 2 provider dimension | Synthetic | Fictional clinicians created for this repository |
+
+The simulator attaches BIDMC readings to synthetic Synthea patients, so every patient record in this project is synthetic. The analytical models label their rows `data_classification = 'synthetic'`.
 
 The [data governance guide](docs/data-governance.md) documents datasets, schema controls, quality gates, deduplication, retention, replay and evidence expectations.
 
@@ -143,6 +165,50 @@ The [project build article](docs/building-healthcare-realtime-monitoring.md) pro
 
 The [v1.0.1 release notes](docs/release-notes-v1.0.1.md) summarize the current verified release scope, acceptance evidence and documented limitations. The [v1.0.0 release notes](docs/release-notes-v1.0.0.md) remain available as the initial release record.
 
-## Portfolio safety
+## Deploy and Teardown
 
-Public artifacts must use placeholders for account IDs, buckets, endpoints, load balancers, local usernames, secrets and signed headers. The project’s tracked examples are designed to be reproducible without revealing a deployed environment.
+Start with the [first-deployment quickstart](docs/quickstart.md). It is the only complete command sequence for a fresh clone, account or region. Terraform uses a protected S3 backend with native state locking and generated ignored inputs derived from `.env`.
+
+The [deployment stages and recovery guide](docs/bootstrap.md) explains interrupted stages. The [infrastructure lifecycle guide](docs/infrastructure-lifecycle.md) covers state migration, guarded teardown, account retirement and recreation. The [external prerequisite inventory](docs/external-prerequisites.md) identifies account configuration outside the application stack. The [deployment guide](docs/deployment.md) covers GitHub OIDC and the optional shared OpenLineage collector. Recovery, cost control and operational checks are in the [operations runbook](docs/operations-runbook.md).
+
+Tear the stack down after every demo. The guarded teardown runs in reviewed phases:
+
+```zsh
+./scripts/infrastructure/teardown.sh prepare-plan
+./scripts/infrastructure/teardown.sh destroy-plan
+```
+
+Each apply phase requires `CONFIRM_TEARDOWN`; the full sequence, including storage cleanup and verification, is in the [infrastructure lifecycle guide](docs/infrastructure-lifecycle.md).
+
+## Repository Layout
+
+| Path | Contents |
+| --- | --- |
+| `infra/` | Terraform root and AWS service modules |
+| `services/` | Webhook, realtime processor, API, replay, WebSocket and simulator services |
+| `dashboard/` | Streamlit live cohort and model analytics clients |
+| `jobs/` | Glue, dbt and machine-learning runtime jobs |
+| `airflow/` | MWAA Serverless workflow source and generator |
+| `dbt/` | dbt staging, dimensional and analytical models, seeds and tests |
+| `data_quality/` | Great Expectations and Soda validation assets |
+| `lineage/` | OpenLineage event emitters |
+| `scripts/` | Build, test-data, load-test and demo helpers |
+| `deploy/` | Container definitions for dbt, Soda and Marquez |
+| `config/` | Shared vital-sign catalog and deployment defaults |
+| `tests/` | Contract, infrastructure, lineage, dashboard and pipeline tests |
+| `docs/` | Architecture, governance, operations, demo and Power BI connection documentation |
+
+## Limitations
+
+- All patient data is synthetic. Vital-sign values come from de-identified public recordings replayed onto synthetic patients; nothing here is real patient data.
+- The deterioration label is a synthetic engineering proxy derived from NEWS2 extreme thresholds. The model is not clinically validated and must not be used for patient care.
+- The portfolio environment keeps short log and backup retention to control cost. A production deployment would need formal retention, recovery, compliance and clinical-safety review.
+- There is no live public demo, because the full AWS stack is billable while it runs.
+
+## Contributing
+
+Individual project; contributions are not accepted.
+
+## License
+
+[MIT](LICENSE) © 2026 Ian Mungai. Third-party data keeps its own terms; see [Data](#data).
