@@ -1,0 +1,100 @@
+# Repository checks: see docs/quality-checks.md for each policy and how to fix a finding.
+# Every hook is local and pinned: pre-commit, Ruff and MyPy come from requirements_dev.txt in .venv; gitleaks, tflint
+# and checkov come from tools/install_tools.py in .tools. .githooks/ runs these hooks on commit; CI runs the same
+# hooks on every push. There are no bypasses: do not use SKIP= or git commit --no-verify.
+default_install_hook_types: [pre-commit, commit-msg]
+default_stages: [pre-commit]
+fail_fast: false
+
+repos:
+  - repo: local
+    hooks:
+      - id: gitleaks
+        name: Secrets in staged changes (gitleaks)
+        entry: .tools/bin/gitleaks git --pre-commit --staged --redact --no-banner
+        language: system
+        pass_filenames: false
+      - id: credential-files
+        name: Credential and state files
+        entry: .venv/bin/python -m tools.repo_checks credential-files
+        language: system
+      - id: data-files
+        name: Data files and files over 5 MB
+        entry: .venv/bin/python -m tools.repo_checks data-files
+        language: system
+      - id: env-example
+        name: Environment variables listed in .env.example
+        entry: .venv/bin/python -m tools.repo_checks env-example
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: removed-names
+        name: Removed scripts, flags and variables gone from the docs
+        entry: .venv/bin/python -m tools.repo_checks removed-names
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: lint-settings
+        name: Lint and type settings never loosened
+        entry: .venv/bin/python -m tools.repo_checks lint-settings
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: suppressions
+        name: Suppressions only from the approved list
+        entry: .venv/bin/python -m tools.repo_checks suppressions
+        language: system
+        types: [python]
+      - id: subprocess-imports
+        name: Programs start only through the launcher (warn mode)
+        entry: .venv/bin/python -m tools.repo_checks subprocess-imports --warn
+        language: system
+        types: [python]
+        verbose: true
+      - id: ruff-format
+        name: Ruff format
+        entry: .venv/bin/ruff format --check
+        language: system
+        types: [python]
+      - id: ruff-check
+        name: Ruff check
+        entry: .venv/bin/ruff check
+        language: system
+        types: [python]
+      - id: mypy
+        name: MyPy
+        entry: .venv/bin/python -m mypy .
+        language: system
+        pass_filenames: false
+        types: [python]
+      - id: terraform-fmt
+        name: Terraform format
+        entry: terraform fmt -check -recursive infra
+        language: system
+        pass_filenames: false
+        files: \.tf$
+      - id: tflint
+        name: tflint (warn mode)
+        entry: bash -c 'for dir in infra infra/bootstrap infra/modules/*/; do .tools/bin/tflint --chdir="$dir" --format=compact || true; done'
+        language: system
+        pass_filenames: false
+        files: \.tf$
+        verbose: true
+      - id: checkov
+        name: checkov (warn mode)
+        entry: .tools/bin/checkov --directory infra --framework terraform --compact --quiet --soft-fail
+        language: system
+        pass_filenames: false
+        files: \.tf$
+        verbose: true
+      - id: test-checks
+        name: Each check blocks its bad sample and passes its good one
+        entry: .venv/bin/python -m tools.test_checks
+        language: system
+        pass_filenames: false
+        files: ^(tools/.*\.py|scripts/check_commit_message\.py|\.pre-commit-config\.yaml|\.githooks/.*)$
+      - id: commit-msg
+        name: Conventional Commits and no AI attribution
+        entry: .venv/bin/python -m scripts.check_commit_message
+        language: system
+        stages: [commit-msg]

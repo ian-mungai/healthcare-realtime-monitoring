@@ -24,7 +24,7 @@ This repository uses synthetic Synthea data and waveform-derived measurements fo
 
 Public artifacts must use placeholders for account IDs, buckets, endpoints, load balancers, local usernames, secrets and signed headers. The project’s tracked examples are designed to be reproducible without revealing a deployed environment.
 
-Do not commit secrets, deployment identifiers, Terraform state, signed headers or generated workflow definitions. Every commit message is checked for Conventional Commit subjects and AI attribution by the `.githooks/commit-msg` hook and by CI.
+Do not commit secrets, deployment identifiers, Terraform state, signed headers or generated workflow definitions. Every commit runs the [quality checks](docs/quality-checks.md): gitleaks, blocks on credential and data files, lint and type checks, and a commit-message check for Conventional Commit subjects and AI attribution. CI runs the same hooks and scans the full Git history for secrets.
 
 ## Background
 
@@ -61,7 +61,8 @@ cd healthcare-realtime-monitoring
 python3.12 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip
 .venv/bin/python -m pip install -r requirements_dev.txt
-git config core.hooksPath .githooks   # commit-message check: Conventional Commits, no AI attribution
+.venv/bin/python -m tools.install_tools   # pinned gitleaks, tflint and checkov in .tools/
+git config core.hooksPath .githooks          # pre-commit hooks and the commit-message check
 ```
 
 Create the one ignored local configuration file:
@@ -94,7 +95,7 @@ set +a
 
 ### Validate the Repository
 
-These commands mirror the local-CI checks in `.github/workflows/ci.yml`:
+These commands mirror the local-CI checks in `.github/workflows/ci.yml`. Run `.venv/bin/pre-commit run --all-files` for the repository checks described in the [quality checks guide](docs/quality-checks.md):
 
 ```zsh
 .venv/bin/python -m pytest tests scripts/synthea_loader/tests services/fhir_webhook/tests services/vitals_simulator/tests services/vitals_stream_processor/tests services/vitals_replay/tests services/vitals_api/tests services/websocket_handler/tests -q

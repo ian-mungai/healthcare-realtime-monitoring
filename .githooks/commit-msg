@@ -1,3 +1,4 @@
 #!/bin/sh
-# Commit-message policy: Conventional Commits, no AI attribution.
-exec python3 "$(git rev-parse --show-toplevel)/scripts/check_commit_message.py" "$1"
+# Commit-message policy: Conventional Commits, no AI attribution (see .pre-commit-config.yaml).
+cd "$(git rev-parse --show-toplevel)" || exit 1
+exec .venv/bin/pre-commit run --hook-stage commit-msg --commit-msg-filename "$1"

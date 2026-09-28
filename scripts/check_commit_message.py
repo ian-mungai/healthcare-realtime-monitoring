@@ -1,7 +1,7 @@
 """Commit-message policy: Conventional Commit subjects and no AI attribution.
 
-Usage: python scripts/check_commit_message.py <message-file>   (commit-msg hook)
-       python scripts/check_commit_message.py --range <a..b>   (CI; checks stored messages)
+Usage: python -m scripts.check_commit_message <message-file>   (commit-msg hook)
+       python -m scripts.check_commit_message --range <a..b>   (CI; checks stored messages)
 
 Human co-authors and factual mentions of tools stay allowed. Findings name the line, never echo the message.
 """
@@ -9,10 +9,12 @@ Human co-authors and factual mentions of tools stay allowed. Findings name the l
 from __future__ import annotations
 
 import argparse
+import os
 import re
-import subprocess
 import sys
 from pathlib import Path
+
+from tools.process import run_command
 
 TYPES = ("feat", "fix", "docs", "chore", "refactor", "test", "build", "ci", "perf", "style", "revert")
 SUBJECT = re.compile(rf"(?:{'|'.join(TYPES)})(?:\([a-z0-9._/-]+\))?!?: \S.*")
@@ -21,25 +23,41 @@ AI_NAMES = re.compile(rf"\b(?:{'|'.join((*AGENTS, 'anthropic', 'openai', 'xai'))
 CREDIT = re.compile(r"^\s*(?:co-authored-by|co-developed-by|assisted-by|generated-by)\s*:\s*(.*)$", re.IGNORECASE)
 GENERATED = re.compile(r"^\s*(?:[🤖✨]\s*)?(?:generated (?:with|by)|written by)\b(.*)$", re.IGNORECASE)
 SESSION = re.compile(rf"^\s*(?:{'|'.join(AGENTS)})-session\s*:", re.IGNORECASE)
-SCISSORS = re.compile(r"^# -+ >8 -+$")
+SCISSORS = " ------------------------ >8 ------------------------"
 
 
-def strip_comments(message: str) -> list[str]:
-    """Drop Git comment lines and everything below the verbose-commit scissors line."""
-    lines: list[str] = []
-    for line in message.splitlines():
-        if SCISSORS.match(line):
-            break
-        if not line.startswith("#"):
-            lines.append(line)
-    return lines
+def git(*args: str) -> str:
+    """Run Git and return its output."""
+    return run_command("git", args, check=True).stdout
+
+
+def comment_prefixes() -> list[str]:
+    """Return the comment prefixes Git uses for this repository."""
+    comment = run_command("git", ["config", "--get", "core.commentString"])
+    if comment.returncode == 1:
+        comment = run_command("git", ["config", "--get", "core.commentChar"])
+    if comment.returncode not in (0, 1):
+        raise RuntimeError("cannot read Git's comment configuration")
+    prefix = comment.stdout.strip() or "#"
+    return list("#;@!$%^&|:") if prefix == "auto" else [prefix]
+
+
+def without_verbose_patch(message: str) -> str:
+    """Drop the patch Git appends below the scissors line of a verbose commit; keep everything else."""
+    if os.environ.get("GIT_EDITOR") == ":":
+        return message
+    for prefix in comment_prefixes():
+        before, separator, after = message.partition(f"\n{prefix}{SCISSORS}\n")
+        if separator and any(line.startswith("diff --git ") for line in after.splitlines()):
+            return before
+    return message
 
 
 def findings(where: str, message: str, *, comments: bool) -> list[str]:
     """Return one problem per non-conventional subject or AI attribution line."""
-    lines = strip_comments(message) if comments else message.splitlines()
+    lines = message.splitlines()
+    subject = next((line for line in lines if line.strip() and not (comments and line.startswith("#"))), "")
     problems = []
-    subject = next((line for line in lines if line.strip()), "")
     if not SUBJECT.fullmatch(subject):
         problems.append(f"{where}: subject is not a Conventional Commit (<type>(<scope>): <description>)")
     for number, line in enumerate(lines, 1):
@@ -49,13 +67,9 @@ def findings(where: str, message: str, *, comments: bool) -> list[str]:
     return problems
 
 
-def git(*args: str) -> str:
-    """Run Git and return its output."""
-    return subprocess.run(["git", *args], check=True, capture_output=True, text=True).stdout
-
-
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    """Check one message file or every stored message in a revision range."""
+    parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument("message_file", nargs="?", type=Path)
     parser.add_argument("--range", dest="revision_range")
     args = parser.parse_args(argv)
@@ -63,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
         revisions = git("rev-list", "--reverse", args.revision_range).split()
         problems = [p for rev in revisions for p in findings(rev[:7], git("log", "-1", "--format=%B", rev), comments=False)]
     elif args.message_file:
-        problems = findings("commit message", args.message_file.read_text(encoding="utf-8"), comments=True)
+        problems = findings("commit message", without_verbose_patch(args.message_file.read_text(encoding="utf-8")), comments=True)
     else:
         parser.error("give a message file or --range <a..b>")
     for problem in problems:
