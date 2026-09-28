@@ -110,7 +110,7 @@ terraform -chdir=infra validate
 
 ### End-to-End Verification
 
-E2E runs need a deployed environment. The [load-testing guide](docs/load-testing.md) runs the isolated Kinesis-to-DynamoDB-to-WebSocket test and prints its latency report to the terminal. The [demo guide](docs/demo-guide.md) and the [release checklist](docs/release-checklist.md) cover the full realtime and analytical path; verified results are recorded in the release notes.
+E2E runs need a deployed environment. The [load-testing guide](docs/load-testing.md) runs the isolated Kinesis-to-DynamoDB-to-WebSocket test and saves a JSON and Markdown report for every run under `artifacts/e2e/load_test/`. The [demo guide](docs/demo-guide.md) and the [release checklist](docs/release-checklist.md) cover the full realtime and analytical path; verified results are recorded in the release notes.
 
 ### Run the Dashboards
 
