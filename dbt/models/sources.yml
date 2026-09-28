@@ -4,17 +4,39 @@ sources:
   - name: healthcare_realtime
     database: "{{ env_var('ATHENA_CATALOG') }}"
     schema: "{{ env_var('ATHENA_SOURCE_DATABASE') }}"
-
     tables:
       - name: processed_fhir_observations
         identifier: "{{ env_var('ATHENA_PROCESSED_TABLE') }}"
         description: Processed FHIR vital-sign observations stored as an Apache Iceberg table.
-
+        config:
+          loaded_at_field: received_at
+          freshness:
+            warn_after: {count: 26, period: hour}
+        columns:
+          - name: observation_id
+            tests:
+              - not_null
+          - name: loinc_code
+            tests:
+              - not_null
+          - name: patient_id
+            tests:
+              - not_null
   - name: model_serving
     database: "{{ env_var('ATHENA_CATALOG') }}"
     schema: "{{ env_var('ATHENA_ML_DATABASE') }}"
-
     tables:
       - name: ml_predictions_published
         identifier: "{{ env_var('ATHENA_PREDICTIONS_PUBLISHED_TABLE') }}"
         description: Versioned logistic-regression predictions published by the approved-model scoring task.
+        config:
+          loaded_at_field: scored_at
+          freshness:
+            warn_after: {count: 26, period: hour}
+        columns:
+          - name: model_version
+            tests:
+              - not_null
+          - name: encounter_key
+            tests:
+              - not_null
