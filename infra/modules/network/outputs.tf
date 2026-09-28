@@ -23,3 +23,8 @@ output "security_group_id" {
   description = "Security group ID used by MWAA"
   value       = aws_security_group.mwaa.id
 }
+
+output "nat_public_ip" {
+  description = "Public address of the NAT gateway used by private workloads."
+  value       = aws_eip.nat.public_ip
+}

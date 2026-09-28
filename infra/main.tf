@@ -341,9 +341,11 @@ module "hapi_ecs" {
 
   data_classification = "Synthetic"
 
-  vpc_id              = module.network.vpc_id
-  public_subnet_ids   = module.network.public_subnet_ids
-  private_subnet_ids  = module.network.private_subnet_ids
-  deletion_protection = !var.allow_destructive_teardown
-  skip_final_snapshot = var.hapi_skip_final_snapshot
+  vpc_id             = module.network.vpc_id
+  public_subnet_ids  = module.network.public_subnet_ids
+  private_subnet_ids = module.network.private_subnet_ids
+
+  allowed_ingress_cidrs = concat(["${module.network.nat_public_ip}/32"], var.hapi_operator_cidrs)
+  deletion_protection   = !var.allow_destructive_teardown
+  skip_final_snapshot   = var.hapi_skip_final_snapshot
 }

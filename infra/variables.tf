@@ -381,3 +381,13 @@ variable "enable_iceberg_table_optimizers" {
   type        = bool
   default     = false
 }
+
+variable "hapi_operator_cidrs" {
+  description = "Operator addresses (for example the machine running the Synthea loader) allowed to reach the HAPI load balancer in addition to the NAT gateway."
+  type        = list(string)
+  default     = []
+  validation {
+    condition     = alltrue([for cidr in var.hapi_operator_cidrs : can(cidrhost(cidr, 0)) && cidr != "0.0.0.0/0"])
+    error_message = "hapi_operator_cidrs must be valid CIDR blocks and must not include 0.0.0.0/0."
+  }
+}
