@@ -356,3 +356,12 @@ output "soda_ecs_task_definition_family" {
   description = "Soda ECS task definition family."
   value       = module.soda_ecs.task_definition_family
 }
+
+output "pipeline_runtime_settings" {
+  description = "Airflow and Athena settings the workflow generator reads from the rendered configuration."
+  value = {
+    raw_prefix                = var.raw_prefix
+    airflow_pipeline_schedule = var.airflow_pipeline_schedule
+    athena_workgroup_name     = var.athena_workgroup_name
+  }
+}

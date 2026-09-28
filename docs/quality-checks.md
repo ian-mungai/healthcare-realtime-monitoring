@@ -63,4 +63,4 @@ All Python code starts programs through `run_command` in `tools/process.py`, inc
 
 ## Terraform
 
-`terraform fmt` runs on every Terraform change. tflint and checkov run in warn mode on Terraform changes and in CI: they report findings without blocking until the current findings are triaged.
+`terraform fmt` and tflint run on every Terraform change and in CI, and block on any finding; every module declares its Terraform and provider versions. checkov runs in warn mode: it reports findings without blocking until the accepted risks are approved.

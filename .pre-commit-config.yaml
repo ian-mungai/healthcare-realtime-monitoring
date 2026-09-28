@@ -79,12 +79,11 @@ repos:
         pass_filenames: false
         files: \.tf$
       - id: tflint
-        name: tflint (warn mode)
-        entry: bash -c 'for dir in infra infra/bootstrap infra/modules/*/; do .tools/bin/tflint --chdir="$dir" --format=compact || true; done'
+        name: tflint
+        entry: bash -c 'status=0; for dir in infra infra/bootstrap infra/modules/*/; do [ -d "$dir" ] || continue; .tools/bin/tflint --chdir="$dir" --format=compact || status=1; done; exit $status'
         language: system
         pass_filenames: false
         files: \.tf$
-        verbose: true
       - id: checkov
         name: checkov (warn mode)
         entry: .tools/bin/checkov --directory infra --framework terraform --compact --quiet --soft-fail

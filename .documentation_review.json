@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "reviewer": "AI review agent",
-  "reviewed_at_utc": "2026-09-28T23:19:56Z",
-  "snapshot_sha256": "e3567dda316fffba78a399c6ee6a6e170bd7062a4c77dd17d721d45859e394b0",
+  "reviewed_at_utc": "2026-09-28T23:22:56Z",
+  "snapshot_sha256": "0d1a830aa171b0a7968e052b3851e9ed891bff27ec594d7f44f7e408d3b748e6",
   "extra_documents": [],
   "documents": [
     {
@@ -74,7 +74,7 @@
     {
       "path": "docs/deployment.md",
       "blob": "37d398e8a66ae173f33c017c0b5babe8749dec47",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "External collector paragraph now says .env.example lists the override as a commented reference."
     },
     {
@@ -127,9 +127,9 @@
     },
     {
       "path": "docs/quality-checks.md",
-      "blob": "3c27e357287a190b50101b4d7e8c2f0b59653cfb",
-      "outcome": "current",
-      "notes": "Process Launcher section now states the check blocks and that container wrappers use the launcher; hook list matches .pre-commit-config.yaml."
+      "blob": "1c65b60037f9d6701ce2125d28157f8debcc8043",
+      "outcome": "updated",
+      "notes": "Terraform section now says tflint blocks and checkov stays in warn mode."
     },
     {
       "path": "docs/quickstart.md",
