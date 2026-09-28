@@ -6,8 +6,10 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$REPO_ROOT/scripts/infrastructure/project_env.sh"
 load_project_env "${PROJECT_ENV_FILE:-$REPO_ROOT/.env}"
 INFRA_DIR="$REPO_ROOT/infra"
+require_selected_backend "$INFRA_DIR"
 ACTION="${1:-}"
-CONFIRMATION="delete-healthcare-realtime-development"
+ENVIRONMENT="${DEPLOYMENT_ENVIRONMENT:-development}"
+CONFIRMATION="delete-healthcare-realtime-$ENVIRONMENT"
 "$REPO_ROOT/scripts/infrastructure/render_project_config.sh"
 
 usage() {
@@ -22,7 +24,7 @@ Actions:
   destroy-plan     Save the final Terraform destroy plan.
   destroy-apply    Apply the reviewed destroy plan.
 
-Set CONFIRM_TEARDOWN=delete-healthcare-realtime-development for every apply action.
+Set CONFIRM_TEARDOWN=delete-healthcare-realtime-<environment> (for example -development) for every apply action.
 Set TF_STATE_BUCKET to the separate persistent state bucket before cleanup or destroy.
 EOF
 }
@@ -127,13 +129,13 @@ case "$ACTION" in
   prepare-plan)
     require_separate_state_bucket
     build_packages
-    terraform -chdir="$INFRA_DIR" plan "${terraform_plan_args[@]}" -out=tfplan-teardown-prepare
-    terraform -chdir="$INFRA_DIR" show -no-color tfplan-teardown-prepare
+    terraform -chdir="$INFRA_DIR" plan "${terraform_plan_args[@]}" -out=tfplan-teardown-prepare-$ENVIRONMENT
+    terraform -chdir="$INFRA_DIR" show -no-color tfplan-teardown-prepare-$ENVIRONMENT
     ;;
   prepare-apply)
     require_confirmation
     require_separate_state_bucket
-    terraform -chdir="$INFRA_DIR" apply -input=false tfplan-teardown-prepare
+    terraform -chdir="$INFRA_DIR" apply -input=false tfplan-teardown-prepare-$ENVIRONMENT
     ;;
   cleanup-preview)
     require_separate_state_bucket
@@ -149,13 +151,13 @@ case "$ACTION" in
   destroy-plan)
     require_separate_state_bucket
     build_or_verify_destroy_packages
-    terraform -chdir="$INFRA_DIR" plan -destroy "${terraform_plan_args[@]}" -out=tfplan-teardown-destroy
-    terraform -chdir="$INFRA_DIR" show -no-color tfplan-teardown-destroy
+    terraform -chdir="$INFRA_DIR" plan -destroy "${terraform_plan_args[@]}" -out=tfplan-teardown-destroy-$ENVIRONMENT
+    terraform -chdir="$INFRA_DIR" show -no-color tfplan-teardown-destroy-$ENVIRONMENT
     ;;
   destroy-apply)
     require_confirmation
     require_separate_state_bucket
-    terraform -chdir="$INFRA_DIR" apply -input=false tfplan-teardown-destroy
+    terraform -chdir="$INFRA_DIR" apply -input=false tfplan-teardown-destroy-$ENVIRONMENT
     ;;
   *)
     usage

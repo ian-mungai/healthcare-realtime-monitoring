@@ -8,7 +8,7 @@ from typing import Any
 
 import boto3
 
-CONFIRMATION = "delete-healthcare-realtime-development"
+CONFIRMATION = f"delete-healthcare-realtime-{os.getenv('DEPLOYMENT_ENVIRONMENT') or 'development'}"
 
 
 def chunks(items: list[dict[str, str]], size: int) -> Iterable[list[dict[str, str]]]:

@@ -91,7 +91,10 @@ terraform version -json 2>/dev/null \
 java_version="$(java -version 2>&1 | head -n 1 | sed -E 's/.*version "([0-9]+).*/\1/')"
 [[ "$java_version" =~ ^[0-9]+$ && "$java_version" -ge 17 ]] && pass "Java 17+" || fail "Java 17+"
 
-aws sts get-caller-identity >/dev/null && pass "AWS identity" || fail "AWS identity"
+caller_account="$(aws sts get-caller-identity --query Account --output text 2>/dev/null || true)"
+[[ -n "$caller_account" ]] && pass "AWS identity" || fail "AWS identity"
+[[ -n "$caller_account" && "$caller_account" == "${AWS_ACCOUNT_ID:-}" ]] \
+  && pass "AWS account matches the selected environment file" || fail "AWS account does not match AWS_ACCOUNT_ID in the selected environment file"
 docker info >/dev/null 2>&1 && pass "Docker daemon" || fail "Docker daemon"
 
 if [[ "$PHASE" == "local" ]]; then

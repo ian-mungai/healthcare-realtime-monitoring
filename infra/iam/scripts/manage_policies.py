@@ -149,7 +149,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Plan or apply all tracked customer-managed IAM policy templates.")
     parser.add_argument("action", choices=("plan", "apply"))
     parser.add_argument("--terraform-var-file", type=Path, default=Path("infra/deployment.auto.tfvars.json"))
-    parser.add_argument("--env-file", type=Path, default=Path(".env"))
+    parser.add_argument("--env-file", type=Path, default=Path(os.getenv("PROJECT_ENV_FILE") or ".env"))
     parser.add_argument("--profile")
     parser.add_argument("--region")
     parser.add_argument("--policy", action="append", dest="policies", help="Limit the operation to one tracked policy name. Repeat as needed.")

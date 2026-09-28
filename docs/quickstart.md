@@ -4,6 +4,8 @@
 
 Use this path only for the first deployment from a fresh clone when the project has no existing Terraform state bucket, bootstrap state or application resources. It is the shortest reviewed path to a ten-patient live demo in a standard commercial AWS account. Allow 60 to 90 minutes for infrastructure and image builds, then 10 minutes for the realtime demo. The optional full analytical validation adds about 30 minutes.
 
+These steps create the development environment from `.env`. To create production, export `PROJECT_ENV_FILE=.env.production` first and follow the [environments guide](environments.md).
+
 Do not use this quickstart to recreate a destroyed environment with a retained state bucket or to migrate an existing deployment. Follow the [infrastructure lifecycle guide](infrastructure-lifecycle.md) for those workflows.
 
 The target region must provide at least two Availability Zones and support the services checked by the regional readiness command, including MWAA Serverless. A first deployment creates a new persistent state bucket in the target region and initializes an empty Terraform backend.

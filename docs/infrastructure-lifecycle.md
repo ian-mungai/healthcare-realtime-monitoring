@@ -39,7 +39,7 @@ Create and inspect the protection-removal plan. For a complete portfolio teardow
 
 ```zsh
 ./scripts/infrastructure/teardown.sh prepare-plan
-terraform -chdir=infra show -no-color tfplan-teardown-prepare
+terraform -chdir=infra show -no-color tfplan-teardown-prepare-development
 CONFIRM_TEARDOWN=delete-healthcare-realtime-development \
   ./scripts/infrastructure/teardown.sh prepare-apply
 ```
@@ -56,7 +56,7 @@ Create the final destroy plan, review every deletion and apply only that saved p
 
 ```zsh
 ./scripts/infrastructure/teardown.sh destroy-plan
-terraform -chdir=infra show -no-color tfplan-teardown-destroy
+terraform -chdir=infra show -no-color tfplan-teardown-destroy-development
 CONFIRM_TEARDOWN=delete-healthcare-realtime-development \
   ./scripts/infrastructure/teardown.sh destroy-apply
 ```

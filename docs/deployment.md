@@ -37,6 +37,8 @@ The trust policy accepts only tokens issued for the configured repository and pr
 
 ## Protected GitHub environment
 
+Create one protected GitHub environment per deployment environment, each pointing at its own AWS account; see the [environments guide](environments.md).
+
 Create the protected GitHub environment named by `github_deployment_environment`, restrict it to `main` and require approval for deployment. Configure this non-sensitive environment variable:
 
 | Name | Value |
