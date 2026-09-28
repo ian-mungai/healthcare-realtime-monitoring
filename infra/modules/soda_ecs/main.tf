@@ -4,7 +4,7 @@ data "aws_region" "current" {}
 
 resource "aws_ecr_repository" "soda" {
   name                 = "healthcare-realtime-soda"
-  image_tag_mutability = "MUTABLE"
+  image_tag_mutability = "IMMUTABLE"
   force_delete         = var.force_delete_repository
 
   image_scanning_configuration {
@@ -246,6 +246,7 @@ resource "aws_security_group" "soda" {
   vpc_id      = var.vpc_id
 
   egress {
+    description = "Outbound HTTPS to AWS APIs through the NAT gateway"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"

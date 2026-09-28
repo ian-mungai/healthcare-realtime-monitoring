@@ -88,5 +88,9 @@ resource "aws_dynamodb_table" "websocket_connections" {
     }
   }
 
+  point_in_time_recovery {
+    enabled = true
+  }
+
   tags = merge(var.tags, { DataClassification = var.connections_data_classification })
 }

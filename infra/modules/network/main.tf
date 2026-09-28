@@ -19,7 +19,7 @@ resource "aws_subnet" "public_a" {
   vpc_id                  = aws_vpc.mwaa.id
   cidr_block              = "10.20.1.0/24"
   availability_zone       = data.aws_availability_zones.available.names[0]
-  map_public_ip_on_launch = true
+  map_public_ip_on_launch = false
 
   tags = merge(
     var.tags,
@@ -33,7 +33,7 @@ resource "aws_subnet" "public_b" {
   vpc_id                  = aws_vpc.mwaa.id
   cidr_block              = "10.20.2.0/24"
   availability_zone       = data.aws_availability_zones.available.names[1]
-  map_public_ip_on_launch = true
+  map_public_ip_on_launch = false
 
   tags = merge(
     var.tags,
@@ -186,4 +186,10 @@ resource "aws_security_group" "mwaa" {
       Name = "${var.name}_sg"
     }
   )
+}
+# No workload uses the default security group; adopting it with no rules removes its default allow rules.
+resource "aws_default_security_group" "mwaa" {
+  vpc_id = aws_vpc.mwaa.id
+
+  tags = merge(var.tags, { Name = "${var.name}_default_sg" })
 }

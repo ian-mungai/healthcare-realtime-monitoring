@@ -59,6 +59,7 @@ resource "aws_security_group" "vpc_link" {
   vpc_id      = var.vpc_id
 
   egress {
+    description = "API Gateway VPC link to the private Marquez load balancer"
     from_port   = 5000
     to_port     = 5000
     protocol    = "tcp"
@@ -76,6 +77,7 @@ resource "aws_security_group" "load_balancer" {
   vpc_id      = var.vpc_id
 
   ingress {
+    description     = "Marquez API from the API Gateway VPC link"
     from_port       = 5000
     to_port         = 5000
     protocol        = "tcp"
@@ -83,6 +85,7 @@ resource "aws_security_group" "load_balancer" {
   }
 
   egress {
+    description = "Load balancer traffic to Marquez tasks"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -100,6 +103,7 @@ resource "aws_security_group" "marquez" {
   vpc_id      = var.vpc_id
 
   ingress {
+    description     = "Marquez API from its private load balancer"
     from_port       = 5000
     to_port         = 5000
     protocol        = "tcp"
@@ -107,6 +111,7 @@ resource "aws_security_group" "marquez" {
   }
 
   egress {
+    description = "Marquez access to its database and AWS APIs"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -124,6 +129,7 @@ resource "aws_security_group" "database" {
   vpc_id      = var.vpc_id
 
   ingress {
+    description     = "PostgreSQL from Marquez tasks only"
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"

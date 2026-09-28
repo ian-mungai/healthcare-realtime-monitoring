@@ -31,7 +31,6 @@ variable "data_identifiers" {
 variable "image_tag" {
   description = "ECR image tag used by the Soda ECS task."
   type        = string
-  default     = "latest"
 }
 
 variable "force_delete_repository" {
