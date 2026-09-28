@@ -87,7 +87,7 @@ module "glue" {
   metrics_path                     = "s3://${module.raw_s3.bucket_name}/metrics/glue/"
   openlineage_collector_url        = local.effective_openlineage_collector_url
   openlineage_collector_invoke_arn = local.openlineage_collector_invoke_arn
-
+  enable_table_optimizers          = var.enable_iceberg_table_optimizers
 
   depends_on = [
     module.raw_s3,

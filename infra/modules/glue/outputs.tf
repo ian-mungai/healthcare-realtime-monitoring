@@ -17,3 +17,12 @@ output "quarantine_table_name" {
   description = "Glue Catalog table exposing quarantined FHIR observations."
   value       = aws_glue_catalog_table.quarantined_fhir_observations.name
 }
+
+output "table_optimizer_types" {
+  description = "Glue managed Iceberg optimizers enabled on the processed table."
+  value = concat(
+    aws_glue_catalog_table_optimizer.compaction[*].type,
+    aws_glue_catalog_table_optimizer.retention[*].type,
+    aws_glue_catalog_table_optimizer.orphan_file_deletion[*].type,
+  )
+}

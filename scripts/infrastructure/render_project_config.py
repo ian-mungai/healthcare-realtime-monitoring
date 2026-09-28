@@ -39,6 +39,8 @@ GENERATED_STRING_VARIABLES = {
 
 BOOLEAN_VARIABLES = {"ENABLE_OPENLINEAGE_COLLECTOR": "enable_openlineage_collector", "ENABLE_GITHUB_OIDC": "enable_github_oidc"}
 
+OPTIONAL_BOOLEAN_VARIABLES = {"ENABLE_ICEBERG_TABLE_OPTIMIZERS": "enable_iceberg_table_optimizers"}
+
 INTEGER_VARIABLES = {"OPENLINEAGE_COLLECTOR_DESIRED_COUNT": "openlineage_collector_desired_count"}
 
 REQUIRED_ENVIRONMENT = {
@@ -155,6 +157,9 @@ def build_configuration(
             deployment[terraform_name] = value
     for environment_name, terraform_name in BOOLEAN_VARIABLES.items():
         deployment[terraform_name] = parse_boolean(require_value(effective, environment_name), environment_name)
+    for environment_name, terraform_name in OPTIONAL_BOOLEAN_VARIABLES.items():
+        if value := effective.get(environment_name, "").strip():
+            deployment[terraform_name] = parse_boolean(value, environment_name)
     for environment_name, terraform_name in INTEGER_VARIABLES.items():
         raw_value = require_value(effective, environment_name)
         try:

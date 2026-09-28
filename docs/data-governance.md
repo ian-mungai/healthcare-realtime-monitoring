@@ -134,6 +134,8 @@ Terraform state, credentials, webhook secrets, alert addresses, connection IDs a
 
 CloudWatch log groups for HAPI, dbt, Soda and the vitals simulator retain logs for 14 days. SQS failure and replay-DLQ messages are retained for 14 days. HAPI RDS automated backups are retained for one day. DynamoDB point-in-time recovery protects the latest-vitals table.
 
+The processed Iceberg table uses Glue managed table optimizers once `ENABLE_ICEBERG_TABLE_OPTIMIZERS=true` is set after its first Glue run: compaction, snapshot retention (snapshots older than seven days expire while at least three are kept) and orphan-file deletion after seven days. dbt rebuilds its Iceberg tables on each run, so they need no separate maintenance.
+
 The versioned S3 data bucket currently has no lifecycle expiration policy. Raw, processed, quarantine, metrics, lineage and Athena-result objects therefore remain until explicitly removed or a reviewed lifecycle policy is introduced.
 
 ## Operational evidence

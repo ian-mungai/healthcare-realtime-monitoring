@@ -69,3 +69,39 @@ variable "data_classification" {
     error_message = "data_classification must be Public, Synthetic, Internal, Confidential or Restricted."
   }
 }
+
+variable "enable_table_optimizers" {
+  description = "Enable Glue managed compaction, snapshot retention and orphan-file deletion for the processed Iceberg table. Enable only after the Glue job has created the table."
+  type        = bool
+  default     = false
+}
+
+variable "snapshot_retention_days" {
+  description = "Days an expired Iceberg snapshot is kept before the retention optimizer removes it."
+  type        = number
+  default     = 7
+  validation {
+    condition     = var.snapshot_retention_days >= 1
+    error_message = "snapshot_retention_days must be at least 1."
+  }
+}
+
+variable "snapshots_to_retain" {
+  description = "Minimum number of Iceberg snapshots the retention optimizer always keeps."
+  type        = number
+  default     = 3
+  validation {
+    condition     = var.snapshots_to_retain >= 1
+    error_message = "snapshots_to_retain must be at least 1."
+  }
+}
+
+variable "orphan_file_retention_days" {
+  description = "Days an unreferenced file must exist before orphan-file deletion removes it; longer than any Glue job run."
+  type        = number
+  default     = 7
+  validation {
+    condition     = var.orphan_file_retention_days >= 1
+    error_message = "orphan_file_retention_days must be at least 1."
+  }
+}

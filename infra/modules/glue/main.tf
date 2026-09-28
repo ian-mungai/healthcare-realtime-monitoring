@@ -253,3 +253,134 @@ resource "aws_glue_job" "raw_to_processed" {
     aws_s3_object.glue_lineage_package,
   ]
 }
+
+# Managed Iceberg maintenance for the processed table. The Glue job creates the table on its first run, so these
+# optimizers are enabled only after that run (enable_table_optimizers).
+data "aws_caller_identity" "current" {}
+
+data "aws_region" "current" {}
+
+resource "aws_iam_role" "table_optimizer" {
+  count = var.enable_table_optimizers ? 1 : 0
+
+  name               = "healthcare_realtime_glue_table_optimizer_role"
+  assume_role_policy = data.aws_iam_policy_document.glue_assume_role.json
+
+  tags = var.tags
+}
+
+data "aws_iam_policy_document" "table_optimizer" {
+  statement {
+    sid    = "ManageProcessedIcebergFiles"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject",
+    ]
+    resources = ["arn:aws:s3:::${var.bucket_name}/processed/*"]
+  }
+
+  statement {
+    sid       = "ListProcessedIcebergFiles"
+    effect    = "Allow"
+    actions   = ["s3:ListBucket", "s3:GetBucketLocation"]
+    resources = ["arn:aws:s3:::${var.bucket_name}"]
+  }
+
+  statement {
+    sid    = "UpdateProcessedIcebergMetadata"
+    effect = "Allow"
+    actions = [
+      "glue:GetDatabase",
+      "glue:GetTable",
+      "glue:UpdateTable",
+    ]
+    resources = [
+      "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:catalog",
+      "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:database/${var.database_name}",
+      "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:table/${var.database_name}/${var.processed_table_name}",
+    ]
+  }
+
+  statement {
+    sid    = "WriteTableOptimizerLogs"
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+    resources = ["arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws-glue/tableoptimizers*"]
+  }
+}
+
+resource "aws_iam_role_policy" "table_optimizer" {
+  count = var.enable_table_optimizers ? 1 : 0
+
+  name   = "healthcare_realtime_glue_table_optimizer"
+  role   = aws_iam_role.table_optimizer[0].id
+  policy = data.aws_iam_policy_document.table_optimizer.json
+}
+
+resource "aws_glue_catalog_table_optimizer" "compaction" {
+  count = var.enable_table_optimizers ? 1 : 0
+
+  catalog_id    = data.aws_caller_identity.current.account_id
+  database_name = var.database_name
+  table_name    = var.processed_table_name
+  type          = "compaction"
+
+  configuration {
+    role_arn = aws_iam_role.table_optimizer[0].arn
+    enabled  = true
+  }
+
+  depends_on = [aws_iam_role_policy.table_optimizer]
+}
+
+resource "aws_glue_catalog_table_optimizer" "retention" {
+  count = var.enable_table_optimizers ? 1 : 0
+
+  catalog_id    = data.aws_caller_identity.current.account_id
+  database_name = var.database_name
+  table_name    = var.processed_table_name
+  type          = "retention"
+
+  configuration {
+    role_arn = aws_iam_role.table_optimizer[0].arn
+    enabled  = true
+
+    retention_configuration {
+      iceberg_configuration {
+        snapshot_retention_period_in_days = var.snapshot_retention_days
+        number_of_snapshots_to_retain     = var.snapshots_to_retain
+        clean_expired_files               = true
+      }
+    }
+  }
+
+  depends_on = [aws_iam_role_policy.table_optimizer]
+}
+
+resource "aws_glue_catalog_table_optimizer" "orphan_file_deletion" {
+  count = var.enable_table_optimizers ? 1 : 0
+
+  catalog_id    = data.aws_caller_identity.current.account_id
+  database_name = var.database_name
+  table_name    = var.processed_table_name
+  type          = "orphan_file_deletion"
+
+  configuration {
+    role_arn = aws_iam_role.table_optimizer[0].arn
+    enabled  = true
+
+    orphan_file_deletion_configuration {
+      iceberg_configuration {
+        orphan_file_retention_period_in_days = var.orphan_file_retention_days
+      }
+    }
+  }
+
+  depends_on = [aws_iam_role_policy.table_optimizer]
+}

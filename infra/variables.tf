@@ -375,3 +375,9 @@ variable "soda_image_tag" {
   description = "ECR image tag deployed by the Soda ECS task."
   type        = string
 }
+
+variable "enable_iceberg_table_optimizers" {
+  description = "Enable Glue managed compaction, snapshot retention and orphan-file deletion for the processed Iceberg table after the first successful Glue run."
+  type        = bool
+  default     = false
+}
