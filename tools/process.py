@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from subprocess import CompletedProcess, TimeoutExpired
 
@@ -40,7 +40,13 @@ def find_program(program: str) -> str | None:
 
 
 def run_command(
-    program: str, args: Sequence[str], cwd: Path | None = None, timeout: float = DEFAULT_TIMEOUT_SECONDS, check: bool = False
+    program: str,
+    args: Sequence[str],
+    cwd: Path | None = None,
+    timeout: float = DEFAULT_TIMEOUT_SECONDS,
+    check: bool = False,
+    env: Mapping[str, str] | None = None,
+    capture: bool = True,
 ) -> CompletedProcess[str]:
     """Run ``program`` with ``args`` and return its exit code and captured text output.
 
@@ -56,6 +62,11 @@ def run_command(
         Seconds before the program is stopped.
     check : bool
         Raise when the program exits non-zero.
+    env : Mapping[str, str], optional
+        Complete environment for the program; the current environment when omitted.
+    capture : bool
+        Capture stdout and stderr as text; when false they stream to this process's output, for long-running jobs whose
+        logs must reach the container log collector.
 
     Returns
     -------
@@ -75,5 +86,5 @@ def run_command(
     if executable is None:
         raise FileNotFoundError(f"{program} is not installed")
     return subprocess.run(  # noqa: S603 - the only process launcher: full path, list arguments, no shell, stdin closed, timeout
-        [executable, *args], cwd=cwd, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=timeout, check=check
+        [executable, *args], cwd=cwd, env=env, stdin=subprocess.DEVNULL, capture_output=capture, text=True, timeout=timeout, check=check
     )

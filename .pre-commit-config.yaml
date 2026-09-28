@@ -52,11 +52,10 @@ repos:
         language: system
         types: [python]
       - id: subprocess-imports
-        name: Programs start only through the launcher (warn mode)
-        entry: .venv/bin/python -m tools.repo_checks subprocess-imports --warn
+        name: Programs start only through the launcher
+        entry: .venv/bin/python -m tools.repo_checks subprocess-imports
         language: system
         types: [python]
-        verbose: true
       - id: ruff-format
         name: Ruff format
         entry: .venv/bin/ruff format --check

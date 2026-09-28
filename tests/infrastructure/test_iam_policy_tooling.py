@@ -3,12 +3,13 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
-import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
 
 import pytest
+
+from tools.process import run_command
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_s3_policy.json"
@@ -72,7 +73,7 @@ def test_renderer_replaces_state_bucket_placeholder(tmp_path: Path) -> None:
         "PROJECT_NAME": "example-project",
     }
 
-    subprocess.run([sys.executable, str(RENDERER_PATH), str(POLICY_PATH), "--output", str(rendered_path)], check=True, env=environment)
+    run_command(sys.executable, [str(RENDERER_PATH), str(POLICY_PATH), "--output", str(rendered_path)], check=True, env=environment)
 
     rendered = rendered_path.read_text(encoding="utf-8")
     assert "${TF_STATE_BUCKET}" not in rendered
@@ -83,7 +84,7 @@ def test_kms_policy_uses_configured_project_tag(tmp_path: Path) -> None:
     rendered_path = tmp_path / "kms-policy.json"
     environment = {**os.environ, "AWS_ACCOUNT_ID": "111111111111", "AWS_REGION": "example-region-1", "PROJECT_NAME": "example-project"}
 
-    subprocess.run([sys.executable, str(RENDERER_PATH), str(KMS_POLICY_PATH), "--output", str(rendered_path)], check=True, env=environment)
+    run_command(sys.executable, [str(RENDERER_PATH), str(KMS_POLICY_PATH), "--output", str(rendered_path)], check=True, env=environment)
 
     document = json.loads(rendered_path.read_text(encoding="utf-8"))
     statements = {statement["Sid"]: statement for statement in document["Statement"]}
@@ -95,7 +96,7 @@ def test_secretsmanager_policy_reads_only_configured_webhook_secret(tmp_path: Pa
     rendered_path = tmp_path / "secretsmanager-policy.json"
     environment = {**os.environ, "AWS_ACCOUNT_ID": "111111111111", "AWS_REGION": "example-region-1", "FHIR_WEBHOOK_SECRET_ID": "example-project/fhir-webhook"}
 
-    subprocess.run([sys.executable, str(RENDERER_PATH), str(SECRETSMANAGER_POLICY_PATH), "--output", str(rendered_path)], check=True, env=environment)
+    run_command(sys.executable, [str(RENDERER_PATH), str(SECRETSMANAGER_POLICY_PATH), "--output", str(rendered_path)], check=True, env=environment)
 
     document = json.loads(rendered_path.read_text(encoding="utf-8"))
     statements = {statement["Sid"]: statement for statement in document["Statement"]}

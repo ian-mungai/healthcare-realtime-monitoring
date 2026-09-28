@@ -13,7 +13,7 @@ def test_dbt_runtime_emits_complete(monkeypatch) -> None:
         return "00000000-0000-0000-0000-000000000001"
 
     monkeypatch.setattr(run_dbt_with_lineage, "emit_s3_dbt_lineage", emit_lineage)
-    monkeypatch.setattr(run_dbt_with_lineage.subprocess, "run", lambda *args, **kwargs: Mock(returncode=0))
+    monkeypatch.setattr(run_dbt_with_lineage, "run_command", lambda *args, **kwargs: Mock(returncode=0))
     monkeypatch.setattr(run_dbt_with_lineage.sys, "argv", ["run_dbt_with_lineage.py", "build"])
 
     assert run_dbt_with_lineage.main() == 0
@@ -28,7 +28,7 @@ def test_dbt_runtime_emits_fail(monkeypatch) -> None:
         return "00000000-0000-0000-0000-000000000001"
 
     monkeypatch.setattr(run_dbt_with_lineage, "emit_s3_dbt_lineage", emit_lineage)
-    monkeypatch.setattr(run_dbt_with_lineage.subprocess, "run", lambda *args, **kwargs: Mock(returncode=1))
+    monkeypatch.setattr(run_dbt_with_lineage, "run_command", lambda *args, **kwargs: Mock(returncode=1))
     monkeypatch.setattr(run_dbt_with_lineage.sys, "argv", ["run_dbt_with_lineage.py", "build"])
 
     assert run_dbt_with_lineage.main() == 1

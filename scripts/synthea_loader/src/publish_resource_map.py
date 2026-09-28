@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import argparse
 import os
-import subprocess
 import sys
 from pathlib import Path
 
 import boto3
 
 from scripts.synthea_loader.src.cohort import cohort_patient_ids
+from tools.process import run_command
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_ENV_FILE = Path(os.getenv("PROJECT_ENV_FILE") or REPO_ROOT / ".env")
@@ -45,15 +45,11 @@ def main() -> None:
     patient_ids = cohort_patient_ids(arguments.resource_map)
     environment = load_environment(arguments.env_file)
     publish_resource_map(environment, arguments.resource_map)
-    subprocess.run(
-        [
-            str(REPO_ROOT / "scripts" / "infrastructure" / "render_project_config.sh"),
-            "--env-file",
-            str(arguments.env_file),
-            "--resource-map",
-            str(arguments.resource_map),
-        ],
+    run_command(
+        str(REPO_ROOT / "scripts" / "infrastructure" / "render_project_config.sh"),
+        ["--env-file", str(arguments.env_file), "--resource-map", str(arguments.resource_map)],
         check=True,
+        capture=False,
     )
     sys.stdout.write(f"Published the FHIR resource map and rendered {len(patient_ids)} generated patient IDs.\n")
 

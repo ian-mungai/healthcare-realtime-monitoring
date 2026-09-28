@@ -65,7 +65,7 @@ CASES = [
     Case("blanket noqa", "suppressions", False, {"scripts/tool.py": f"x = 1  # {NOQA}\n"}),
     Case("type ignore", "suppressions", False, {"scripts/tool.py": f"x: int = 'a'  # {TYPE_IGNORE}\n"}),
     Case("launcher import", "subprocess-imports", True, {"scripts/tool.py": "from tools.process import run_command\n"}),
-    Case("subprocess import is reported", "subprocess-imports", True, {"scripts/tool.py": "import sub" + "process\n"}, expect_warning=True),
+    Case("subprocess import", "subprocess-imports", False, {"scripts/tool.py": "import sub" + "process\n"}),
     Case("current lint settings", "lint-settings", True, {"pyproject.toml": PYPROJECT}),
     Case("Ruff rule family removed", "lint-settings", False, {"pyproject.toml": PYPROJECT.replace(',\n    "T20"\n]', "\n]")}),
     Case("Ruff ignore added", "lint-settings", False, {"pyproject.toml": PYPROJECT.replace("[tool.ruff.lint]\n", '[tool.ruff.lint]\nignore = ["E501"]\n')}),

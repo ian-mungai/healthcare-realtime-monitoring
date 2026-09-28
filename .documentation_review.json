@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "reviewer": "AI review agent",
-  "reviewed_at_utc": "2026-09-28T23:04:44Z",
-  "snapshot_sha256": "d7d62715bbcd31a93cd85158bd502ab3171fbf1a5cf2936d9f5ea2c4cc93b0b3",
+  "reviewed_at_utc": "2026-09-28T23:17:01Z",
+  "snapshot_sha256": "8ec1656b466b8defa0d93ac8ecbe7689e32af1a06e5d477f7ff1e5b345071cd1",
   "extra_documents": [],
   "documents": [
     {
@@ -20,7 +20,7 @@
     {
       "path": "README.md",
       "blob": "0ca00ea9d2eb190777301c065f1f68794878ba87",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "Deploy and Teardown now links the environments guide; other sections unchanged and current."
     },
     {
@@ -74,13 +74,13 @@
     {
       "path": "docs/deployment.md",
       "blob": "7b1a5d7c3ba9073b18079354850c04a5bef68b1e",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "Protected GitHub environment section now asks for one environment per AWS account."
     },
     {
       "path": "docs/environments.md",
       "blob": "923449b29d12d6286fe0b1b6fd1dc2051da0adcf",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "New guide: development and production in separate AWS accounts, PROJECT_ENV_FILE selection, per-environment bootstrap workspace, plan names, backend guard, account check and teardown confirmation; matches the scripts."
     },
     {
@@ -92,7 +92,7 @@
     {
       "path": "docs/infrastructure-lifecycle.md",
       "blob": "5e7a2aa2d77dad1a4ed2565d3a0cae6da3da6247",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "Teardown plan names carry the environment suffix used by teardown.sh; confirmation strings match for development."
     },
     {
@@ -127,14 +127,14 @@
     },
     {
       "path": "docs/quality-checks.md",
-      "blob": "e4cf47c54d9ce2e46851a02d5e24696f69f15cde",
-      "outcome": "current",
-      "notes": "Contains the Documentation Review section; hook list, policies, T20 rule and approved suppression match .pre-commit-config.yaml and tools/."
+      "blob": "3c27e357287a190b50101b4d7e8c2f0b59653cfb",
+      "outcome": "updated",
+      "notes": "Process Launcher section now states the check blocks and that container wrappers use the launcher; hook list matches .pre-commit-config.yaml."
     },
     {
       "path": "docs/quickstart.md",
       "blob": "e1e228b22baa7bd6ea61d0bb8ab1b5a144cde6dd",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "States that the steps create development from .env and points production to the environments guide."
     },
     {

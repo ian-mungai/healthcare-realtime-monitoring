@@ -59,7 +59,7 @@ Ruff keeps line length 160 and at least the rule families `E`, `F`, `I`, `B`, `U
 
 ## Process Launcher
 
-Repository tooling starts programs through `run_command` in `tools/process.py`. The subprocess-imports check runs in warn mode: it reports the remaining direct `subprocess` imports without blocking until they are migrated.
+All Python code starts programs through `run_command` in `tools/process.py`, including the dbt and Soda container wrappers, whose images copy the launcher. The subprocess-imports check blocks any other `subprocess` import.
 
 ## Terraform
 

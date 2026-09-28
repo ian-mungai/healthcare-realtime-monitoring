@@ -33,6 +33,7 @@ COPY services/vital_signs.py /app/services/vital_signs.py
 COPY deploy/soda/configuration.yml /app/configuration.yml
 COPY data_quality/soda/contracts /app/contracts
 COPY data_quality/soda/run_soda_with_lineage.py /app/run_soda_with_lineage.py
+COPY tools/__init__.py tools/process.py /app/tools/
 COPY data_quality/great_expectations/validate_processed_observations.py /app/validate_processed_observations.py
 COPY scripts/run_soda_contracts_container.sh /app/run_soda_contracts.sh
 

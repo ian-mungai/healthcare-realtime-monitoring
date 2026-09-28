@@ -1,9 +1,9 @@
 import json
-import subprocess
 import sys
 from pathlib import Path
 
 from scripts.infrastructure.sanitize_terraform_output import collect_string_values, sanitize
+from tools.process import run_command
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -20,9 +20,7 @@ def test_plan_summary_lists_actions_without_values(tmp_path: Path) -> None:
     plan_path = tmp_path / "plan.json"
     plan_path.write_text(json.dumps(plan), encoding="utf-8")
 
-    result = subprocess.run(
-        [sys.executable, str(REPO_ROOT / "scripts/infrastructure/summarize_terraform_plan.py"), str(plan_path)], check=True, capture_output=True, text=True
-    )
+    result = run_command(sys.executable, [str(REPO_ROOT / "scripts/infrastructure/summarize_terraform_plan.py"), str(plan_path)], check=True)
 
     assert "module.api.aws_lambda_function.webhook" in result.stdout
     assert "module.data.aws_s3_bucket.raw" in result.stdout

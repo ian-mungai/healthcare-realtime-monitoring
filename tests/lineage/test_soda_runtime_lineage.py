@@ -13,7 +13,7 @@ def test_soda_runtime_emits_complete(monkeypatch) -> None:
         return "00000000-0000-0000-0000-000000000001"
 
     monkeypatch.setattr(run_soda_with_lineage, "emit_s3_soda_lineage", emit_lineage)
-    monkeypatch.setattr(run_soda_with_lineage.subprocess, "run", lambda *args, **kwargs: Mock(returncode=0))
+    monkeypatch.setattr(run_soda_with_lineage, "run_command", lambda *args, **kwargs: Mock(returncode=0))
 
     assert run_soda_with_lineage.main() == 0
     assert lineage_events == [(RunState.START, None), (RunState.COMPLETE, "00000000-0000-0000-0000-000000000001")]
@@ -27,7 +27,7 @@ def test_soda_runtime_emits_fail(monkeypatch) -> None:
         return "00000000-0000-0000-0000-000000000001"
 
     monkeypatch.setattr(run_soda_with_lineage, "emit_s3_soda_lineage", emit_lineage)
-    monkeypatch.setattr(run_soda_with_lineage.subprocess, "run", lambda *args, **kwargs: Mock(returncode=1))
+    monkeypatch.setattr(run_soda_with_lineage, "run_command", lambda *args, **kwargs: Mock(returncode=1))
 
     assert run_soda_with_lineage.main() == 1
     assert lineage_events == [(RunState.START, None), (RunState.FAIL, "00000000-0000-0000-0000-000000000001")]
