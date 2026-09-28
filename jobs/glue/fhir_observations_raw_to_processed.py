@@ -7,7 +7,7 @@ from awsglue.job import Job
 from awsglue.utils import getResolvedOptions
 from openlineage.client.event_v2 import RunState
 from pyspark.context import SparkContext
-from pyspark.sql import DataFrame
+from pyspark.sql import Column, DataFrame, SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 
@@ -46,7 +46,7 @@ def create_empty_measurement_dataframe(df: DataFrame) -> DataFrame:
     )
 
 
-def build_legacy_flattened_observation_id(df: DataFrame):
+def build_legacy_flattened_observation_id(df: DataFrame) -> Column:
     source = F.col("source").cast("string") if column_exists(df, "source") else F.lit("")
 
     identity_fields = [
@@ -183,7 +183,7 @@ def write_quarantine(rejected_df: DataFrame, quarantine_path: str) -> None:
     output_df.write.mode("append").json(quarantine_path)
 
 
-def iceberg_table_exists(spark, database_name: str, table_name: str) -> bool:
+def iceberg_table_exists(spark: SparkSession, database_name: str, table_name: str) -> bool:
     result = spark.sql(f"SHOW TABLES IN glue_catalog.{database_name} LIKE '{table_name}'")
 
     return result.count() > 0
@@ -204,7 +204,7 @@ def deduplicate_latest_records(df: DataFrame) -> DataFrame:
     return df.withColumn("_deduplication_rank", F.row_number().over(latest_record)).filter(F.col("_deduplication_rank") == 1).drop("_deduplication_rank")
 
 
-def ensure_encounter_column(spark, database_name: str, table_name: str) -> None:
+def ensure_encounter_column(spark: SparkSession, database_name: str, table_name: str) -> None:
     target_table = f"glue_catalog.{database_name}.{table_name}"
     columns = spark.sql(f"DESCRIBE TABLE {target_table}")
 
@@ -212,7 +212,7 @@ def ensure_encounter_column(spark, database_name: str, table_name: str) -> None:
         spark.sql(f"ALTER TABLE {target_table} ADD COLUMN encounter_id string")
 
 
-def merge_processed_records(spark, valid_df: DataFrame, database_name: str, table_name: str) -> None:
+def merge_processed_records(spark: SparkSession, valid_df: DataFrame, database_name: str, table_name: str) -> None:
     if valid_df.limit(1).count() == 0:
         return
 
@@ -240,7 +240,7 @@ def merge_processed_records(spark, valid_df: DataFrame, database_name: str, tabl
     )
 
 
-def write_metrics(spark, metrics_path: str, run_started_at: str, candidate_count: int, valid_count: int, rejected_count: int) -> None:
+def write_metrics(spark: SparkSession, metrics_path: str, run_started_at: str, candidate_count: int, valid_count: int, rejected_count: int) -> None:
     metric = [
         {
             "run_started_at": run_started_at,
@@ -254,7 +254,7 @@ def write_metrics(spark, metrics_path: str, run_started_at: str, candidate_count
     spark.createDataFrame(metric).coalesce(1).write.mode("append").json(metrics_path)
 
 
-def main():
+def main() -> None:
     args = getResolvedOptions(
         sys.argv, ["JOB_NAME", "RAW_PATH", "QUARANTINE_PATH", "METRICS_PATH", "DATABASE_NAME", "TABLE_NAME", "DATA_BUCKET_NAME", "PROJECT_NAME"]
     )
