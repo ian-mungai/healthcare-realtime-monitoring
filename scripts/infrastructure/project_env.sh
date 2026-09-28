@@ -5,11 +5,13 @@ load_project_env() {
   [[ -f "$env_file" ]] || return 0
 
   local line key value
+  local line_number=0
   while IFS= read -r line || [[ -n "$line" ]]; do
+    line_number=$((line_number + 1))
     line="${line%$'\r'}"
     [[ -z "$line" || "$line" == \#* ]] && continue
     if [[ ! "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
-      echo "Invalid environment assignment in $env_file: $line" >&2
+      echo "Invalid environment assignment in $env_file at line $line_number" >&2
       return 2
     fi
 
