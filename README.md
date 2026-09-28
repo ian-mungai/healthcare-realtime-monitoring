@@ -57,6 +57,7 @@ cd healthcare-realtime-monitoring
 python3.12 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip
 .venv/bin/python -m pip install -r requirements_dev.txt
+git config core.hooksPath .githooks   # commit-message check: Conventional Commits, no AI attribution
 ```
 
 Create the one ignored local configuration file:

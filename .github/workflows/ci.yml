@@ -19,6 +19,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Commit messages
+        env:
+          BEFORE: ${{ github.event.before }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ -n "$BASE_REF" ]; then
+            python3 scripts/check_commit_message.py --range "origin/$BASE_REF..HEAD"
+          elif [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            python3 scripts/check_commit_message.py --range "$BEFORE..HEAD"
+          else
+            echo "No prior commit to compare; commit-message range check skipped."
+          fi
 
       - name: Setup Python
         uses: actions/setup-python@v6

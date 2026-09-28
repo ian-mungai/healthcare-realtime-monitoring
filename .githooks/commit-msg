@@ -1,0 +1,3 @@
+#!/bin/sh
+# Commit-message policy: Conventional Commits, no AI attribution.
+exec python3 "$(git rev-parse --show-toplevel)/scripts/check_commit_message.py" "$1"
