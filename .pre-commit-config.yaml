@@ -34,6 +34,12 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: documentation-review
+        name: All documentation reviewed for the staged revision
+        entry: .venv/bin/python -m tools.documentation_review check
+        language: system
+        pass_filenames: false
+        always_run: true
       - id: lint-settings
         name: Lint and type settings never loosened
         entry: .venv/bin/python -m tools.repo_checks lint-settings

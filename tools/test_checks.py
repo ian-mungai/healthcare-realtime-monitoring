@@ -9,6 +9,7 @@ tests. Warn-mode hooks must pass and report a warning. The CI log is the run's a
 
 from __future__ import annotations
 
+import json
 import shutil
 import sys
 import tempfile
@@ -184,6 +185,59 @@ def run_case(case: Case) -> tuple[bool, str]:
         return ok, output
 
 
+def review_all(repo: Path) -> None:
+    """Draft, complete and stage a documentation review record for the scratch repository's staged snapshot."""
+    python = str(ROOT / ".venv" / "bin" / "python")
+    run_command(
+        python,
+        ["-m", "tools.documentation_review", "prepare", "--reviewer", "check test", "--reviewed-at", "2026-09-28T00:00:00Z", "--refresh"],
+        cwd=repo,
+        check=True,
+    )
+    record_path = repo / ".documentation_review.json"
+    record = json.loads(record_path.read_text())
+    for item in record["documents"]:
+        item["outcome"] = "current"
+        item["notes"] = "Checked against the scratch repository."
+    record_path.write_text(json.dumps(record, indent=2) + "\n")
+    git(repo, "add", ".documentation_review.json")
+
+
+def run_documentation_review_cases() -> list[tuple[str, bool, str]]:
+    """Exercise the documentation-review hook: missing, pending, complete, stale and untracked evidence."""
+    results = []
+    python = str(ROOT / ".venv" / "bin" / "python")
+    with tempfile.TemporaryDirectory(prefix="repo_documentation_review_") as scratch:
+        repo = scratch_repo(Path(scratch), Case("review setup", "documentation-review", True, committed={"docs/guide.md": "Guide.\n"}))
+
+        def hook() -> tuple[int, str]:
+            result = run_command(str(PRE_COMMIT), ["run", "documentation-review"], cwd=repo, timeout=300)
+            return result.returncode, result.stdout + result.stderr
+
+        write(repo, {"docs/guide.md": "Guide, revised.\n"})
+        git(repo, "add", "docs/guide.md")
+        code, output = hook()
+        results.append(("no review record", code != 0 and "BLOCK" in output, output))
+        run_command(
+            python, ["-m", "tools.documentation_review", "prepare", "--reviewer", "check test", "--reviewed-at", "2026-09-28T00:00:00Z"], cwd=repo, check=True
+        )
+        git(repo, "add", ".documentation_review.json")
+        code, output = hook()
+        results.append(("pending outcomes", code != 0 and "review unresolved" in output, output))
+        review_all(repo)
+        code, output = hook()
+        results.append(("complete review", code == 0, output))
+        write(repo, {"docs/guide.md": "Guide, changed after review.\n"})
+        git(repo, "add", "docs/guide.md")
+        code, output = hook()
+        results.append(("document changed after review", code != 0 and "BLOCK" in output, output))
+        review_all(repo)
+        write(repo, {"docs/new.md": "Unstaged new document.\n"})
+        code, output = hook()
+        results.append(("untracked document", code != 0 and "untracked documentation" in output, output))
+    return results
+
+
 def run_range_case() -> tuple[bool, str]:
     """Exercise CI's range entry point on full stored messages, including credit after a scissors line."""
     with tempfile.TemporaryDirectory(prefix="repo_commit_range_") as scratch:
@@ -208,12 +262,15 @@ def run_hook_case() -> tuple[bool, str]:
         git(repo, "config", "core.hooksPath", ".githooks")
         write(repo, {"notes.md": "A clean change.\n"})
         git(repo, "add", "notes.md")
+        review_all(repo)
         good = run_command("git", ["commit", "-qm", "docs: add notes"], cwd=repo, timeout=300)
         write(repo, {"notes.md": "A second change.\n"})
         git(repo, "add", "notes.md")
+        review_all(repo)
         bad = run_command("git", ["commit", "-qm", f"docs: more notes\n\n{CREDIT}: Claude <noreply@anthropic.com>"], cwd=repo, timeout=300)
         write(repo, {".env": "REGION=us-west-2\n"})
         git(repo, "add", "-f", ".env")
+        review_all(repo)
         blocked = run_command("git", ["commit", "-qm", "chore: add env"], cwd=repo, timeout=300)
         ok = good.returncode == 0 and bad.returncode != 0 and blocked.returncode != 0
         return ok, f"clean commit exit={good.returncode}; attributed commit exit={bad.returncode}; .env commit exit={blocked.returncode}\n"
@@ -234,6 +291,12 @@ def main() -> int:
             failures += 1
             sys.stdout.write("".join(f"       {line}\n" for line in output.strip().splitlines()[-12:]))
     count = len(CASES)
+    for label, ok, output in run_documentation_review_cases():
+        count += 1
+        failures += not ok
+        sys.stdout.write(f"{'ok' if ok else 'WRONG':<6} {'documentation-review':<19} {label}\n")
+        if not ok:
+            sys.stdout.write("".join(f"       {line}\n" for line in output.strip().splitlines()[-8:]))
     for label, runner in (("commit-range", run_range_case), ("git hooks", run_hook_case)):
         ok, output = runner()
         count += 1
