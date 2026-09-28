@@ -36,4 +36,5 @@ variable "webhook_secret_id" {
 variable "tags" {
   description = "Tags applied to supported resources."
   type        = map(string)
+  default     = {}
 }

@@ -125,6 +125,7 @@ Great Expectations also emits an independent quality lineage edge from processed
 - API Gateway REST and WebSocket connection routes use AWS IAM authorization where configured.
 - The FHIR webhook uses a secret header; secret values must never be committed or included in evidence.
 - ECS tasks and Lambda functions use workload-specific IAM roles scoped to required services and paths.
+- Every resource that holds data carries a `DataClassification` tag: `Synthetic` for the pipeline data stores, `Internal` for the WebSocket connection table (it stores caller IAM principal ARNs), the lineage database and the Terraform state bucket. Project, environment and ownership tags come from the AWS provider's default tags.
 - ECR image tags used for deployments are generated from the source commit, recorded in private configuration after publishing and validated as immutable `sha-*` tags.
 
 Terraform state, credentials, webhook secrets, alert addresses, connection IDs and signed authorization headers are not portfolio evidence and must remain private.

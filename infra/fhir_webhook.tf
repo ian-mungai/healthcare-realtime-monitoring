@@ -11,8 +11,6 @@ module "fhir_webhook" {
 
   lambda_zip_path   = "${path.root}/../build/lambda/fhir_webhook.zip"
   webhook_secret_id = var.fhir_webhook_secret_id
-
-  tags = local.common_tags
 }
 
 output "fhir_webhook_url" {

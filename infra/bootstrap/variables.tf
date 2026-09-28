@@ -1,6 +1,10 @@
 variable "aws_region" {
   description = "AWS region containing the Terraform state bucket."
   type        = string
+  validation {
+    condition     = can(regex("^[a-z]+(-[a-z]+)+-[0-9]+$", var.aws_region))
+    error_message = "aws_region must be an AWS region name such as us-west-2."
+  }
 }
 
 variable "state_bucket_name" {

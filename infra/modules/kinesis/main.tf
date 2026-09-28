@@ -9,5 +9,5 @@ resource "aws_kinesis_stream" "vitals_events" {
     stream_mode = var.stream_mode
   }
 
-  tags = var.tags
+  tags = merge(var.tags, { DataClassification = var.data_classification })
 }

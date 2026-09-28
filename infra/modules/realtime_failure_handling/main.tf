@@ -3,7 +3,7 @@ resource "aws_sqs_queue" "vitals_replay_dlq" {
   message_retention_seconds = 1209600
   sqs_managed_sse_enabled   = true
 
-  tags = var.tags
+  tags = merge(var.tags, { DataClassification = var.data_classification })
 }
 
 resource "aws_sqs_queue" "vitals_failures" {
@@ -18,7 +18,7 @@ resource "aws_sqs_queue" "vitals_failures" {
     maxReceiveCount     = 5
   })
 
-  tags = var.tags
+  tags = merge(var.tags, { DataClassification = var.data_classification })
 }
 
 resource "aws_sqs_queue_redrive_allow_policy" "vitals_replay_dlq" {

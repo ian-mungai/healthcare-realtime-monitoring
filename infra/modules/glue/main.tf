@@ -107,6 +107,8 @@ resource "aws_cloudwatch_log_metric_filter" "openlineage_emission_failures" {
 
 resource "aws_glue_catalog_database" "healthcare_realtime" {
   name = var.database_name
+
+  tags = merge(var.tags, { DataClassification = var.data_classification })
 }
 
 resource "aws_glue_catalog_table" "quarantined_fhir_observations" {

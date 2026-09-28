@@ -16,6 +16,7 @@ variable "environment" {
 variable "tags" {
   description = "Tags applied to supported observability resources."
   type        = map(string)
+  default     = {}
 }
 
 variable "alert_email" {

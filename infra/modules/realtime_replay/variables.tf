@@ -31,4 +31,5 @@ variable "lambda_zip_path" {
 variable "tags" {
   description = "Tags applied to replay resources."
   type        = map(string)
+  default     = {}
 }

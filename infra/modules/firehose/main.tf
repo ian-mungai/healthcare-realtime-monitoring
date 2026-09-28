@@ -91,5 +91,5 @@ resource "aws_kinesis_firehose_delivery_stream" "vitals" {
     }
   }
 
-  tags = var.tags
+  tags = merge(var.tags, { DataClassification = var.data_classification })
 }

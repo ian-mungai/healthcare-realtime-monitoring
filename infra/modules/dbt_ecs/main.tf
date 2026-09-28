@@ -46,10 +46,14 @@ resource "aws_cloudwatch_log_metric_filter" "openlineage_emission_failures" {
 
 resource "aws_glue_catalog_database" "dbt" {
   name = var.dbt_database_name
+
+  tags = merge(var.tags, { DataClassification = var.data_classification })
 }
 
 resource "aws_glue_catalog_database" "ml" {
   name = var.ml_database_name
+
+  tags = merge(var.tags, { DataClassification = var.data_classification })
 }
 
 resource "aws_glue_catalog_table" "predictions" {

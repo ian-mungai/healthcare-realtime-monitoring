@@ -1,36 +1,40 @@
 module "kinesis" {
   source = "./modules/kinesis"
 
+  data_classification = "Synthetic"
+
   stream_name            = var.kinesis_stream_name
   retention_period_hours = 24
   stream_mode            = "ON_DEMAND"
-
-  tags = local.common_tags
 }
 
 module "load_test_kinesis" {
   source = "./modules/kinesis"
 
+  data_classification = "Synthetic"
+
   stream_name            = var.load_test_kinesis_stream_name
   retention_period_hours = 24
   stream_mode            = "ON_DEMAND"
 
-  tags = merge(local.common_tags, {
-    Purpose = "load-testing"
-  })
+  tags = { Purpose = "load-testing" }
 }
 
 module "raw_s3" {
   source = "./modules/raw_s3"
 
+  data_classification = "Synthetic"
+
   bucket_name   = var.data_bucket_name
   force_destroy = var.allow_destructive_teardown
 
-  tags = merge(local.common_tags, { Layer = "raw" })
+  tags = { Layer = "raw" }
 }
 
 module "openlineage_collector" {
   source = "./modules/openlineage_collector"
+
+  data_classification = "Internal"
 
   depends_on = [aws_api_gateway_account.cloudwatch]
 
@@ -45,8 +49,6 @@ module "openlineage_collector" {
   final_snapshot_identifier  = var.openlineage_final_snapshot_identifier
   stage_name                 = var.api_stage_name
   alarm_topic_arn            = module.realtime_observability.alert_topic_arn
-
-  tags = local.common_tags
 }
 
 locals {
@@ -62,15 +64,17 @@ locals {
 module "firehose" {
   source = "./modules/firehose"
 
+  data_classification = "Synthetic"
+
   delivery_stream_name = var.firehose_delivery_stream_name
   kinesis_stream_arn   = module.kinesis.stream_arn
   s3_bucket_arn        = module.raw_s3.bucket_arn
-
-  tags = local.common_tags
 }
 
 module "glue" {
   source = "./modules/glue"
+
+  data_classification = "Synthetic"
 
   bucket_name                      = module.raw_s3.bucket_name
   project_name                     = var.project_name
@@ -84,7 +88,6 @@ module "glue" {
   openlineage_collector_url        = local.effective_openlineage_collector_url
   openlineage_collector_invoke_arn = local.openlineage_collector_invoke_arn
 
-  tags = local.common_tags
 
   depends_on = [
     module.raw_s3,
@@ -95,8 +98,6 @@ module "network" {
   source = "./modules/network"
 
   name = "healthcare_realtime_mwaa"
-
-  tags = local.common_tags
 }
 
 module "mwaa" {
@@ -144,12 +145,12 @@ module "observability" {
   dbt_task_definition_family  = module.dbt_ecs.task_definition_family
   soda_task_definition_family = module.soda_ecs.task_definition_family
   alarm_topic_arn             = module.realtime_observability.alert_topic_arn
-
-  tags = local.common_tags
 }
 
 module "dbt_ecs" {
   source = "./modules/dbt_ecs"
+
+  data_classification = "Synthetic"
 
   vpc_id                           = module.network.vpc_id
   private_subnet_ids               = module.network.private_subnet_ids
@@ -187,8 +188,6 @@ module "dbt_ecs" {
     DBT_ML_PREDICTIONS_SERVING_TABLE   = var.dbt_ml_predictions_serving_table_name
     DBT_ML_PREDICTIONS_LATEST_TABLE    = var.dbt_ml_predictions_latest_table_name
   }
-
-  tags = local.common_tags
 }
 
 module "soda_ecs" {
@@ -226,8 +225,6 @@ module "soda_ecs" {
     DBT_ML_PREDICTIONS_SERVING_TABLE = var.dbt_ml_predictions_serving_table_name
     DBT_ML_PREDICTIONS_LATEST_TABLE  = var.dbt_ml_predictions_latest_table_name
   }
-
-  tags = local.common_tags
 }
 
 module "vitals_simulator_ecs" {
@@ -246,20 +243,19 @@ module "vitals_simulator_ecs" {
   image_tag               = var.vitals_simulator_image_tag
   force_delete_repository = var.allow_destructive_teardown
   alarm_topic_arn         = module.realtime_observability.alert_topic_arn
-
-  tags = local.common_tags
 }
 
 module "realtime_vitals" {
   source = "./modules/realtime_vitals"
+
+  data_classification             = "Synthetic"
+  connections_data_classification = "Internal"
 
   deletion_protection_enabled       = !var.allow_destructive_teardown
   latest_vitals_table_name          = var.latest_vitals_table_name
   processed_observations_table_name = var.processed_observations_state_table_name
   load_test_results_table_name      = var.load_test_results_table_name
   websocket_connections_table_name  = var.websocket_connections_table_name
-
-  tags = local.common_tags
 }
 
 module "realtime_processor" {
@@ -281,8 +277,6 @@ module "realtime_processor" {
   websocket_api_id         = module.realtime_websocket.api_id
   websocket_stage_name     = var.api_stage_name
   failure_queue_arn        = module.realtime_failure_handling.vitals_failures_queue_arn
-
-  tags = local.common_tags
 }
 
 module "realtime_websocket" {
@@ -297,8 +291,6 @@ module "realtime_websocket" {
   lambda_zip_path        = "${path.root}/../build/lambda/websocket_handler.zip"
   patient_access_policy  = jsonencode(var.realtime_patient_access_policy)
   stage_name             = var.api_stage_name
-
-  tags = local.common_tags
 }
 
 module "vitals_api" {
@@ -314,8 +306,6 @@ module "vitals_api" {
   lambda_zip_path       = "${path.root}/../build/lambda/vitals_api.zip"
   patient_access_policy = jsonencode(var.realtime_patient_access_policy)
   stage_name            = var.api_stage_name
-
-  tags = local.common_tags
 }
 
 module "realtime_observability" {
@@ -327,16 +317,14 @@ module "realtime_observability" {
   environment          = var.deployment_environment
   alert_email          = var.realtime_alert_email
   replay_dlq_name      = module.realtime_failure_handling.vitals_replay_dlq_name
-
-  tags = local.common_tags
 }
 
 module "realtime_failure_handling" {
   source = "./modules/realtime_failure_handling"
 
-  environment = var.deployment_environment
+  data_classification = "Synthetic"
 
-  tags = local.common_tags
+  environment = var.deployment_environment
 }
 
 module "realtime_replay" {
@@ -349,18 +337,16 @@ module "realtime_replay" {
   replay_dlq_arn     = module.realtime_failure_handling.vitals_replay_dlq_arn
   replay_dlq_url     = module.realtime_failure_handling.vitals_replay_dlq_url
   lambda_zip_path    = "${path.root}/../build/lambda/vitals_replay.zip"
-
-  tags = local.common_tags
 }
 
 module "hapi_ecs" {
   source = "./modules/hapi_ecs"
+
+  data_classification = "Synthetic"
 
   vpc_id              = module.network.vpc_id
   public_subnet_ids   = module.network.public_subnet_ids
   private_subnet_ids  = module.network.private_subnet_ids
   deletion_protection = !var.allow_destructive_teardown
   skip_final_snapshot = var.hapi_skip_final_snapshot
-
-  tags = local.common_tags
 }
