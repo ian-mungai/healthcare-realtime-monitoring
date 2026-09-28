@@ -12,10 +12,4 @@ resource "aws_cloudwatch_metric_alarm" "openlineage_emission_failures" {
   treat_missing_data = "notBreaching"
   alarm_actions      = [module.realtime_observability.alert_topic_arn]
   ok_actions         = [module.realtime_observability.alert_topic_arn]
-
-  tags = {
-    Project     = "healthcare_realtime_monitoring"
-    Environment = "development"
-    ManagedBy   = "terraform"
-  }
 }

@@ -13,7 +13,7 @@ resource "aws_dynamodb_table" "latest_vitals" {
     enabled = true
   }
 
-  tags = var.tags
+  tags = merge(var.tags, { DataClassification = var.data_classification })
 }
 
 resource "aws_dynamodb_table" "processed_observations" {
@@ -36,7 +36,7 @@ resource "aws_dynamodb_table" "processed_observations" {
     enabled = true
   }
 
-  tags = merge(var.tags, { Purpose = "realtime-idempotency" })
+  tags = merge(var.tags, { Purpose = "realtime-idempotency", DataClassification = var.data_classification })
 }
 
 resource "aws_dynamodb_table" "load_test_results" {
@@ -59,7 +59,7 @@ resource "aws_dynamodb_table" "load_test_results" {
     enabled = true
   }
 
-  tags = merge(var.tags, { Purpose = "load-testing" })
+  tags = merge(var.tags, { Purpose = "load-testing", DataClassification = var.data_classification })
 }
 
 resource "aws_dynamodb_table" "websocket_connections" {
@@ -88,5 +88,5 @@ resource "aws_dynamodb_table" "websocket_connections" {
     }
   }
 
-  tags = var.tags
+  tags = merge(var.tags, { DataClassification = var.connections_data_classification })
 }

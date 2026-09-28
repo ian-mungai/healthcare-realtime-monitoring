@@ -175,7 +175,7 @@ resource "aws_db_instance" "marquez" {
   skip_final_snapshot       = var.skip_final_snapshot
   final_snapshot_identifier = var.skip_final_snapshot ? null : var.final_snapshot_identifier
 
-  tags = var.tags
+  tags = merge(var.tags, { DataClassification = var.data_classification })
 }
 
 data "aws_iam_policy_document" "ecs_tasks_assume_role" {

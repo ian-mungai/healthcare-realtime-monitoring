@@ -2,7 +2,7 @@ resource "aws_s3_bucket" "raw" {
   bucket        = var.bucket_name
   force_destroy = var.force_destroy
 
-  tags = var.tags
+  tags = merge(var.tags, { DataClassification = var.data_classification })
 }
 
 resource "aws_s3_bucket_public_access_block" "raw" {

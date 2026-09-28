@@ -3,12 +3,6 @@ resource "aws_iam_openid_connect_provider" "github" {
 
   url            = "https://token.actions.githubusercontent.com"
   client_id_list = ["sts.amazonaws.com"]
-
-  tags = {
-    Project     = "healthcare_realtime_monitoring"
-    Environment = var.github_deployment_environment
-    ManagedBy   = "terraform"
-  }
 }
 
 locals {
@@ -47,12 +41,6 @@ resource "aws_iam_role" "github_deployment" {
   name                 = "healthcare_realtime_github_deployment"
   assume_role_policy   = data.aws_iam_policy_document.github_deployment_assume_role[0].json
   max_session_duration = 3600
-
-  tags = {
-    Project     = "healthcare_realtime_monitoring"
-    Environment = var.github_deployment_environment
-    ManagedBy   = "terraform"
-  }
 }
 
 resource "aws_iam_role_policy_attachment" "github_deployment" {

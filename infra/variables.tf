@@ -1,6 +1,10 @@
 variable "aws_region" {
   description = "AWS region"
   type        = string
+  validation {
+    condition     = can(regex("^[a-z]+(-[a-z]+)+-[0-9]+$", var.aws_region))
+    error_message = "aws_region must be an AWS region name such as us-west-2."
+  }
 }
 
 variable "project_name" {
@@ -11,6 +15,10 @@ variable "project_name" {
 variable "deployment_environment" {
   description = "Deployment environment name used by stages, tags, queues, dashboards, and alarms."
   type        = string
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{0,31}$", var.deployment_environment))
+    error_message = "deployment_environment must be a lowercase name of up to 32 letters, digits or dashes."
+  }
 }
 
 variable "kinesis_stream_name" {

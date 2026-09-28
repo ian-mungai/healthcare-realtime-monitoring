@@ -7,9 +7,8 @@ resource "aws_s3_bucket" "terraform_state" {
   }
 
   tags = {
-    Project   = var.project_name
-    Purpose   = "terraform-state"
-    ManagedBy = "terraform-bootstrap"
+    Purpose            = "terraform-state"
+    DataClassification = "Internal"
   }
 }
 

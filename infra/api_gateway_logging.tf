@@ -19,12 +19,6 @@ data "aws_iam_policy_document" "api_gateway_cloudwatch_assume_role" {
 resource "aws_iam_role" "api_gateway_cloudwatch" {
   name               = "healthcare_realtime_api_gateway_cloudwatch_role"
   assume_role_policy = data.aws_iam_policy_document.api_gateway_cloudwatch_assume_role.json
-
-  tags = {
-    Project     = "healthcare_realtime_monitoring"
-    Environment = "development"
-    ManagedBy   = "terraform"
-  }
 }
 
 resource "aws_iam_role_policy_attachment" "api_gateway_cloudwatch" {

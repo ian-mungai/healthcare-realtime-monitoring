@@ -125,7 +125,7 @@ resource "aws_db_instance" "hapi" {
   deletion_protection = var.deletion_protection
   skip_final_snapshot = var.skip_final_snapshot
 
-  tags = var.tags
+  tags = merge(var.tags, { DataClassification = var.data_classification })
 }
 
 resource "aws_lb" "hapi" {
