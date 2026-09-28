@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import sys
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
@@ -127,18 +128,18 @@ def main() -> None:
     if arguments.command == "export":
         s3_client = boto3.client("s3", region_name=arguments.region)
         count = export_records(iter_quarantine_records(s3_client, arguments.bucket, arguments.prefix), arguments.output, arguments.rejection_reason)
-        print(f"Exported {count} quarantine record(s) to {arguments.output}")
+        sys.stdout.write(f"Exported {count} quarantine record(s) to {arguments.output}\n")
         return
 
     records = load_json_lines(arguments.input)
     payloads = [build_replay_payload(record) for record in records]
     if not arguments.confirm_replay:
-        print(f"Validated {len(payloads)} corrected record(s); add --confirm-replay to publish")
+        sys.stdout.write(f"Validated {len(payloads)} corrected record(s); add --confirm-replay to publish\n")
         return
 
     kinesis_client = boto3.client("kinesis", region_name=arguments.region)
     count = publish_records(kinesis_client, arguments.stream_name, payloads)
-    print(f"Published {count} corrected quarantine record(s) to {arguments.stream_name}")
+    sys.stdout.write(f"Published {count} corrected quarantine record(s) to {arguments.stream_name}\n")
 
 
 if __name__ == "__main__":

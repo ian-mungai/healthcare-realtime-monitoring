@@ -1,6 +1,7 @@
 import argparse
 import json
 import shlex
+import sys
 from pathlib import Path
 
 import hcl2
@@ -42,7 +43,7 @@ def main() -> None:
         parser.error(f"missing Terraform variables: {', '.join(missing)}")
 
     for environment_name, variable_name in VARIABLES.items():
-        print(f"export {environment_name}={shlex.quote(normalize(values[variable_name]))}")
+        sys.stdout.write(f"export {environment_name}={shlex.quote(normalize(values[variable_name]))}\n")
 
 
 if __name__ == "__main__":

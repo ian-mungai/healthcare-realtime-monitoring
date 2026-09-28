@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -165,24 +166,24 @@ def main() -> None:
     changes = plan_changes(iam, documents)
 
     for change in changes:
-        print(f"{change.action.upper():9} {change.name}")
+        sys.stdout.write(f"{change.action.upper():9} {change.name}\n")
 
     actionable = [change for change in changes if change.action != "no-change"]
-    print(f"Summary: {len(actionable)} change(s), {len(changes) - len(actionable)} unchanged.")
+    sys.stdout.write(f"Summary: {len(actionable)} change(s), {len(changes) - len(actionable)} unchanged.\n")
 
     if arguments.action == "apply":
         if os.environ.get("CONFIRM_IAM_POLICIES") != CONFIRMATION:
             parser.error(f"set CONFIRM_IAM_POLICIES={CONFIRMATION} before applying")
         results = apply_changes(iam, documents, changes)
-        print("Apply results:")
+        sys.stdout.write("Apply results:\n")
         for result in results:
-            print(f"{result.status.upper():9} {result.action.upper():9} {result.name}: {result.detail}")
+            sys.stdout.write(f"{result.status.upper():9} {result.action.upper():9} {result.name}: {result.detail}\n")
         failures = [result for result in results if result.status == "failed"]
         if failures:
             raise SystemExit(f"{len(failures)} customer-managed policy update(s) failed.")
         applied = sum(result.status == "applied" for result in results)
         unchanged = sum(result.status == "unchanged" for result in results)
-        print(f"Customer-managed policy templates applied: {applied} changed, {unchanged} unchanged.")
+        sys.stdout.write(f"Customer-managed policy templates applied: {applied} changed, {unchanged} unchanged.\n")
 
 
 if __name__ == "__main__":

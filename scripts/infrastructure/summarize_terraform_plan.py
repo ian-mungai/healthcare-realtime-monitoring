@@ -3,6 +3,7 @@
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 
 
@@ -56,7 +57,7 @@ def main() -> None:
     parser.add_argument("plan_json", type=Path)
     args = parser.parse_args()
     plan = json.loads(args.plan_json.read_text(encoding="utf-8"))
-    print(summarize(plan))
+    sys.stdout.write(f"{summarize(plan)}\n")
 
 
 if __name__ == "__main__":

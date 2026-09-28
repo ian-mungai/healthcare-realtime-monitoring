@@ -1,4 +1,5 @@
 import json
+import sys
 from pathlib import Path
 
 from scripts.synthea_loader.src.load_fhir import find_patient_bundles, load_bundle
@@ -29,8 +30,8 @@ def main() -> None:
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with OUTPUT_PATH.open("w", encoding="utf-8") as file:
         json.dump(output, file, indent=2)
-    print(f"Exported {len(output)} blood pressure readings")
-    print(f"Output: {OUTPUT_PATH}")
+    sys.stdout.write(f"Exported {len(output)} blood pressure readings\n")
+    sys.stdout.write(f"Output: {OUTPUT_PATH}\n")
 
 
 if __name__ == "__main__":

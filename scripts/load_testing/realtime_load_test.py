@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import statistics
+import sys
 import threading
 import time
 from dataclasses import dataclass
@@ -217,15 +218,15 @@ def cleanup_results(table: Any, observation_ids: set[str]) -> None:
 
 
 def report_latencies(label: str, latencies_ms: list[float]) -> None:
-    print(f"{label}:")
-    print(f"  observed: {len(latencies_ms)}")
+    sys.stdout.write(f"{label}:\n")
+    sys.stdout.write(f"  observed: {len(latencies_ms)}\n")
 
     if latencies_ms:
-        print(f"  mean: {statistics.mean(latencies_ms):.2f} ms")
-        print(f"  p50:  {percentile(latencies_ms, 0.50):.2f} ms")
-        print(f"  p95:  {percentile(latencies_ms, 0.95):.2f} ms")
-        print(f"  p99:  {percentile(latencies_ms, 0.99):.2f} ms")
-        print(f"  max:  {max(latencies_ms):.2f} ms")
+        sys.stdout.write(f"  mean: {statistics.mean(latencies_ms):.2f} ms\n")
+        sys.stdout.write(f"  p50:  {percentile(latencies_ms, 0.50):.2f} ms\n")
+        sys.stdout.write(f"  p95:  {percentile(latencies_ms, 0.95):.2f} ms\n")
+        sys.stdout.write(f"  p99:  {percentile(latencies_ms, 0.99):.2f} ms\n")
+        sys.stdout.write(f"  max:  {max(latencies_ms):.2f} ms\n")
 
 
 def run_load_test(
@@ -265,15 +266,15 @@ def run_load_test(
     sequence_number = 0
     run_id = uuid4().hex
 
-    print("Healthcare Realtime Load Test")
-    print(f"Run ID: {run_id}")
-    print(f"Isolated stream: {stream_name}")
-    print(f"Isolated results table: {results_table_name or 'not verified'}")
-    print(f"Patients: {patients}")
-    print(f"Events/second/patient: {events_per_second}")
-    print(f"Duration: {duration_seconds} seconds")
-    print(f"Expected events: approximately {expected_event_count}")
-    print()
+    sys.stdout.write("Healthcare Realtime Load Test\n")
+    sys.stdout.write(f"Run ID: {run_id}\n")
+    sys.stdout.write(f"Isolated stream: {stream_name}\n")
+    sys.stdout.write(f"Isolated results table: {results_table_name or 'not verified'}\n")
+    sys.stdout.write(f"Patients: {patients}\n")
+    sys.stdout.write(f"Events/second/patient: {events_per_second}\n")
+    sys.stdout.write(f"Duration: {duration_seconds} seconds\n")
+    sys.stdout.write(f"Expected events: approximately {expected_event_count}\n")
+    sys.stdout.write("\n")
 
     if websocket_observer:
         websocket_observer.start()
@@ -301,7 +302,7 @@ def run_load_test(
                     expected_observations[observation_id] = parse_timestamp(payloads[observation_id]["event_timestamp"])
             except Exception as error:
                 failed_writes += len(records)
-                print(f"Batch {sequence_number} failed: {error}")
+                sys.stdout.write(f"Batch {sequence_number} failed: {error}\n")
 
             sequence_number += 1
             next_batch_time = started + (sequence_number * interval_seconds)
@@ -311,17 +312,17 @@ def run_load_test(
         achieved_rate = successful_writes / elapsed_seconds if elapsed_seconds else 0
         success_rate = successful_writes / total_attempted * 100 if total_attempted else 0
 
-        print()
-        print("=== LOAD TEST RESULTS ===")
-        print(f"Attempted writes: {total_attempted}")
-        print(f"Successful writes: {successful_writes}")
-        print(f"Failed writes: {failed_writes}")
-        print(f"Success rate: {success_rate:.2f}%")
-        print(f"Elapsed seconds: {elapsed_seconds:.2f}")
-        print(f"Achieved total event rate: {achieved_rate:.2f} events/second")
+        sys.stdout.write("\n")
+        sys.stdout.write("=== LOAD TEST RESULTS ===\n")
+        sys.stdout.write(f"Attempted writes: {total_attempted}\n")
+        sys.stdout.write(f"Successful writes: {successful_writes}\n")
+        sys.stdout.write(f"Failed writes: {failed_writes}\n")
+        sys.stdout.write(f"Success rate: {success_rate:.2f}%\n")
+        sys.stdout.write(f"Elapsed seconds: {elapsed_seconds:.2f}\n")
+        sys.stdout.write(f"Achieved total event rate: {achieved_rate:.2f} events/second\n")
 
         if batch_latencies_ms:
-            print()
+            sys.stdout.write("\n")
             report_latencies("Kinesis PutRecords batch request latency", batch_latencies_ms)
 
         expected_ids = set(expected_observations)
@@ -335,9 +336,9 @@ def run_load_test(
                 (parse_timestamp(item["processed_at"]) - expected_observations[observation_id]).total_seconds() * 1000
                 for observation_id, item in results.items()
             ]
-            print()
+            sys.stdout.write("\n")
             report_latencies("Kinesis-to-DynamoDB processing latency", processing_latencies)
-            print(f"  missing: {len(missing_results)}")
+            sys.stdout.write(f"  missing: {len(missing_results)}\n")
 
         if websocket_observer:
             received = websocket_observer.wait_for(expected_ids, observation_timeout_seconds)
@@ -345,9 +346,9 @@ def run_load_test(
             delivery_latencies = [
                 (received_at - expected_observations[observation_id]).total_seconds() * 1000 for observation_id, received_at in received.items()
             ]
-            print()
+            sys.stdout.write("\n")
             report_latencies("Kinesis-to-WebSocket delivery latency", delivery_latencies)
-            print(f"  missing: {len(missing_websocket)}")
+            sys.stdout.write(f"  missing: {len(missing_websocket)}\n")
 
         if failed_writes or missing_results or missing_websocket:
             raise RuntimeError(

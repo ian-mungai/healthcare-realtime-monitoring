@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -198,7 +199,7 @@ def main() -> None:
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     definition = build_workflow_definition()
     OUTPUT_PATH.write_text(yaml.safe_dump(definition, sort_keys=False), encoding="utf-8")
-    print(f"Generated {OUTPUT_PATH}")
+    sys.stdout.write(f"Generated {OUTPUT_PATH}\n")
 
 
 if __name__ == "__main__":

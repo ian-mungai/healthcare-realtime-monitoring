@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -213,7 +214,7 @@ def main() -> None:
         parser.error(str(error))
 
     action = "Verified" if arguments.check else "Rendered"
-    print(f"{action} ignored Terraform configuration from .env.")
+    sys.stdout.write(f"{action} ignored Terraform configuration from .env.\n")
 
 
 if __name__ == "__main__":
