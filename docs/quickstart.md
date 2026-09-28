@@ -126,7 +126,7 @@ Run direct Terraform commands from the repository root with `-chdir=infra`; runn
 When a plan reports only a computed MWAA workflow-version output change, reconcile state with a reviewed refresh-only plan:
 
 ```zsh
-terraform -chdir=infra plan -refresh-only -input=false -out=tfrefresh
+terraform -chdir=infra plan -refresh-only -input=false -var-file=deployment.auto.tfvars.json -out=tfrefresh
 terraform -chdir=infra show -no-color tfrefresh
 terraform -chdir=infra apply -input=false tfrefresh
 ```
@@ -147,7 +147,7 @@ export FHIR_BASE_URL="$(terraform -chdir=infra output -raw hapi_fhir_base_url)"
 
 ./scripts/infrastructure/bootstrap.sh application-plan 2>&1 | tee /tmp/healthcare-application-plan.log
 CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap ./scripts/infrastructure/bootstrap.sh application-apply 2>&1 | tee /tmp/healthcare-application-apply.log
-terraform -chdir=infra plan 2>&1 | tee /tmp/healthcare-convergence-plan.log
+terraform -chdir=infra plan -var-file=deployment.auto.tfvars.json 2>&1 | tee /tmp/healthcare-convergence-plan.log
 
 export FHIR_WEBHOOK_URL="$(terraform -chdir=infra output -raw fhir_webhook_url)"
 FHIR_WEBHOOK_SECRET="$(

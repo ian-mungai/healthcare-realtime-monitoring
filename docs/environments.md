@@ -33,6 +33,7 @@ FHIR_RESOURCE_MAP_FILE=scripts/synthea_loader/state/production/fhir_resource_map
 
 - `render_project_config.sh` renders the ignored Terraform inputs from the selected file only.
 - `infra/bootstrap` keeps each environment's local state in its own Terraform workspace: `default` for development and `production` for production.
+- Every plan names the rendered variable file explicitly with `-var-file=deployment.auto.tfvars.json`, in the scripts, the Deploy workflow and the documented commands.
 - Saved plans carry the environment in their names, for example `tfplan-bootstrap-application-production`, so a plan from one environment is never applied in another.
 - Before any main-stack plan, apply, teardown or demo command, the scripts stop if `infra/` is initialized for a different state bucket than the selected file names. Run `./scripts/infrastructure/bootstrap.sh main-init` after switching environments.
 - `check_prerequisites.sh` fails when the signed-in AWS account differs from `AWS_ACCOUNT_ID` in the selected file.

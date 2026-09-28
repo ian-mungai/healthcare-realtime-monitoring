@@ -18,7 +18,7 @@ Confirm the deployment is converged and that the simulator is not already runnin
 
 ```zsh
 ./scripts/infrastructure/render_project_config.sh --check
-terraform -chdir=infra plan -out=tfplan-demo-check
+terraform -chdir=infra plan -var-file=deployment.auto.tfvars.json -out=tfplan-demo-check
 terraform -chdir=infra show -no-color tfplan-demo-check
 ./scripts/demo/status_vitals_demo.sh
 ```

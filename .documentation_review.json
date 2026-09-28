@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "reviewer": "AI review agent",
-  "reviewed_at_utc": "2026-09-28T23:18:46Z",
-  "snapshot_sha256": "caf46f850fc9d3ab17058e1f188cb5a9c2b15581e8f0f37b28a70ec2a8ba3f8f",
+  "reviewed_at_utc": "2026-09-28T23:19:46Z",
+  "snapshot_sha256": "9de04866d788c61ddeabdb5c5f9f3715730457eb7926780ecc94ac245d0ab794",
   "extra_documents": [],
   "documents": [
     {
@@ -20,7 +20,7 @@
     {
       "path": "README.md",
       "blob": "54f62badf3d042394632c30ba262e0c173045ab2",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "E2E Verification now says the load test saves reports under artifacts/e2e/load_test/."
     },
     {
@@ -49,9 +49,9 @@
     },
     {
       "path": "docs/bootstrap.md",
-      "blob": "802ac462cce673dbd706f58b8b6d59eed5498fe5",
-      "outcome": "current",
-      "notes": "Stage names and checkpoints match scripts/infrastructure/bootstrap.sh."
+      "blob": "948b86e08bdc860c106f5e555a08df5bf07335b8",
+      "outcome": "updated",
+      "notes": "Recovery plan command names the variable file."
     },
     {
       "path": "docs/building-healthcare-realtime-monitoring.md",
@@ -67,21 +67,21 @@
     },
     {
       "path": "docs/demo-guide.md",
-      "blob": "275564b36f822acabaaae08c8c9df2628a6684a9",
-      "outcome": "current",
-      "notes": "Commands and dashboard checks match scripts/demo and Terraform outputs."
+      "blob": "ce55fd032e436c7f05ef9cf151054374bb695d70",
+      "outcome": "updated",
+      "notes": "Convergence plan command names the variable file."
     },
     {
       "path": "docs/deployment.md",
-      "blob": "7b1a5d7c3ba9073b18079354850c04a5bef68b1e",
-      "outcome": "current",
-      "notes": "Protected GitHub environment section now asks for one environment per AWS account."
+      "blob": "952b671274d5c07c840a6fcc5db5cb94d84f3263",
+      "outcome": "updated",
+      "notes": "OIDC and collector plan commands name the variable file."
     },
     {
       "path": "docs/environments.md",
-      "blob": "923449b29d12d6286fe0b1b6fd1dc2051da0adcf",
-      "outcome": "current",
-      "notes": "New guide: development and production in separate AWS accounts, PROJECT_ENV_FILE selection, per-environment bootstrap workspace, plan names, backend guard, account check and teardown confirmation; matches the scripts."
+      "blob": "f48fd70d67a30d03df5dd0056e2f536c5d7ec544",
+      "outcome": "updated",
+      "notes": "Safeguards list now includes the explicit -var-file on every plan."
     },
     {
       "path": "docs/external-prerequisites.md",
@@ -97,9 +97,9 @@
     },
     {
       "path": "docs/load-testing.md",
-      "blob": "77866cfaae1435e858ad53a2aef851fe67c25535",
+      "blob": "4a1811a948f35231e905470f0966f73b8061148b",
       "outcome": "updated",
-      "notes": "New E2E artifact section matches the report writer and --artifact-dir flag."
+      "notes": "Lane deployment plan names the variable file."
     },
     {
       "path": "docs/model-predictions.md",
@@ -115,9 +115,9 @@
     },
     {
       "path": "docs/operations-runbook.md",
-      "blob": "ef6a14e832d7faca2e9ef9f880e1e1a7528e2959",
-      "outcome": "current",
-      "notes": "CI gate paragraph names the Repository Checks job; other procedures match the scripts."
+      "blob": "eedcb80c957106e84e7f1c77f91a18e96ebf0050",
+      "outcome": "updated",
+      "notes": "Deployment gate plan names the variable file."
     },
     {
       "path": "docs/power-bi-connection.md",
@@ -133,9 +133,9 @@
     },
     {
       "path": "docs/quickstart.md",
-      "blob": "e1e228b22baa7bd6ea61d0bb8ab1b5a144cde6dd",
-      "outcome": "current",
-      "notes": "States that the steps create development from .env and points production to the environments guide."
+      "blob": "f3eb48519e9b9974c50fc168143271e383660635",
+      "outcome": "updated",
+      "notes": "Refresh-only and convergence plans name the variable file."
     },
     {
       "path": "docs/release-checklist.md",
