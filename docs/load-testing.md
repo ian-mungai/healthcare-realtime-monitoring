@@ -27,11 +27,12 @@ Retrieve the deployed names instead of copying environment-specific identifiers 
 
 ```zsh
 export VITALS_WEBSOCKET_URL="$(terraform -chdir=infra output -raw realtime_websocket_url)"
-export LOAD_TEST_STREAM="$(terraform -chdir=infra output -raw load_test_kinesis_stream_name)"
+export KINESIS_STREAM_NAME="$(terraform -chdir=infra output -raw kinesis_stream_name)"
+export LOAD_TEST_KINESIS_STREAM_NAME="$(terraform -chdir=infra output -raw load_test_kinesis_stream_name)"
 export LOAD_TEST_RESULTS_TABLE="$(terraform -chdir=infra output -raw load_test_results_table_name)"
 
 .venv/bin/python scripts/load_testing/realtime_load_test.py \
-  --stream-name "$LOAD_TEST_STREAM" \
+  --stream-name "$LOAD_TEST_KINESIS_STREAM_NAME" \
   --results-table "$LOAD_TEST_RESULTS_TABLE" \
   --websocket-url "$VITALS_WEBSOCKET_URL" \
   --patients 10 \
@@ -39,7 +40,7 @@ export LOAD_TEST_RESULTS_TABLE="$(terraform -chdir=infra output -raw load_test_r
   --duration-seconds 60
 ```
 
-The command fails if an accepted observation does not reach DynamoDB or a subscribed WebSocket within the timeout. It reports Kinesis request latency, Kinesis-to-DynamoDB processing latency and Kinesis-to-WebSocket delivery latency.
+The runner reads `KINESIS_STREAM_NAME` so it can refuse to write to the production stream. The command fails if an accepted observation does not reach DynamoDB or a subscribed WebSocket within the timeout. It reports Kinesis request latency, Kinesis-to-DynamoDB processing latency and Kinesis-to-WebSocket delivery latency.
 
 ## Cleanup and safeguards
 
