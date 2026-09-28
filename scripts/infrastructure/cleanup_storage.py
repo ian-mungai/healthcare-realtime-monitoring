@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 from collections.abc import Iterable
 from typing import Any
 
@@ -102,17 +103,17 @@ def main() -> None:
 
     for bucket in args.s3_bucket:
         objects = list_s3_object_versions(s3, bucket)
-        print(f"S3 {bucket}: {len(objects)} object versions and delete markers")
+        sys.stdout.write(f"S3 {bucket}: {len(objects)} object versions and delete markers\n")
         if args.execute:
             delete_s3_object_versions(s3, bucket, objects)
 
     for repository in args.ecr_repository:
         images = list_ecr_images(ecr, repository)
-        print(f"ECR {repository}: {len(images)} images")
+        sys.stdout.write(f"ECR {repository}: {len(images)} images\n")
         if args.execute:
             delete_ecr_images(ecr, repository, images)
 
-    print("Cleanup completed." if args.execute else "Preview only; nothing was deleted.")
+    sys.stdout.write(f"{'Cleanup completed.' if args.execute else 'Preview only; nothing was deleted.'}\n")
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -98,7 +99,7 @@ def main() -> None:
 
         output_path.write_text(json.dumps(sanitized_document, indent=2) + "\n", encoding="utf-8")
 
-        print(f"Exported {policy_name} -> {output_path}")
+        sys.stdout.write(f"Exported {policy_name} -> {output_path}\n")
 
 
 if __name__ == "__main__":

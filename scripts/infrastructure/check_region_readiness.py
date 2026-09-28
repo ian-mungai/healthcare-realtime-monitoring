@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -118,11 +119,11 @@ def main() -> None:
 
     for check in checks:
         status = "PASS" if check.passed else "FAIL"
-        print(f"{status}  {check.name}: {check.detail}")
+        sys.stdout.write(f"{status}  {check.name}: {check.detail}\n")
     failures = [check for check in checks if not check.passed]
     if failures:
         raise SystemExit(f"{len(failures)} regional readiness check(s) failed.")
-    print("Regional readiness checks passed.")
+    sys.stdout.write("Regional readiness checks passed.\n")
 
 
 if __name__ == "__main__":

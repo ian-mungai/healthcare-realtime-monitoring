@@ -3,6 +3,7 @@
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 
 REDACTIONS = (
@@ -43,7 +44,7 @@ def main() -> None:
     if args.values_json:
         values = json.loads(args.values_json.read_text(encoding="utf-8"))
         explicit_values.extend(collect_string_values(values))
-    print(sanitize(args.log_file.read_text(encoding="utf-8", errors="replace"), explicit_values), end="")
+    sys.stdout.write(sanitize(args.log_file.read_text(encoding="utf-8", errors="replace"), explicit_values))
 
 
 if __name__ == "__main__":

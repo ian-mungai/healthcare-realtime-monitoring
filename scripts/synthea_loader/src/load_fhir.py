@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -217,9 +218,9 @@ def search_resource_by_identifier(resource_type: str, system: str, value: str) -
         return None
 
     if len(entries) > 1:
-        print(f"WARNING: found {len(entries)} {resource_type} resources for identifier {system}|{value}.")
+        sys.stdout.write(f"WARNING: found {len(entries)} {resource_type} resources for identifier {system}|{value}.\n")
 
-        print("Using the first matching resource.")
+        sys.stdout.write("Using the first matching resource.\n")
 
     return entries[0].get("resource")
 
@@ -270,16 +271,16 @@ def create_resource(resource_type: str, resource: dict) -> dict:
         timeout=60.0,
     )
 
-    print(f"Create {resource_type}: HTTP {response.status_code}")
+    sys.stdout.write(f"Create {resource_type}: HTTP {response.status_code}\n")
 
     if response.is_error:
-        print(f"\nFHIR {resource_type} creation failed:")
+        sys.stdout.write(f"\nFHIR {resource_type} creation failed:\n")
 
         try:
-            print(json.dumps(response.json(), indent=2))
+            sys.stdout.write(f"{json.dumps(response.json(), indent=2)}\n")
 
         except ValueError:
-            print(response.text)
+            sys.stdout.write(f"{response.text}\n")
 
         raise RuntimeError(f"Failed to create {resource_type}: HTTP {response.status_code}")
 
@@ -384,24 +385,24 @@ def ensure_patient_exists(patient: dict) -> dict:
     """
     system, value = get_synthea_identifier(patient)
 
-    print("\nChecking Patient:")
+    sys.stdout.write("\nChecking Patient:\n")
 
-    print(f"  identifier={system}|{value}")
+    sys.stdout.write(f"  identifier={system}|{value}\n")
 
     existing = search_resource_by_identifier("Patient", system, value)
 
     if existing is not None:
-        print(f"  Existing Patient found: {existing.get('id')}")
+        sys.stdout.write(f"  Existing Patient found: {existing.get('id')}\n")
 
         return existing
 
-    print("  Patient not found.")
+    sys.stdout.write("  Patient not found.\n")
 
-    print("  Creating Patient...")
+    sys.stdout.write("  Creating Patient...\n")
 
     created = create_resource("Patient", patient)
 
-    print(f"  Created Patient: {created.get('id')}")
+    sys.stdout.write(f"  Created Patient: {created.get('id')}\n")
 
     return created
 
@@ -416,18 +417,18 @@ def ensure_encounter_exists(encounter: dict, hapi_patient_id: str) -> dict:
     """
     system, value = get_synthea_identifier(encounter)
 
-    print("\nChecking Encounter:")
+    sys.stdout.write("\nChecking Encounter:\n")
 
-    print(f"  identifier={system}|{value}")
+    sys.stdout.write(f"  identifier={system}|{value}\n")
 
     existing = search_resource_by_identifier("Encounter", system, value)
 
     if existing is not None:
-        print(f"  Existing Encounter found: {existing.get('id')}")
+        sys.stdout.write(f"  Existing Encounter found: {existing.get('id')}\n")
 
         return existing
 
-    print("  Encounter not found.")
+    sys.stdout.write("  Encounter not found.\n")
 
     encounter = json.loads(json.dumps(encounter))
 
@@ -438,11 +439,11 @@ def ensure_encounter_exists(encounter: dict, hapi_patient_id: str) -> dict:
     if conditional_references:
         raise RuntimeError(f"Encounter still contains unsupported conditional references: {sorted(conditional_references)}")
 
-    print("  Creating Encounter...")
+    sys.stdout.write("  Creating Encounter...\n")
 
     created = create_resource("Encounter", encounter)
 
-    print(f"  Created Encounter: {created.get('id')}")
+    sys.stdout.write(f"  Created Encounter: {created.get('id')}\n")
 
     return created
 
@@ -462,22 +463,22 @@ def main() -> None:
 
     bundles = select_production_cohort(available_bundles)
 
-    print(f"FHIR server: {FHIR_BASE_URL}")
+    sys.stdout.write(f"FHIR server: {FHIR_BASE_URL}\n")
 
-    print(f"FHIR output directory: {FHIR_OUTPUT_DIR}")
+    sys.stdout.write(f"FHIR output directory: {FHIR_OUTPUT_DIR}\n")
 
-    print(f"Available patient bundles: {len(available_bundles)}")
+    sys.stdout.write(f"Available patient bundles: {len(available_bundles)}\n")
 
-    print(f"Production cohort size: {len(bundles)}")
+    sys.stdout.write(f"Production cohort size: {len(bundles)}\n")
 
     initialize_resource_map()
 
     for bundle_path in bundles:
-        print("\n================================")
+        sys.stdout.write("\n================================\n")
 
-        print(f"Processing: {bundle_path.name}")
+        sys.stdout.write(f"Processing: {bundle_path.name}\n")
 
-        print("================================")
+        sys.stdout.write("================================\n")
 
         bundle = load_bundle(bundle_path)
 
@@ -493,11 +494,11 @@ def main() -> None:
         if not synthea_encounter_id:
             raise RuntimeError("Synthea Encounter has no id")
 
-        print("\nSynthea resources:")
+        sys.stdout.write("\nSynthea resources:\n")
 
-        print(f"  Patient: {synthea_patient_id}")
+        sys.stdout.write(f"  Patient: {synthea_patient_id}\n")
 
-        print(f"  Encounter: {synthea_encounter_id}")
+        sys.stdout.write(f"  Encounter: {synthea_encounter_id}\n")
 
         patient_conditional_refs = find_conditional_references(patient)
 
@@ -545,11 +546,11 @@ def main() -> None:
         if verified_encounter.get("resourceType") != "Encounter":
             raise RuntimeError("Retrieved resource is not an Encounter")
 
-        print("\nVerified HAPI resources:")
+        sys.stdout.write("\nVerified HAPI resources:\n")
 
-        print(f"  Patient/{hapi_patient_id}")
+        sys.stdout.write(f"  Patient/{hapi_patient_id}\n")
 
-        print(f"  Encounter/{hapi_encounter_id}")
+        sys.stdout.write(f"  Encounter/{hapi_encounter_id}\n")
 
         # -------------------------------------------------
         # Save mapping
@@ -557,17 +558,17 @@ def main() -> None:
 
         resource_map = update_resource_map(synthea_patient_id, hapi_patient_id, synthea_encounter_id, hapi_encounter_id)
 
-        print("\nFHIR resource mapping saved:")
+        sys.stdout.write("\nFHIR resource mapping saved:\n")
 
-        print(f"  {RESOURCE_MAP_FILE}")
+        sys.stdout.write(f"  {RESOURCE_MAP_FILE}\n")
 
-        print("\nMapping counts:")
+        sys.stdout.write("\nMapping counts:\n")
 
-        print(f"  Patients: {len(resource_map['patients'])}")
+        sys.stdout.write(f"  Patients: {len(resource_map['patients'])}\n")
 
-        print(f"  Encounters: {len(resource_map['encounters'])}")
+        sys.stdout.write(f"  Encounters: {len(resource_map['encounters'])}\n")
 
-        print("\nFHIR seed verified successfully.")
+        sys.stdout.write("\nFHIR seed verified successfully.\n")
 
 
 if __name__ == "__main__":

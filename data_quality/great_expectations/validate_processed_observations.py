@@ -1,4 +1,5 @@
 import os
+import sys
 from typing import Any
 
 import great_expectations as gx
@@ -98,14 +99,14 @@ def validate() -> None:
 
         result = validator.validate()
 
-        print(f"Success: {result.success}")
-        print(f"Evaluated expectations: {result.statistics['evaluated_expectations']}")
-        print(f"Successful expectations: {result.statistics['successful_expectations']}")
-        print(f"Unsuccessful expectations: {result.statistics['unsuccessful_expectations']}")
-        print(f"Success percent: {result.statistics['success_percent']}")
+        sys.stdout.write(f"Success: {result.success}\n")
+        sys.stdout.write(f"Evaluated expectations: {result.statistics['evaluated_expectations']}\n")
+        sys.stdout.write(f"Successful expectations: {result.statistics['successful_expectations']}\n")
+        sys.stdout.write(f"Unsuccessful expectations: {result.statistics['unsuccessful_expectations']}\n")
+        sys.stdout.write(f"Success percent: {result.statistics['success_percent']}\n")
 
         if not result.success:
-            print("\nFailed expectations:")
+            sys.stdout.write("\nFailed expectations:\n")
 
             for expectation_result in result.results:
                 if expectation_result.success:
@@ -113,11 +114,11 @@ def validate() -> None:
 
                 config = expectation_result.expectation_config
 
-                print("\n----------------------------------------")
-                print(f"Expectation: {config.type}")
-                print(f"Column: {config.kwargs.get('column')}")
-                print(f"Arguments: {config.kwargs}")
-                print(f"Result: {expectation_result.result}")
+                sys.stdout.write("\n----------------------------------------\n")
+                sys.stdout.write(f"Expectation: {config.type}\n")
+                sys.stdout.write(f"Column: {config.kwargs.get('column')}\n")
+                sys.stdout.write(f"Arguments: {config.kwargs}\n")
+                sys.stdout.write(f"Result: {expectation_result.result}\n")
 
             raise RuntimeError("Processed FHIR observation data quality validation failed")
 

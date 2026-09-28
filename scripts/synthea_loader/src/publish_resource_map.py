@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import subprocess
+import sys
 from pathlib import Path
 
 import boto3
@@ -44,7 +45,7 @@ def main() -> None:
     environment = load_environment(arguments.env_file)
     publish_resource_map(environment, arguments.resource_map)
     subprocess.run([str(REPO_ROOT / "scripts" / "infrastructure" / "render_project_config.sh")], check=True)
-    print(f"Published the FHIR resource map and rendered {len(patient_ids)} generated patient IDs.")
+    sys.stdout.write(f"Published the FHIR resource map and rendered {len(patient_ids)} generated patient IDs.\n")
 
 
 if __name__ == "__main__":

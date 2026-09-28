@@ -9,6 +9,7 @@ import json
 import math
 import os
 import re
+import sys
 from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
@@ -366,7 +367,7 @@ def main() -> None:
         published = publish_artifacts(args.output_dir, bucket, manifest["model_version"])
         register_predictions_partition(args.predictions_database, args.predictions_table, staging_dir, args.region, bucket, manifest["model_version"])
 
-    print(json.dumps({"manifest": manifest, "evaluation": evaluation, "published": published}, indent=2, sort_keys=True))
+    sys.stdout.write(f"{json.dumps({'manifest': manifest, 'evaluation': evaluation, 'published': published}, indent=2, sort_keys=True)}\n")
 
 
 if __name__ == "__main__":
