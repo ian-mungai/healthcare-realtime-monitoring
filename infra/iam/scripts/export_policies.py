@@ -1,10 +1,11 @@
 import json
 import os
 import re
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
+
+from tools.process import run_command
 
 POLICY_NAMES = [
     "healthcare_realtime_apigateway_policy",
@@ -35,7 +36,7 @@ OUTPUT_DIRECTORY = Path(__file__).resolve().parents[1] / "policies"
 
 
 def run_aws(arguments: list[str]) -> Any:
-    result = subprocess.run(["aws", *arguments, "--output", "json"], check=True, capture_output=True, text=True)
+    result = run_command("aws", [*arguments, "--output", "json"], check=True)
     return json.loads(result.stdout)
 
 

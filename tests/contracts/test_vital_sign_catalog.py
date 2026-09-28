@@ -1,7 +1,6 @@
 import ast
 import json
 import os
-import subprocess
 import sys
 from pathlib import Path
 from zipfile import ZipFile
@@ -19,6 +18,7 @@ from services.vital_signs import (
     SUPPORTED_LOINC_CODES,
     SYSTOLIC_CODE,
 )
+from tools.process import run_command
 
 ROOT = Path(__file__).resolve().parents[2]
 CATALOG = json.loads((ROOT / "config/vital_signs.json").read_text())
@@ -65,14 +65,8 @@ def test_catalog_loads_from_zipimport_runtime(tmp_path: Path) -> None:
 
     environment = os.environ.copy()
     environment["PYTHONPATH"] = str(archive)
-    result = subprocess.run(
-        [sys.executable, "-c", "from services.vital_signs import SUPPORTED_LOINC_CODES; print(len(SUPPORTED_LOINC_CODES))"],
-        cwd=tmp_path,
-        env=environment,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
+    probe = "from services.vital_signs import SUPPORTED_LOINC_CODES; print(len(SUPPORTED_LOINC_CODES))"
+    result = run_command(sys.executable, ["-c", probe], cwd=tmp_path, env=environment, check=True)
 
     assert result.stdout.strip() == "5"
 
