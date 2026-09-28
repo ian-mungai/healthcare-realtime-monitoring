@@ -33,10 +33,7 @@ def main() -> None:
     arguments = parser.parse_args()
 
     with arguments.terraform_var_file.open(encoding="utf-8") as stream:
-        if arguments.terraform_var_file.suffix == ".json":
-            values = json.load(stream)
-        else:
-            values = hcl2.load(stream)
+        values = json.load(stream) if arguments.terraform_var_file.suffix == ".json" else hcl2.load(stream)
 
     missing = sorted(variable for variable in VARIABLES.values() if variable not in values)
     if missing:
