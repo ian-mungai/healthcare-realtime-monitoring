@@ -12,6 +12,14 @@ The design keeps three concerns distinct:
 
 ## System overview
 
+The rendered diagram at [architecture/architecture.png](architecture/architecture.png) is built from [architecture/architecture.html](architecture/architecture.html). After changing the HTML, render the PNG again with headless Chrome:
+
+```zsh
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars --window-size=1200,1180 --virtual-time-budget=5000 --screenshot=docs/architecture/architecture.png "file://$PWD/docs/architecture/architecture.html"
+```
+
+The Mermaid view below shows the same data flow in text form.
+
 ```mermaid
 flowchart LR
     subgraph Ingestion[Clinical event ingestion]

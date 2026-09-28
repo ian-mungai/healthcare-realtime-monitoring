@@ -136,7 +136,9 @@ Use the [load-testing guide](docs/load-testing.md) to run an isolated test that 
 
 ## Architecture
 
-The [architecture guide](docs/architecture.md) describes the realtime path, analytical path, recovery model, security boundaries and observability design.
+![Healthcare Realtime Monitoring architecture](docs/architecture/architecture.png)
+
+The diagram source is [docs/architecture/architecture.html](docs/architecture/architecture.html). The [architecture guide](docs/architecture.md) describes the realtime path, analytical path, recovery model, security boundaries and observability design.
 
 ```text
 Simulator -> HAPI FHIR -> webhook -> Kinesis -> Lambda -> DynamoDB -> REST/WebSocket -> live cohort dashboard
