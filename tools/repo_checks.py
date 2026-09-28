@@ -53,6 +53,52 @@ RUFF_LOOSENING_KEYS = {"ignore", "extend-ignore", "per-file-ignores", "extend-pe
 MYPY_BASELINE_EXCLUDES = {"^airflow/", "^build/", "^tmp/", "^\\.venv/", "^scripts/synthea_loader/synthea/"}
 MYPY_ALLOWED_KEYS = {"python_version", "ignore_missing_imports", "explicit_package_bases", "exclude", "strict", "check_untyped_defs", "no_implicit_optional"}
 MYPY_TIGHTENING_PREFIXES = ("disallow_", "warn_")
+# checkov rules the repository owner accepted on 2026-09-28; the reasons are in repository-policy.
+CHECKOV_ACCEPTED = {
+    "CKV2_AWS_11",
+    "CKV2_AWS_20",
+    "CKV2_AWS_28",
+    "CKV2_AWS_30",
+    "CKV2_AWS_5",
+    "CKV2_AWS_51",
+    "CKV2_AWS_60",
+    "CKV2_AWS_61",
+    "CKV2_AWS_62",
+    "CKV_AWS_103",
+    "CKV_AWS_109",
+    "CKV_AWS_111",
+    "CKV_AWS_115",
+    "CKV_AWS_116",
+    "CKV_AWS_117",
+    "CKV_AWS_118",
+    "CKV_AWS_119",
+    "CKV_AWS_129",
+    "CKV_AWS_131",
+    "CKV_AWS_136",
+    "CKV_AWS_144",
+    "CKV_AWS_145",
+    "CKV_AWS_150",
+    "CKV_AWS_157",
+    "CKV_AWS_158",
+    "CKV_AWS_161",
+    "CKV_AWS_173",
+    "CKV_AWS_18",
+    "CKV_AWS_195",
+    "CKV_AWS_2",
+    "CKV_AWS_272",
+    "CKV_AWS_293",
+    "CKV_AWS_309",
+    "CKV_AWS_336",
+    "CKV_AWS_338",
+    "CKV_AWS_353",
+    "CKV_AWS_356",
+    "CKV_AWS_378",
+    "CKV_AWS_382",
+    "CKV_AWS_394",
+    "CKV_AWS_50",
+    "CKV_AWS_91",
+}
+CHECKOV_SKIP = re.compile(r"^\s*-\s*(CKV\w+)", re.MULTILINE)
 
 ENV_READ = re.compile(r"""(?:os\.environ(?:\.get)?\s*[\[(]\s*|os\.getenv\s*\(\s*|required_env\s*\(\s*)["']([A-Z][A-Z0-9_]*)["']""")
 ENV_EXAMPLE_NAME = re.compile(r"^\s*#?\s*([A-Z][A-Z0-9_]*)\s*=", re.MULTILINE)
@@ -172,6 +218,12 @@ def lint_settings() -> list[Finding]:
         findings.append(Finding("pyproject.toml", f"MyPy excludes added: {', '.join(added)}", rule, "type-check the code instead of excluding it"))
     if mypy.get("strict") is False:
         findings.append(Finding("pyproject.toml", "MyPy strict is switched off", rule, "remove strict = false"))
+    checkov = Path(".checkov.yaml")
+    unapproved = sorted(set(CHECKOV_SKIP.findall(checkov.read_text())) - CHECKOV_ACCEPTED) if checkov.exists() else []
+    if unapproved:
+        findings.append(
+            Finding(".checkov.yaml", f"checkov rules skipped without approval: {', '.join(unapproved)}", rule, "fix the Terraform instead of skipping the rule")
+        )
     return findings
 
 
