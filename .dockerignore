@@ -37,3 +37,25 @@ services/vitals_simulator/data/bidmc
 !data_quality/
 !data_quality/soda/
 !data_quality/soda/**
+
+# Local private inputs and generated receipts never enter the build context.
+.env
+.env.*
+.agent_handoff
+.enjoy
+.enjoy-logs
+dbt/profiles.yml
+dbt/.user.yml
+dbt/target
+dbt/logs
+data_quality/soda/config/configuration.yml
+data_quality/soda/results
+lineage/events
+**/__pycache__
+**/*.pyc
+**/.DS_Store
+.DS_Store
+.coverage
+htmlcov
+.vscode
+.idea
