@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -10,11 +11,11 @@ from typing import Any
 from scripts.synthea_loader.src.cohort import cohort_patient_ids
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_ENV_FILE = REPO_ROOT / ".env"
+DEFAULT_ENV_FILE = Path(os.getenv("PROJECT_ENV_FILE") or REPO_ROOT / ".env")
 DEFAULT_DEFAULTS_FILE = REPO_ROOT / "config" / "deployment.defaults.json"
 DEFAULT_DEPLOYMENT_OUTPUT = REPO_ROOT / "infra" / "deployment.auto.tfvars.json"
 DEFAULT_BOOTSTRAP_OUTPUT = REPO_ROOT / "infra" / "bootstrap" / "deployment.auto.tfvars.json"
-DEFAULT_RESOURCE_MAP_FILE = REPO_ROOT / "scripts" / "synthea_loader" / "state" / "fhir_resource_map.json"
+DEFAULT_RESOURCE_MAP_FILE = Path(os.getenv("FHIR_RESOURCE_MAP_FILE") or REPO_ROOT / "scripts" / "synthea_loader" / "state" / "fhir_resource_map.json")
 
 STRING_VARIABLES = {
     "AWS_REGION": "aws_region",
@@ -38,6 +39,8 @@ GENERATED_STRING_VARIABLES = {
 }
 
 BOOLEAN_VARIABLES = {"ENABLE_OPENLINEAGE_COLLECTOR": "enable_openlineage_collector", "ENABLE_GITHUB_OIDC": "enable_github_oidc"}
+
+ENVIRONMENT_NAME = re.compile(r"[a-z][a-z0-9-]{0,31}")
 
 OPTIONAL_BOOLEAN_VARIABLES = {"ENABLE_ICEBERG_TABLE_OPTIMIZERS": "enable_iceberg_table_optimizers"}
 
@@ -157,6 +160,10 @@ def build_configuration(
             deployment[terraform_name] = value
     for environment_name, terraform_name in BOOLEAN_VARIABLES.items():
         deployment[terraform_name] = parse_boolean(require_value(effective, environment_name), environment_name)
+    if deployment_environment := effective.get("DEPLOYMENT_ENVIRONMENT", "").strip():
+        if not ENVIRONMENT_NAME.fullmatch(deployment_environment):
+            raise ConfigurationError("DEPLOYMENT_ENVIRONMENT must be a lowercase name of up to 32 letters, digits or dashes")
+        deployment["deployment_environment"] = deployment_environment
     for environment_name, terraform_name in OPTIONAL_BOOLEAN_VARIABLES.items():
         if value := effective.get(environment_name, "").strip():
             deployment[terraform_name] = parse_boolean(value, environment_name)

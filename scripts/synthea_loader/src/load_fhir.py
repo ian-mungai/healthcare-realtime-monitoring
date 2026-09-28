@@ -17,7 +17,8 @@ STATE_DIR = Path(__file__).resolve().parents[1] / "state"
 
 PRODUCTION_COHORT_SIZE = 10
 
-RESOURCE_MAP_FILE = STATE_DIR / "fhir_resource_map.json"
+# Each deployment environment keeps its own HAPI ID map; FHIR_RESOURCE_MAP_FILE selects it.
+RESOURCE_MAP_FILE = Path(os.getenv("FHIR_RESOURCE_MAP_FILE") or STATE_DIR / "fhir_resource_map.json")
 
 
 def load_bundle(file_path: Path) -> dict:
@@ -351,6 +352,7 @@ def save_resource_map(resource_map: dict) -> None:
     """
     STATE_DIR.mkdir(parents=True, exist_ok=True)
 
+    RESOURCE_MAP_FILE.parent.mkdir(parents=True, exist_ok=True)
     with RESOURCE_MAP_FILE.open("w", encoding="utf-8") as file:
         json.dump(resource_map, file, indent=2, sort_keys=True)
 

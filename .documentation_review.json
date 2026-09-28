@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "reviewer": "Claude Code (Opus 5.5)",
-  "reviewed_at_utc": "2026-09-28T22:56:42Z",
-  "snapshot_sha256": "cf8b65261109ac281a805c997ade1de1f23294c92d71a52cec156648c3c52f07",
+  "reviewer": "AI review agent",
+  "reviewed_at_utc": "2026-09-28T23:04:44Z",
+  "snapshot_sha256": "d7d62715bbcd31a93cd85158bd502ab3171fbf1a5cf2936d9f5ea2c4cc93b0b3",
   "extra_documents": [],
   "documents": [
     {
@@ -19,9 +19,9 @@
     },
     {
       "path": "README.md",
-      "blob": "c9f10ddfa0faded632396edb6edaefd8ab97fbb1",
-      "outcome": "current",
-      "notes": "Install, Usage, Architecture, Data, Deploy and Teardown sections match the scripts, tools/ checks, docs links and teardown wrapper at this revision; all relative links resolve."
+      "blob": "0ca00ea9d2eb190777301c065f1f68794878ba87",
+      "outcome": "updated",
+      "notes": "Deploy and Teardown now links the environments guide; other sections unchanged and current."
     },
     {
       "path": "docs/analytics-star-schema.md",
@@ -38,14 +38,14 @@
     {
       "path": "docs/architecture/architecture.html",
       "blob": "cc9f875073be2a7dc8b5fe2b132da470abbeb648",
-      "outcome": "updated",
-      "notes": "Added the opt-in Iceberg optimizers to the Glue Data Catalog box and moved the footer commit to 7d78041; components match the Terraform modules."
+      "outcome": "current",
+      "notes": "Components match the Terraform modules; the region label still holds per environment account."
     },
     {
       "path": "docs/architecture/architecture.png",
       "blob": "2e8cd3bb598419f66fe1977071252150113187c0",
-      "outcome": "updated",
-      "notes": "Re-rendered from architecture.html with the documented headless Chrome command."
+      "outcome": "current",
+      "notes": "Rendered from architecture.html; unchanged in this revision."
     },
     {
       "path": "docs/bootstrap.md",
@@ -73,9 +73,15 @@
     },
     {
       "path": "docs/deployment.md",
-      "blob": "18d4750aea860af019fc9a55ac92c2696cb290dc",
-      "outcome": "current",
-      "notes": "OIDC, protected environment secrets and collector steps match deploy.yml and Terraform; EXTERNAL_OPENLINEAGE_COLLECTOR_URL remains a documented optional override."
+      "blob": "7b1a5d7c3ba9073b18079354850c04a5bef68b1e",
+      "outcome": "updated",
+      "notes": "Protected GitHub environment section now asks for one environment per AWS account."
+    },
+    {
+      "path": "docs/environments.md",
+      "blob": "923449b29d12d6286fe0b1b6fd1dc2051da0adcf",
+      "outcome": "updated",
+      "notes": "New guide: development and production in separate AWS accounts, PROJECT_ENV_FILE selection, per-environment bootstrap workspace, plan names, backend guard, account check and teardown confirmation; matches the scripts."
     },
     {
       "path": "docs/external-prerequisites.md",
@@ -85,9 +91,9 @@
     },
     {
       "path": "docs/infrastructure-lifecycle.md",
-      "blob": "5d84a29e770a520aa8874d01eced8c66a3ce253a",
-      "outcome": "current",
-      "notes": "Teardown phases, confirmations and state handling match scripts/infrastructure/teardown.sh and bootstrap.sh."
+      "blob": "5e7a2aa2d77dad1a4ed2565d3a0cae6da3da6247",
+      "outcome": "updated",
+      "notes": "Teardown plan names carry the environment suffix used by teardown.sh; confirmation strings match for development."
     },
     {
       "path": "docs/load-testing.md",
@@ -110,8 +116,8 @@
     {
       "path": "docs/operations-runbook.md",
       "blob": "ef6a14e832d7faca2e9ef9f880e1e1a7528e2959",
-      "outcome": "updated",
-      "notes": "CI gate paragraph now names the Repository Checks job; other procedures match the scripts."
+      "outcome": "current",
+      "notes": "CI gate paragraph names the Repository Checks job; other procedures match the scripts."
     },
     {
       "path": "docs/power-bi-connection.md",
@@ -122,14 +128,14 @@
     {
       "path": "docs/quality-checks.md",
       "blob": "e4cf47c54d9ce2e46851a02d5e24696f69f15cde",
-      "outcome": "updated",
-      "notes": "Added the Documentation Review section; hook list, policies, T20 rule and approved suppression match .pre-commit-config.yaml and tools/."
+      "outcome": "current",
+      "notes": "Contains the Documentation Review section; hook list, policies, T20 rule and approved suppression match .pre-commit-config.yaml and tools/."
     },
     {
       "path": "docs/quickstart.md",
-      "blob": "0264af3ef5fb8235a0ce9d22a19b5549efc7a3cb",
-      "outcome": "current",
-      "notes": "Command sequence matches the bootstrap, publish and demo scripts, including the optimizer opt-in step."
+      "blob": "e1e228b22baa7bd6ea61d0bb8ab1b5a144cde6dd",
+      "outcome": "updated",
+      "notes": "States that the steps create development from .env and points production to the environments guide."
     },
     {
       "path": "docs/release-checklist.md",

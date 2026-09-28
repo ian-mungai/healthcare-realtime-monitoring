@@ -5,6 +5,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$REPO_ROOT/scripts/infrastructure/project_env.sh"
 load_project_env "${PROJECT_ENV_FILE:-$REPO_ROOT/.env}"
+require_selected_backend "$REPO_ROOT/infra"
 
 export VITALS_API_ENDPOINT="$(terraform -chdir="$REPO_ROOT/infra" output -raw vitals_api_endpoint)"
 export VITALS_WEBSOCKET_URL="$(terraform -chdir="$REPO_ROOT/infra" output -raw realtime_websocket_url)"

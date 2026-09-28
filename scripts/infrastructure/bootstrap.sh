@@ -9,6 +9,8 @@ BOOTSTRAP_DIR="$REPO_ROOT/infra/bootstrap"
 INFRA_DIR="$REPO_ROOT/infra"
 ACTION="${1:-}"
 CONFIRMATION="apply-healthcare-realtime-bootstrap"
+ENVIRONMENT="${DEPLOYMENT_ENVIRONMENT:-development}"
+BOOTSTRAP_WORKSPACE="$(bootstrap_workspace)"
 "$REPO_ROOT/scripts/infrastructure/render_project_config.sh"
 
 usage() {
@@ -39,7 +41,20 @@ require_confirmation() {
   fi
 }
 
+select_bootstrap_workspace() {
+  terraform -chdir="$BOOTSTRAP_DIR" workspace select -or-create "$BOOTSTRAP_WORKSPACE" >/dev/null
+}
+
+bootstrap_state_file() {
+  if [[ "$BOOTSTRAP_WORKSPACE" == "default" ]]; then
+    echo "$BOOTSTRAP_DIR/terraform.tfstate"
+  else
+    echo "$BOOTSTRAP_DIR/terraform.tfstate.d/$BOOTSTRAP_WORKSPACE/terraform.tfstate"
+  fi
+}
+
 write_backend_config() {
+  select_bootstrap_workspace
   local bucket region key
   bucket="$(terraform -chdir="$BOOTSTRAP_DIR" output -raw state_bucket_name)"
   region="$(terraform -chdir="$BOOTSTRAP_DIR" output -raw aws_region)"
@@ -54,16 +69,19 @@ application_plan_args=(-input=false)
 case "$ACTION" in
   state-plan)
     terraform -chdir="$BOOTSTRAP_DIR" init
-    terraform -chdir="$BOOTSTRAP_DIR" plan -input=false -out=tfplan-state-bootstrap
-    terraform -chdir="$BOOTSTRAP_DIR" show -no-color tfplan-state-bootstrap
+    select_bootstrap_workspace
+    terraform -chdir="$BOOTSTRAP_DIR" plan -input=false -out=tfplan-state-bootstrap-$ENVIRONMENT
+    terraform -chdir="$BOOTSTRAP_DIR" show -no-color tfplan-state-bootstrap-$ENVIRONMENT
     ;;
   state-apply)
     require_confirmation
-    terraform -chdir="$BOOTSTRAP_DIR" apply -input=false tfplan-state-bootstrap
+    select_bootstrap_workspace
+    terraform -chdir="$BOOTSTRAP_DIR" apply -input=false tfplan-state-bootstrap-$ENVIRONMENT
     ;;
   state-backup)
     : "${TF_STATE_BUCKET:?Set TF_STATE_BUCKET in .env or the current shell.}"
-    test -s "$BOOTSTRAP_DIR/terraform.tfstate"
+    select_bootstrap_workspace
+    test -s "$(bootstrap_state_file)"
     bootstrap_bucket="$(terraform -chdir="$BOOTSTRAP_DIR" output -raw state_bucket_name)"
     bootstrap_state_key="$(terraform -chdir="$BOOTSTRAP_DIR" output -raw bootstrap_state_backup_key)"
     if [[ "$TF_STATE_BUCKET" != "$bootstrap_bucket" ]]; then
@@ -73,7 +91,7 @@ case "$ACTION" in
     aws s3api put-object \
       --bucket "$TF_STATE_BUCKET" \
       --key "$bootstrap_state_key" \
-      --body "$BOOTSTRAP_DIR/terraform.tfstate" \
+      --body "$(bootstrap_state_file)" \
       --server-side-encryption AES256 \
       --region "$AWS_REGION" \
       >/dev/null
@@ -90,19 +108,22 @@ case "$ACTION" in
     terraform -chdir="$INFRA_DIR" init -input=false -migrate-state -force-copy -backend-config=backend.hcl
     ;;
   repositories-plan)
+    require_selected_backend "$INFRA_DIR"
     terraform -chdir="$INFRA_DIR" plan "${application_plan_args[@]}" \
       -target=module.vitals_simulator_ecs.aws_ecr_repository.vitals_simulator \
       -target=module.dbt_ecs.aws_ecr_repository.dbt \
       -target=module.soda_ecs.aws_ecr_repository.soda \
       -target=module.openlineage_collector.aws_ecr_repository.marquez \
-      -out=tfplan-bootstrap-ecr
-    terraform -chdir="$INFRA_DIR" show -no-color tfplan-bootstrap-ecr
+      -out=tfplan-bootstrap-ecr-$ENVIRONMENT
+    terraform -chdir="$INFRA_DIR" show -no-color tfplan-bootstrap-ecr-$ENVIRONMENT
     ;;
   repositories-apply)
+    require_selected_backend "$INFRA_DIR"
     require_confirmation
-    terraform -chdir="$INFRA_DIR" apply -input=false tfplan-bootstrap-ecr
+    terraform -chdir="$INFRA_DIR" apply -input=false tfplan-bootstrap-ecr-$ENVIRONMENT
     ;;
   foundation-plan)
+    require_selected_backend "$INFRA_DIR"
     "$REPO_ROOT/scripts/glue/build_lineage_package.sh"
     terraform -chdir="$INFRA_DIR" plan "${application_plan_args[@]}" \
       -target=module.network \
@@ -111,26 +132,29 @@ case "$ACTION" in
       -target=module.glue \
       -target=module.dbt_ecs \
       -target=module.soda_ecs \
-      -out=tfplan-bootstrap-foundation
-    terraform -chdir="$INFRA_DIR" show -no-color tfplan-bootstrap-foundation
+      -out=tfplan-bootstrap-foundation-$ENVIRONMENT
+    terraform -chdir="$INFRA_DIR" show -no-color tfplan-bootstrap-foundation-$ENVIRONMENT
     ;;
   foundation-apply)
+    require_selected_backend "$INFRA_DIR"
     require_confirmation
-    terraform -chdir="$INFRA_DIR" apply -input=false tfplan-bootstrap-foundation
+    terraform -chdir="$INFRA_DIR" apply -input=false tfplan-bootstrap-foundation-$ENVIRONMENT
     ;;
   application-plan)
+    require_selected_backend "$INFRA_DIR"
     for builder in "$REPO_ROOT"/scripts/lambda/build_*.sh; do
       "$builder"
     done
     "$REPO_ROOT/scripts/glue/build_lineage_package.sh"
     "$REPO_ROOT/airflow/serverless/convert_healthcare_realtime_pipeline.sh"
     "$REPO_ROOT/airflow/serverless/build_code_package.sh"
-    terraform -chdir="$INFRA_DIR" plan "${application_plan_args[@]}" -out=tfplan-bootstrap-application
-    terraform -chdir="$INFRA_DIR" show -no-color tfplan-bootstrap-application
+    terraform -chdir="$INFRA_DIR" plan "${application_plan_args[@]}" -out=tfplan-bootstrap-application-$ENVIRONMENT
+    terraform -chdir="$INFRA_DIR" show -no-color tfplan-bootstrap-application-$ENVIRONMENT
     ;;
   application-apply)
+    require_selected_backend "$INFRA_DIR"
     require_confirmation
-    terraform -chdir="$INFRA_DIR" apply -input=false tfplan-bootstrap-application
+    terraform -chdir="$INFRA_DIR" apply -input=false tfplan-bootstrap-application-$ENVIRONMENT
     ;;
   *)
     usage
