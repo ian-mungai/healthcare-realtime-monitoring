@@ -81,11 +81,11 @@ def test_python_service_definitions_match_catalog() -> None:
     by_field = {vital["field"]: vital for vital in VITALS}
     code_by_field = {field: vital["loinc_code"] for field, vital in by_field.items()}
 
-    assert REALTIME_VITAL_RANGES == {field: tuple(vital["realtime_range"]) for field, vital in by_field.items()}
-    assert LOINC_VITAL_FIELDS == {code_by_field[field]: field for field in ("heart_rate", "respiratory_rate", "spo2")}
-    assert BLOOD_PRESSURE_PANEL_CODE == CATALOG["blood_pressure_panel"]["loinc_code"]
-    assert SYSTOLIC_CODE == code_by_field["systolic_bp"]
-    assert DIASTOLIC_CODE == code_by_field["diastolic_bp"]
+    assert {field: tuple(vital["realtime_range"]) for field, vital in by_field.items()} == REALTIME_VITAL_RANGES
+    assert {code_by_field[field]: field for field in ("heart_rate", "respiratory_rate", "spo2")} == LOINC_VITAL_FIELDS
+    assert CATALOG["blood_pressure_panel"]["loinc_code"] == BLOOD_PRESSURE_PANEL_CODE
+    assert code_by_field["systolic_bp"] == SYSTOLIC_CODE
+    assert code_by_field["diastolic_bp"] == DIASTOLIC_CODE
 
     consumers = {
         "services/fhir_webhook/app/vitals.py": {"LOINC_VITAL_FIELDS", "BLOOD_PRESSURE_PANEL_CODE", "SYSTOLIC_CODE", "DIASTOLIC_CODE"},
@@ -101,9 +101,9 @@ def test_glue_and_great_expectations_definitions_match_catalog() -> None:
     code_by_field = {vital["field"]: vital["loinc_code"] for vital in VITALS}
     expected_codes = set(code_by_field.values())
 
-    assert MEASUREMENT_NAMES == {vital["loinc_code"]: vital["analytical_name"] for vital in VITALS}
-    assert FLATTENED_MEASUREMENTS == {vital["field"]: (vital["loinc_code"], vital["unit"]) for vital in VITALS}
-    assert ANALYTICAL_VITAL_RANGES == {vital["field"]: tuple(vital["analytical_range"]) for vital in VITALS}
+    assert {vital["loinc_code"]: vital["analytical_name"] for vital in VITALS} == MEASUREMENT_NAMES
+    assert {vital["field"]: (vital["loinc_code"], vital["unit"]) for vital in VITALS} == FLATTENED_MEASUREMENTS
+    assert {vital["field"]: tuple(vital["analytical_range"]) for vital in VITALS} == ANALYTICAL_VITAL_RANGES
     assert set(SUPPORTED_LOINC_CODES) == expected_codes
     assert {"ANALYTICAL_VITAL_RANGES", "FLATTENED_MEASUREMENTS", "MEASUREMENT_NAMES", "SUPPORTED_LOINC_CODES"} <= imported_names(
         "jobs/glue/fhir_observations_raw_to_processed.py", "services.vital_signs"

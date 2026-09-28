@@ -81,14 +81,12 @@ class WorkflowGenerationTests(unittest.TestCase):
         self.assertEqual(generator.normalize_task_definition("arn:aws:ecs:example-region-1:111111111111:task-definition/family:12"), "family")
 
     def test_serverless_start_date_rejects_missing_naive_and_past_values(self) -> None:
-        with patch.dict(os.environ, {}, clear=True):
-            with self.assertRaisesRegex(ValueError, "is required"):
-                generator.serverless_start_date()
+        with patch.dict(os.environ, {}, clear=True), self.assertRaisesRegex(ValueError, "is required"):
+            generator.serverless_start_date()
 
         for value, message in (("2099-01-01T00:00:00", "timezone"), ("2020-01-01T00:00:00+00:00", "future")):
-            with self.subTest(value=value), patch.dict(os.environ, {"MWAA_SERVERLESS_START_DATE": value}):
-                with self.assertRaisesRegex(ValueError, message):
-                    generator.serverless_start_date()
+            with self.subTest(value=value), patch.dict(os.environ, {"MWAA_SERVERLESS_START_DATE": value}), self.assertRaisesRegex(ValueError, message):
+                generator.serverless_start_date()
 
     def test_contract_validation_rejects_unsupported_dag_and_task_settings(self) -> None:
         dag = SimpleNamespace(catchup=False, max_active_runs=1, default_args={"depends_on_past": False}, schedule=None)

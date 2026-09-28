@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_expected_processed_columns():
-    assert EXPECTED_COLUMNS == {
+    assert {
         "observation_id",
         "patient_id",
         "encounter_id",
@@ -39,7 +39,7 @@ def test_expected_processed_columns():
         "year",
         "month",
         "day",
-    }
+    } == EXPECTED_COLUMNS
 
 
 def test_valid_loinc_codes():
