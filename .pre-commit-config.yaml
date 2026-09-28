@@ -85,12 +85,11 @@ repos:
         pass_filenames: false
         files: \.tf$
       - id: checkov
-        name: checkov (warn mode)
-        entry: .tools/bin/checkov --directory infra --framework terraform --compact --quiet --soft-fail
+        name: checkov
+        entry: .tools/bin/checkov --config-file .checkov.yaml
         language: system
         pass_filenames: false
-        files: \.tf$
-        verbose: true
+        files: (\.tf|^\.checkov\.yaml)$
       - id: test-checks
         name: Each check blocks its bad sample and passes its good one
         entry: .venv/bin/python -m tools.test_checks

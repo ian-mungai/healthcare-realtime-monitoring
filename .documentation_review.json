@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "reviewer": "AI review agent",
-  "reviewed_at_utc": "2026-09-28T23:34:21Z",
-  "snapshot_sha256": "e110ed7b32e670aefdd62a396a0b694d8ad96f4bf9e66ec06807c326a24c6ed0",
+  "reviewed_at_utc": "2026-09-28T23:37:34Z",
+  "snapshot_sha256": "642dd5665fb6b5c82527eb5a2f55b65486aeba715eb70d08561d320ef627b0ea",
   "extra_documents": [],
   "documents": [
     {
@@ -32,19 +32,19 @@
     {
       "path": "docs/architecture.md",
       "blob": "140219c0c8747e84f2b0f5ade8a8eda1e4aeeff5",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "Security boundaries describe the HAPI load balancer allow-list."
     },
     {
       "path": "docs/architecture/architecture.html",
       "blob": "b8e56a41286df4c74b3e635c632e498ed98414e0",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "HAPI ALB label shows the allow-list; footer commit moved to f28beea."
     },
     {
       "path": "docs/architecture/architecture.png",
       "blob": "a56e8db6a61b3c3174ffbd45e04180710345ae52",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "Re-rendered from architecture.html."
     },
     {
@@ -62,7 +62,7 @@
     {
       "path": "docs/data-governance.md",
       "blob": "f524baf2d088be78c6e1636d9ad741c3744fb981",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "Security list includes the HAPI allow-list."
     },
     {
@@ -127,14 +127,14 @@
     },
     {
       "path": "docs/quality-checks.md",
-      "blob": "1c65b60037f9d6701ce2125d28157f8debcc8043",
-      "outcome": "current",
-      "notes": "Terraform section now says tflint blocks and checkov stays in warn mode."
+      "blob": "68d83219614b1af15fbe7414d75a82e57155fda5",
+      "outcome": "updated",
+      "notes": "Terraform section now says checkov blocks and lists every accepted rule with its reason; matches .checkov.yaml and tools/repo_checks.py."
     },
     {
       "path": "docs/quickstart.md",
       "blob": "5ccad58149e1377af74e4f890f9576ec489c049a",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "Setup step asks for HAPI_OPERATOR_CIDRS before loading the cohort."
     },
     {

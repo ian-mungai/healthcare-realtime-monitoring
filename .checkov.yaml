@@ -1,0 +1,52 @@
+# checkov settings. Every skipped rule below is an accepted risk for this synthetic-data portfolio stack,
+# approved by the repository owner on 2026-09-28; tools/repo_checks.py blocks additions to this list.
+# See docs/quality-checks.md#terraform for the table of reasons.
+compact: true
+quiet: true
+framework:
+  - terraform
+directory:
+  - infra
+skip-check:
+  - CKV2_AWS_11  # VPC flow logs are not kept for the short-lived demo network; cost.
+  - CKV2_AWS_20  # No HTTPS listener to redirect to (see CKV_AWS_2).
+  - CKV2_AWS_28  # WAF is not used for the allow-listed synthetic-data HAPI endpoint; cost outweighs benefit.
+  - CKV2_AWS_30  # PostgreSQL query logging is not kept for the demo databases.
+  - CKV2_AWS_5  # Task security groups are attached at run time by ECS RunTask, which the scan cannot see.
+  - CKV2_AWS_51  # API Gateway uses IAM and shared-secret authentication instead of client certificates.
+  - CKV2_AWS_60  # Snapshot tag copying is not needed; final snapshots are skipped in demo teardown.
+  - CKV2_AWS_61  # The data bucket keeps objects until teardown; a lifecycle policy is a documented follow-up in the data governance guide.
+  - CKV2_AWS_62  # S3 event notifications are not used by the pipeline.
+  - CKV_AWS_103  # Same load balancers have no HTTPS listener to set a TLS policy on (see CKV_AWS_2).
+  - CKV_AWS_109  # Same open IAM review as CKV_AWS_356.
+  - CKV_AWS_111  # Same open IAM review as CKV_AWS_356.
+  - CKV_AWS_115  # Reserved concurrency is not set so the demo can scale with the stream.
+  - CKV_AWS_116  # Failures use the Kinesis and SQS failure destinations and replay queue instead of Lambda DLQs.
+  - CKV_AWS_117  # Lambdas call only AWS APIs and need no VPC placement.
+  - CKV_AWS_118  # Enhanced monitoring is not needed for the demo databases.
+  - CKV_AWS_119  # DynamoDB uses AWS-owned encryption; customer-managed keys add cost without benefit for synthetic data.
+  - CKV_AWS_129  # RDS log exports are not kept for the demo databases; cost.
+  - CKV_AWS_131  # Header-dropping is not needed for the allow-listed HAPI and internal Marquez load balancers.
+  - CKV_AWS_136  # ECR uses AES-256 encryption; customer-managed keys add cost without benefit.
+  - CKV_AWS_144  # Cross-region replication is not needed for the rebuildable demo data.
+  - CKV_AWS_145  # S3 buckets use SSE-S3; customer-managed keys add cost without benefit for synthetic data.
+  - CKV_AWS_150  # Load balancer deletion protection would block the guarded demo teardown.
+  - CKV_AWS_157  # Single-AZ RDS is enough for the short-lived demo; Multi-AZ doubles cost.
+  - CKV_AWS_158  # Log groups use AWS-managed encryption; customer-managed keys add cost without benefit for synthetic data.
+  - CKV_AWS_161  # HAPI and Marquez authenticate with RDS-managed secrets, not IAM database authentication.
+  - CKV_AWS_173  # Lambda environment variables hold names only, no secrets; the webhook secret stays in Secrets Manager.
+  - CKV_AWS_18  # S3 server access logging is not kept for the demo; CloudTrail covers API access.
+  - CKV_AWS_195  # The Glue job writes to an SSE-S3 encrypted bucket; a separate Glue security configuration is not used.
+  - CKV_AWS_2  # HAPI load balancer serves HTTP; access is limited to the NAT gateway and operator addresses, and there is no project domain for a certificate.
+  - CKV_AWS_272  # Lambda code signing is not used; packages are built reproducibly in CI.
+  - CKV_AWS_293  # Deletion protection is driven by allow_destructive_teardown so the guarded teardown can remove databases.
+  - CKV_AWS_309  # Webhook routes authenticate with the shared-secret header and WebSocket $disconnect cannot carry authorization.
+  - CKV_AWS_336  # The simulator writes working files at run time; a read-only root file system is a follow-up.
+  - CKV_AWS_338  # Logs are kept 14 days to control cost for the synthetic demo.
+  - CKV_AWS_353  # Performance Insights is not needed for the demo databases.
+  - CKV_AWS_356  # Some AWS actions require Resource "*" (for example ecr:GetAuthorizationToken, athena:StartQueryExecution); remaining wildcards are an open IAM review.
+  - CKV_AWS_378  # Same HTTP listener decision as CKV_AWS_2; the Marquez listener is internal and reached only through IAM-authorized API Gateway.
+  - CKV_AWS_382  # Private tasks need outbound access through the NAT gateway to AWS APIs, ECR, PhysioNet and HAPI.
+  - CKV_AWS_394  # Availability zones are chosen by index; the demo does not need pinned zone IDs.
+  - CKV_AWS_50  # X-Ray tracing is not enabled for the demo Lambdas; CloudWatch metrics and logs cover them.
+  - CKV_AWS_91  # Load balancer access logs are not kept for the synthetic demo; cost.

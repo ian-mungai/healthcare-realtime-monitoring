@@ -20,7 +20,7 @@ from tools.process import clear_git_environment, run_command
 
 ROOT = Path(__file__).resolve().parents[1]
 PRE_COMMIT = ROOT / ".venv" / "bin" / "pre-commit"
-COPIED = [".pre-commit-config.yaml", "pyproject.toml", ".env.example"]
+COPIED = [".pre-commit-config.yaml", "pyproject.toml", ".env.example", ".checkov.yaml"]
 NOQA = "no" + "qa"
 TYPE_IGNORE = "type" + ": ignore"
 FAKE_PAT = "gh" + "p_" + "Zx7Qm2Lp9Rt4Wv8Ks3Nd6Hy1Bc5Fj0Ga2TeQ"
@@ -32,6 +32,18 @@ SESSION = "Claude" + "-Session"
 SCISSORS = "# ------------------------ >8 ------------------------"
 LAUNCHER_SOURCE = (ROOT / "tools" / "process.py").read_text()
 PYPROJECT = (ROOT / "pyproject.toml").read_text()
+CHECKOV_CONFIG = (ROOT / ".checkov.yaml").read_text()
+OPEN_SSH_GROUP = """resource "aws_security_group" "open" {
+  description = "sample"
+  ingress {
+    description = "sample"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+"""
 TERRAFORM_VERSIONS = 'terraform {\n  required_version = ">= 1.11"\n}\n\n'
 
 
@@ -80,6 +92,9 @@ CASES = [
     ),
     Case("versioned Terraform", "tflint", True, {"infra/main.tf": TERRAFORM_VERSIONS + 'output "region" {\n  value = "us-west-2"\n}\n'}),
     Case("unused Terraform variable", "tflint", False, {"infra/main.tf": TERRAFORM_VERSIONS + 'variable "unused" {\n  type = string\n}\n'}),
+    Case("Terraform without findings", "checkov", True, {"infra/main.tf": 'output "region" {\n  value = "us-west-2"\n}\n'}),
+    Case("SSH open to the internet", "checkov", False, {"infra/main.tf": OPEN_SSH_GROUP}),
+    Case("checkov skip added", "lint-settings", False, {".checkov.yaml": CHECKOV_CONFIG + "  - CKV_AWS_24  # sample\n"}),
     Case("documented variable", "env-example", True, {"scripts/tool.py": "import os\n\nNAME = " + ENVIRON + '.get("AWS_REGION", "")\n'}),
     Case("undocumented variable", "env-example", False, {"scripts/tool.py": "import os\n\nNAME = " + ENVIRON + '["NEW_SETTING"]\n'}),
     Case("script removed with its docs", "removed-names", True, committed={"scripts/old_tool.py": "X = 1\n"}, delete=["scripts/old_tool.py"]),
