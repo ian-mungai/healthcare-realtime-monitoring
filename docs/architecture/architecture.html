@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Healthcare Realtime Monitoring Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" integrity="sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/" crossorigin="anonymous"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #020617;
+      min-height: 100vh;
+      padding: 2rem;
+      color: white;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .header {
+      margin-bottom: 2rem;
+    }
+    
+    .header-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .pulse-dot {
+      width: 12px;
+      height: 12px;
+      background: #22d3ee;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+    }
+    
+    .subtitle {
+      color: #94a3b8;
+      font-size: 0.875rem;
+      margin-left: 1.75rem;
+    }
+    
+    .diagram-container {
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: 1rem;
+      border: 1px solid #1e293b;
+      padding: 1.5rem;
+      overflow-x: auto;
+    }
+    
+    svg {
+      width: 100%;
+      min-width: 900px;
+      display: block;
+    }
+    
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+    
+    .card {
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: 0.75rem;
+      border: 1px solid #1e293b;
+      padding: 1.25rem;
+    }
+    
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+    
+    .card-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    
+    .card-dot.cyan { background: #22d3ee; }
+    .card-dot.emerald { background: #34d399; }
+    .card-dot.violet { background: #a78bfa; }
+    .card-dot.amber { background: #fbbf24; }
+    .card-dot.rose { background: #fb7185; }
+    
+    .card h3 {
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+    
+    .card ul {
+      list-style: none;
+      color: #94a3b8;
+      font-size: 0.75rem;
+    }
+    
+    .card li {
+      margin-bottom: 0.375rem;
+    }
+    
+    .footer {
+      text-align: center;
+      margin-top: 1.5rem;
+      color: #475569;
+      font-size: 0.75rem;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 0.5rem;
+      margin-left: auto;
+      flex-shrink: 0;
+      align-items: center;
+    }
+    .toolbar-toggle {
+      background: transparent;
+      border: none;
+      color: #475569;
+      cursor: pointer;
+      font-size: 1.25rem;
+      line-height: 1;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.375rem;
+      transition: color 0.2s, background 0.2s;
+    }
+    .toolbar-toggle:hover { color: #94a3b8; background: rgba(30, 41, 59, 0.5); }
+    .toolbar-actions {
+      display: none;
+      gap: 0.5rem;
+    }
+    .toolbar.expanded .toolbar-actions { display: flex; }
+    .toolbar-actions button {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid #334155;
+      color: #94a3b8;
+      padding: 0.375rem 0.75rem;
+      border-radius: 0.375rem;
+      font-family: inherit;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .toolbar-actions button:hover {
+      background: rgba(51, 65, 85, 0.8);
+      color: white;
+      border-color: #475569;
+    }
+
+    @media print {
+      body { background: #020617; padding: 1rem; }
+      .toolbar { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="report-container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-row">
+        <div class="pulse-dot"></div>
+        <h1>Healthcare Realtime Monitoring Architecture</h1>
+        <div class="toolbar">
+          <div class="toolbar-actions">
+            <button onclick="copyAsImage(this)">📋 Copy</button>
+            <button onclick="downloadPNG(this)">🖼️ PNG</button>
+            <button onclick="downloadPDF(this)">📄 PDF</button>
+          </div>
+          <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('expanded')" title="Export options" aria-label="Export options">⋯</button>
+        </div>
+      </div>
+      <p class="subtitle">Synthetic FHIR vital signs on AWS: realtime serving path, governed analytical path and recovery, as deployed by the Terraform in infra/</p>
+    </div>
+
+        <!-- Main Diagram -->
+    <div class="diagram-container">
+      <svg viewBox="0 0 1200 740">
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+          </marker>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)" />
+
+        <!-- Boundaries -->
+        <rect x="190" y="30" width="998" height="660" rx="12" fill="rgba(251, 191, 36, 0.05)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="8,4"/>
+        <text x="202" y="24" fill="#fbbf24" font-size="10" font-weight="600">AWS region (one deployment region, set in .env)</text>
+        <rect x="210" y="60" width="360" height="300" rx="10" fill="transparent" stroke="#94a3b8" stroke-width="1" stroke-dasharray="6,4"/>
+        <text x="218" y="78" fill="#94a3b8" font-size="8">Project VPC · public and private subnets · NAT gateway</text>
+        <text x="600" y="382" fill="#fbbf24" font-size="9" font-weight="600">Analytical path</text>
+        <text x="600" y="62" fill="#fbbf24" font-size="9" font-weight="600">Realtime path</text>
+
+        <!-- Arrows (drawn before boxes) -->
+        <line x1="170" y1="125" x2="223" y2="115" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="196" y="112" fill="#94a3b8" font-size="8" text-anchor="middle">FHIR</text>
+        <line x1="170" y1="205" x2="223" y2="190" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="196" y="182" fill="#94a3b8" font-size="8" text-anchor="middle">HTTPS</text>
+        <line x1="300" y1="165" x2="300" y2="142" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="334" y="157" fill="#94a3b8" font-size="8" text-anchor="middle">Observations</text>
+        <line x1="375" y1="115" x2="398" y2="115" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <line x1="475" y1="140" x2="475" y2="163" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <line x1="550" y1="100" x2="598" y2="96" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="574" y="90" fill="#94a3b8" font-size="8" text-anchor="middle">rest-hook</text>
+        <line x1="760" y1="97" x2="788" y2="97" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <line x1="950" y1="97" x2="978" y2="97" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <line x1="870" y1="125" x2="870" y2="143" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="5,5" marker-end="url(#arrowhead)"/>
+        <line x1="1065" y1="125" x2="1065" y2="163" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <line x1="980" y1="205" x2="952" y2="225" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="966" y="200" fill="#94a3b8" font-size="8" text-anchor="middle">write</text>
+        <path d="M 980 190 L 680 190 L 680 203" fill="none" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="686" y="201" fill="#94a3b8" font-size="8" text-anchor="start">push updates</text>
+        <line x1="750" y1="125" x2="797" y2="203" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="748" y="160" fill="#94a3b8" font-size="8" text-anchor="end">GET latest</text>
+        <line x1="1065" y1="220" x2="1065" y2="248" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="1070" y="238" fill="#94a3b8" font-size="8" text-anchor="start">failed batches</text>
+        <path d="M 1150 280 L 1165 280 L 1165 105 L 1152 105" fill="none" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path d="M 1150 115 L 1174 115 L 1174 425 L 1152 425" fill="none" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="1170" y="330" fill="#94a3b8" font-size="8" text-anchor="end">delivery stream</text>
+        <line x1="980" y1="425" x2="952" y2="425" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="966" y="418" fill="#94a3b8" font-size="8" text-anchor="middle">raw/</text>
+        <line x1="730" y1="418" x2="758" y2="418" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <line x1="758" y1="440" x2="732" y2="440" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="755" y="464" fill="#94a3b8" font-size="8" text-anchor="end">Iceberg MERGE</text>
+        <line x1="645" y1="450" x2="645" y2="488" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="650" y="474" fill="#94a3b8" font-size="8" text-anchor="start">catalog</text>
+        <line x1="730" y1="512" x2="758" y2="475" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="752" y="500" fill="#94a3b8" font-size="8" text-anchor="middle">query</text>
+        <line x1="530" y1="425" x2="558" y2="425" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="544" y="418" fill="#94a3b8" font-size="8" text-anchor="middle">start</text>
+        <path d="M 380 400 L 380 282" fill="none" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="386" y="380" fill="#94a3b8" font-size="8" text-anchor="start">ECS RunTask</text>
+        <path d="M 545 282 L 545 505 L 558 505" fill="none" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="540" y="380" fill="#94a3b8" font-size="8" text-anchor="end">SQL</text>
+        <path d="M 170 312 L 182 312 L 182 48 L 680 48 L 680 68" fill="none" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="400" y="43" fill="#94a3b8" font-size="8" text-anchor="middle">SigV4 REST</text>
+        <path d="M 590 48 L 590 235 L 598 235" fill="none" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="594" y="150" fill="#94a3b8" font-size="8" text-anchor="start">WebSocket</text>
+        <path d="M 170 545 L 200 545 L 200 598 L 645 598 L 645 547" fill="none" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="420" y="593" fill="#94a3b8" font-size="8" text-anchor="middle">DirectQuery (Athena ODBC)</text>
+        <path d="M 170 645 L 380 645 L 380 572" fill="none" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="5,5" marker-end="url(#arrowhead)"/>
+        <text x="290" y="640" fill="#94a3b8" font-size="8" text-anchor="middle">OIDC role · plan/apply</text>
+
+        <!-- Components -->
+        <rect x="20" y="100" width="150" height="50" rx="6" fill="#0f172a"/>
+        <rect x="20" y="100" width="150" height="50" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="95.0" y="118" fill="white" font-size="11" font-weight="600" text-anchor="middle">Synthea loader</text>
+        <text x="95.0" y="132" fill="#94a3b8" font-size="8.5" text-anchor="middle">local · synthetic cohort</text>
+        <rect x="20" y="180" width="150" height="50" rx="6" fill="#0f172a"/>
+        <rect x="20" y="180" width="150" height="50" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="95.0" y="198" fill="white" font-size="11" font-weight="600" text-anchor="middle">PhysioNet BIDMC</text>
+        <text x="95.0" y="212" fill="#94a3b8" font-size="8.5" text-anchor="middle">public vital-sign numerics</text>
+        <rect x="20" y="290" width="150" height="70" rx="6" fill="#0f172a"/>
+        <rect x="20" y="290" width="150" height="70" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="95.0" y="308" fill="white" font-size="11" font-weight="600" text-anchor="middle">Operator clients</text>
+        <text x="95.0" y="322" fill="#94a3b8" font-size="8.5" text-anchor="middle">Streamlit dashboards</text>
+        <text x="95.0" y="334" fill="#94a3b8" font-size="8.5" text-anchor="middle">Postman checks</text>
+        <text x="95.0" y="346" fill="#94a3b8" font-size="8.5" text-anchor="middle">(local, IAM-signed)</text>
+        <rect x="20" y="520" width="150" height="50" rx="6" fill="#0f172a"/>
+        <rect x="20" y="520" width="150" height="50" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="95.0" y="538" fill="white" font-size="11" font-weight="600" text-anchor="middle">Power BI Desktop</text>
+        <text x="95.0" y="552" fill="#94a3b8" font-size="8.5" text-anchor="middle">local report</text>
+        <rect x="20" y="620" width="150" height="50" rx="6" fill="#0f172a"/>
+        <rect x="20" y="620" width="150" height="50" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="95.0" y="638" fill="white" font-size="11" font-weight="600" text-anchor="middle">GitHub Actions</text>
+        <text x="95.0" y="652" fill="#94a3b8" font-size="8.5" text-anchor="middle">CI · manual deploy</text>
+        <rect x="225" y="90" width="150" height="50" rx="6" fill="#0f172a"/>
+        <rect x="225" y="90" width="150" height="50" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="300.0" y="108" fill="white" font-size="11" font-weight="600" text-anchor="middle">HAPI ALB</text>
+        <text x="300.0" y="122" fill="#94a3b8" font-size="8.5" text-anchor="middle">public HTTP :80</text>
+        <rect x="400" y="90" width="150" height="50" rx="6" fill="#0f172a"/>
+        <rect x="400" y="90" width="150" height="50" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="475.0" y="108" fill="white" font-size="11" font-weight="600" text-anchor="middle">HAPI FHIR R4</text>
+        <text x="475.0" y="122" fill="#94a3b8" font-size="8.5" text-anchor="middle">ECS Fargate service</text>
+        <rect x="400" y="165" width="150" height="40" rx="6" fill="#0f172a"/>
+        <rect x="400" y="165" width="150" height="40" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="475.0" y="183" fill="white" font-size="11" font-weight="600" text-anchor="middle">RDS PostgreSQL</text>
+        <text x="475.0" y="197" fill="#94a3b8" font-size="8.5" text-anchor="middle">HAPI store · encrypted</text>
+        <rect x="225" y="165" width="150" height="50" rx="6" fill="#0f172a"/>
+        <rect x="225" y="165" width="150" height="50" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="300.0" y="183" fill="white" font-size="11" font-weight="600" text-anchor="middle">Vitals simulator</text>
+        <text x="300.0" y="197" fill="#94a3b8" font-size="8.5" text-anchor="middle">ECS Fargate task</text>
+        <rect x="225" y="235" width="325" height="45" rx="6" fill="#0f172a"/>
+        <rect x="225" y="235" width="325" height="45" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="387.5" y="253" fill="white" font-size="11" font-weight="600" text-anchor="middle">dbt · ML scoring · Great Expectations · Soda</text>
+        <text x="387.5" y="267" fill="#94a3b8" font-size="8.5" text-anchor="middle">ECS Fargate tasks</text>
+        <rect x="225" y="295" width="325" height="50" rx="6" fill="#0f172a"/>
+        <rect x="225" y="295" width="325" height="50" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="387.5" y="313" fill="white" font-size="11" font-weight="600" text-anchor="middle">Marquez lineage collector (optional)</text>
+        <text x="387.5" y="327" fill="#94a3b8" font-size="8.5" text-anchor="middle">private ECS + RDS · IAM API Gateway route</text>
+        <text x="387.5" y="339" fill="#94a3b8" font-size="8.5" text-anchor="middle">S3 event fallback when disabled</text>
+        <rect x="600" y="70" width="160" height="55" rx="6" fill="#0f172a"/>
+        <rect x="600" y="70" width="160" height="55" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="680.0" y="88" fill="white" font-size="11" font-weight="600" text-anchor="middle">API Gateway HTTP</text>
+        <text x="680.0" y="102" fill="#94a3b8" font-size="8.5" text-anchor="middle">IAM REST · vitals API Lambda</text>
+        <text x="680.0" y="114" fill="#94a3b8" font-size="8.5" text-anchor="middle">webhook routes</text>
+        <rect x="790" y="70" width="160" height="55" rx="6" fill="#0f172a"/>
+        <rect x="790" y="70" width="160" height="55" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="870.0" y="88" fill="white" font-size="11" font-weight="600" text-anchor="middle">FHIR webhook Lambda</text>
+        <text x="870.0" y="102" fill="#94a3b8" font-size="8.5" text-anchor="middle">shared-secret check</text>
+        <text x="870.0" y="114" fill="#94a3b8" font-size="8.5" text-anchor="middle">profile validation</text>
+        <rect x="790" y="145" width="160" height="40" rx="6" fill="#0f172a"/>
+        <rect x="790" y="145" width="160" height="40" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="870.0" y="163" fill="white" font-size="11" font-weight="600" text-anchor="middle">Secrets Manager</text>
+        <text x="870.0" y="177" fill="#94a3b8" font-size="8.5" text-anchor="middle">webhook secret</text>
+        <rect x="980" y="70" width="170" height="55" rx="6" fill="#0f172a"/>
+        <rect x="980" y="70" width="170" height="55" rx="6" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1.5"/>
+        <text x="1065.0" y="88" fill="white" font-size="11" font-weight="600" text-anchor="middle">Kinesis Data Streams</text>
+        <text x="1065.0" y="102" fill="#94a3b8" font-size="8.5" text-anchor="middle">vitals stream</text>
+        <text x="1065.0" y="114" fill="#94a3b8" font-size="8.5" text-anchor="middle">isolated load-test stream</text>
+        <rect x="980" y="165" width="170" height="55" rx="6" fill="#0f172a"/>
+        <rect x="980" y="165" width="170" height="55" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="1065.0" y="183" fill="white" font-size="11" font-weight="600" text-anchor="middle">Vitals processor Lambda</text>
+        <text x="1065.0" y="197" fill="#94a3b8" font-size="8.5" text-anchor="middle">validate · deduplicate</text>
+        <text x="1065.0" y="209" fill="#94a3b8" font-size="8.5" text-anchor="middle">merge · push</text>
+        <rect x="790" y="205" width="160" height="60" rx="6" fill="#0f172a"/>
+        <rect x="790" y="205" width="160" height="60" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="870.0" y="223" fill="white" font-size="11" font-weight="600" text-anchor="middle">DynamoDB</text>
+        <text x="870.0" y="237" fill="#94a3b8" font-size="8.5" text-anchor="middle">latest vitals · idempotency</text>
+        <text x="870.0" y="249" fill="#94a3b8" font-size="8.5" text-anchor="middle">WebSocket connections</text>
+        <rect x="600" y="205" width="160" height="60" rx="6" fill="#0f172a"/>
+        <rect x="600" y="205" width="160" height="60" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="680.0" y="223" fill="white" font-size="11" font-weight="600" text-anchor="middle">API Gateway WebSocket</text>
+        <text x="680.0" y="237" fill="#94a3b8" font-size="8.5" text-anchor="middle">IAM $connect</text>
+        <text x="680.0" y="249" fill="#94a3b8" font-size="8.5" text-anchor="middle">connection handler Lambda</text>
+        <rect x="980" y="250" width="170" height="60" rx="6" fill="#0f172a"/>
+        <rect x="980" y="250" width="170" height="60" rx="6" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1.5"/>
+        <text x="1065.0" y="268" fill="white" font-size="11" font-weight="600" text-anchor="middle">SQS failure queue</text>
+        <text x="1065.0" y="282" fill="#94a3b8" font-size="8.5" text-anchor="middle">replay Lambda → Kinesis</text>
+        <text x="1065.0" y="294" fill="#94a3b8" font-size="8.5" text-anchor="middle">replay dead-letter queue</text>
+        <rect x="980" y="400" width="170" height="50" rx="6" fill="#0f172a"/>
+        <rect x="980" y="400" width="170" height="50" rx="6" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1.5"/>
+        <text x="1065.0" y="418" fill="white" font-size="11" font-weight="600" text-anchor="middle">Data Firehose</text>
+        <text x="1065.0" y="432" fill="#94a3b8" font-size="8.5" text-anchor="middle">GZIP to raw/</text>
+        <rect x="760" y="390" width="190" height="90" rx="6" fill="#0f172a"/>
+        <rect x="760" y="390" width="190" height="90" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="855.0" y="408" fill="white" font-size="11" font-weight="600" text-anchor="middle">S3 data bucket</text>
+        <text x="855.0" y="422" fill="#94a3b8" font-size="8.5" text-anchor="middle">raw · processed (Iceberg)</text>
+        <text x="855.0" y="434" fill="#94a3b8" font-size="8.5" text-anchor="middle">quarantine · metrics · ml</text>
+        <text x="855.0" y="446" fill="#94a3b8" font-size="8.5" text-anchor="middle">lineage fallback · Athena results</text>
+        <text x="855.0" y="458" fill="#94a3b8" font-size="8.5" text-anchor="middle">versioned · SSE</text>
+        <rect x="560" y="400" width="170" height="50" rx="6" fill="#0f172a"/>
+        <rect x="560" y="400" width="170" height="50" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="645.0" y="418" fill="white" font-size="11" font-weight="600" text-anchor="middle">Glue ETL job</text>
+        <text x="645.0" y="432" fill="#94a3b8" font-size="8.5" text-anchor="middle">validate · quarantine · MERGE</text>
+        <rect x="560" y="490" width="170" height="55" rx="6" fill="#0f172a"/>
+        <rect x="560" y="490" width="170" height="55" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="645.0" y="508" fill="white" font-size="11" font-weight="600" text-anchor="middle">Glue Data Catalog</text>
+        <text x="645.0" y="522" fill="#94a3b8" font-size="8.5" text-anchor="middle">Athena workgroup</text>
+        <rect x="230" y="400" width="300" height="70" rx="6" fill="#0f172a"/>
+        <rect x="230" y="400" width="300" height="70" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="380.0" y="418" fill="white" font-size="11" font-weight="600" text-anchor="middle">MWAA Serverless workflow (daily)</text>
+        <text x="380.0" y="432" fill="#94a3b8" font-size="8.5" text-anchor="middle">Glue → Athena check → Great Expectations</text>
+        <text x="380.0" y="444" fill="#94a3b8" font-size="8.5" text-anchor="middle">→ dbt → ML scoring → refresh → Soda</text>
+        <rect x="760" y="520" width="190" height="55" rx="6" fill="#0f172a"/>
+        <rect x="760" y="520" width="190" height="55" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="855.0" y="538" fill="white" font-size="11" font-weight="600" text-anchor="middle">CloudWatch</text>
+        <text x="855.0" y="552" fill="#94a3b8" font-size="8.5" text-anchor="middle">dashboards · alarms</text>
+        <text x="855.0" y="564" fill="#94a3b8" font-size="8.5" text-anchor="middle">SNS email (KMS)</text>
+        <rect x="980" y="520" width="170" height="50" rx="6" fill="#0f172a"/>
+        <rect x="980" y="520" width="170" height="50" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="1065.0" y="538" fill="white" font-size="11" font-weight="600" text-anchor="middle">Amazon ECR</text>
+        <text x="1065.0" y="552" fill="#94a3b8" font-size="8.5" text-anchor="middle">sha-* image tags</text>
+        <rect x="230" y="520" width="300" height="50" rx="6" fill="#0f172a"/>
+        <rect x="230" y="520" width="300" height="50" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="380.0" y="538" fill="white" font-size="11" font-weight="600" text-anchor="middle">Terraform state bucket</text>
+        <text x="380.0" y="552" fill="#94a3b8" font-size="8.5" text-anchor="middle">separate bootstrap stack · versioned</text>
+
+        <!-- Notes -->
+        <text x="760" y="600" fill="#94a3b8" font-size="8">Every data store has a DataClassification tag.</text>
+        <text x="760" y="614" fill="#94a3b8" font-size="8">All patient data is synthetic; stacks are torn down after demos.</text>
+
+        <!-- Legend (outside the region boundary) -->
+        <text x="200" y="718" fill="white" font-size="10" font-weight="600">Legend</text>
+        <rect x="260" y="708" width="16" height="10" rx="2" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1"/>
+        <text x="282" y="717" fill="#94a3b8" font-size="8">External / optional</text>
+        <rect x="380" y="708" width="16" height="10" rx="2" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1"/>
+        <text x="402" y="717" fill="#94a3b8" font-size="8">Client</text>
+        <rect x="450" y="708" width="16" height="10" rx="2" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1"/>
+        <text x="472" y="717" fill="#94a3b8" font-size="8">Compute</text>
+        <rect x="530" y="708" width="16" height="10" rx="2" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1"/>
+        <text x="552" y="717" fill="#94a3b8" font-size="8">AWS managed service</text>
+        <rect x="660" y="708" width="16" height="10" rx="2" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1"/>
+        <text x="682" y="717" fill="#94a3b8" font-size="8">Data store</text>
+        <rect x="750" y="708" width="16" height="10" rx="2" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1"/>
+        <text x="772" y="717" fill="#94a3b8" font-size="8">Stream / queue</text>
+        <rect x="860" y="708" width="16" height="10" rx="2" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1"/>
+        <text x="882" y="717" fill="#94a3b8" font-size="8">Secret</text>
+        <line x1="930" y1="713" x2="946" y2="713" stroke="#fb7185" stroke-width="1" stroke-dasharray="3,3"/>
+        <text x="952" y="717" fill="#94a3b8" font-size="8">Credential flow</text>
+      </svg>
+    </div>
+
+    <!-- Info Cards -->
+    <div class="cards">
+      <div class="card">
+        <div class="card-header"><div class="card-dot emerald"></div><h3>Realtime Path</h3></div>
+        <ul>
+          <li>• Simulator publishes FHIR Observations to HAPI FHIR</li>
+          <li>• HAPI rest-hook calls the webhook Lambda, which writes to Kinesis</li>
+          <li>• Processor Lambda keeps latest state in DynamoDB and pushes WebSocket updates</li>
+          <li>• Failed batches go to SQS; one bounded replay, then the dead-letter queue</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-dot amber"></div><h3>Analytical Path</h3></div>
+        <ul>
+          <li>• Firehose lands raw events in the versioned S3 bucket</li>
+          <li>• MWAA Serverless runs Glue, Athena checks, Great Expectations, dbt, scoring and Soda</li>
+          <li>• Glue merges accepted rows into Iceberg and quarantines the rest</li>
+          <li>• OpenLineage events go to Marquez when enabled, otherwise to S3</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-dot rose"></div><h3>Security and Operations</h3></div>
+        <ul>
+          <li>• REST and WebSocket clients authenticate with AWS IAM (SigV4)</li>
+          <li>• Webhook secret lives in Secrets Manager; RDS credentials are RDS-managed</li>
+          <li>• CloudWatch alarms notify through a KMS-encrypted SNS topic</li>
+          <li>• GitHub deploys only from main through OIDC and a protected environment</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <p class="footer">
+      Healthcare Realtime Monitoring • built from infra/ Terraform, services/ and airflow/ at commit e0e10b1 • synthetic data only
+    </p>
+  </div>
+
+  <script>
+    async function copyAsImage(btn) {
+      const orig = btn.textContent;
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        btn.textContent = '✓ Copied!';
+      } catch (e) {
+        btn.textContent = '✗ Failed';
+      }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+
+    async function downloadPNG(btn) {
+      const orig = btn.textContent;
+      btn.textContent = '⏳ ...';
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const link = document.createElement('a');
+        link.download = 'diagram.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        btn.textContent = '✓ Done!';
+      } catch (e) {
+        btn.textContent = '✗ Failed';
+      }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+
+    async function downloadPDF(btn) {
+      const orig = btn.textContent;
+      btn.textContent = '⏳ ...';
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const imgData = canvas.toDataURL('image/png');
+        const { jsPDF } = window.jspdf;
+        const orientation = canvas.width > canvas.height ? 'landscape' : 'portrait';
+        const pdf = new jsPDF({ orientation, unit: 'px', format: [canvas.width, canvas.height], hotfixes: ['px_scaling'] });
+        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+        pdf.save('diagram.pdf');
+        btn.textContent = '✓ Done!';
+      } catch (e) {
+        btn.textContent = '✗ Failed';
+      }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+  </script>
+</body>
+</html>
