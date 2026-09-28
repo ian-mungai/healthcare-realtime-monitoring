@@ -39,3 +39,12 @@ variable "data_classification" {
     error_message = "data_classification must be Public, Synthetic, Internal, Confidential or Restricted."
   }
 }
+
+variable "allowed_ingress_cidrs" {
+  description = "CIDR blocks allowed to reach the HAPI load balancer: the NAT gateway address and approved operator addresses."
+  type        = list(string)
+  validation {
+    condition     = length(var.allowed_ingress_cidrs) > 0 && alltrue([for cidr in var.allowed_ingress_cidrs : can(cidrhost(cidr, 0)) && cidr != "0.0.0.0/0"])
+    error_message = "allowed_ingress_cidrs must list valid CIDR blocks and must not open the load balancer to 0.0.0.0/0."
+  }
+}

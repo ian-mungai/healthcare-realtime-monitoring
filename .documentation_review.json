@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "reviewer": "AI review agent",
-  "reviewed_at_utc": "2026-09-28T23:24:24Z",
-  "snapshot_sha256": "39eabef1640a1a0ff011a44e690353c3ed9bc62265f67af8c8f9f3d2029d6068",
+  "reviewed_at_utc": "2026-09-28T23:34:21Z",
+  "snapshot_sha256": "e110ed7b32e670aefdd62a396a0b694d8ad96f4bf9e66ec06807c326a24c6ed0",
   "extra_documents": [],
   "documents": [
     {
@@ -31,21 +31,21 @@
     },
     {
       "path": "docs/architecture.md",
-      "blob": "997f795b37ab203df322f994e12d0b797b36335e",
-      "outcome": "current",
-      "notes": "Mermaid flow, paths, security boundaries and render command match infra/, services/ and the rendered diagram."
+      "blob": "140219c0c8747e84f2b0f5ade8a8eda1e4aeeff5",
+      "outcome": "updated",
+      "notes": "Security boundaries describe the HAPI load balancer allow-list."
     },
     {
       "path": "docs/architecture/architecture.html",
-      "blob": "cc9f875073be2a7dc8b5fe2b132da470abbeb648",
-      "outcome": "current",
-      "notes": "Components match the Terraform modules; the region label still holds per environment account."
+      "blob": "b8e56a41286df4c74b3e635c632e498ed98414e0",
+      "outcome": "updated",
+      "notes": "HAPI ALB label shows the allow-list; footer commit moved to f28beea."
     },
     {
       "path": "docs/architecture/architecture.png",
-      "blob": "2e8cd3bb598419f66fe1977071252150113187c0",
-      "outcome": "current",
-      "notes": "Rendered from architecture.html; unchanged in this revision."
+      "blob": "a56e8db6a61b3c3174ffbd45e04180710345ae52",
+      "outcome": "updated",
+      "notes": "Re-rendered from architecture.html."
     },
     {
       "path": "docs/bootstrap.md",
@@ -61,9 +61,9 @@
     },
     {
       "path": "docs/data-governance.md",
-      "blob": "d82180c4dd81199d44bf5448e109a5eb61b35ad6",
-      "outcome": "current",
-      "notes": "Dataset inventory, quality gates, source tests, DataClassification tags, optimizer retention and security controls match the code and Terraform."
+      "blob": "f524baf2d088be78c6e1636d9ad741c3744fb981",
+      "outcome": "updated",
+      "notes": "Security list includes the HAPI allow-list."
     },
     {
       "path": "docs/demo-guide.md",
@@ -133,9 +133,9 @@
     },
     {
       "path": "docs/quickstart.md",
-      "blob": "f3eb48519e9b9974c50fc168143271e383660635",
-      "outcome": "current",
-      "notes": "Refresh-only and convergence plans name the variable file."
+      "blob": "5ccad58149e1377af74e4f890f9576ec489c049a",
+      "outcome": "updated",
+      "notes": "Setup step asks for HAPI_OPERATOR_CIDRS before loading the cohort."
     },
     {
       "path": "docs/release-checklist.md",

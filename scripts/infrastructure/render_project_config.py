@@ -164,6 +164,8 @@ def build_configuration(
         if not ENVIRONMENT_NAME.fullmatch(deployment_environment):
             raise ConfigurationError("DEPLOYMENT_ENVIRONMENT must be a lowercase name of up to 32 letters, digits or dashes")
         deployment["deployment_environment"] = deployment_environment
+    if operator_cidrs := effective.get("HAPI_OPERATOR_CIDRS", "").strip():
+        deployment["hapi_operator_cidrs"] = parse_csv(operator_cidrs, "HAPI_OPERATOR_CIDRS")
     for environment_name, terraform_name in OPTIONAL_BOOLEAN_VARIABLES.items():
         if value := effective.get(environment_name, "").strip():
             deployment[terraform_name] = parse_boolean(value, environment_name)

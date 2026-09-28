@@ -120,6 +120,7 @@ Great Expectations also emits an independent quality lineage edge from processed
 ## Security and access
 
 - The data bucket blocks public access, enables versioning and uses AES-256 server-side encryption.
+- The HAPI FHIR load balancer accepts HTTP only from the NAT gateway and the operator addresses in `HAPI_OPERATOR_CIDRS`.
 - The Kinesis stream uses AWS-managed KMS encryption.
 - The latest-vitals DynamoDB table has point-in-time recovery enabled.
 - API Gateway REST and WebSocket connection routes use AWS IAM authorization where configured.
