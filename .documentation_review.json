@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "reviewer": "Claude Code (Opus 5.5)",
+  "reviewed_at_utc": "2026-09-28T22:56:42Z",
+  "snapshot_sha256": "cf8b65261109ac281a805c997ade1de1f23294c92d71a52cec156648c3c52f07",
+  "extra_documents": [],
+  "documents": [
+    {
+      "path": ".github/pull_request_template.md",
+      "blob": "e19d1143920e6fa39590ebc220649ffb9483b040",
+      "outcome": "current",
+      "notes": "Sections match the pull request requirements: change, reason, verification with E2E artifact, sensitive-data impact, follow-up cleanup."
+    },
+    {
+      "path": "LICENSE",
+      "blob": "05605267af545f9f6753d60e8b211617c8e1a265",
+      "outcome": "current",
+      "notes": "MIT text with 2026 copyright holder; matches the README License section."
+    },
+    {
+      "path": "README.md",
+      "blob": "c9f10ddfa0faded632396edb6edaefd8ab97fbb1",
+      "outcome": "current",
+      "notes": "Install, Usage, Architecture, Data, Deploy and Teardown sections match the scripts, tools/ checks, docs links and teardown wrapper at this revision; all relative links resolve."
+    },
+    {
+      "path": "docs/analytics-star-schema.md",
+      "blob": "fc212bb6f185947a6c75f005e8384b80f6fa4219",
+      "outcome": "current",
+      "notes": "Fact grain, keys, SCD2 provider history, windows and join paths match the dbt models and tests."
+    },
+    {
+      "path": "docs/architecture.md",
+      "blob": "997f795b37ab203df322f994e12d0b797b36335e",
+      "outcome": "current",
+      "notes": "Mermaid flow, paths, security boundaries and render command match infra/, services/ and the rendered diagram."
+    },
+    {
+      "path": "docs/architecture/architecture.html",
+      "blob": "cc9f875073be2a7dc8b5fe2b132da470abbeb648",
+      "outcome": "updated",
+      "notes": "Added the opt-in Iceberg optimizers to the Glue Data Catalog box and moved the footer commit to 7d78041; components match the Terraform modules."
+    },
+    {
+      "path": "docs/architecture/architecture.png",
+      "blob": "2e8cd3bb598419f66fe1977071252150113187c0",
+      "outcome": "updated",
+      "notes": "Re-rendered from architecture.html with the documented headless Chrome command."
+    },
+    {
+      "path": "docs/bootstrap.md",
+      "blob": "802ac462cce673dbd706f58b8b6d59eed5498fe5",
+      "outcome": "current",
+      "notes": "Stage names and checkpoints match scripts/infrastructure/bootstrap.sh."
+    },
+    {
+      "path": "docs/building-healthcare-realtime-monitoring.md",
+      "blob": "dbfbae63ad5b808a2dc002f8a295e5707907f887",
+      "outcome": "current",
+      "notes": "Narrative article; architecture, data and safety claims still match the code. Tool table is illustrative, not exhaustive."
+    },
+    {
+      "path": "docs/data-governance.md",
+      "blob": "d82180c4dd81199d44bf5448e109a5eb61b35ad6",
+      "outcome": "current",
+      "notes": "Dataset inventory, quality gates, source tests, DataClassification tags, optimizer retention and security controls match the code and Terraform."
+    },
+    {
+      "path": "docs/demo-guide.md",
+      "blob": "275564b36f822acabaaae08c8c9df2628a6684a9",
+      "outcome": "current",
+      "notes": "Commands and dashboard checks match scripts/demo and Terraform outputs."
+    },
+    {
+      "path": "docs/deployment.md",
+      "blob": "18d4750aea860af019fc9a55ac92c2696cb290dc",
+      "outcome": "current",
+      "notes": "OIDC, protected environment secrets and collector steps match deploy.yml and Terraform; EXTERNAL_OPENLINEAGE_COLLECTOR_URL remains a documented optional override."
+    },
+    {
+      "path": "docs/external-prerequisites.md",
+      "blob": "dfe87de29abae69609e253924c7732dbff49b241",
+      "outcome": "current",
+      "notes": "Prerequisite table and IAM policy commands match infra/iam scripts; the glue template change is covered by the plan/apply procedure."
+    },
+    {
+      "path": "docs/infrastructure-lifecycle.md",
+      "blob": "5d84a29e770a520aa8874d01eced8c66a3ce253a",
+      "outcome": "current",
+      "notes": "Teardown phases, confirmations and state handling match scripts/infrastructure/teardown.sh and bootstrap.sh."
+    },
+    {
+      "path": "docs/load-testing.md",
+      "blob": "776432ffb2a745a06766e19875de02199e28e826",
+      "outcome": "current",
+      "notes": "Exported variables and flags match scripts/load_testing/realtime_load_test.py."
+    },
+    {
+      "path": "docs/model-predictions.md",
+      "blob": "2041510d88f1d357f886fbe151918668ecaeff76",
+      "outcome": "current",
+      "notes": "Scoring command, views and schedule match jobs/ml and the dbt models."
+    },
+    {
+      "path": "docs/model-training.md",
+      "blob": "c7e057e102254ffa3ac145ca9da8043c6f5f5838",
+      "outcome": "current",
+      "notes": "Dataset contract, artifacts and approval flow match jobs/ml/train_logistic_regression.py and Terraform."
+    },
+    {
+      "path": "docs/operations-runbook.md",
+      "blob": "ef6a14e832d7faca2e9ef9f880e1e1a7528e2959",
+      "outcome": "updated",
+      "notes": "CI gate paragraph now names the Repository Checks job; other procedures match the scripts."
+    },
+    {
+      "path": "docs/power-bi-connection.md",
+      "blob": "17b00c071a498e5b5adee8a50678a688937b82e5",
+      "outcome": "current",
+      "notes": "Connection steps and table names match the dbt aliases and .env names."
+    },
+    {
+      "path": "docs/quality-checks.md",
+      "blob": "e4cf47c54d9ce2e46851a02d5e24696f69f15cde",
+      "outcome": "updated",
+      "notes": "Added the Documentation Review section; hook list, policies, T20 rule and approved suppression match .pre-commit-config.yaml and tools/."
+    },
+    {
+      "path": "docs/quickstart.md",
+      "blob": "0264af3ef5fb8235a0ce9d22a19b5549efc7a3cb",
+      "outcome": "current",
+      "notes": "Command sequence matches the bootstrap, publish and demo scripts, including the optimizer opt-in step."
+    },
+    {
+      "path": "docs/release-checklist.md",
+      "blob": "78a09140daba30b3472710145075f52ec01c020c",
+      "outcome": "historical",
+      "notes": "Completed v1.0.1 release checklist; kept as dated evidence and not re-run for this revision."
+    },
+    {
+      "path": "docs/release-notes-v1.0.0.md",
+      "blob": "4502b779396d92a8849f42f1321ea845a683dc91",
+      "outcome": "historical",
+      "notes": "Release record for v1.0.0; content preserved unchanged."
+    },
+    {
+      "path": "docs/release-notes-v1.0.1.md",
+      "blob": "116bb5e0e3de1bffb412208f1fa62bef6e05addd",
+      "outcome": "historical",
+      "notes": "Release record for v1.0.1; coverage and test counts are as recorded on 2026-09-18."
+    },
+    {
+      "path": "docs/technology-inventory.md",
+      "blob": "f036ee7c64f0efdbe0e2feacce5b0dd2ffcb646d",
+      "outcome": "current",
+      "notes": "Tools and services match the committed code, including pre-commit, gitleaks, tflint and checkov."
+    }
+  ]
+}

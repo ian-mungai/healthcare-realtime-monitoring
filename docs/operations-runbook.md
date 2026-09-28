@@ -63,7 +63,7 @@ Confirm that the state object exists in the configured bucket before removing an
 
 ## CI and Deployment Gate
 
-The CI workflow runs Python tests, linting, type checks, Soda syntax checks, Terraform format and validation, generated-workflow validation, deployment-package checks and container builds on pull requests and updates to `main`. Infrastructure deployment uses the manual OIDC-authenticated workflow and protected environment described in the [deployment guide](deployment.md).
+The CI workflow runs Python tests, linting, type checks, Soda syntax checks, Terraform format and validation, generated-workflow validation, deployment-package checks and container builds on pull requests and updates to `main`. A separate Repository Checks job runs the pre-commit hooks described in the [quality checks guide](quality-checks.md), scans the full Git history with gitleaks and proves each check against good and bad samples. Infrastructure deployment uses the manual OIDC-authenticated workflow and protected environment described in the [deployment guide](deployment.md).
 
 Before infrastructure deployment, run:
 

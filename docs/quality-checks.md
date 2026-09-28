@@ -40,6 +40,15 @@ Subjects follow Conventional Commits: `<type>(<scope>): <description>` with the 
 
 Every environment variable the Python code reads is listed in `.env.example`, either as a local input or as a commented reference line. When a script, command-line flag or environment variable is removed, the documentation that names it must change in the same commit.
 
+## Documentation Review
+
+Before every commit, every document in the repository is reviewed against the staged code, configuration and decisions, and the outcome is recorded in `.documentation_review.json`. The check discovers `README`, `LICENSE`, Markdown, HTML and other document formats and every file under `docs/`; requirements files and version pins are not documents. It blocks a commit when the record is missing, a document is unreviewed, any staged file changed after the review or new documentation is untracked. It checks the evidence, not the truth of the notes.
+
+1. Stage the intended changes by name.
+2. Draft the record: `.venv/bin/python -m tools.documentation_review prepare --reviewer "<name>" --reviewed-at <YYYY-MM-DDTHH:MM:SSZ> --refresh`.
+3. Read every listed document against the staged change. Correct stale content, then set each `outcome` to `current`, `updated` or `historical` with a note on what was checked. Historical records such as release notes keep their original content.
+4. Stage `.documentation_review.json` and commit. If you stage anything else afterwards, repeat from step 2.
+
 ## Lint and Type Settings
 
 Ruff keeps line length 160 and at least the rule families `E`, `F`, `I`, `B`, `UP`, `SIM` and `T20` (no `print`: command-line scripts write to `sys.stdout`, services log through `logging`), with no ignore or exclude settings. MyPy settings may only get stricter, and its exclude list may not grow. Suppression comments are blocked except the one approved exception below; fix the code instead.
