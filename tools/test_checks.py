@@ -32,6 +32,7 @@ SESSION = "Claude" + "-Session"
 SCISSORS = "# ------------------------ >8 ------------------------"
 LAUNCHER_SOURCE = (ROOT / "tools" / "process.py").read_text()
 PYPROJECT = (ROOT / "pyproject.toml").read_text()
+TERRAFORM_VERSIONS = 'terraform {\n  required_version = ">= 1.11"\n}\n\n'
 
 
 @dataclass
@@ -77,6 +78,8 @@ CASES = [
         False,
         {"pyproject.toml": PYPROJECT.replace("[tool.mypy]\n", '[tool.mypy]\ndisable_error_code = ["attr-defined"]\n')},
     ),
+    Case("versioned Terraform", "tflint", True, {"infra/main.tf": TERRAFORM_VERSIONS + 'output "region" {\n  value = "us-west-2"\n}\n'}),
+    Case("unused Terraform variable", "tflint", False, {"infra/main.tf": TERRAFORM_VERSIONS + 'variable "unused" {\n  type = string\n}\n'}),
     Case("documented variable", "env-example", True, {"scripts/tool.py": "import os\n\nNAME = " + ENVIRON + '.get("AWS_REGION", "")\n'}),
     Case("undocumented variable", "env-example", False, {"scripts/tool.py": "import os\n\nNAME = " + ENVIRON + '["NEW_SETTING"]\n'}),
     Case("script removed with its docs", "removed-names", True, committed={"scripts/old_tool.py": "X = 1\n"}, delete=["scripts/old_tool.py"]),

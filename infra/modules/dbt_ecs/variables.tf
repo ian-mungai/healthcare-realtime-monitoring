@@ -3,11 +3,6 @@ variable "vpc_id" {
   type        = string
 }
 
-variable "private_subnet_ids" {
-  description = "Private subnets used by the dbt Fargate task."
-  type        = list(string)
-}
-
 variable "data_bucket_name" {
   description = "Healthcare data bucket."
   type        = string

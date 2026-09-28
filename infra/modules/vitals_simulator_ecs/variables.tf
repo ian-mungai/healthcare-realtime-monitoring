@@ -8,11 +8,6 @@ variable "vpc_id" {
   type        = string
 }
 
-variable "private_subnet_ids" {
-  description = "Private subnet IDs available to vitals simulator tasks."
-  type        = list(string)
-}
-
 variable "ecs_cluster_arn" {
   description = "ARN of the shared persistent-services ECS cluster."
   type        = string

@@ -153,7 +153,6 @@ module "dbt_ecs" {
   data_classification = "Synthetic"
 
   vpc_id                           = module.network.vpc_id
-  private_subnet_ids               = module.network.private_subnet_ids
   data_bucket_name                 = module.raw_s3.bucket_name
   image_tag                        = var.dbt_image_tag
   force_delete_repository          = var.allow_destructive_teardown
@@ -194,7 +193,6 @@ module "soda_ecs" {
   source = "./modules/soda_ecs"
 
   vpc_id                           = module.network.vpc_id
-  private_subnet_ids               = module.network.private_subnet_ids
   data_bucket_name                 = module.raw_s3.bucket_name
   image_tag                        = var.soda_image_tag
   force_delete_repository          = var.allow_destructive_teardown
@@ -232,8 +230,7 @@ module "vitals_simulator_ecs" {
 
   aws_region = var.aws_region
 
-  vpc_id             = module.network.vpc_id
-  private_subnet_ids = module.network.private_subnet_ids
+  vpc_id = module.network.vpc_id
 
   ecs_cluster_arn = module.hapi_ecs.cluster_arn
   fhir_base_url   = module.hapi_ecs.fhir_base_url
