@@ -1,5 +1,7 @@
 import json
+import logging
 import os
+import sys
 import time
 from dataclasses import asdict, dataclass
 from typing import Any
@@ -8,6 +10,25 @@ import boto3
 import numpy as np
 import wfdb
 from botocore.exceptions import ClientError
+
+
+class _CurrentStdoutHandler(logging.Handler):
+    """Write each record to the current sys.stdout, where CloudWatch collects this runtime's output."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            sys.stdout.write(f"{self.format(record)}\n")
+        except (OSError, ValueError):
+            self.handleError(record)
+
+
+LOGGER = logging.getLogger(__name__)
+if not LOGGER.handlers:
+    _handler = _CurrentStdoutHandler()
+    _handler.setFormatter(logging.Formatter("%(message)s"))
+    LOGGER.addHandler(_handler)
+    LOGGER.setLevel(logging.INFO)
+    LOGGER.propagate = False
 
 PHYSIONET_DIRECTORY = "bidmc/1.0.0"
 
@@ -127,15 +148,15 @@ def load_cached_bidmc_record(record_name: str) -> list[VitalReading] | None:
     try:
         response = boto3.client("s3").get_object(Bucket=bucket, Key=key)
         readings = deserialize_readings(response["Body"].read())
-        print(f"Loaded cached BIDMC record: s3://{bucket}/{key}")
+        LOGGER.info(f"Loaded cached BIDMC record: s3://{bucket}/{key}")
         return readings
     except ClientError as error:
         if error.response.get("Error", {}).get("Code") in {"NoSuchKey", "404"}:
             return None
-        print(f"Unable to read BIDMC cache for {record_name}: {error}")
+        LOGGER.warning(f"Unable to read BIDMC cache for {record_name}: {error}")
         return None
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
-        print(f"Ignoring invalid BIDMC cache for {record_name}: {error}")
+        LOGGER.warning(f"Ignoring invalid BIDMC cache for {record_name}: {error}")
         return None
 
 
@@ -147,9 +168,9 @@ def cache_bidmc_record(record_name: str, readings: list[VitalReading]) -> None:
     body = json.dumps([reading.to_dict() for reading in readings], separators=(",", ":")).encode("utf-8")
     try:
         boto3.client("s3").put_object(Bucket=bucket, Key=key, Body=body, ContentType="application/json")
-        print(f"Cached BIDMC record: s3://{bucket}/{key}")
+        LOGGER.info(f"Cached BIDMC record: s3://{bucket}/{key}")
     except ClientError as error:
-        print(f"Unable to write BIDMC cache for {record_name}: {error}")
+        LOGGER.warning(f"Unable to write BIDMC cache for {record_name}: {error}")
 
 
 def fetch_physionet_record(record_name: str) -> tuple[Any, dict[str, Any]]:
@@ -164,7 +185,7 @@ def fetch_physionet_record(record_name: str) -> tuple[Any, dict[str, Any]]:
             if attempt == max_attempts:
                 raise RuntimeError(f"PhysioNet fetch failed for {record_name} after {max_attempts} attempts") from error
             delay = backoff_seconds * (2 ** (attempt - 1))
-            print(f"PhysioNet fetch failed for {record_name} (attempt {attempt}/{max_attempts}): {error}. Retrying in {delay:.1f}s")
+            LOGGER.warning(f"PhysioNet fetch failed for {record_name} (attempt {attempt}/{max_attempts}): {error}. Retrying in {delay:.1f}s")
             time.sleep(delay)
 
     raise RuntimeError(f"PhysioNet fetch failed for {record_name}")
@@ -183,7 +204,7 @@ def fetch_remote_bidmc_record(record_number: int) -> list[VitalReading]:
     if cached_readings:
         return cached_readings
 
-    print(f"Fetching remote PhysioNet record: {record_name}")
+    LOGGER.info(f"Fetching remote PhysioNet record: {record_name}")
 
     signals, fields = fetch_physionet_record(record_name)
 
@@ -191,11 +212,11 @@ def fetch_remote_bidmc_record(record_number: int) -> list[VitalReading]:
 
     sampling_frequency = float(fields["fs"])
 
-    print(f"Sampling frequency: {sampling_frequency} Hz")
+    LOGGER.info(f"Sampling frequency: {sampling_frequency} Hz")
 
-    print(f"Signal names: {signal_names}")
+    LOGGER.info(f"Signal names: {signal_names}")
 
-    print(f"Samples: {signals.shape[0]}")
+    LOGGER.info(f"Samples: {signals.shape[0]}")
 
     if sampling_frequency <= 0:
         raise ValueError("Invalid sampling frequency returned by PhysioNet")

@@ -42,7 +42,7 @@ Every environment variable the Python code reads is listed in `.env.example`, ei
 
 ## Lint and Type Settings
 
-Ruff keeps line length 160 and at least the rule families `E`, `F`, `I`, `B`, `UP` and `SIM`, with no ignore or exclude settings. MyPy settings may only get stricter, and its exclude list may not grow. Suppression comments are blocked except the one approved exception below; fix the code instead.
+Ruff keeps line length 160 and at least the rule families `E`, `F`, `I`, `B`, `UP`, `SIM` and `T20` (no `print`: command-line scripts write to `sys.stdout`, services log through `logging`), with no ignore or exclude settings. MyPy settings may only get stricter, and its exclude list may not grow. Suppression comments are blocked except the one approved exception below; fix the code instead.
 
 | Rule | Allowed only in | Condition |
 | --- | --- | --- |

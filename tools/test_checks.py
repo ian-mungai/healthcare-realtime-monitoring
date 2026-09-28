@@ -66,7 +66,7 @@ CASES = [
     Case("launcher import", "subprocess-imports", True, {"scripts/tool.py": "from tools.process import run_command\n"}),
     Case("subprocess import is reported", "subprocess-imports", True, {"scripts/tool.py": "import sub" + "process\n"}, expect_warning=True),
     Case("current lint settings", "lint-settings", True, {"pyproject.toml": PYPROJECT}),
-    Case("Ruff rule family removed", "lint-settings", False, {"pyproject.toml": PYPROJECT.replace(',\n    "SIM"\n]', "\n]")}),
+    Case("Ruff rule family removed", "lint-settings", False, {"pyproject.toml": PYPROJECT.replace(',\n    "T20"\n]', "\n]")}),
     Case("Ruff ignore added", "lint-settings", False, {"pyproject.toml": PYPROJECT.replace("[tool.ruff.lint]\n", '[tool.ruff.lint]\nignore = ["E501"]\n')}),
     Case("Ruff line length raised", "lint-settings", False, {"pyproject.toml": PYPROJECT.replace("line-length = 160", "line-length = 200")}),
     Case("MyPy exclude added", "lint-settings", False, {"pyproject.toml": PYPROJECT.replace('    "^tmp/",\n', '    "^tmp/",\n    "^services/",\n')}),
