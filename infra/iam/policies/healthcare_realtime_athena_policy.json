@@ -11,7 +11,9 @@
         "athena:StopQueryExecution",
         "athena:ListQueryExecutions"
       ],
-      "Resource": "*"
+      "Resource": [
+        "arn:aws:athena:${AWS_REGION}:${AWS_ACCOUNT_ID}:workgroup/${ATHENA_WORKGROUP_NAME}"
+      ]
     },
     {
       "Sid": "ReadHealthcareAthenaMetadata",
@@ -22,7 +24,10 @@
         "athena:ListDatabases",
         "athena:ListTableMetadata"
       ],
-      "Resource": "*"
+      "Resource": [
+        "arn:aws:athena:${AWS_REGION}:${AWS_ACCOUNT_ID}:datacatalog/${ATHENA_CATALOG_NAME}",
+        "arn:aws:athena:${AWS_REGION}:${AWS_ACCOUNT_ID}:datacatalog/AwsDataCatalog"
+      ]
     }
   ]
 }

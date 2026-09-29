@@ -2,10 +2,20 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "CreateAndListKinesisStreams",
+      "Sid": "CreateHealthcareRealtimeKinesisStreams",
       "Effect": "Allow",
       "Action": [
-        "kinesis:CreateStream",
+        "kinesis:CreateStream"
+      ],
+      "Resource": [
+        "arn:aws:kinesis:${AWS_REGION}:${AWS_ACCOUNT_ID}:stream/${KINESIS_STREAM_NAME}",
+        "arn:aws:kinesis:${AWS_REGION}:${AWS_ACCOUNT_ID}:stream/${LOAD_TEST_KINESIS_STREAM_NAME}"
+      ]
+    },
+    {
+      "Sid": "ListKinesisStreams",
+      "Effect": "Allow",
+      "Action": [
         "kinesis:ListStreams",
         "kinesis:DescribeLimits"
       ],

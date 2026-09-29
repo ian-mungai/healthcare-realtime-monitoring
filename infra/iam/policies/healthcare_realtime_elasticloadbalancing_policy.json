@@ -36,7 +36,11 @@
         "elasticloadbalancing:AddTags",
         "elasticloadbalancing:RemoveTags"
       ],
-      "Resource": "*"
+      "Resource": [
+        "arn:aws:elasticloadbalancing:${AWS_REGION}:${AWS_ACCOUNT_ID}:loadbalancer/app/healthcare-realtime-*/*",
+        "arn:aws:elasticloadbalancing:${AWS_REGION}:${AWS_ACCOUNT_ID}:targetgroup/healthcare-realtime-*/*",
+        "arn:aws:elasticloadbalancing:${AWS_REGION}:${AWS_ACCOUNT_ID}:listener/app/healthcare-realtime-*/*/*"
+      ]
     }
   ]
 }

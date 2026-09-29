@@ -47,9 +47,24 @@
       "Effect": "Allow",
       "Action": [
         "lambda:CreateEventSourceMapping",
-        "lambda:GetEventSourceMapping",
         "lambda:UpdateEventSourceMapping",
-        "lambda:DeleteEventSourceMapping",
+        "lambda:DeleteEventSourceMapping"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "ArnLike": {
+          "lambda:FunctionArn": [
+            "arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:function:healthcare_realtime_*",
+            "arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:function:healthcare-realtime-*"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "ReadEventSourceMappings",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:GetEventSourceMapping",
         "lambda:ListEventSourceMappings"
       ],
       "Resource": "*"

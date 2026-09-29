@@ -15,7 +15,9 @@
       "Action": [
         "ecr:DescribeRepositories"
       ],
-      "Resource": "*"
+      "Resource": [
+        "arn:aws:ecr:${AWS_REGION}:${AWS_ACCOUNT_ID}:repository/healthcare-realtime-*"
+      ]
     },
     {
       "Sid": "ManageHealthcareRealtimeRepositories",

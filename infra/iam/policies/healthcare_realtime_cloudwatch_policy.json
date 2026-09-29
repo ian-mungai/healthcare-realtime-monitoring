@@ -51,7 +51,16 @@
       "Action": [
         "cloudwatch:GetDashboard",
         "cloudwatch:PutDashboard",
-        "cloudwatch:DeleteDashboards",
+        "cloudwatch:DeleteDashboards"
+      ],
+      "Resource": [
+        "arn:aws:cloudwatch::${AWS_ACCOUNT_ID}:dashboard/healthcare-realtime-*"
+      ]
+    },
+    {
+      "Sid": "ListCloudWatchDashboards",
+      "Effect": "Allow",
+      "Action": [
         "cloudwatch:ListDashboards"
       ],
       "Resource": "*"
