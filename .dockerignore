@@ -34,6 +34,10 @@ services/vitals_simulator/data/bidmc
 !jobs/dbt/
 !jobs/dbt/run_dbt_with_lineage.py
 
+# Allow the webhook subscription code used by the FHIR setup task (docs/fhir-setup-tasks.md).
+!services/fhir_webhook/__init__.py
+!services/fhir_webhook/app/
+
 # Allow Soda runtime wrapper and contracts.
 !data_quality/
 !data_quality/soda/

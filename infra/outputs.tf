@@ -342,6 +342,26 @@ output "vitals_simulator_log_group_name" {
   value       = module.vitals_simulator_ecs.log_group_name
 }
 
+output "fhir_setup_task_definition_family" {
+  description = "Family of the one-off FHIR setup ECS task definition."
+  value       = module.fhir_setup_ecs.task_definition_family
+}
+
+output "fhir_setup_security_group_id" {
+  description = "Security group used by the FHIR setup task."
+  value       = module.fhir_setup_ecs.security_group_id
+}
+
+output "fhir_setup_log_group_name" {
+  description = "CloudWatch log group of the FHIR setup task."
+  value       = module.fhir_setup_ecs.log_group_name
+}
+
+output "fhir_setup_seed_bundles_s3_prefix" {
+  description = "S3 prefix where run_fhir_setup.sh uploads the Synthea bundles."
+  value       = module.fhir_setup_ecs.seed_bundles_s3_prefix
+}
+
 output "private_subnet_ids" {
   description = "Private subnet IDs used by healthcare realtime workloads."
   value       = module.network.private_subnet_ids

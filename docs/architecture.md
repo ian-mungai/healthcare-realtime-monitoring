@@ -108,7 +108,7 @@ This design prefers controlled replay over blind redrive: an operator should ide
 
 ## Security boundaries
 
-- HAPI FHIR runs behind an application load balancer that accepts HTTP only from the NAT gateway (the simulator) and the operator addresses in `HAPI_OPERATOR_CIDRS`; the service and database remain in the project VPC.
+- HAPI FHIR runs behind an application load balancer that accepts HTTP only from the NAT gateway, used by the simulator and the one-off FHIR setup task ([FHIR setup tasks](fhir-setup-tasks.md)); the service and database remain in the project VPC.
 - The webhook secret resides in AWS Secrets Manager and is retrieved at runtime. It is not embedded in Terraform configuration or public artifacts.
 - REST and WebSocket clients authenticate with AWS IAM. Postman testing uses temporary authorization generated for the target environment.
 - The Marquez service and database are private. Only SigV4-authenticated requests can traverse API Gateway to its internal load balancer.
