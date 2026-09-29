@@ -18,10 +18,8 @@ resource "aws_iam_role" "glue" {
   tags = var.tags
 }
 
-resource "aws_iam_role_policy_attachment" "glue_service_role" {
-  role       = aws_iam_role.glue.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
-}
+# The job's own permissions replace the AWS managed AWSGlueServiceRole policy, which grants every Glue action on every
+# resource: the job reads and writes its bucket, its catalog database, its log groups and Glue job metrics only.
 
 data "aws_iam_policy_document" "glue_data_access" {
   statement {
@@ -85,6 +83,37 @@ data "aws_iam_policy_document" "glue_data_access" {
       "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:catalog",
       "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:database/default",
     ]
+  }
+
+  statement {
+    sid    = "WriteGlueJobLogs"
+    effect = "Allow"
+
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+
+    # Glue writes driver output to /aws-glue/jobs/output and /error, continuous logs to the job's own group and job
+    # insights to /aws-glue/jobs/logs-v2.
+    resources = [
+      "arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws-glue/jobs/*",
+      "arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws-glue/jobs/*:log-stream:*",
+    ]
+  }
+
+  statement {
+    sid       = "PublishGlueJobMetrics"
+    effect    = "Allow"
+    actions   = ["cloudwatch:PutMetricData"]
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "cloudwatch:namespace"
+      values   = ["Glue"]
+    }
   }
 
   dynamic "statement" {
@@ -245,6 +274,8 @@ resource "aws_glue_job" "raw_to_processed" {
     "--enable-job-insights"          = "true"
     "--enable-metrics"               = "true"
     "--enable-spark-ui"              = "true"
+    "--spark-event-logs-path"        = "s3://${var.bucket_name}/glue/spark-ui/"
+    "--TempDir"                      = "s3://${var.bucket_name}/glue/temp/"
     "--datalake-formats"             = "iceberg"
     "--RAW_PATH"                     = "s3://${var.bucket_name}/raw/fhir_observations/"
     "--DATA_BUCKET_NAME"             = var.bucket_name
@@ -266,7 +297,6 @@ resource "aws_glue_job" "raw_to_processed" {
   tags = var.tags
 
   depends_on = [
-    aws_iam_role_policy_attachment.glue_service_role,
     aws_iam_role_policy.glue_data_access,
     aws_s3_object.glue_script,
     aws_s3_object.glue_lineage_package,

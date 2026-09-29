@@ -122,7 +122,7 @@ All Python code starts programs through `run_command` in `tools/process.py`, inc
 | `CKV_AWS_336` | The simulator writes working files at run time; a read-only root file system is a follow-up. |
 | `CKV_AWS_338` | Logs are kept 14 days to control cost for the synthetic demo. |
 | `CKV_AWS_353` | Performance Insights is not needed for the demo databases. |
-| `CKV_AWS_356` | Only the alerts KMS key policy is flagged: in a key policy, Resource "*" means the key itself. After the IAM review of Sep 29 2026, workload role statements name their resources except `ecr:GetAuthorizationToken`, which AWS allows only on "*", and `cloudwatch:PutMetricData`, limited by a namespace condition. The Glue role also keeps the AWS managed `AWSGlueServiceRole` policy, which is broader; replacing it is a follow-up. |
+| `CKV_AWS_356` | Only the alerts KMS key policy is flagged: in a key policy, Resource "*" means the key itself. After the IAM review of Sep 29 2026, workload role statements name their resources except `ecr:GetAuthorizationToken`, which AWS allows only on "*", and `cloudwatch:PutMetricData`, limited by a namespace condition. The Glue job role has its own scoped permissions instead of the AWS managed `AWSGlueServiceRole` policy. |
 | `CKV_AWS_378` | Same HTTP listener decision as CKV_AWS_2; the Marquez listener is internal and reached only through IAM-authorized API Gateway. |
 | `CKV_AWS_382` | Private tasks need outbound access through the NAT gateway to AWS APIs, ECR, PhysioNet and HAPI. |
 | `CKV_AWS_394` | Availability zones are chosen by index; the demo does not need pinned zone IDs. |
