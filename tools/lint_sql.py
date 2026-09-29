@@ -3,8 +3,10 @@
 Usage: python -m tools.lint_sql [--fix] [file ...]   (every model and singular test when no file is given)
 
 The templater compiles each model with dbt, which reads deployment names through ``env_var``. This runner supplies
-fixed placeholders so the result never depends on a local ``.env`` and no real value reaches the compiled SQL. Nothing
-connects to AWS. Rules and the Athena dialect are in ``.sqlfluff``.
+fixed placeholders so the result never depends on a local ``.env`` and no real value reaches the compiled SQL. SQLFluff
+starts through ``tools/sqlfluff_offline.py``, which stops dbt listing the Glue catalog, and the AWS settings point at
+placeholder credentials with no config files, so any AWS call would fail instead of using a real login. Rules and the
+Athena dialect are in ``.sqlfluff``.
 """
 
 from __future__ import annotations
@@ -17,7 +19,8 @@ from pathlib import Path
 from tools.process import run_command
 
 ROOT = Path(__file__).resolve().parents[1]
-SQLFLUFF = ROOT / ".tools" / "bin" / "sqlfluff"
+SQLFLUFF_PYTHON = ROOT / ".tools" / "sqlfluff" / "bin" / "python"
+OFFLINE_ENTRY = ROOT / "tools" / "sqlfluff_offline.py"
 DEFAULT_PATHS = ("dbt/models", "dbt/tests")
 
 MODEL_TABLES = {
@@ -47,7 +50,13 @@ PLACEHOLDERS = {
     "AWS_REGION": "us-east-1",
     "DATA_BUCKET_NAME": "lint-placeholder-bucket",
     "DBT_SEND_ANONYMOUS_USAGE_STATS": "false",
+    "AWS_ACCESS_KEY_ID": "lint-placeholder",
+    "AWS_SECRET_ACCESS_KEY": "lint-placeholder",
+    "AWS_CONFIG_FILE": os.devnull,
+    "AWS_SHARED_CREDENTIALS_FILE": os.devnull,
+    "AWS_EC2_METADATA_DISABLED": "true",
 }
+AWS_LOGIN_VARIABLES = ("AWS_PROFILE", "AWS_DEFAULT_PROFILE", "AWS_SESSION_TOKEN", "AWS_ROLE_ARN", "AWS_WEB_IDENTITY_TOKEN_FILE")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -56,12 +65,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--fix", action="store_true", help="apply SQLFluff's fixes instead of only reporting")
     parser.add_argument("paths", nargs="*")
     args = parser.parse_args(argv)
-    if not SQLFLUFF.exists():
+    if not SQLFLUFF_PYTHON.exists():
         sys.stderr.write("SQLFluff is not installed; run .venv/bin/python -m tools.install_tools\n")
         return 1
     paths = args.paths or [path for path in DEFAULT_PATHS if (ROOT / path).exists()]
     command = ["fix", "--show-lint-violations"] if args.fix else ["lint"]
-    result = run_command(str(SQLFLUFF), [*command, *paths], cwd=ROOT, timeout=900, env={**os.environ, **PLACEHOLDERS}, capture=False)
+    environment = {name: value for name, value in os.environ.items() if name not in AWS_LOGIN_VARIABLES} | PLACEHOLDERS
+    result = run_command(str(SQLFLUFF_PYTHON), [str(OFFLINE_ENTRY), *command, *paths], cwd=ROOT, timeout=900, env=environment, capture=False)
     return result.returncode
 
 
