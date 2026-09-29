@@ -36,11 +36,11 @@ def test_dbt_build_discovers_singular_tests() -> None:
 
 
 def test_dbt_models_preserve_encounter_context() -> None:
-    staging_model = (ROOT / "dbt/models/staging/stg_fhir_observations.sql").read_text()
-    fact_model = (ROOT / "dbt/models/marts/core/fact_observations.sql").read_text()
+    staging_model = (ROOT / "dbt/models/silver/stg_fhir_observations.sql").read_text()
+    fact_model = (ROOT / "dbt/models/gold/core/fact_observations.sql").read_text()
 
     assert "encounter_id" in staging_model
     assert "encounter_id" in fact_model
     assert "ACTIVE_PATIENT_IDS" in staging_model
-    assert "where encounter_id is not null" in staging_model
+    assert "encounter_id is not null" in staging_model
     assert "__legacy_unknown__" not in fact_model

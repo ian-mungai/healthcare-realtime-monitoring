@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "reviewer": "AI review agent",
-  "reviewed_at_utc": "2026-09-29T03:02:19Z",
-  "snapshot_sha256": "916ab814e3beb67b7291a9cc7b4977138fe7307bf9508e8a7c22c74170e45410",
+  "reviewed_at_utc": "2026-09-29T03:02:47Z",
+  "snapshot_sha256": "e722a75509c38447495ef248e6a92dc73a7690f02a3ff8985c72ac46fcd43a88",
   "extra_documents": [],
   "documents": [
     {
@@ -19,15 +19,15 @@
     },
     {
       "path": "README.md",
-      "blob": "54f62badf3d042394632c30ba262e0c173045ab2",
-      "outcome": "current",
-      "notes": "E2E Verification now says the load test saves reports under artifacts/e2e/load_test/."
+      "blob": "2f1b29da8235caf63e884085b7558f38c244161a",
+      "outcome": "updated",
+      "notes": "Repository Layout dbt row names the silver and gold models."
     },
     {
       "path": "docs/analytics-star-schema.md",
-      "blob": "fc212bb6f185947a6c75f005e8384b80f6fa4219",
-      "outcome": "current",
-      "notes": "Fact grain, keys, SCD2 provider history, windows and join paths match the dbt models and tests."
+      "blob": "72c54340abe7ab5d6cf4a936285146d6ca0f2e5b",
+      "outcome": "updated",
+      "notes": "Added the Model layers section: bronze sources, silver staging view and gold star schema and ML datasets, matching dbt ls output after the rename."
     },
     {
       "path": "docs/architecture.md",
