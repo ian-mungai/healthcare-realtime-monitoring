@@ -1,0 +1,7 @@
+# Privacy-scan allowlist.
+# One entry per line: <type> <path glob> -- <reason>. Entries match by finding type and path, never by value.
+aws-account tests/* -- synthetic fixtures use the AWS documentation example account IDs
+aws-account services/*/tests/* -- synthetic fixtures use the AWS documentation example account IDs
+aws-account airflow/serverless/tests/* -- synthetic fixtures use the AWS documentation example account ID
+aws-account infra/tests/* -- Terraform plan tests use the AWS documentation example account ID
+aws-account .github/workflows/ci.yml -- the CI workflow test uses the AWS documentation example account ID

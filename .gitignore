@@ -72,3 +72,6 @@ tmp/
 
 # Generated MWAA Serverless workflow definition
 airflow/serverless/generated/
+
+# Local documentation-review evidence; never committed.
+/.documentation_review.json

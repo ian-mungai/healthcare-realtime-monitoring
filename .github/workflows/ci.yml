@@ -30,6 +30,10 @@ jobs:
           if [ -n "$BASE_REF" ]; then
             python3 -m scripts.check_commit_message --range "origin/$BASE_REF..HEAD"
           elif [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            if ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+              # The previous tip is missing: check every commit after the root commit.
+              BEFORE="$(git rev-list --max-parents=0 HEAD)"
+            fi
             python3 -m scripts.check_commit_message --range "$BEFORE..HEAD"
           else
             echo "No prior commit to compare; commit-message range check skipped."
@@ -124,7 +128,7 @@ jobs:
         env:
           AWS_REGION: example-region-1
         run: |
-          .venv/bin/pre-commit run --all-files --show-diff-on-failure
+          .venv/bin/pre-commit run --all-files --hook-stage manual --show-diff-on-failure
 
       - name: Check samples
         run: |

@@ -1,10 +1,11 @@
-"""E2E test of the pre-commit checks: each hook rejects a bad sample and passes a good one.
+"""E2E test of the pre-commit checks: each hook rejects a bad sample with its expected diagnostic and passes a good one.
 
 Run from the repository root after setup (``.venv`` and ``.tools`` present): ``.venv/bin/python -m tools.test_checks``.
 Each case builds a scratch Git repository with this repository's hook configuration and scripts, links in ``.venv``
 and ``.tools``, stages the sample and runs the hook through ``pre-commit`` itself, so a hook that is not wired in cannot
 pass. Samples that look like secrets or suppressions are assembled at run time, so this file does not trip the checks it
-tests. Warn-mode hooks must pass and report a warning. The CI log is the run's artifact.
+tests. A rejection counts only when the output cites its declared reason in BLOCK_REASONS; warn-mode hooks must pass and
+report that same reason as a warning. The CI log is the run's artifact.
 """
 
 from __future__ import annotations
@@ -30,6 +31,15 @@ CREDIT = "Co-Authored" + "-By"
 MADE_WITH = "Generated" + " with"
 SESSION = "Claude" + "-Session"
 SCISSORS = "# ------------------------ >8 ------------------------"
+VENDOR_ADDRESS = "noreply" + "@" + "anthropic.com"  # The attribution check matches this vendor address.
+# Privacy samples are assembled so this file does not trip the privacy scan it tests.
+HOME_PATH = "/Us" + "ers/jdoe/projects/app/run.log"
+TEMP_PATH = "/var/" + "folders/zq/k3j9x0000gn/T/run_1"
+PERSONAL_EMAIL = "jane.doe" + "@" + "gmail.com"
+PHONE = "(206) 555" + "-0100"
+AWS_ARN = "arn:aws:iam::" + "1234" + "56789012" + ":role/deploy"
+ENV_VALUE = "acme" + "-admin-profile"
+ALLOWLIST = ".privacy_allowlist"
 LAUNCHER_SOURCE = (ROOT / "tools" / "process.py").read_text()
 PYPROJECT = (ROOT / "pyproject.toml").read_text()
 CHECKOV_CONFIG = (ROOT / ".checkov.yaml").read_text()
@@ -105,6 +115,21 @@ CASES = [
     Case("SQLFluff rule excluded", "lint-settings", False, {".sqlfluff": SQLFLUFF_CONFIG.replace("[sqlfluff]\n", "[sqlfluff]\nexclude_rules = LT02\n")}),
     Case("SQLFluff templater changed", "lint-settings", False, {".sqlfluff": SQLFLUFF_CONFIG.replace("templater = dbt", "templater = jinja")}),
     Case("checkov skip added", "lint-settings", False, {".checkov.yaml": CHECKOV_CONFIG + "  - CKV_AWS_24  # sample\n"}),
+    Case("clean privacy sample", "privacy-scan", True, {"notes.md": "Ask someone@example.invalid; logs live under ~/app.\n"}),
+    Case("home path", "privacy-scan", False, {"notes.md": f"Log at {HOME_PATH}\n"}, expect_warning=True),
+    Case("temp path", "privacy-scan", False, {"notes.md": f"Scratch at {TEMP_PATH}\n"}, expect_warning=True),
+    Case("personal email", "privacy-scan", False, {"notes.md": f"Ask {PERSONAL_EMAIL}\n"}, expect_warning=True),
+    Case("phone number", "privacy-scan", False, {"notes.md": f"Call {PHONE}\n"}, expect_warning=True),
+    Case("AWS account ARN", "privacy-scan", False, {"infra/policy.json": f'{{"Resource": "{AWS_ARN}"}}\n'}, expect_warning=True),
+    Case(
+        "value declared in .env",
+        "privacy-scan",
+        False,
+        {".env": f"AWS_PROFILE={ENV_VALUE}\n", "scripts/deploy.sh": f"aws s3 ls --profile {ENV_VALUE}\n"},
+        expect_warning=True,
+    ),
+    Case("allowlisted email", "privacy-scan", True, {"notes.md": f"Ask {PERSONAL_EMAIL}\n", ALLOWLIST: "email notes.md -- synthetic contact used in a demo\n"}),
+    Case("allowlist entry without reason", "privacy-scan", False, {"notes.md": "Nothing here.\n", ALLOWLIST: "email notes.md\n"}, expect_warning=True),
     Case("documented variable", "env-example", True, {"scripts/tool.py": "import os\n\nNAME = " + ENVIRON + '.get("AWS_REGION", "")\n'}),
     Case("undocumented variable", "env-example", False, {"scripts/tool.py": "import os\n\nNAME = " + ENVIRON + '["NEW_SETTING"]\n'}),
     Case("script removed with its docs", "removed-names", True, committed={"scripts/old_tool.py": "X = 1\n"}, delete=["scripts/old_tool.py"]),
@@ -141,15 +166,63 @@ CASES = [
         True,
         message=f"fix: tidy\n# {CREDIT}: Claude <x@example.invalid>\n{SCISSORS}\ndiff --git a/x b/x\n+{CREDIT}: Claude <x@example.invalid>\n",
     ),
-    Case("agent credit trailer", "commit-msg", False, message=f"docs: release\n\nBody.\n\n{CREDIT}: Claude Opus 5.5 <noreply@anthropic.com>\n"),
+    Case("agent credit trailer", "commit-msg", False, message=f"docs: release\n\nBody.\n\n{CREDIT}: Claude Opus 5.5 <{VENDOR_ADDRESS}>\n"),
     Case("agent credit, lower case", "commit-msg", False, message=f"fix: tidy\n\n{CREDIT.lower()}:codex <codex@example.invalid>\n"),
-    Case("vendor address only", "commit-msg", False, message=f"fix: tidy\n\n{CREDIT}: Assistant <noreply@anthropic.com>\n"),
+    Case("vendor address only", "commit-msg", False, message=f"fix: tidy\n\n{CREDIT}: Assistant <{VENDOR_ADDRESS}>\n"),
     Case("generated-with line", "commit-msg", False, message=f"fix: tidy\n\n{MADE_WITH} [Claude Code](https://claude.com/claude-code)\n"),
     Case("agent session trailer", "commit-msg", False, message=f"fix: tidy\n\n{SESSION}: https://example.invalid/session\n"),
     Case("assisted-by credit", "commit-msg", False, message="fix: tidy\n\nAssisted-By: GitHub Copilot\n"),
     Case("scissors cannot hide actual credit", "commit-msg", False, message=f"fix: tidy\n\n{SCISSORS}\n{CREDIT}: Claude\n"),
     Case("agent substring in human name", "commit-msg", True, message=f"fix: tidy\n\n{CREDIT}: Claudette Example <human@example.invalid>\n"),
 ]
+
+# The diagnostic each rejection must cite, so a hook that fails for an unrelated reason cannot pass as a block.
+BLOCK_REASONS = {
+    "GitHub token": "leaks found: 1",
+    ".env": ".env: credential or state file staged",
+    "Terraform state": "infra/terraform.tfstate: credential or state file staged",
+    "Terraform state backup": "infra/bootstrap/terraform.tfstate.1789700741.backup: credential or state file staged",
+    "private key file": "keys/deploy.pem: credential or state file staged",
+    "CSV outside declared folders": "data/patients.csv: data file outside the declared folders",
+    "file over 5 MB": "docs/big.bin: 5,242,881 bytes, over the 5 MB limit",
+    "S603 outside the launcher": "scripts/tool.py:1: suppression comment not in the approved list",
+    "blanket noqa": "scripts/tool.py:1: suppression comment not in the approved list",
+    "type ignore": "scripts/tool.py:1: suppression comment not in the approved list",
+    "subprocess import": "scripts/tool.py:1: subprocess imported outside the process launcher",
+    "Ruff rule family removed": "pyproject.toml: Ruff rule families missing from select: S",
+    "Ruff ignore added": "pyproject.toml: Ruff loosening keys present: ignore",
+    "Ruff line length raised": "pyproject.toml: Ruff line-length is 200, not 160",
+    "MyPy exclude added": "pyproject.toml: MyPy excludes added: ^services/",
+    "MyPy error code disabled": "pyproject.toml: MyPy settings that can loosen checks: disable_error_code",
+    "unused Terraform variable": "terraform_unused_declarations",
+    "SSH open to the internet": "CKV_AWS_24",
+    "upper-case SQL keywords": "CP01",
+    "SQL noqa comment": "dbt/models/sample.sql:1: suppression comment not in the approved list",
+    "SQLFluff rule excluded": ".sqlfluff: SQLFluff loosening keys present: exclude_rules",
+    "SQLFluff templater changed": ".sqlfluff: [sqlfluff] templater must be dbt",
+    "checkov skip added": ".checkov.yaml: checkov rules skipped without approval: CKV_AWS_24",
+    "home path": "notes.md:1: home-directory path with a user name",
+    "temp path": "notes.md:1: machine temporary path",
+    "personal email": "notes.md:1: email address",
+    "phone number": "notes.md:1: phone number",
+    "AWS account ARN": "infra/policy.json:1: AWS account ID",
+    "value declared in .env": "scripts/deploy.sh:1: value declared in .env",
+    "allowlist entry without reason": ".privacy_allowlist:1: allowlist entry without a reason",
+    "undocumented variable": "scripts/tool.py:3: NEW_SETTING is read but not in .env.example",
+    "script removed, docs still name it": "docs/guide.md:1: old_tool.py was removed but is still documented",
+    "flag removed, docs still name it": "docs/guide.md:1: --legacy-mode was removed but is still documented",
+    "untyped subject": "commit message: subject is not a Conventional Commit",
+    "missing space after colon": "commit message: subject is not a Conventional Commit",
+    "unknown type": "commit message: subject is not a Conventional Commit",
+    "empty description": "commit message: subject is not a Conventional Commit",
+    "agent credit trailer": "commit message:5: AI attribution",
+    "agent credit, lower case": "commit message:3: AI attribution",
+    "vendor address only": "commit message:3: AI attribution",
+    "generated-with line": "commit message:3: AI attribution",
+    "agent session trailer": "commit message:3: AI attribution",
+    "assisted-by credit": "commit message:3: AI attribution",
+    "scissors cannot hide actual credit": "commit message:4: AI attribution",
+}
 
 
 def git(repo: Path, *args: str) -> str:
@@ -184,6 +257,7 @@ def scratch_repo(root: Path, case: Case) -> Path:
     for tool in (".venv", ".tools"):
         (repo / tool).symlink_to(ROOT / tool)
     (repo / ".git" / "info" / "exclude").write_text(".venv\n.tools\n")
+    write(repo, {".gitignore": "/.documentation_review.json\n"})
     write(repo, case.committed)
     git(repo, "add", "-A")
     git(repo, "commit", "-q", "-m", "chore: scratch setup")
@@ -198,23 +272,23 @@ def run_case(case: Case) -> tuple[bool, str]:
         for relative in case.delete:
             git(repo, "rm", "-q", relative)
         git(repo, "add", "-A")
-        args = ["run", case.hook]
+        args = ["run", case.hook, *(["--verbose"] if case.expect_warning else [])]  # pre-commit hides passing output
         if case.message is not None:
             message = repo / ".git" / "COMMIT_EDITMSG"
             message.write_text(case.message)
             args += ["--hook-stage", "commit-msg", "--commit-msg-filename", str(message)]
         result = run_command(str(PRE_COMMIT), args, cwd=repo, timeout=300)
         output = result.stdout + result.stderr
-        ok = (result.returncode == 0) == case.expect_pass and "Traceback (most recent call last)" not in output
-        if case.expect_warning:
-            ok = ok and "warning: " in output
-        if case.message is not None and not case.expect_pass:
-            ok = ok and any(marker in output for marker in ("subject is not a Conventional Commit", "AI attribution"))
+        passes = case.expect_pass or case.expect_warning
+        ok = (result.returncode == 0) == passes and "Traceback (most recent call last)" not in output
+        if not case.expect_pass:
+            reason = BLOCK_REASONS.get(case.name, "<no declared reason>")
+            ok = ok and reason in output and (not case.expect_warning or f"warning: {reason}" in output)
         return ok, output
 
 
 def review_all(repo: Path) -> None:
-    """Draft, complete and stage a documentation review record for the scratch repository's staged snapshot."""
+    """Draft and complete the local documentation review record for the scratch repository's staged snapshot."""
     python = str(ROOT / ".venv" / "bin" / "python")
     run_command(
         python,
@@ -228,7 +302,6 @@ def review_all(repo: Path) -> None:
         item["outcome"] = "current"
         item["notes"] = "Checked against the scratch repository."
     record_path.write_text(json.dumps(record, indent=2) + "\n")
-    git(repo, "add", ".documentation_review.json")
 
 
 def run_documentation_review_cases() -> list[tuple[str, bool, str]]:
@@ -249,7 +322,6 @@ def run_documentation_review_cases() -> list[tuple[str, bool, str]]:
         run_command(
             python, ["-m", "tools.documentation_review", "prepare", "--reviewer", "check test", "--reviewed-at", "2026-09-28T00:00:00Z"], cwd=repo, check=True
         )
-        git(repo, "add", ".documentation_review.json")
         code, output = hook()
         results.append(("pending outcomes", code != 0 and "review unresolved" in output, output))
         review_all(repo)
@@ -263,6 +335,12 @@ def run_documentation_review_cases() -> list[tuple[str, bool, str]]:
         write(repo, {"docs/new.md": "Unstaged new document.\n"})
         code, output = hook()
         results.append(("untracked document", code != 0 and "untracked documentation" in output, output))
+        (repo / "docs" / "new.md").unlink()
+        ci = run_command(str(PRE_COMMIT), ["run", "--hook-stage", "manual", "--verbose", "documentation-review-untracked"], cwd=repo, timeout=300)
+        results.append(("CI stage: record untracked", ci.returncode == 0 and "record untracked and ignored" in ci.stdout + ci.stderr, ci.stdout + ci.stderr))
+        git(repo, "add", "-f", ".documentation_review.json")
+        code, output = hook()
+        results.append(("tracked record", code != 0 and "review evidence must stay local" in output, output))
     return results
 
 
@@ -275,11 +353,29 @@ def run_range_case() -> tuple[bool, str]:
         check = ["-m", "scripts.check_commit_message", "--range"]
         git(repo, "commit", "--allow-empty", "-qm", f"fix: human credit\n\n{CREDIT}: Jane Doe <jane@example.invalid>")
         good = run_command(python, [*check, f"{base}..HEAD"], cwd=repo)
-        git(repo, "commit", "--allow-empty", "-qm", f"fix: bad credit\n\n{SCISSORS}\n{CREDIT}: Claude <noreply@anthropic.com>")
+        git(repo, "commit", "--allow-empty", "-qm", f"fix: bad credit\n\n{SCISSORS}\n{CREDIT}: Claude <{VENDOR_ADDRESS}>")
         bad = run_command(python, [*check, f"{base}..HEAD"], cwd=repo)
         missing = run_command(python, [*check, "missing-ref..HEAD"], cwd=repo)
         ok = good.returncode == 0 and bad.returncode == 1 and "AI attribution" in bad.stderr and missing.returncode != 0
         return ok, f"clean range exit={good.returncode}; attributed range exit={bad.returncode}; missing revision exit={missing.returncode}\n"
+
+
+def run_privacy_scope_case() -> tuple[bool, str]:
+    """Ignored files are skipped by default and scanned with --all; --warn reports but exits 0; values never print."""
+    with tempfile.TemporaryDirectory(prefix="repo_privacy_scope_") as scratch:
+        repo = scratch_repo(Path(scratch), Case("privacy setup", "privacy-scan", True))
+        (repo / ".git" / "info" / "exclude").write_text(".venv\n.tools\nlocal_notes.md\n")
+        write(repo, {"local_notes.md": f"Log at {HOME_PATH}\n"})
+        python = str(ROOT / ".venv" / "bin" / "python")
+        scan = ["-m", "tools.repo_checks", "privacy-scan"]
+        default = run_command(python, scan, cwd=repo)
+        full = run_command(python, [*scan, "--all"], cwd=repo)
+        warned = run_command(python, [*scan, "--all", "--warn"], cwd=repo)
+        marker = "local_notes.md:1: home-directory path with a user name"
+        leaked = HOME_PATH in full.stderr + warned.stderr
+        ok = default.returncode == 0 and full.returncode == 1 and marker in full.stderr and warned.returncode == 0 and "warning: " in warned.stderr
+        ok = ok and not leaked
+        return ok, f"default exit={default.returncode}; --all exit={full.returncode}; --warn exit={warned.returncode}; value leaked={leaked}\n"
 
 
 def run_hook_case() -> tuple[bool, str]:
@@ -295,7 +391,7 @@ def run_hook_case() -> tuple[bool, str]:
         write(repo, {"notes.md": "A second change.\n"})
         git(repo, "add", "notes.md")
         review_all(repo)
-        bad = run_command("git", ["commit", "-qm", f"docs: more notes\n\n{CREDIT}: Claude <noreply@anthropic.com>"], cwd=repo, timeout=300)
+        bad = run_command("git", ["commit", "-qm", f"docs: more notes\n\n{CREDIT}: Claude <{VENDOR_ADDRESS}>"], cwd=repo, timeout=300)
         write(repo, {".env": "REGION=us-west-2\n"})
         git(repo, "add", "-f", ".env")
         review_all(repo)
@@ -325,7 +421,7 @@ def main() -> int:
         sys.stdout.write(f"{'ok' if ok else 'WRONG':<6} {'documentation-review':<19} {label}\n")
         if not ok:
             sys.stdout.write("".join(f"       {line}\n" for line in output.strip().splitlines()[-8:]))
-    for label, runner in (("commit-range", run_range_case), ("git hooks", run_hook_case)):
+    for label, runner in (("commit-range", run_range_case), ("privacy scope", run_privacy_scope_case), ("git hooks", run_hook_case)):
         ok, output = runner()
         count += 1
         failures += not ok
