@@ -249,6 +249,20 @@ module "vitals_simulator_ecs" {
   alarm_topic_arn         = module.realtime_observability.alert_topic_arn
 }
 
+module "fhir_setup_ecs" {
+  source = "./modules/fhir_setup_ecs"
+
+  aws_region           = var.aws_region
+  vpc_id               = module.network.vpc_id
+  fhir_base_url        = module.hapi_ecs.fhir_base_url
+  data_bucket_name     = module.raw_s3.bucket_name
+  resource_map_s3_key  = var.fhir_resource_map_s3_key
+  webhook_secret_id    = var.fhir_webhook_secret_id
+  image_repository_url = module.vitals_simulator_ecs.ecr_repository_url
+  image_repository_arn = module.vitals_simulator_ecs.ecr_repository_arn
+  image_tag            = var.vitals_simulator_image_tag
+}
+
 module "realtime_vitals" {
   source = "./modules/realtime_vitals"
 
@@ -352,7 +366,7 @@ module "hapi_ecs" {
   public_subnet_ids  = module.network.public_subnet_ids
   private_subnet_ids = module.network.private_subnet_ids
 
-  allowed_ingress_cidrs = concat(["${module.network.nat_public_ip}/32"], var.hapi_operator_cidrs)
+  allowed_ingress_cidrs = ["${module.network.nat_public_ip}/32"]
   deletion_protection   = !var.allow_destructive_teardown
   skip_final_snapshot   = var.hapi_skip_final_snapshot
 }

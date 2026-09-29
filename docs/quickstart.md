@@ -23,7 +23,7 @@ cp .env.example .env
 
 The root requirements file installs the workflow-generator dependencies in the same environment. The verified compatibility set uses Apache Airflow 3.3.1 with SQLAlchemy 2.0.50; do not install Airflow 3.0.x or downgrade SQLAlchemy separately because that recreates the incompatible dependency set.
 
-Replace every placeholder in `.env`. Set `HAPI_OPERATOR_CIDRS` to your public address in CIDR form (for example `<your-public-ip>/32`); the HAPI load balancer accepts only that address and the NAT gateway, and the cohort loader and subscription registration run from your machine. Patient IDs are not user inputs: the generated FHIR resource map supplies them before the full application plan. Enter the deployment region once as `AWS_REGION` and use globally unique names for the state and application-data buckets. The state bucket and every regional service are created in `AWS_REGION`. MWAA Serverless definitions and code are stored under `orchestration/mwaa-serverless/` in the application-data bucket. Leave `ML_APPROVED_MODEL_VERSION` empty for the first deployment. Image tags are not first-deployment inputs; the image publishing script generates and records them later.
+Replace every placeholder in `.env`. No personal IP address is needed: the HAPI load balancer accepts only the NAT gateway, and the cohort load and subscription registration run as an ECS task inside the VPC ([FHIR setup tasks](fhir-setup-tasks.md)). Patient IDs are not user inputs: the generated FHIR resource map supplies them before the full application plan. Enter the deployment region once as `AWS_REGION` and use globally unique names for the state and application-data buckets. The state bucket and every regional service are created in `AWS_REGION`. MWAA Serverless definitions and code are stored under `orchestration/mwaa-serverless/` in the application-data bucket. Leave `ML_APPROVED_MODEL_VERSION` empty for the first deployment. Image tags are not first-deployment inputs; the image publishing script generates and records them later.
 
 Set `ENABLE_OPENLINEAGE_COLLECTOR=true` to create the managed collector. Do not add its URL to `.env`; Terraform generates the URL and passes it to project services. When the setting is `false`, lineage uses durable S3 fallback unless the optional external-collector override documented in the [deployment guide](deployment.md) is added.
 
@@ -135,31 +135,21 @@ Apply `tfrefresh` only when the reviewed plan contains state or output reconcili
 
 ## 4. Seed the ten-patient cohort
 
-Generate the pinned synthetic cohort, load it into HAPI FHIR and synchronize the HAPI-assigned IDs before planning the full application:
+Generate the pinned synthetic cohort locally, load it into HAPI FHIR with the FHIR setup task and synchronize the HAPI-assigned IDs before planning the full application:
 
 ```zsh
 ./scripts/synthea_loader/scripts/install.sh
 POPULATION=10 SEED=12345 ./scripts/synthea_loader/scripts/generate.sh
-export FHIR_BASE_URL="$(terraform -chdir=infra output -raw hapi_fhir_base_url)"
-.venv/bin/python -m scripts.synthea_loader.src.load_fhir
-
-.venv/bin/python -m scripts.synthea_loader.src.publish_resource_map
+./scripts/infrastructure/run_fhir_setup.sh load
 
 ./scripts/infrastructure/bootstrap.sh application-plan 2>&1 | tee /tmp/healthcare-application-plan.log
 CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap ./scripts/infrastructure/bootstrap.sh application-apply 2>&1 | tee /tmp/healthcare-application-apply.log
 terraform -chdir=infra plan -var-file=deployment.auto.tfvars.json 2>&1 | tee /tmp/healthcare-convergence-plan.log
 
-export FHIR_WEBHOOK_URL="$(terraform -chdir=infra output -raw fhir_webhook_url)"
-FHIR_WEBHOOK_SECRET="$(
-  aws secretsmanager get-secret-value \
-    --secret-id "$FHIR_WEBHOOK_SECRET_ID" \
-    --query SecretString \
-    --output text |
-  jq -r --arg key "$FHIR_WEBHOOK_SECRET_KEY" '.[$key]'
-)" .venv/bin/python -m services.fhir_webhook.app.register_subscription
+./scripts/infrastructure/run_fhir_setup.sh register
 ```
 
-The publisher uploads the generated map and rerenders the ignored Terraform inputs with the ten HAPI patient IDs. The live dashboard reads the same generated map directly. Review the application plan before applying it. The final convergence plan must report `No changes`. Confirm the SNS email subscription when AWS sends the request. Configure GitHub OIDC later using the [deployment guide](deployment.md) when remote deployment is required.
+`run_fhir_setup.sh load` uploads the generated bundles, runs the loader inside the VPC, downloads the published map and rerenders the ignored Terraform inputs with the ten HAPI patient IDs. `run_fhir_setup.sh register` registers the webhook subscription from inside AWS, reading the secret there, and reuses an existing subscription. Each run writes a report under `artifacts/e2e/fhir_setup/`; see [FHIR setup tasks](fhir-setup-tasks.md). The live dashboard reads the same generated map directly. Review the application plan before applying it. The final convergence plan must report `No changes`. Confirm the SNS email subscription when AWS sends the request. Configure GitHub OIDC later using the [deployment guide](deployment.md) when remote deployment is required.
 
 ## 5. Run the fastest live demo
 

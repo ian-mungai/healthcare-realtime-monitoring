@@ -130,6 +130,7 @@ case "$ACTION" in
       -target=module.network \
       -target=module.raw_s3 \
       -target=module.hapi_ecs \
+      -target=module.fhir_setup_ecs \
       -target=module.glue \
       -target=module.dbt_ecs \
       -target=module.soda_ecs \
