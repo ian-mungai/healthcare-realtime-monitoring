@@ -17,7 +17,14 @@ Prove the platform's behavior through its real entry points and record a repeata
 
 ## Runner
 
-The `e2e/` package has one entry point, `python -m e2e.run <scenario> [--env-file PATH]`, and a session wrapper, `python -m e2e.run session`, that runs the implemented scenarios in order. Shared pieces: loading `.env` and Terraform outputs, SigV4-signed REST and WebSocket clients (reusing the dashboard's signing code), polling with deadlines, and the report writer. The existing `run_fhir_setup.sh` and `scripts/load_testing/realtime_load_test.py` stay as they are and are called by the wrapper.
+The `e2e/` package has one entry point, `python -m e2e.run <scenario> [--env-file PATH]`, and a session wrapper, `python -m e2e.run session`, that runs the implemented scenarios in order. Shared pieces: loading `.env` and Terraform outputs, SigV4-signed REST and WebSocket clients (reusing the dashboard's signing code), polling with deadlines, and the report writer. The existing `run_fhir_setup.sh` and `scripts/load_testing/realtime_load_test.py` stay as they are.
+
+```zsh
+.venv/bin/python -m e2e.run realtime     # or access, rejection
+.venv/bin/python -m e2e.run session      # every implemented scenario in order
+```
+
+Run them only against a deployed development stack, with exactly the ten-patient cohort loaded and no simulator task running, then tear the stack down.
 
 ## Scenarios
 

@@ -257,6 +257,16 @@ output "realtime_iterator_age_alarm_name" {
   value       = module.realtime_observability.iterator_age_alarm_name
 }
 
+output "realtime_failure_queue_url" {
+  description = "URL of the encrypted SQS queue that receives failed realtime records."
+  value       = module.realtime_failure_handling.vitals_failures_queue_url
+}
+
+output "realtime_replay_dlq_url" {
+  description = "URL of the replay dead-letter queue."
+  value       = module.realtime_failure_handling.vitals_replay_dlq_url
+}
+
 output "realtime_replay_dlq_alarm_name" {
   description = "Name of the terminal replay DLQ alarm."
   value       = module.realtime_observability.replay_dlq_alarm_name
