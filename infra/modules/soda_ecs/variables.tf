@@ -56,3 +56,13 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "athena_workgroup_name" {
+  description = "Athena workgroup the task runs queries in."
+  type        = string
+}
+
+variable "athena_catalog_name" {
+  description = "Athena data catalog the task reads metadata from."
+  type        = string
+}

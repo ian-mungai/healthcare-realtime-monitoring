@@ -193,7 +193,19 @@ data "aws_iam_policy_document" "task" {
       "athena:GetQueryExecution",
       "athena:GetQueryResults",
       "athena:StopQueryExecution",
-      "athena:GetWorkGroup",
+      "athena:GetWorkGroup"
+    ]
+
+    resources = [
+      "arn:aws:athena:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:workgroup/${var.athena_workgroup_name}"
+    ]
+  }
+
+  statement {
+    sid    = "ReadAthenaCatalog"
+    effect = "Allow"
+
+    actions = [
       "athena:GetDataCatalog",
       "athena:GetDatabase",
       "athena:GetTableMetadata",
@@ -201,7 +213,11 @@ data "aws_iam_policy_document" "task" {
       "athena:ListTableMetadata"
     ]
 
-    resources = ["*"]
+    # Athena names the default Glue catalog AwsDataCatalog; clients may pass it in lower case.
+    resources = [
+      for name in distinct([var.athena_catalog_name, "AwsDataCatalog"]) :
+      "arn:aws:athena:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:datacatalog/${name}"
+    ]
   }
 
   statement {

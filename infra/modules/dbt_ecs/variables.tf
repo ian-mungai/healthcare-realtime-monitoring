@@ -75,3 +75,13 @@ variable "data_classification" {
     error_message = "data_classification must be Public, Synthetic, Internal, Confidential or Restricted."
   }
 }
+
+variable "athena_workgroup_name" {
+  description = "Athena workgroup the task runs queries in."
+  type        = string
+}
+
+variable "athena_catalog_name" {
+  description = "Athena data catalog the task reads metadata from."
+  type        = string
+}
