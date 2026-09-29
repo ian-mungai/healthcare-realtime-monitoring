@@ -1,5 +1,15 @@
 # Analytics Star Schema
 
+## Model layers
+
+The analytical path uses bronze, silver and gold layers. All dbt models build into the one dbt database, `${ATHENA_DBT_DATABASE}`.
+
+| Layer | Location | Contents |
+| --- | --- | --- |
+| Bronze | S3 raw landing and the dbt sources in `dbt/models/sources.yml` | Landed FHIR vital events, the Glue-processed Iceberg observation table and the published model predictions |
+| Silver | `dbt/models/silver/` | `stg_fhir_observations`, the cleaned and cohort-limited observations (view) |
+| Gold | `dbt/models/gold/core/` and `dbt/models/gold/analytics/` | The star schema (`dim_` and `fact_` tables) and the feature, training, scoring and prediction datasets |
+
 ## Fact grain
 
 `${ATHENA_DBT_DATABASE}.${DBT_FACT_OBSERVATIONS_TABLE}` contains one vital-sign measurement per `observation_id` and `loinc_code`. Blood pressure panels therefore produce separate systolic and diastolic fact rows while retaining the same FHIR observation identifier.

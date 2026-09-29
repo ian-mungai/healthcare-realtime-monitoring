@@ -3,8 +3,8 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-CORE_MODELS = ROOT / "dbt/models/marts/core"
-ANALYTICS_MODELS = ROOT / "dbt/models/marts/analytics"
+CORE_MODELS = ROOT / "dbt/models/gold/core"
+ANALYTICS_MODELS = ROOT / "dbt/models/gold/analytics"
 
 
 def read_model(name: str) -> str:

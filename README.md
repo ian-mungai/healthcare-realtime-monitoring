@@ -190,7 +190,7 @@ Each apply phase requires `CONFIRM_TEARDOWN`; the full sequence, including stora
 | `dashboard/` | Streamlit live cohort and model analytics clients |
 | `jobs/` | Glue, dbt and machine-learning runtime jobs |
 | `airflow/` | MWAA Serverless workflow source and generator |
-| `dbt/` | dbt staging, dimensional and analytical models, seeds and tests |
+| `dbt/` | dbt silver (staging) and gold (dimensional and analytical) models, seeds and tests |
 | `data_quality/` | Great Expectations and Soda validation assets |
 | `lineage/` | OpenLineage event emitters |
 | `scripts/` | Build, test-data, load-test and demo helpers |

@@ -30,12 +30,12 @@ clean-targets:
 
 models:
   healthcare_realtime:
-    staging:
+    silver:
       +materialized: view
       stg_fhir_observations:
         +alias: "{{ env_var('DBT_STAGING_TABLE') }}"
 
-    marts:
+    gold:
       core:
         +materialized: table
         +table_type: iceberg
