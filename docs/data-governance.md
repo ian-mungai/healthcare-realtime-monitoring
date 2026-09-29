@@ -36,6 +36,7 @@ BIDMC measurements -> FHIR Observation -> Kinesis -> realtime serving
 | `quarantine/fhir_observations/` | Amazon S3 | Rejected analytical records with reasons |
 | `${ATHENA_SOURCE_DATABASE}.${ATHENA_QUARANTINE_TABLE}` | Glue Catalog / Athena | Queryable view of quarantined records |
 | `metrics/glue/` | Amazon S3 | Per-run candidate, valid and rejected counts |
+| `glue/temp/` and `glue/spark-ui/` | Amazon S3 | Glue job temporary files and Spark UI event logs, kept in the project bucket so the job role needs no other bucket |
 
 Formal business owners and data stewards are not currently encoded in repository metadata. Until that is added, the repository owner operates the portfolio datasets and infrastructure.
 
