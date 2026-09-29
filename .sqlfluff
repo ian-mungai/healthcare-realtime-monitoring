@@ -1,0 +1,31 @@
+# SQL style for the dbt project. Run through tools/lint_sql.py, which supplies placeholder
+# deployment names for the dbt templater.
+[sqlfluff]
+templater = dbt
+dialect = athena
+max_line_length = 160
+
+[sqlfluff:templater:dbt]
+project_dir = dbt
+profiles_dir = deploy/dbt
+profile = healthcare_realtime
+target = prod
+
+[sqlfluff:indentation]
+indent_unit = space
+tab_space_size = 4
+
+[sqlfluff:layout:type:comma]
+line_position = trailing
+
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.functions]
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.literals]
+capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.types]
+extended_capitalisation_policy = lower

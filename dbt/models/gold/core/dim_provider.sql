@@ -1,13 +1,13 @@
 with typed_history as (
     select
+        cast(valid_from as date) as valid_from,
+        cast(nullif(trim(valid_to), '') as date) as valid_to,
+        cast(is_current as boolean) as is_current,
         trim(provider_npi) as provider_npi,
         trim(provider_name) as provider_name,
         trim(taxonomy_code) as taxonomy_code,
         trim(taxonomy_description) as taxonomy_description,
         trim(provider_state) as provider_state,
-        cast(valid_from as date) as valid_from,
-        cast(nullif(trim(valid_to), '') as date) as valid_to,
-        cast(is_current as boolean) as is_current,
         trim(data_source) as data_source
     from {{ ref('provider_history') }}
 )

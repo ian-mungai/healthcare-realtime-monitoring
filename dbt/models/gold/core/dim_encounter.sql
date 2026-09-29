@@ -1,9 +1,9 @@
 with normalized_encounters as (
     select
-        trim(encounter_id) as encounter_business_id,
-        trim(encounter_id) as encounter_id,
         patient_id,
-        effective_datetime
+        effective_datetime,
+        trim(encounter_id) as encounter_business_id,
+        trim(encounter_id) as encounter_id
     from {{ ref('stg_fhir_observations') }}
     where patient_id is not null
 ),
@@ -60,6 +60,7 @@ select
     true as is_synthetic_provider_assignment
 from assigned_encounters as encounters
 inner join {{ ref('dim_provider') }} as providers
-    on encounters.provider_npi = providers.provider_npi
-    and cast(encounters.encounter_start_at as date) >= providers.valid_from
-    and cast(encounters.encounter_start_at as date) < coalesce(providers.valid_to, date '9999-12-31')
+    on
+        encounters.provider_npi = providers.provider_npi
+        and cast(encounters.encounter_start_at as date) >= providers.valid_from
+        and cast(encounters.encounter_start_at as date) < coalesce(providers.valid_to, date '9999-12-31')

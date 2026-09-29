@@ -20,7 +20,8 @@ select
     month,
     day
 from source
-where encounter_id is not null
+where
+    encounter_id is not null
     and trim(encounter_id) <> ''
     and patient_id in (
         {% for patient_id in active_patient_ids %}

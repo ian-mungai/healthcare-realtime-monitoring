@@ -13,11 +13,11 @@ select
     predictions.label_definition_version,
     predictions.dataset_fingerprint,
     predictions.scored_at,
+    'synthetic_portfolio_only' as prediction_scope,
+    false as is_clinically_validated,
     case
         when predicted_label = 1 then 'elevated_proxy'
         else 'baseline_proxy'
-    end as proxy_risk_band,
-    'synthetic_portfolio_only' as prediction_scope,
-    false as is_clinically_validated
+    end as proxy_risk_band
 from {{ ref('ml_predictions_serving') }} as predictions
 where predictions.model_version = '{{ env_var("ML_APPROVED_MODEL_VERSION") }}'
