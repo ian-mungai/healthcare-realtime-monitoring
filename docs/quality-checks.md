@@ -1,6 +1,6 @@
 # Quality Checks
 
-Every commit runs the hooks in `.pre-commit-config.yaml` through `.githooks/`, and CI runs the same hooks on every push and pull request. A finding names the file and line, the policy below and how to fix it. There are no bypasses: do not use `SKIP=` or `git commit --no-verify`. If a policy blocks a valid change, fix the check or raise the policy with the repository owner before committing.
+Every commit runs the hooks in `.pre-commit-config.yaml` through `.githooks/`, and CI runs the same hooks on every push and pull request in pre-commit's `manual` stage, where the only difference is the documentation review (see below). A finding names the file and line, the policy below and how to fix it. There are no bypasses: do not use `SKIP=` or `git commit --no-verify`. If a policy blocks a valid change, fix the check or raise the policy with the repository owner before committing.
 
 ## Setup
 
@@ -18,7 +18,7 @@ Run every hook across the repository:
 .venv/bin/pre-commit run --all-files
 ```
 
-The checks live in the `tools/` package. They are verified end to end by `tools/test_checks.py`, which runs each hook through `pre-commit` in a scratch repository, rather than by the pytest suite. Prove that each check blocks a bad sample and passes a good one:
+The checks live in the `tools/` package. They are verified end to end by `tools/test_checks.py`, which runs each hook through `pre-commit` in a scratch repository, rather than by the pytest suite. A bad sample counts as blocked only when the output cites the reason declared for it, so a check that fails for an unrelated cause cannot pass. Prove that each check blocks a bad sample and passes a good one:
 
 ```zsh
 .venv/bin/python -m tools.test_checks
@@ -27,6 +27,16 @@ The checks live in the `tools/` package. They are verified end to end by `tools/
 ## Secrets and Credential Files
 
 gitleaks scans staged changes on commit and the full Git history in CI. Environment files other than `.env.example`, Terraform state and state backups, private keys and cloud credential files are blocked by name. Store secrets in AWS Secrets Manager and keep private deployment values in the ignored `.env`.
+
+## Personal Data and Environment Values
+
+The privacy scan reads every tracked and untracked, non-ignored file on each commit, and the tracked tree in CI, for home-directory paths with a user name, machine temporary paths, email addresses outside reserved example domains (`example.com`, `.invalid` and similar), phone numbers, AWS account IDs and ARNs, and any value that the local `.env` declares for a profile, bucket, account, ARN, endpoint, host, email or user. Findings name the file, line and type, never the value. Files it cannot read as text, such as the architecture PNG, are listed as unreviewed and need a person's check before publishing.
+
+Replace a finding with a placeholder or read it from configuration. A value that is meant to be public gets an entry in `.privacy_allowlist`: `<type> <path glob> -- <reason>`, matched by type and path, never by value. Before publishing, also scan ignored and hidden files:
+
+```zsh
+.venv/bin/python -m tools.repo_checks privacy-scan --all
+```
 
 ## Data Files
 
@@ -42,12 +52,12 @@ Every environment variable the Python code reads is listed in `.env.example`, ei
 
 ## Documentation Review
 
-Before every commit, every document in the repository is reviewed against the staged code, configuration and decisions, and the outcome is recorded in `.documentation_review.json`. The check discovers `README`, `LICENSE`, Markdown, HTML and other document formats and every file under `docs/`; requirements files and version pins are not documents. It blocks a commit when the record is missing, a document is unreviewed, any staged file changed after the review or new documentation is untracked. It checks the evidence, not the truth of the notes.
+Before every commit, every document in the repository is reviewed against the staged code, configuration and decisions, and the outcome is recorded in the local, ignored `.documentation_review.json`, which is never committed. The check discovers `README`, `LICENSE`, Markdown, HTML and other document formats and every file under `docs/`; requirements files and version pins are not documents. It blocks a commit when the record is missing, tracked or not ignored, a document is unreviewed, any staged file changed after the review or new documentation is untracked. It reads the record from the working tree and the documents from the Git index, and checks the evidence, not the truth of the notes. CI has no local record: its `documentation-review-untracked` hook verifies only that the record stays out of Git, and does not claim the review was done.
 
 1. Stage the intended changes by name.
 2. Draft the record: `.venv/bin/python -m tools.documentation_review prepare --reviewer "<name>" --reviewed-at <YYYY-MM-DDTHH:MM:SSZ> --refresh`.
 3. Read every listed document against the staged change. Correct stale content, then set each `outcome` to `current`, `updated` or `historical` with a note on what was checked. Historical records such as release notes keep their original content.
-4. Stage `.documentation_review.json` and commit. If you stage anything else afterwards, repeat from step 2.
+4. Commit without staging the record. If you stage anything else afterwards, repeat from step 2.
 
 ## Lint and Type Settings
 

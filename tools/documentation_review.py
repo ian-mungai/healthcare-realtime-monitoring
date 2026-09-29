@@ -1,8 +1,9 @@
 """Validate documentation-review evidence against the staged Git snapshot.
 
 Run ``.venv/bin/python -m tools.documentation_review prepare --reviewer NAME --reviewed-at UTC`` to draft pending
-entries after staging the changes. Read the documents, fill their outcomes and notes, then stage the record and run
-``.venv/bin/python -m tools.documentation_review check``. This checks evidence, not the truth of its assertions.
+entries after staging the changes. Read the documents, fill their outcomes and notes in the ignored local record, then
+run ``.venv/bin/python -m tools.documentation_review check``. This checks evidence, not the truth of its assertions.
+Hosted CI has no local record; ``check-untracked`` verifies only that the record stays out of Git.
 See docs/quality-checks.md#documentation-review.
 """
 
@@ -30,6 +31,14 @@ OUTCOMES = {"current", "updated", "historical"}
 
 class ReviewError(ValueError):
     """A missing, stale or invalid review, safe to report without document contents."""
+
+
+def require_untracked() -> None:
+    """Keep review evidence local: never in the index, and ignored so ``git add .`` cannot stage it."""
+    if git("ls-files", "--", RECORD).strip():
+        raise ReviewError(f"review evidence must stay local; untrack it with git rm --cached -- {RECORD}")
+    if run_command("git", ["check-ignore", "-q", "--", RECORD]).returncode:
+        raise ReviewError(f"review evidence must be ignored; add /{RECORD} to .gitignore")
 
 
 def git(*args: str) -> str:
@@ -188,7 +197,7 @@ def prepare(files: dict[str, tuple[str, str]], reviewer: str, reviewed_at: str, 
     if target.exists():
         old = parse_record(target.read_text())
         if old.get("snapshot_sha256") == current_snapshot and old.get("extra_documents") == extra:
-            sys.stdout.write("Existing evidence for this snapshot preserved; complete any pending outcomes and stage the record.\n")
+            sys.stdout.write("Existing evidence for this snapshot preserved; complete any pending outcomes in the local record.\n")
             return
         if not refresh:
             raise ReviewError("existing evidence is stale; preserve needed history, then use prepare --refresh to draft pending outcomes")
@@ -212,6 +221,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("check")
+    commands.add_parser("check-untracked", help="hosted CI: verify the record is untracked and ignored")
     draft = commands.add_parser("prepare")
     draft.add_argument("--reviewer", required=True)
     draft.add_argument("--reviewed-at", required=True)
@@ -221,21 +231,23 @@ def main() -> int:
     try:
         if Path.cwd().resolve() != Path(git("rev-parse", "--show-toplevel").strip()).resolve():
             raise ReviewError("run from the repository root")
+        require_untracked()
         files = inventory()
-        if args.command == "prepare":
+        if args.command == "check-untracked":
+            sys.stdout.write("documentation review: PASS (record untracked and ignored; the substantive review is checked only locally)\n")
+        elif args.command == "prepare":
             prepare(files, args.reviewer, args.reviewed_at, args.extra_document, args.refresh)
         else:
-            result = run_command("git", ["show", f":{RECORD}"])
-            if result.returncode:
-                raise ReviewError("no staged review record; prepare, complete and stage the evidence")
-            count = validate(parse_record(result.stdout), files)
+            if not Path(RECORD).is_file():
+                raise ReviewError("no local review record; prepare and complete the ignored evidence")
+            count = validate(parse_record(Path(RECORD).read_text()), files)
             sys.stdout.write(f"documentation review: PASS ({count} documents; staged snapshot matches)\n")
     except (ReviewError, OSError, UnicodeError, TimeoutExpired) as error:
         message = str(error) if isinstance(error, ReviewError) else "a required file or program is inaccessible; check local setup"
         sys.stderr.write(
             f"{RECORD}:1: documentation review: BLOCK: {message}\n"
             f"  Rule: {POLICY}\n"
-            "  Fix: stage the intended files, prepare the review, inspect every document, complete outcomes/notes and stage the record.\n"
+            "  Fix: stage the intended files, prepare the review, inspect every document and complete outcomes/notes in the ignored local record.\n"
             "  If this blocks a valid change, fix the check or raise it with the repository owner; do not bypass it.\n"
         )
         return 1

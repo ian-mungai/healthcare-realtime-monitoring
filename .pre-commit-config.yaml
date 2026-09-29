@@ -2,8 +2,10 @@
 # Every hook is local and pinned: pre-commit, Ruff and MyPy come from requirements_dev.txt in .venv; gitleaks, tflint,
 # checkov and SQLFluff come from tools/install_tools.py in .tools. .githooks/ runs these hooks on commit; CI runs the same
 # hooks on every push. There are no bypasses: do not use SKIP= or git commit --no-verify.
+# CI runs the manual stage: every hook except documentation-review, which needs the ignored local review record.
+# There, documentation-review-untracked checks only that the record stays out of Git.
 default_install_hook_types: [pre-commit, commit-msg]
-default_stages: [pre-commit]
+default_stages: [pre-commit, manual]
 fail_fast: false
 
 repos:
@@ -34,12 +36,26 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: privacy-scan
+        name: No personal data or environment-specific values in project files
+        entry: .venv/bin/python -m tools.repo_checks privacy-scan --warn
+        language: system
+        pass_filenames: false
+        always_run: true
       - id: documentation-review
         name: All documentation reviewed for the staged revision
         entry: .venv/bin/python -m tools.documentation_review check
         language: system
         pass_filenames: false
         always_run: true
+        stages: [pre-commit]
+      - id: documentation-review-untracked
+        name: Documentation review record kept out of Git (CI)
+        entry: .venv/bin/python -m tools.documentation_review check-untracked
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [manual]
       - id: lint-settings
         name: Lint and type settings never loosened
         entry: .venv/bin/python -m tools.repo_checks lint-settings

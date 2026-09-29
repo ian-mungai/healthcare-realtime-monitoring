@@ -24,7 +24,7 @@ This repository uses synthetic Synthea data and waveform-derived measurements fo
 
 Public artifacts must use placeholders for account IDs, buckets, endpoints, load balancers, local usernames, secrets and signed headers. The project’s tracked examples are designed to be reproducible without revealing a deployed environment.
 
-Do not commit secrets, deployment identifiers, Terraform state, signed headers or generated workflow definitions. Every commit runs the [quality checks](docs/quality-checks.md): gitleaks, blocks on credential and data files, lint and type checks, and a commit-message check for Conventional Commit subjects and AI attribution. CI runs the same hooks and scans the full Git history for secrets.
+Do not commit secrets, deployment identifiers, Terraform state, signed headers or generated workflow definitions. Every commit runs the [quality checks](docs/quality-checks.md): gitleaks, a whole-project scan for personal data and environment-specific values, blocks on credential and data files, lint and type checks, and a commit-message check for Conventional Commit subjects and AI attribution. CI runs the same hooks and scans the full Git history for secrets.
 
 ## Background
 

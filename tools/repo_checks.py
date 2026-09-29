@@ -111,6 +111,30 @@ SCRIPT_SUFFIXES = {".py", ".sh"}
 FLAG = re.compile(r"""add_argument\(\s*["'](--[\w-]+)["']""")
 
 
+PRIVACY_RULE = f"{POLICY}#personal-data-and-environment-values"
+PRIVACY_FIX = (
+    "replace the value with a placeholder (~, $TMPDIR, <name>, example.invalid) or read it from configuration;"
+    " if it is meant to be public, add a reasoned entry to .privacy_allowlist"
+)
+ALLOWLIST = ".privacy_allowlist"
+# Patterns are assembled from fragments so this file does not flag itself.
+PRIVACY_PATTERNS = {
+    "home-path": ("home-directory path with a user name", re.compile(r"/(?:" + "Us" + r"ers|home)/(?![<$])(?!Shared/)[A-Za-z0-9._-]+")),
+    "temp-path": ("machine temporary path", re.compile(r"/var/" + r"folders/[A-Za-z0-9_+-]+/[A-Za-z0-9_+-]+")),
+    "email": ("email address", re.compile(r"\b[A-Za-z0-9._%+-]+@((?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,})\b")),
+    "phone": (
+        "phone number",
+        re.compile(
+            r"(?<![\w.])(?:\+\d{1,3}[ .-]?)?(?:\(\d{3}\)[ .-]?|\d{3}[ .-])\d{3}[ .-]\d{4}(?![\w.])|(?<![\w.])\+\d{1,3}[ -]\d{2,4}[ -]\d{3}[ -]\d{3,4}(?![\w.])"
+        ),
+    ),
+    "aws-account": ("AWS account ID", re.compile(r"arn:aws[a-z-]*:[a-z0-9-]*:[a-z0-9-]*:\d{12}:|(?i:account[_ -]?id)\W{1,4}\d{12}\b")),
+}
+RESERVED_DOMAINS = (".invalid", ".test", ".localhost", ".example", "example.com", "example.org", "example.net")
+ENV_VALUE_KEYS = re.compile(r"PROFILE|BUCKET|ACCOUNT|ARN|ENDPOINT|HOST|EMAIL|USER")
+SKIPPED_DIRS = {".git", ".venv", ".tools", "node_modules", "__pycache__", ".mypy_cache", ".ruff_cache", ".pytest_cache", ".terraform"}
+
+
 @dataclass
 class Finding:
     """One problem: where it is, what it is, the policy it breaks and how to fix it."""
@@ -281,14 +305,104 @@ def removed_names() -> list[Finding]:
     return findings
 
 
+def privacy_files(everything: bool) -> list[str]:
+    """Tracked and untracked non-ignored files; with ``everything``, ignored and hidden files too (not tool folders)."""
+    if not everything:
+        return sorted(set(git("ls-files", "--cached", "--others", "--exclude-standard").splitlines()))
+    found = []
+    for folder, subfolders, names in os.walk("."):
+        subfolders[:] = sorted(name for name in subfolders if name not in SKIPPED_DIRS and not os.path.islink(os.path.join(folder, name)))
+        found += [os.path.normpath(os.path.join(folder, name)) for name in names if name not in SKIPPED_DIRS]  # A worktree's .git is a file.
+    return sorted(found)
+
+
+def privacy_allowlist() -> tuple[list[tuple[str, str]], list[Finding]]:
+    """Read ``type glob -- reason`` entries; an entry without a reason or with an unknown type is itself a finding."""
+    entries: list[tuple[str, str]] = []
+    findings: list[Finding] = []
+    if not Path(ALLOWLIST).exists():
+        return entries, findings
+    kinds = [*PRIVACY_PATTERNS, "env-value"]
+    for number, line in enumerate(Path(ALLOWLIST).read_text().splitlines(), 1):
+        text = "" if line.lstrip().startswith("#") else line.strip()
+        if not text:
+            continue
+        match = re.fullmatch(r"(\S+)\s+(\S+)(?:\s+--\s*(.*))?", text)
+        location = f"{ALLOWLIST}:{number}"
+        if not match or match.group(1) not in kinds:
+            findings.append(Finding(location, "allowlist entry with an unknown type", PRIVACY_RULE, f"use one of: {', '.join(kinds)}"))
+        elif not (match.group(3) or "").strip():
+            findings.append(Finding(location, "allowlist entry without a reason", PRIVACY_RULE, "add ' -- <why this value is intentionally public>'"))
+        else:
+            entries.append((match.group(1), match.group(2)))
+    return entries, findings
+
+
+def env_values() -> list[str]:
+    """Values of identifying keys in the project's .env (profile, bucket, account, host), never printed."""
+    if not Path(".env").is_file():
+        return []
+    values = []
+    for line in Path(".env").read_text().splitlines():
+        key, _, value = line.partition("=")
+        value = value.strip().strip("\"'")
+        if ENV_VALUE_KEYS.search(key.strip().upper()) and len(value) >= 4 and not line.lstrip().startswith("#"):
+            values.append(value)
+    return values
+
+
+def line_privacy(line: str, values: list[str]) -> list[str]:
+    """Return the privacy finding types on one line."""
+    kinds = []
+    for kind, (_, pattern) in PRIVACY_PATTERNS.items():
+        for match in pattern.finditer(line):
+            if kind == "email" and match.group(1).lower().endswith(RESERVED_DOMAINS):
+                continue
+            kinds.append(kind)
+            break
+    if any(value in line for value in values):
+        kinds.append("env-value")
+    return kinds
+
+
+def privacy_scan(everything: bool) -> tuple[list[Finding], list[str]]:
+    """Scan whole files, not the diff, for personal data and environment-specific values; never report the value."""
+    allowed, findings = privacy_allowlist()
+    values = env_values()
+    unreviewed = []
+    descriptions = {kind: description for kind, (description, _) in PRIVACY_PATTERNS.items()} | {"env-value": "value declared in .env"}
+    for path in privacy_files(everything):
+        if path == ".env" or os.path.islink(path) or not os.path.isfile(path):
+            continue
+        data = Path(path).read_bytes()
+        try:
+            if b"\0" in data[:8192]:
+                raise UnicodeDecodeError("utf-8", data[:1], 0, 1, "binary")
+            text = data.decode("utf-8")
+        except UnicodeDecodeError:
+            unreviewed.append(f"{path}: unreviewed: cannot be read as text; inspect it before publishing")
+            continue
+        for number, line in enumerate(text.splitlines(), 1):
+            for kind in line_privacy(line, values):
+                if not any(kind == entry_kind and fnmatch.fnmatch(path, glob) for entry_kind, glob in allowed):
+                    findings.append(Finding(f"{path}:{number}", descriptions[kind], PRIVACY_RULE, PRIVACY_FIX))
+    return findings, unreviewed
+
+
 def main() -> int:
     """Run the named check and report its findings."""
     checks = ["credential-files", "data-files", "suppressions", "subprocess-imports", "lint-settings", "env-example", "removed-names"]
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("check", choices=checks)
+    parser.add_argument("check", choices=[*checks, "privacy-scan"])
     parser.add_argument("paths", nargs="*")
+    parser.add_argument("--all", action="store_true", help="privacy-scan: include ignored and hidden files (before publishing)")
     parser.add_argument("--warn", action="store_true", help="report findings without failing (for checks not yet enforced)")
     args = parser.parse_args()
+    if args.check == "privacy-scan":
+        findings, unreviewed = privacy_scan(args.all)
+        for line in unreviewed:
+            sys.stderr.write(f"{line}\n")
+        return report(findings, warn=args.warn)
     runners: dict[str, Callable[[], list[Finding]]] = {
         "credential-files": lambda: credential_files(args.paths),
         "data-files": lambda: data_files(args.paths),
