@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "reviewer": "AI review agent",
-  "reviewed_at_utc": "2026-09-29T03:28:48Z",
-  "snapshot_sha256": "197affc89089c15e429fbe528f58362748c66813b8f1814a097fe098acb8231d",
+  "reviewed_at_utc": "2026-09-29T03:32:06Z",
+  "snapshot_sha256": "f3bd19a4401583a7c7b316a8d178191a1c02481dd3e2235350b250f246cadae3",
   "extra_documents": [],
   "documents": [
     {
@@ -85,9 +85,9 @@
     },
     {
       "path": "docs/external-prerequisites.md",
-      "blob": "dfe87de29abae69609e253924c7732dbff49b241",
-      "outcome": "current",
-      "notes": "Prerequisite table and IAM policy commands match infra/iam scripts; the glue template change is covered by the plan/apply procedure."
+      "blob": "1223f05fb9809645a17c32188091e3e71f4791f2",
+      "outcome": "updated",
+      "notes": "Added the scoping rule for the policy templates, the remaining * cases including the EC2 statements and how to handle an AccessDenied."
     },
     {
       "path": "docs/infrastructure-lifecycle.md",
@@ -128,7 +128,7 @@
     {
       "path": "docs/quality-checks.md",
       "blob": "041505d65556e3e7d034b119611079396c94b4e3",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "IAM wildcard accepted-risk rows now describe only the KMS key policy, the ECR token and namespace-limited metric exceptions, and the broader AWSGlueServiceRole follow-up."
     },
     {

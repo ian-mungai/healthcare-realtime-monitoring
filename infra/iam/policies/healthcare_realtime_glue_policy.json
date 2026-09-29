@@ -57,7 +57,18 @@
         "glue:UpdateTable",
         "glue:DeleteTable"
       ],
-      "Resource": "*"
+      "Resource": [
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:catalog",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:database/${SOURCE_DATABASE_NAME}",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:database/${DBT_DATABASE_NAME}",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:database/${ML_DATABASE_NAME}",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/${SOURCE_DATABASE_NAME}/*",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/${DBT_DATABASE_NAME}/*",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/${ML_DATABASE_NAME}/*",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:userDefinedFunction/${SOURCE_DATABASE_NAME}/*",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:userDefinedFunction/${DBT_DATABASE_NAME}/*",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:userDefinedFunction/${ML_DATABASE_NAME}/*"
+      ]
     },
     {
       "Sid": "ManageDbtGlueCatalogObjects",
@@ -88,7 +99,15 @@
         "glue:DeletePartition",
         "glue:BatchDeletePartition"
       ],
-      "Resource": "*"
+      "Resource": [
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:catalog",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:database/${SOURCE_DATABASE_NAME}",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:database/${DBT_DATABASE_NAME}",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:database/${ML_DATABASE_NAME}",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/${SOURCE_DATABASE_NAME}/*",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/${DBT_DATABASE_NAME}/*",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/${ML_DATABASE_NAME}/*"
+      ]
     },
     {
       "Sid": "ManageProcessedTableOptimizers",

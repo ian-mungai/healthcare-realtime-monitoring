@@ -59,12 +59,21 @@
       "Effect": "Allow",
       "Action": [
         "ecs:RegisterTaskDefinition",
+        "ecs:TagResource",
+        "ecs:UntagResource"
+      ],
+      "Resource": [
+        "arn:aws:ecs:${AWS_REGION}:${AWS_ACCOUNT_ID}:task-definition/healthcare_realtime_*:*"
+      ]
+    },
+    {
+      "Sid": "InspectTaskDefinitions",
+      "Effect": "Allow",
+      "Action": [
         "ecs:DeregisterTaskDefinition",
         "ecs:DescribeTaskDefinition",
         "ecs:ListTaskDefinitions",
-        "ecs:ListTaskDefinitionFamilies",
-        "ecs:TagResource",
-        "ecs:UntagResource"
+        "ecs:ListTaskDefinitionFamilies"
       ],
       "Resource": "*"
     },
@@ -72,12 +81,47 @@
       "Sid": "RunHealthcareRealtimeTasks",
       "Effect": "Allow",
       "Action": [
-        "ecs:RunTask",
+        "ecs:RunTask"
+      ],
+      "Resource": [
+        "arn:aws:ecs:${AWS_REGION}:${AWS_ACCOUNT_ID}:task-definition/healthcare_realtime_*:*"
+      ],
+      "Condition": {
+        "ArnEquals": {
+          "ecs:cluster": [
+            "arn:aws:ecs:${AWS_REGION}:${AWS_ACCOUNT_ID}:cluster/healthcare-realtime-data-jobs",
+            "arn:aws:ecs:${AWS_REGION}:${AWS_ACCOUNT_ID}:cluster/healthcare-realtime-services"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "ManageHealthcareRealtimeTasks",
+      "Effect": "Allow",
+      "Action": [
         "ecs:DescribeTasks",
-        "ecs:StopTask",
+        "ecs:StopTask"
+      ],
+      "Resource": [
+        "arn:aws:ecs:${AWS_REGION}:${AWS_ACCOUNT_ID}:task/healthcare-realtime-data-jobs/*",
+        "arn:aws:ecs:${AWS_REGION}:${AWS_ACCOUNT_ID}:task/healthcare-realtime-services/*"
+      ]
+    },
+    {
+      "Sid": "ListHealthcareRealtimeTasks",
+      "Effect": "Allow",
+      "Action": [
         "ecs:ListTasks"
       ],
-      "Resource": "*"
+      "Resource": "*",
+      "Condition": {
+        "ArnEquals": {
+          "ecs:cluster": [
+            "arn:aws:ecs:${AWS_REGION}:${AWS_ACCOUNT_ID}:cluster/healthcare-realtime-data-jobs",
+            "arn:aws:ecs:${AWS_REGION}:${AWS_ACCOUNT_ID}:cluster/healthcare-realtime-services"
+          ]
+        }
+      }
     }
   ]
 }

@@ -23,6 +23,8 @@ TERRAFORM_VARIABLES = {
     "LOAD_TEST_RESULTS_TABLE_NAME": "load_test_results_table_name",
     "WEBSOCKET_CONNECTIONS_TABLE_NAME": "websocket_connections_table_name",
     "FHIR_WEBHOOK_SECRET_ID": "fhir_webhook_secret_id",
+    "ATHENA_WORKGROUP_NAME": "athena_workgroup_name",
+    "ATHENA_CATALOG_NAME": "athena_catalog_name",
 }
 
 

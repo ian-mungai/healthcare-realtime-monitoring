@@ -37,6 +37,8 @@ The command obtains the account ID from STS, uses `TF_STATE_BUCKET` from `.env`,
 
 The policy command reads project inputs from `.env` and the generated Terraform JSON. Explicit `--profile` and `--region` arguments select the authenticated AWS session without changing generated project configuration. Tag-scoped permissions, including KMS key creation and management, use the rendered `PROJECT_NAME`; publish a new policy version whenever that project name changes.
 
+Every create, change and delete action names project resources: project name prefixes, the configured databases, streams and Athena workgroup, or a project tag condition. `Resource: "*"` remains only for account-wide list and describe calls, actions AWS allows only on `*` (such as `ecr:GetAuthorizationToken` and `kms:CreateKey`), actions limited by a condition instead (ECS task listing by cluster, event source mappings by project function) and the EC2 network and interface statements. Those EC2 statements still need tag conditions that can only be proven on a real deployment. A scope that is too narrow shows up as an `AccessDenied` in the Terraform plan or apply; widen only the named resource, never back to `*`.
+
 Copy `.env.example` to the ignored `.env`, complete its placeholders and run `./scripts/infrastructure/render_project_config.sh`. Infrastructure and demo scripts treat `.env` as authoritative. The renderer creates both ignored Terraform JSON files, so the same value is never entered twice. Verify every automatable prerequisite without displaying secret values:
 
 ```zsh
