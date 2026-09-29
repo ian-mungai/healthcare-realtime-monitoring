@@ -293,6 +293,11 @@ SCENARIOS = {
     "rejection": (
         rejection,
         "E7, first part: a permanently invalid record is rejected and counted, not retried or replayed.",
-        "The transient-failure replay path is not exercised; it needs a controlled fault and a decision on how to inject one.",
+        "The transient-failure replay path is the replay scenario.",
+    ),
+    "replay": (
+        replay,
+        "E7, second part: a valid record whose write keeps failing is replayed once and parked in the replay dead-letter queue.",
+        "Blocks writes for one synthetic patient on the main stream only; load-test stream failures are never replayed.",
     ),
 }
