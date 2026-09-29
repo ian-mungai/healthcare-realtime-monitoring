@@ -339,16 +339,27 @@ def privacy_allowlist() -> tuple[list[tuple[str, str]], list[Finding]]:
 
 
 def env_values() -> list[str]:
-    """Values of identifying keys in the project's .env (profile, bucket, account, host), never printed."""
+    """Values of identifying keys in the project's .env (profile, bucket, account, host), never printed.
+
+    The project's own name is public: resource names are built from it, and the AWS profile follows the same naming
+    standard (user decision, Sep 29 2026). A value equal to PROJECT_NAME, or to its leading name segments, ignoring the
+    difference between ``-`` and ``_``, is therefore skipped. Longer values, such as a bucket named after the project, are
+    still checked.
+    """
     if not Path(".env").is_file():
         return []
-    values = []
+    entries = []
     for line in Path(".env").read_text().splitlines():
         key, _, value = line.partition("=")
-        value = value.strip().strip("\"'")
-        if ENV_VALUE_KEYS.search(key.strip().upper()) and len(value) >= 4 and not line.lstrip().startswith("#"):
-            values.append(value)
-    return values
+        if not line.lstrip().startswith("#"):
+            entries.append((key.strip().upper(), value.strip().strip("\"'")))
+    project = next((value for key, value in entries if key == "PROJECT_NAME"), "").replace("_", "-").lower()
+
+    def is_project_name(value: str) -> bool:
+        name = value.replace("_", "-").lower()
+        return bool(project) and (name == project or project.startswith(f"{name}-"))
+
+    return [value for key, value in entries if ENV_VALUE_KEYS.search(key) and len(value) >= 4 and not is_project_name(value)]
 
 
 def line_privacy(line: str, values: list[str]) -> list[str]:
