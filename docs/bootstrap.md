@@ -14,7 +14,7 @@ The bootstrap wrapper divides creation into four explicit stages:
 | --- | --- | --- |
 | `state-*` | Create protected remote state and initialize the main backend | Bootstrap backup is verified and `main-init` succeeds |
 | `repositories-*` | Create ECR repositories before image publication | All required repositories exist |
-| `foundation-*` | Create HAPI FHIR, storage and resources needed to build the cohort-dependent application configuration | `terraform -chdir=infra output -raw glue_job_name` returns a value |
+| `foundation-*` | Create HAPI FHIR, storage, the FHIR setup task and the other resources needed to build the cohort-dependent application configuration; `run_fhir_setup.sh load` then seeds the cohort | `terraform -chdir=infra output -raw glue_job_name` returns a value |
 | `application-*` | Create the remaining realtime, analytical, workflow and observability resources | A final Terraform plan reports `No changes` |
 
 The wrapper renders ignored Terraform configuration from `.env` before each stage. Do not edit `infra/deployment.auto.tfvars.json`, `infra/bootstrap/deployment.auto.tfvars.json` or `infra/backend.hcl` by hand.

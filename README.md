@@ -110,7 +110,7 @@ terraform -chdir=infra validate
 
 ### End-to-End Verification
 
-E2E runs need a deployed environment. `.venv/bin/python -m e2e.run session` runs the realtime, access and rejection scenarios of the end-to-end test plan and writes a report for each under `artifacts/e2e/`. The [load-testing guide](docs/load-testing.md) runs the isolated Kinesis-to-DynamoDB-to-WebSocket test and saves a JSON and Markdown report for every run under `artifacts/e2e/load_test/`. The [demo guide](docs/demo-guide.md) and the [release checklist](docs/release-checklist.md) cover the full realtime and analytical path; verified results are recorded in the release notes.
+E2E runs need a deployed environment. `.venv/bin/python -m e2e.run session` runs the realtime, access, rejection and replay scenarios of the end-to-end test plan and writes a report for each under `artifacts/e2e/`. The [load-testing guide](docs/load-testing.md) runs the isolated Kinesis-to-DynamoDB-to-WebSocket test and saves a JSON and Markdown report for every run under `artifacts/e2e/load_test/`. The [demo guide](docs/demo-guide.md) and the [release checklist](docs/release-checklist.md) cover the full realtime and analytical path; verified results are recorded in the release notes.
 
 ### Run the Dashboards
 
@@ -188,7 +188,7 @@ Each apply phase requires `CONFIRM_TEARDOWN`; the full sequence, including stora
 | `infra/` | Terraform root and AWS service modules |
 | `services/` | Webhook, realtime processor, API, replay, WebSocket and simulator services |
 | `dashboard/` | Streamlit live cohort and model analytics clients |
-| `jobs/` | Glue, dbt and machine-learning runtime jobs |
+| `jobs/` | Glue, dbt, machine-learning and FHIR setup runtime jobs |
 | `airflow/` | MWAA Serverless workflow source and generator |
 | `dbt/` | dbt silver (staging) and gold (dimensional and analytical) models, seeds and tests |
 | `data_quality/` | Great Expectations and Soda validation assets |
@@ -198,6 +198,7 @@ Each apply phase requires `CONFIRM_TEARDOWN`; the full sequence, including stora
 | `config/` | Shared vital-sign catalog and deployment defaults |
 | `tests/` | Contract, infrastructure, lineage, dashboard and pipeline tests |
 | `testkit/` | Shared test expectations used instead of `assert` |
+| `e2e/` | End-to-end scenarios run against a deployed stack |
 | `docs/` | Architecture, governance, operations, demo and Power BI connection documentation |
 
 ## Limitations
