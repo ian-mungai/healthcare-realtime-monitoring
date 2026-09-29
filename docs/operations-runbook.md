@@ -49,8 +49,11 @@ For a new environment, review and apply the state plan, then initialize the main
 ```zsh
 CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
   ./scripts/infrastructure/bootstrap.sh state-apply
+./scripts/infrastructure/bootstrap.sh state-backup
 ./scripts/infrastructure/bootstrap.sh main-init
 ```
+
+`state-backup` copies the ignored local bootstrap state into the protected state bucket; do not run `main-init` until it succeeds. See the [infrastructure lifecycle guide](infrastructure-lifecycle.md#persistent-state-bootstrap) for restoring it.
 
 For an existing deployment, make a private backup and migrate it once:
 
@@ -107,6 +110,22 @@ While the simulator is running, confirm all of the following:
 HAPI queues subscription notifications immediately and polls pending subscription work every second. If current values repeatedly cross the 10-second display ceiling, inspect HAPI logs and database load before changing the five-second simulator cadence.
 
 Use temporary Postman variables for endpoints and authorization. Do not export collections containing signed headers or private environment values.
+
+### End-to-end scenarios
+
+With no simulator task running, `.venv/bin/python -m e2e.run session` runs the realtime, access, rejection and replay scenarios and writes a report for each under `artifacts/e2e/`. Scenario details, prerequisites and the deployment-session steps are in the end-to-end test plan.
+
+The replay scenario adds a temporary inline Deny policy named `healthcare_realtime_e2e_replay_<run id>` to the realtime processor role and always removes it when the run ends. If a run is killed before its cleanup, the Deny stays and keeps blocking writes for that run's synthetic patient only. List and remove any leftover:
+
+```zsh
+PROCESSOR_ROLE="$(aws lambda get-function-configuration \
+  --function-name "$(terraform -chdir=infra output -raw realtime_processor_lambda_name)" \
+  --query Role --output text)"
+PROCESSOR_ROLE="${PROCESSOR_ROLE##*/}"
+aws iam list-role-policies --role-name "$PROCESSOR_ROLE" \
+  --query "PolicyNames[?starts_with(@, 'healthcare_realtime_e2e_replay_')]" --output text
+aws iam delete-role-policy --role-name "$PROCESSOR_ROLE" --policy-name "<listed-policy-name>"
+```
 
 ## Incident Triage and Recovery
 
@@ -183,4 +202,4 @@ The simulator is the intentionally short-lived Fargate workload. Do not stop the
 
 ## Evidence Handoff
 
-Record the commit, CI result, Terraform convergence result, dashboard/alarm state and the outcome of REST and WebSocket checks. Redact all account-specific values and secrets before publishing portfolio evidence.
+Record the commit, CI result, Terraform convergence result, dashboard/alarm state and the outcome of REST and WebSocket checks. Keep the end-to-end, FHIR setup and load-test reports under `artifacts/e2e/` that serve as evidence. Redact all account-specific values and secrets before publishing portfolio evidence.

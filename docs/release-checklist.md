@@ -4,6 +4,8 @@
 
 Use this checklist to close a portfolio release of the healthcare realtime monitoring project. All published evidence must use synthetic data and replace deployment-specific values with placeholders.
 
+The checked items and dated evidence record the v1.0.1 release. The next release repeats them and adds the checks in [Next release](#next-release), which cover changes made after v1.0.1.
+
 The portfolio release includes the completed Power BI-to-Athena connection and reporting documentation. The local `.pbix` remains outside the repository. Power BI Service publishing remains optional and private.
 
 ## Source and CI
@@ -78,9 +80,20 @@ Before committing screenshots, diagrams, examples or portfolio documents:
 - [x] Complete the local Power BI report and keep the `.pbix` outside the repository.
 - [x] Confirm the public release does not contain a `.pbix` binary or exported DSN.
 
+## Next release
+
+These checks cover the in-VPC FHIR setup task, the scoped IAM policies and roles and the end-to-end runner added after v1.0.1. The end-to-end test plan lists them in session order.
+
+- [ ] Plan, review and apply the changed IAM policy templates with `infra/iam/scripts/manage_policies.py`.
+- [ ] Run `./scripts/infrastructure/run_fhir_setup.sh load` and `register` and keep both passed reports under `artifacts/e2e/fhir_setup/`.
+- [ ] Run `.venv/bin/python -m e2e.run session` with no simulator task running and confirm every scenario passed; keep the reports under `artifacts/e2e/`.
+- [ ] Run the [load test](load-testing.md) and keep its report.
+- [ ] Run the MWAA workflow once, so the Glue job runs under its scoped role, then set `ENABLE_ICEBERG_TABLE_OPTIMIZERS=true` and apply a reviewed plan.
+- [ ] Confirm the realtime alarms are `OK`, both failure queues are empty and no `healthcare_realtime_e2e_replay_*` policy remains on the processor role.
+
 ## Release tag
 
-Create a release tag only after CI is green, Terraform has converged and the evidence checklist is complete:
+Create a release tag only after CI is green, Terraform has converged and the evidence checklist is complete. The command below is the v1.0.1 record; use the new version for the next release:
 
 ```zsh
 git tag -a v1.0.1 -m "Portfolio release v1.0.1"

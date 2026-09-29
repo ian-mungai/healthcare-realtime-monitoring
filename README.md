@@ -47,6 +47,7 @@ The project demonstrates a realtime and analytical healthcare data platform buil
 - Python 3.12
 - Terraform 1.11 or later
 - AWS CLI authenticated to the target account
+- jq, used by the deployment, FHIR setup and dashboard scripts
 - A temporary administrator or approved bootstrap identity for first deployment
 - Docker, when building ECS images locally
 - Java 17 and Gradle, when generating Synthea data
@@ -61,7 +62,7 @@ cd healthcare-realtime-monitoring
 python3.12 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip
 .venv/bin/python -m pip install -r requirements_dev.txt
-.venv/bin/python -m tools.install_tools   # pinned gitleaks, tflint and checkov in .tools/
+.venv/bin/python -m tools.install_tools   # pinned gitleaks, tflint, checkov and SQLFluff in .tools/
 git config core.hooksPath .githooks          # pre-commit hooks and the commit-message check
 ```
 
@@ -98,7 +99,7 @@ set +a
 These commands mirror the local-CI checks in `.github/workflows/ci.yml`. Run `.venv/bin/pre-commit run --all-files` for the repository checks described in the quality checks guide:
 
 ```zsh
-.venv/bin/python -m pytest tests scripts/synthea_loader/tests services/fhir_webhook/tests services/vitals_simulator/tests services/vitals_stream_processor/tests services/vitals_replay/tests services/vitals_api/tests services/websocket_handler/tests -q
+.venv/bin/python -m pytest tests scripts/synthea_loader/tests/test_load_fhir.py services/fhir_webhook/tests services/vitals_simulator/tests services/vitals_stream_processor/tests services/vitals_replay/tests services/vitals_api/tests services/websocket_handler/tests --cov -q
 .venv/bin/ruff check .
 .venv/bin/ruff format --check .
 .venv/bin/python -m mypy .
@@ -107,6 +108,8 @@ PYTHONPATH="$PWD/airflow/serverless:$PWD/airflow/dags:$PWD" .venv/bin/python -m 
 terraform -chdir=infra fmt -check -recursive
 terraform -chdir=infra validate
 ```
+
+The `--cov` run enforces the coverage minimum set in `pyproject.toml`. CI runs `scripts/synthea_loader/tests/test_synthea_output.py` separately, after generating the Synthea cohort, because it checks generated output.
 
 ### End-to-End Verification
 
@@ -198,6 +201,7 @@ Each apply phase requires `CONFIRM_TEARDOWN`; the full sequence, including stora
 | `config/` | Shared vital-sign catalog and deployment defaults |
 | `tests/` | Contract, infrastructure, lineage, dashboard and pipeline tests |
 | `testkit/` | Shared test expectations used instead of `assert` |
+| `tools/` | Repository checks, pinned tool installer, SQL lint runner and documentation-review tooling |
 | `e2e/` | End-to-end scenarios run against a deployed stack |
 | `docs/` | Architecture, governance, operations, demo and Power BI connection documentation |
 

@@ -23,7 +23,7 @@ Keep the DSN, credentials, account details and bucket value private. Do not comm
 1. Open **Home > Get data**, search for **Amazon Athena** and select **Connect**.
 2. Enter the DSN name and choose **Import** for this small portfolio dataset or **DirectQuery** for live Athena queries.
 3. Choose **Use Data Source Configuration** when prompted for authentication.
-4. In Navigator, expand the catalog and analytical database named by `ATHENA_CATALOG` and `ATHENA_DBT_DATABASE` in `.env`.
-5. Confirm the tables named by `DBT_DIM_PATIENT_TABLE`, `DBT_DIM_ENCOUNTER_TABLE`, `DBT_DIM_PROVIDER_TABLE`, `DBT_ENCOUNTER_FEATURES_TABLE` and `DBT_ML_PREDICTIONS_LATEST_TABLE` are visible.
+4. In Navigator, expand the catalog and analytical database named by `athena_catalog_name` and `dbt_database_name` in `config/deployment.defaults.json` (`awsdatacatalog` and `healthcare_realtime_dbt` unless overridden). Terraform passes these names to the dbt, Soda and scoring tasks; they are not set in `.env`.
+5. Confirm the tables named by `dbt_dim_patient_table_name`, `dbt_dim_encounter_table_name`, `dbt_dim_provider_table_name`, `dbt_encounter_features_table_name` and `dbt_ml_predictions_latest_table_name` in the same file are visible.
 
 Successful table discovery completed the repository's Power BI connection requirement. The report file remains a private local artifact and is not required to reproduce the AWS data platform.

@@ -23,7 +23,7 @@ CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
 
 ## Controlled application teardown
 
-Stop demo tasks. Allow every MWAA workflow run to finish or stop it from the AWS console, then wait until its worker tasks have exited. An active workflow can prevent Terraform from deleting the workflow and can leave a metered ECS task running after an interrupted destroy.
+Stop demo tasks and any end-to-end run. If a replay scenario run was killed before its cleanup, remove its leftover `healthcare_realtime_e2e_replay_*` policy from the realtime processor role first, using the commands in the [operations runbook](operations-runbook.md#end-to-end-scenarios); Terraform does not manage that policy. Allow every MWAA workflow run to finish or stop it from the AWS console, then wait until its worker tasks have exited. An active workflow can prevent Terraform from deleting the workflow and can leave a metered ECS task running after an interrupted destroy.
 
 Export only approved synthetic evidence and decide whether database snapshots must be retained.
 
