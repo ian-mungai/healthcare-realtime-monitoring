@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "reviewer": "AI review agent",
-  "reviewed_at_utc": "2026-09-28T23:37:34Z",
-  "snapshot_sha256": "642dd5665fb6b5c82527eb5a2f55b65486aeba715eb70d08561d320ef627b0ea",
+  "reviewed_at_utc": "2026-09-29T03:02:19Z",
+  "snapshot_sha256": "916ab814e3beb67b7291a9cc7b4977138fe7307bf9508e8a7c22c74170e45410",
   "extra_documents": [],
   "documents": [
     {
@@ -128,7 +128,7 @@
     {
       "path": "docs/quality-checks.md",
       "blob": "68d83219614b1af15fbe7414d75a82e57155fda5",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "Terraform section now says checkov blocks and lists every accepted rule with its reason; matches .checkov.yaml and tools/repo_checks.py."
     },
     {
