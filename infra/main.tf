@@ -118,6 +118,9 @@ module "mwaa" {
   glue_job_name      = module.glue.job_name
   glue_database_name = module.glue.database_name
 
+  athena_workgroup_name      = var.athena_workgroup_name
+  data_jobs_ecs_cluster_name = module.dbt_ecs.cluster_name
+
   openlineage_collector_invoke_arn = local.openlineage_collector_invoke_arn
   alarm_topic_arn                  = module.realtime_observability.alert_topic_arn
 
@@ -160,6 +163,8 @@ module "dbt_ecs" {
   openlineage_collector_url        = local.effective_openlineage_collector_url
   openlineage_collector_invoke_arn = local.openlineage_collector_invoke_arn
 
+  athena_workgroup_name               = var.athena_workgroup_name
+  athena_catalog_name                 = var.athena_catalog_name
   source_database_name                = var.source_database_name
   dbt_database_name                   = var.dbt_database_name
   ml_database_name                    = var.ml_database_name
@@ -199,9 +204,11 @@ module "soda_ecs" {
   openlineage_collector_url        = local.effective_openlineage_collector_url
   openlineage_collector_invoke_arn = local.openlineage_collector_invoke_arn
 
-  source_database_name = var.source_database_name
-  dbt_database_name    = var.dbt_database_name
-  ml_database_name     = var.ml_database_name
+  athena_workgroup_name = var.athena_workgroup_name
+  athena_catalog_name   = var.athena_catalog_name
+  source_database_name  = var.source_database_name
+  dbt_database_name     = var.dbt_database_name
+  ml_database_name      = var.ml_database_name
   data_identifiers = {
     PROJECT_NAME                     = var.project_name
     SODA_DATA_SOURCE_NAME            = var.soda_data_source_name

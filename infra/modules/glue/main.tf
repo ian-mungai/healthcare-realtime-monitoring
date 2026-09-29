@@ -65,7 +65,26 @@ data "aws_iam_policy_document" "glue_data_access" {
       "glue:DeleteTable",
     ]
 
-    resources = ["*"]
+    resources = [
+      "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:catalog",
+      "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:database/${var.database_name}",
+      "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:table/${var.database_name}/*",
+    ]
+  }
+
+  statement {
+    sid    = "ReadDefaultGlueDatabase"
+    effect = "Allow"
+
+    # Spark with the Glue catalog looks up the default database when the session starts.
+    actions = [
+      "glue:GetDatabase",
+    ]
+
+    resources = [
+      "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:catalog",
+      "arn:aws:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:database/default",
+    ]
   }
 
   dynamic "statement" {

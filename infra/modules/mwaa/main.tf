@@ -181,7 +181,9 @@ data "aws_iam_policy_document" "mwaa_athena_access" {
       "athena:GetQueryResults"
     ]
 
-    resources = ["*"]
+    resources = [
+      "arn:aws:athena:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:workgroup/${var.athena_workgroup_name}"
+    ]
   }
 }
 
@@ -214,7 +216,9 @@ data "aws_iam_policy_document" "mwaa_ecs_access" {
       "ecs:DescribeTasks"
     ]
 
-    resources = ["*"]
+    resources = [
+      "arn:aws:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:task/${var.data_jobs_ecs_cluster_name}/*"
+    ]
   }
 
   statement {

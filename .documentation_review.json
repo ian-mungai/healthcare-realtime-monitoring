@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "reviewer": "AI review agent",
-  "reviewed_at_utc": "2026-09-29T03:14:42Z",
-  "snapshot_sha256": "5ec220782139c2145096d8ab6bca30e2820d96700b424b35a2b329fed62bad87",
+  "reviewed_at_utc": "2026-09-29T03:28:48Z",
+  "snapshot_sha256": "197affc89089c15e429fbe528f58362748c66813b8f1814a097fe098acb8231d",
   "extra_documents": [],
   "documents": [
     {
@@ -127,9 +127,9 @@
     },
     {
       "path": "docs/quality-checks.md",
-      "blob": "152f351e5db0b14150361ae19b4dbea6dc151ed5",
+      "blob": "041505d65556e3e7d034b119611079396c94b4e3",
       "outcome": "updated",
-      "notes": "SQL section now explains the relation-cache entry point, placeholder AWS credentials and that SQLFluff runs only through tools/lint_sql.py."
+      "notes": "IAM wildcard accepted-risk rows now describe only the KMS key policy, the ECR token and namespace-limited metric exceptions, and the broader AWSGlueServiceRole follow-up."
     },
     {
       "path": "docs/quickstart.md",

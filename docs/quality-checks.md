@@ -72,7 +72,7 @@ All Python code starts programs through `run_command` in `tools/process.py`, inc
 
 ## Terraform
 
-`terraform fmt`, tflint and checkov run on every Terraform change and in CI, and block on any finding; every module declares its Terraform and provider versions. checkov reads `.checkov.yaml`, which skips only the rules below. The repository owner accepted them on Sep 28 2026 for this synthetic-data portfolio stack, and the lint-settings check blocks any addition to the list. The IAM wildcard rules stay under review.
+`terraform fmt`, tflint and checkov run on every Terraform change and in CI, and block on any finding; every module declares its Terraform and provider versions. checkov reads `.checkov.yaml`, which skips only the rules below. The repository owner accepted them on Sep 28 2026 for this synthetic-data portfolio stack, and the lint-settings check blocks any addition to the list. The IAM wildcard rules now cover only the KMS key policy.
 
 | Rule | Reason accepted |
 | --- | --- |
@@ -86,8 +86,8 @@ All Python code starts programs through `run_command` in `tools/process.py`, inc
 | `CKV2_AWS_61` | The data bucket keeps objects until teardown; a lifecycle policy is a documented follow-up in the data governance guide. |
 | `CKV2_AWS_62` | S3 event notifications are not used by the pipeline. |
 | `CKV_AWS_103` | Same load balancers have no HTTPS listener to set a TLS policy on (see CKV_AWS_2). |
-| `CKV_AWS_109` | Same open IAM review as CKV_AWS_356. |
-| `CKV_AWS_111` | Same open IAM review as CKV_AWS_356. |
+| `CKV_AWS_109` | Same KMS key policy as CKV_AWS_356: the account root statement is the standard key-administration grant. |
+| `CKV_AWS_111` | Same KMS key policy as CKV_AWS_356. |
 | `CKV_AWS_115` | Reserved concurrency is not set so the demo can scale with the stream. |
 | `CKV_AWS_116` | Failures use the Kinesis and SQS failure destinations and replay queue instead of Lambda DLQs. |
 | `CKV_AWS_117` | Lambdas call only AWS APIs and need no VPC placement. |
@@ -112,7 +112,7 @@ All Python code starts programs through `run_command` in `tools/process.py`, inc
 | `CKV_AWS_336` | The simulator writes working files at run time; a read-only root file system is a follow-up. |
 | `CKV_AWS_338` | Logs are kept 14 days to control cost for the synthetic demo. |
 | `CKV_AWS_353` | Performance Insights is not needed for the demo databases. |
-| `CKV_AWS_356` | Some AWS actions require Resource "*" (for example ecr:GetAuthorizationToken, athena:StartQueryExecution); remaining wildcards are an open IAM review. |
+| `CKV_AWS_356` | Only the alerts KMS key policy is flagged: in a key policy, Resource "*" means the key itself. After the IAM review of Sep 29 2026, workload role statements name their resources except `ecr:GetAuthorizationToken`, which AWS allows only on "*", and `cloudwatch:PutMetricData`, limited by a namespace condition. The Glue role also keeps the AWS managed `AWSGlueServiceRole` policy, which is broader; replacing it is a follow-up. |
 | `CKV_AWS_378` | Same HTTP listener decision as CKV_AWS_2; the Marquez listener is internal and reached only through IAM-authorized API Gateway. |
 | `CKV_AWS_382` | Private tasks need outbound access through the NAT gateway to AWS APIs, ECR, PhysioNet and HAPI. |
 | `CKV_AWS_394` | Availability zones are chosen by index; the demo does not need pinned zone IDs. |

@@ -85,3 +85,13 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "athena_workgroup_name" {
+  description = "Athena workgroup the workflow runs queries in."
+  type        = string
+}
+
+variable "data_jobs_ecs_cluster_name" {
+  description = "ECS cluster that runs the dbt and Soda tasks."
+  type        = string
+}
