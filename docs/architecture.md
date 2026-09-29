@@ -75,6 +75,7 @@ flowchart LR
 
     PROCESSOR -- failed records --> FAILURES --> REPLAY --> KINESIS
     FAILURES -- max receives --> DLQ
+    REPLAY -- terminal records --> DLQ
     KINESIS --> CW
     PROCESSOR --> CW
     WEBHOOK --> CW
@@ -102,7 +103,7 @@ dbt produces a keyed observation fact, conformed dimensions, fixed-window encoun
 
 ## Failure and recovery model
 
-The processor reports batch-item failures to an encrypted SQS queue. The replay Lambda retrieves the original Kinesis sequence range and republishes a bounded replay attempt. A message that exceeds the receive threshold moves to a separate replay dead-letter queue for operator investigation.
+The processor rejects records that fail validation without retrying them and counts them in the `PermanentRecordsRejected` metric. Retryable failures are retried by Lambda and then reported to an encrypted SQS failure queue. The replay Lambda retrieves the original range from the main vitals stream and republishes it once. A record already at the replay limit goes straight to a separate replay dead-letter queue with its reason; a failure message that cannot be replayed, including any from the isolated load-test stream, moves there after five failed receives. Operators investigate the dead-letter queue; see [data governance](data-governance.md#failure-handling-and-replay).
 
 This design prefers controlled replay over blind redrive: an operator should identify the underlying data or deployment issue, inspect the dead-letter record and then validate fresh state, dashboard behavior and alarms after recovery. The full procedure is in [operations-runbook.md](operations-runbook.md).
 

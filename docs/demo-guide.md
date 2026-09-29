@@ -70,6 +70,7 @@ Create a temporary Postman environment with the following variables. Do not expo
 | --- | --- |
 | `aws_region` | Target AWS region |
 | `vitals_api_endpoint` | Terraform `vitals_api_endpoint` output |
+| `realtime_websocket_url` | Terraform `realtime_websocket_url` output, used by the WebSocket check |
 | `patient_id` | One simulated patient identifier |
 
 Create a `GET` request:
@@ -82,7 +83,7 @@ Configure the request for AWS Signature authorization with service name `execute
 
 ## Postman WebSocket check
 
-Create a temporary WebSocket request:
+Create a temporary WebSocket request in the same Postman environment:
 
 ```text
 {{realtime_websocket_url}}?patient_id={{patient_id}}
@@ -106,6 +107,16 @@ terraform -chdir=infra output -raw cloudwatch_dashboard_name
 
 Confirm that the live processing-latency and WebSocket-delivery alarms are `OK`. The realtime dashboard should show fresh activity without sustained processor errors or an increasing iterator age.
 
+## Scripted checks
+
+The REST, WebSocket, access-control and failure-handling checks above also run as scripted end-to-end scenarios that write a report for each run under `artifacts/e2e/`. Run them outside a recording, with the simulator stopped, because the realtime scenario starts its own simulator task:
+
+```zsh
+.venv/bin/python -m e2e.run session
+```
+
+The [end-to-end test plan](e2e-test-plan.md) describes each scenario and its prerequisites.
+
 ## Analytics and recovery evidence
 
 For an extended demonstration, show a successful MWAA workflow run and its Glue, Athena, Great Expectations, dbt, approved-model scoring, prediction refresh and Soda tasks. Confirm that prediction freshness and OpenLineage validation completed successfully. When the `openlineage_collector_url` Terraform output is nonempty, confirm the shared collector contains matching START and COMPLETE events for the same run IDs.
@@ -114,7 +125,7 @@ For training-data generation, let the simulator run for at least 30 minutes befo
 
 Stop the simulator before starting the analytical workflow so Firehose can settle and the run processes a bounded cohort snapshot. After starting MWAA Serverless, wait 30 minutes before checking the final state; recent runs have taken 26 to 28 minutes.
 
-Do not intentionally inject a production-style failure during a portfolio recording. If recovery evidence is needed, use a reviewed synthetic failure case and follow the controlled replay procedure in the [operations runbook](operations-runbook.md).
+Do not intentionally inject a production-style failure during a portfolio recording. If recovery evidence is needed, use the report from the replay scenario, which blocks writes for one synthetic patient outside the cohort, or follow the controlled replay procedure in the [operations runbook](operations-runbook.md).
 
 ## Shutdown
 

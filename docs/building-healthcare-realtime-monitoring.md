@@ -2,7 +2,7 @@
 
 Healthcare data engineering is difficult for reasons that have little to do with drawing a chart. A useful monitoring platform must accept clinical data safely, preserve meaning across several processing layers, surface changes quickly, support historical analysis and explain where every result came from.
 
-This project was built as a synthetic portfolio system to explore that full path. It is not a medical device and does not use real patient data. Its purpose is to demonstrate the engineering methods behind a reproducible realtime and analytical platform.
+This project was built as a synthetic portfolio system to explore that full path. It is not a medical device. The patients are synthetic Synthea records, and their vital signs come from de-identified public BIDMC recordings, so no identifiable patient data is involved. Its purpose is to demonstrate the engineering methods behind a reproducible realtime and analytical platform.
 
 The final system combines FHIR, streaming services, serverless processing, a lakehouse, workflow orchestration, data quality, lineage, machine learning, operational dashboards and business intelligence. More importantly, it treats those pieces as one system rather than a collection of disconnected demos.
 
@@ -64,7 +64,7 @@ Training records the feature definition, label definition, dataset fingerprint, 
 
 The simulator creates fresh encounters on each task run and randomly assigns normal or deterioration-proxy outcomes after the feature window. This produces additional independent encounter rows while preserving feature-label timing. Randomness alone does not guarantee a valid patient-grouped split, so the pipeline still refuses to train until both partitions contain both classes.
 
-The pipeline also knows when not to train. If the eligible cohort contains only one label class, scheduled training remains paused because accuracy from that dataset would not be meaningful. This is an important production habit: automation should enforce analytical prerequisites, not merely execute code on schedule.
+The pipeline also knows when not to train. Training is a manual, reviewed step rather than part of the daily workflow. If either patient-grouped partition contains only one label class, training stops with a clear error because accuracy from that dataset would not be meaningful, and the daily workflow stays in manual-only mode until a reviewed model version is approved. This is an important production habit: automation should enforce analytical prerequisites, not merely execute code on schedule.
 
 ## Treating operations and security as product features
 
@@ -74,7 +74,7 @@ Private deployment values stay outside tracked files. Environment files supply l
 
 The repository includes controlled bootstrap and teardown workflows. Terraform state lives in a persistent versioned location outside the disposable project resources. Cleanup tooling handles versioned object storage and container registries, while deletion protection is variable driven. This allows the deployed environment to be removed and recreated without pretending that externally managed prerequisites do not exist.
 
-Operational failure paths are equally deliberate. SQS dead-letter queues retain failed realtime events, replay tooling supports controlled recovery, alarms cover queue depth and processing failures and runbooks document startup, shutdown, replay and verification. Cost controls keep scheduled workloads and demonstration services from running unnecessarily.
+Operational failure paths are equally deliberate. retryable realtime failures go to an SQS failure queue, a replay Lambda retries each one once and a dead-letter queue keeps whatever replay cannot recover, alarms cover queue depth and processing failures and runbooks document startup, shutdown, replay and verification. Cost controls keep scheduled workloads and demonstration services from running unnecessarily.
 
 ## Presenting the analytical result in Power BI
 
@@ -99,7 +99,7 @@ The `.pbix` remains outside the repository because it is a binary file that can 
 | Data analytics | SQL, Athena validation queries, Kimball dimensional modeling, SCD Type 2 provider history, cohort filtering, observation grain tests, fixed encounter windows and Power BI DirectQuery reporting |
 | Data science | pandas, NumPy, PyAthena, scikit-learn logistic regression, deterministic patient-level splits, classification metrics, joblib model serialization, versioned model approval and synthetic proxy scoring |
 | Quality and governance | FHIR profile validation, dbt tests, Great Expectations, Soda contracts, quarantine and replay, OpenLineage, Marquez, dataset fingerprints and synthetic-data labeling |
-| Platform and delivery | Terraform, AWS and AWSCC providers, IAM, SigV4, Secrets Manager, KMS, CloudWatch, SQS dead-letter queues, Amazon ECR, Git, GitHub Actions, GitHub OIDC, pytest, Ruff, MyPy, container smoke tests and Postman |
+| Platform and delivery | Terraform, AWS and AWSCC providers, IAM, SigV4, Secrets Manager, KMS, CloudWatch, SQS dead-letter queues, Amazon ECR, Git, GitHub Actions, GitHub OIDC, pytest, Ruff, MyPy, SQLFluff, pre-commit, gitleaks, tflint, checkov, a whole-project privacy scan, container smoke tests, scripted end-to-end scenarios and Postman |
 | Application and visualization | Streamlit, Altair, REST polling, WebSockets, API Gateway, Power BI, DAX, drillthrough, synchronized slicers and nursing-oriented freshness indicators |
 
-The repository contains the application code, infrastructure, tests, runbooks and architecture documentation needed to deploy and examine the system. The dataset and deterioration label remain synthetic and the project is not intended for patient care.
+The repository contains the application code, infrastructure, tests, runbooks and architecture documentation needed to deploy and examine the system. The patients and the deterioration label remain synthetic, the vital signs come from de-identified public recordings and the project is not intended for patient care.

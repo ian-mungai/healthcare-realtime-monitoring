@@ -96,9 +96,14 @@ Realtime state is keyed by `patient_id`. DynamoDB accepts an update only when it
 
 ## Failure handling and replay
 
-Kinesis batch item failures are sent to the encrypted failure queue provisioned by the realtime failure-handling module. The replay Lambda retrieves the original Kinesis sequence range and republishes it with an incremented `_replay_attempt`.
+The processor separates permanent from retryable failures. A record that fails validation (unsupported schema version, malformed JSON, missing fields, out-of-range vitals) is rejected at once, logged and counted in the `PermanentRecordsRejected` metric; it is never retried or replayed. A retryable failure, such as a failed DynamoDB write, is reported as a batch item failure. Lambda retries it up to three times, splitting the batch to isolate it, then sends the batch details to the encrypted failure queue provisioned by the realtime failure-handling module.
 
-Automatic replay is limited to one attempt. After five failed SQS receives, the message moves to the module-managed replay dead-letter queue. Both queues retain messages for 14 days and use SQS-managed server-side encryption. Operators must inspect and correct records in the replay DLQ before any manual redrive.
+The replay Lambda reads each failure message, retrieves the original sequence range from the main vitals stream and republishes it with an incremented `_replay_attempt`. Automatic replay is limited to one attempt, and a message reaches the module-managed replay dead-letter queue in one of two ways:
+
+1. **Terminal record:** a record already at the replay limit, or one that cannot be decoded, is written straight to the dead-letter queue with its reason, sequence number and original data.
+2. **Failed replay:** a failure message the Lambda cannot process moves to the dead-letter queue after five failed SQS receives. This includes every failure from the isolated load-test stream, because the replay Lambda accepts only the main stream and never republishes load-test records.
+
+Both queues retain messages for 14 days and use SQS-managed server-side encryption. Operators must inspect and correct records in the replay DLQ before any manual redrive.
 
 Analytical quarantine recovery is separate from SQS transport recovery. Operators query the quarantine table, export a bounded set with `scripts/quarantine/manage_quarantine.py`, correct and validate the JSONL file, then explicitly confirm publication to Kinesis. Corrected records retain their analytical identity so Iceberg replay remains idempotent.
 

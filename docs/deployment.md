@@ -67,47 +67,20 @@ Run a full local Terraform plan to review resource details without publishing pr
 
 The managed collector runs Marquez on private ECS and PostgreSQL RDS resources. An internal load balancer is reachable only through an IAM-authorized API Gateway endpoint, so no custom domain or public Marquez port is required. S3 remains the fallback when the collector is disabled.
 
-Bootstrap the ECR repository while the collector remains disabled:
+The Marquez repository and image are part of the standard deployment: `bootstrap.sh repositories-plan` creates the Marquez ECR repository with the other three, and `push_images.sh` builds and pushes the pinned Marquez image with the same immutable tag, recording it as `OPENLINEAGE_COLLECTOR_IMAGE_TAG` in `.env` ([quickstart](quickstart.md) step 3). No separate build is needed.
+
+Enable the managed collector in `.env`, then rerender the ignored Terraform inputs. Do not edit the generated files directly:
+
+```dotenv
+ENABLE_OPENLINEAGE_COLLECTOR=true
+OPENLINEAGE_COLLECTOR_DESIRED_COUNT=1
+```
 
 ```zsh
-set -a
-source .env
-set +a
-
-terraform -chdir=infra plan -var-file=deployment.auto.tfvars.json \
-  -target=module.openlineage_collector.aws_ecr_repository.marquez \
-  -target=module.openlineage_collector.aws_ecr_lifecycle_policy.marquez \
-  -out=tfplan-openlineage-ecr
-terraform -chdir=infra apply tfplan-openlineage-ecr
+./scripts/infrastructure/render_project_config.sh
 ```
 
-Build and push the pinned Marquez image:
-
-```zsh
-export MARQUEZ_REPOSITORY_URL="$(terraform -chdir=infra output -raw openlineage_collector_ecr_repository_url)"
-export MARQUEZ_IMAGE_TAG="sha-$(git rev-parse --short=12 HEAD)"
-
-aws ecr get-login-password --region "$AWS_REGION" |
-  docker login --username AWS --password-stdin "${MARQUEZ_REPOSITORY_URL%%/*}"
-
-docker buildx build \
-  --platform linux/amd64 \
-  --provenance=false \
-  --file deploy/marquez/Dockerfile \
-  --tag "${MARQUEZ_REPOSITORY_URL}:${MARQUEZ_IMAGE_TAG}" \
-  --push \
-  deploy/marquez
-```
-
-Enable the managed collector in the ignored Terraform inputs:
-
-```hcl
-enable_openlineage_collector        = true
-openlineage_collector_image_tag     = "sha-<commit>"
-openlineage_collector_desired_count = 1
-```
-
-Run `./scripts/infrastructure/sync_deployment_config.sh` after updating the ignored Terraform inputs, then create and review a full Terraform plan. The plan creates Marquez ECS, encrypted RDS, an internal load balancer and the IAM-authorized API route; it also updates Glue, MWAA, dbt and Soda with the collector URL and route-specific `execute-api:Invoke` permission.
+Run `./scripts/infrastructure/sync_deployment_config.sh` when the GitHub Deploy workflow is used, then create and review a full Terraform plan. The plan creates Marquez ECS, encrypted RDS, an internal load balancer and the IAM-authorized API route; it also updates Glue, MWAA, dbt and Soda with the collector URL and route-specific `execute-api:Invoke` permission.
 
 After apply, run the analytical workflow. Confirm the collector has namespaces and jobs using the project's SigV4 session:
 
@@ -136,6 +109,6 @@ print(response.content.decode())
 PY
 ```
 
-For cost-controlled shutdown, set `openlineage_collector_desired_count = 0` and apply. Stop the Marquez RDS instance from AWS when the analytical workflow is not being demonstrated; AWS automatically restarts a stopped RDS instance after seven days. Restore the database and desired count before running the pipeline.
+For cost-controlled shutdown, set `OPENLINEAGE_COLLECTOR_DESIRED_COUNT=0` in `.env`, rerender the Terraform inputs and apply a reviewed plan. Stop the Marquez RDS instance from AWS when the analytical workflow is not being demonstrated; AWS automatically restarts a stopped RDS instance after seven days. Restore the database and desired count before running the pipeline.
 
 To use an externally managed collector instead, leave `ENABLE_OPENLINEAGE_COLLECTOR=false`, add `EXTERNAL_OPENLINEAGE_COLLECTOR_URL=<https-base-url>` to `.env` and rerender the ignored Terraform inputs. `.env.example` lists the override only as a commented reference, because a standard deployment creates the managed collector or uses the durable S3 fallback. Every non-local remote collector request is SigV4-signed for `execute-api`; use a local endpoint for unsigned development transport.
