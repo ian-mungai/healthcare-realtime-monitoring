@@ -13,6 +13,7 @@ import sys
 from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
+from string import Template
 from typing import Any, Final
 from urllib.parse import urlparse
 
@@ -43,6 +44,8 @@ TARGET_COLUMN: Final = "deterioration_proxy_label"
 REQUIRED_COLUMNS: Final = ("encounter_key", "patient_key", "data_split", "feature_schema_version", "label_definition_version", TARGET_COLUMN, *FEATURE_COLUMNS)
 SCORING_REQUIRED_COLUMNS: Final = ("encounter_key", "patient_key", "feature_schema_version", "label_definition_version", *FEATURE_COLUMNS)
 IDENTIFIER_PATTERN: Final = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+# Athena cannot bind identifiers as query parameters, so names are checked against IDENTIFIER_PATTERN first.
+RECORDS_QUERY: Final = Template("select $columns from $table order by encounter_key")
 MODEL_VERSION_PATTERN: Final = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 RANDOM_STATE: Final = 42
 DEFAULT_DECISION_THRESHOLD: Final = 0.5
@@ -54,12 +57,12 @@ def load_csv_records(path: Path) -> list[dict[str, Any]]:
 
 
 def load_athena_records(database: str, table: str, staging_dir: str, region: str, required_columns: tuple[str, ...] = REQUIRED_COLUMNS) -> list[dict[str, Any]]:
-    for identifier in (database, table):
+    for identifier in (database, table, *required_columns):
         if not IDENTIFIER_PATTERN.fullmatch(identifier):
             raise ValueError(f"Invalid Athena identifier: {identifier}")
 
     columns = ", ".join(required_columns)
-    query = f"select {columns} from {database}.{table} order by encounter_key"
+    query = RECORDS_QUERY.substitute(columns=columns, table=f"{database}.{table}")
     with connect(s3_staging_dir=staging_dir, region_name=region).cursor() as cursor:
         cursor.execute(query)
         names = [description[0] for description in cursor.description]

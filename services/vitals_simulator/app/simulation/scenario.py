@@ -1,4 +1,5 @@
-import random
+import hashlib
+import secrets
 from dataclasses import replace
 
 from services.vitals_simulator.app.bidmc.source import VitalReading
@@ -13,8 +14,18 @@ OUTCOME_WINDOW_SECONDS = 15 * 60
 
 
 def choose_patient_scenarios(patient_ids: list[str], seed: str | int | None = None) -> dict[str, str]:
-    rng = random.Random(seed)
-    return {patient_id: rng.choice(SCENARIOS) for patient_id in patient_ids}
+    """Assign each patient a scenario: a stable hash of seed and patient when seeded, otherwise at random.
+
+    The hash gives the same assignment for the same seed on every Python version and host.
+    """
+    if seed is None:
+        return {patient_id: secrets.choice(SCENARIOS) for patient_id in patient_ids}
+    return {patient_id: SCENARIOS[_seeded_index(seed, patient_id)] for patient_id in patient_ids}
+
+
+def _seeded_index(seed: str | int, patient_id: str) -> int:
+    digest = hashlib.sha256(f"{seed}:{patient_id}".encode()).digest()
+    return int.from_bytes(digest[:8], "big") % len(SCENARIOS)
 
 
 def is_outcome_window(elapsed_seconds: float) -> bool:

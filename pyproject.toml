@@ -10,7 +10,8 @@ select = [
     "B",
     "UP",
     "SIM",
-    "T20"
+    "T20",
+    "S"
 ]
 
 [tool.ruff.format]

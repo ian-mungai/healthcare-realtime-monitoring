@@ -5,7 +5,7 @@ from typing import Any
 
 from services.fhir_webhook.app.kinesis.client import KinesisPublisher, KinesisPublisherError
 from services.fhir_webhook.app.parser import InvalidFHIRPayloadError, parse_fhir_payload
-from services.fhir_webhook.app.security import WEBHOOK_SECRET_HEADER, validate_webhook_secret
+from services.fhir_webhook.app.security import WEBHOOK_AUTH_HEADER, validate_webhook_secret
 
 FHIR_WEBHOOK_ROUTE = "POST /webhooks/fhir"
 FHIR_UPDATE_ROUTE = "PUT /webhooks/fhir/{resource_type}/{resource_id}"
@@ -117,7 +117,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
         return build_response(404, {"detail": "Route not found"})
 
     headers = event.get("headers") or {}
-    received_secret = get_header(headers, WEBHOOK_SECRET_HEADER)
+    received_secret = get_header(headers, WEBHOOK_AUTH_HEADER)
 
     try:
         secret_valid = validate_webhook_secret(received_secret)

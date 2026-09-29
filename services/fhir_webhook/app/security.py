@@ -2,7 +2,7 @@ import hmac
 
 from services.fhir_webhook.app.config import get_webhook_secret
 
-WEBHOOK_SECRET_HEADER = "X-Webhook-Secret"
+WEBHOOK_AUTH_HEADER = "X-Webhook-Secret"
 
 
 def validate_webhook_secret(received_secret: str | None) -> bool:
