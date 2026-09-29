@@ -6,6 +6,7 @@ import pytest
 from botocore.exceptions import ClientError
 
 from scripts.infrastructure.check_region_readiness import run_checks
+from testkit import expect
 
 
 class Paginator:
@@ -15,10 +16,10 @@ class Paginator:
 
     def paginate(self, **kwargs: object) -> list[dict[str, object]]:
         if self.name == "list_policies":
-            assert kwargs == {"Scope": "Local"}
+            expect.equal(kwargs, {"Scope": "Local"})
             return [{"Policies": []}]
-        assert self.name == "describe_db_instances"
-        assert kwargs == {}
+        expect.equal(self.name, "describe_db_instances")
+        expect.equal(kwargs, {})
         return [{"DBInstances": databases} for databases in self.database_pages]
 
 
@@ -30,18 +31,18 @@ class Client:
         return {"Account": "111111111111"}
 
     def describe_availability_zones(self, **kwargs: object) -> dict[str, object]:
-        assert kwargs == {"Filters": [{"Name": "state", "Values": ["available"]}]}
+        expect.equal(kwargs, {"Filters": [{"Name": "state", "Values": ["available"]}]})
         return {"AvailabilityZones": [{"ZoneName": "example-a"}, {"ZoneName": "example-b"}]}
 
     def describe_type(self, **kwargs: object) -> dict[str, str]:
-        assert kwargs["TypeName"] == "AWS::MWAAServerless::Workflow"
+        expect.equal(kwargs["TypeName"], "AWS::MWAAServerless::Workflow")
         return {"Arn": "example"}
 
     def get_account_summary(self) -> dict[str, object]:
         return {"SummaryMap": {"PoliciesQuota": 1500, "Policies": 0}}
 
     def get_paginator(self, name: str) -> Paginator:
-        assert name in {"list_policies", "describe_db_instances"}
+        expect.is_in(name, {"list_policies", "describe_db_instances"})
         return Paginator(name)
 
     def describe_vpcs(self) -> dict[str, object]:
@@ -55,9 +56,9 @@ class Client:
         return {"Quota": {"Value": values[(kwargs["ServiceCode"], kwargs["QuotaCode"])]}}
 
     def get_metric_statistics(self, **kwargs: object) -> dict[str, object]:
-        assert kwargs["Namespace"] == "AWS/Usage"
-        assert kwargs["MetricName"] == "ResourceCount"
-        assert kwargs["Statistics"] == ["Maximum"]
+        expect.equal(kwargs["Namespace"], "AWS/Usage")
+        expect.equal(kwargs["MetricName"], "ResourceCount")
+        expect.equal(kwargs["Statistics"], ["Maximum"])
         return {"Datapoints": [{"Maximum": 1.5}]}
 
 
@@ -69,8 +70,10 @@ class Session:
 def test_empty_account_region_is_ready_for_bootstrap() -> None:
     checks = run_checks(Session(), {"policy-one", "policy-two"})
 
-    assert checks
-    assert all(check.passed for check in checks)
+    if not checks:
+        expect.fail("expected: checks")
+    if not all(check.passed for check in checks):
+        expect.fail("expected: all(check.passed for check in checks)")
 
 
 class OneZoneClient(Client):
@@ -89,7 +92,8 @@ def test_region_requires_two_availability_zones() -> None:
     checks = run_checks(OneZoneSession(), set())
 
     availability_check = next(check for check in checks if check.name == "Availability Zones")
-    assert not availability_check.passed
+    if availability_check.passed:
+        expect.fail("expected: not availability_check.passed")
 
 
 class SaturatedFargateClient(Client):
@@ -108,8 +112,9 @@ def test_region_requires_available_fargate_capacity() -> None:
     checks = run_checks(SaturatedFargateSession(), set())
 
     fargate_check = next(check for check in checks if check.name == "Fargate quota")
-    assert not fargate_check.passed
-    assert fargate_check.detail == "1 free of 6; 2 required"
+    if fargate_check.passed:
+        expect.fail("expected: not fargate_check.passed")
+    expect.equal(fargate_check.detail, "1 free of 6; 2 required")
 
 
 class MissingMwaaClient(Client):
@@ -128,8 +133,9 @@ def test_unavailable_mwaa_resource_type_is_reported() -> None:
     checks = run_checks(MissingMwaaSession(), set())
 
     mwaa_check = next(check for check in checks if check.name == "MWAA Serverless")
-    assert not mwaa_check.passed
-    assert "unavailable" in mwaa_check.detail
+    if mwaa_check.passed:
+        expect.fail("expected: not mwaa_check.passed")
+    expect.is_in("unavailable", mwaa_check.detail)
 
 
 class DeniedMwaaClient(Client):
@@ -151,7 +157,7 @@ def test_mwaa_permission_errors_are_not_misreported_as_unavailable() -> None:
 
 class PaginatedRdsClient(Client):
     def get_paginator(self, name: str) -> Paginator:
-        assert name == "describe_db_instances"
+        expect.equal(name, "describe_db_instances")
         return Paginator(name, [[{"DBInstanceIdentifier": "one"}], [{"DBInstanceIdentifier": "two"}]])
 
 
@@ -166,4 +172,4 @@ def test_rds_quota_counts_all_pages() -> None:
     checks = run_checks(PaginatedRdsSession(), set())
 
     rds_check = next(check for check in checks if check.name == "RDS quota")
-    assert rds_check.detail == "38 free; 2 required"
+    expect.equal(rds_check.detail, "38 free; 2 required")

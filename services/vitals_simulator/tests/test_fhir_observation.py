@@ -11,14 +11,15 @@ from services.vitals_simulator.app.fhir.observation import (
     build_observations_from_reading,
     normalize_measurement,
 )
+from testkit import expect
 
 
 def test_normalize_measurement():
-    assert normalize_measurement(24.999969557786706) == 25.0
+    expect.equal(normalize_measurement(24.999969557786706), 25.0)
 
-    assert normalize_measurement(94.0) == 94.0
+    expect.equal(normalize_measurement(94.0), 94.0)
 
-    assert normalize_measurement(None) is None
+    expect.identical(normalize_measurement(None), None)
 
 
 def test_build_effective_datetime():
@@ -26,7 +27,7 @@ def test_build_effective_datetime():
 
     result = build_effective_datetime(start, 5)
 
-    assert result == ("2026-08-20T12:00:05+00:00")
+    expect.equal(result, "2026-08-20T12:00:05+00:00")
 
 
 def test_build_effective_datetime_requires_timezone():
@@ -43,11 +44,11 @@ def test_build_three_observations():
 
     observations = build_observations_from_reading(reading=reading, patient_id="patient_123", encounter_id="encounter_456", simulation_start=start)
 
-    assert len(observations) == 3
+    expect.equal(len(observations), 3)
 
     codes = {observation["code"]["coding"][0]["code"] for observation in observations}
 
-    assert codes == {HEART_RATE["loinc_code"], RESPIRATORY_RATE["loinc_code"], SPO2["loinc_code"]}
+    expect.equal(codes, {HEART_RATE["loinc_code"], RESPIRATORY_RATE["loinc_code"], SPO2["loinc_code"]})
 
 
 def test_patient_reference():
@@ -58,7 +59,7 @@ def test_patient_reference():
     observations = build_observations_from_reading(reading=reading, patient_id="patient_123", encounter_id="encounter_456", simulation_start=start)
 
     for observation in observations:
-        assert observation["subject"]["reference"] == "Patient/patient_123"
+        expect.equal(observation["subject"]["reference"], "Patient/patient_123")
 
 
 def test_encounter_reference():
@@ -69,7 +70,7 @@ def test_encounter_reference():
     observations = build_observations_from_reading(reading=reading, patient_id="patient_123", encounter_id="encounter_456", simulation_start=start)
 
     for observation in observations:
-        assert observation["encounter"]["reference"] == "Encounter/encounter_456"
+        expect.equal(observation["encounter"]["reference"], "Encounter/encounter_456")
 
 
 def test_effective_datetime_uses_bidmc_offset():
@@ -80,7 +81,7 @@ def test_effective_datetime_uses_bidmc_offset():
     observations = build_observations_from_reading(reading=reading, patient_id="patient_123", encounter_id="encounter_456", simulation_start=start)
 
     for observation in observations:
-        assert observation["effectiveDateTime"] == "2026-08-20T12:00:05+00:00"
+        expect.equal(observation["effectiveDateTime"], "2026-08-20T12:00:05+00:00")
 
 
 def test_missing_measurement_is_skipped():
@@ -90,11 +91,11 @@ def test_missing_measurement_is_skipped():
 
     observations = build_observations_from_reading(reading=reading, patient_id="patient_123", encounter_id="encounter_456", simulation_start=start)
 
-    assert len(observations) == 2
+    expect.equal(len(observations), 2)
 
     codes = {observation["code"]["coding"][0]["code"] for observation in observations}
 
-    assert RESPIRATORY_RATE["loinc_code"] not in codes
+    expect.not_in(RESPIRATORY_RATE["loinc_code"], codes)
 
 
 def test_heart_rate_quantity():
@@ -106,8 +107,8 @@ def test_heart_rate_quantity():
 
     observation = observations[0]
 
-    assert observation["valueQuantity"]["value"] == 94.0
+    expect.equal(observation["valueQuantity"]["value"], 94.0)
 
-    assert observation["valueQuantity"]["system"] == "http://unitsofmeasure.org"
+    expect.equal(observation["valueQuantity"]["system"], "http://unitsofmeasure.org")
 
-    assert observation["valueQuantity"]["code"] == "/min"
+    expect.equal(observation["valueQuantity"]["code"], "/min")

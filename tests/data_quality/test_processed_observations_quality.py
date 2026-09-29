@@ -5,6 +5,7 @@ from openlineage.client.event_v2 import RunState
 
 from data_quality.great_expectations import validate_processed_observations
 from data_quality.great_expectations.validate_processed_observations import VALID_LOINC_CODES
+from testkit import expect
 
 EXPECTED_COLUMNS = {
     "observation_id",
@@ -25,37 +26,40 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_expected_processed_columns():
-    assert {
-        "observation_id",
-        "patient_id",
-        "encounter_id",
-        "observation_type",
-        "loinc_code",
-        "value",
-        "unit",
-        "effective_datetime",
-        "received_at",
-        "source",
-        "year",
-        "month",
-        "day",
-    } == EXPECTED_COLUMNS
+    expect.equal(
+        {
+            "observation_id",
+            "patient_id",
+            "encounter_id",
+            "observation_type",
+            "loinc_code",
+            "value",
+            "unit",
+            "effective_datetime",
+            "received_at",
+            "source",
+            "year",
+            "month",
+            "day",
+        },
+        EXPECTED_COLUMNS,
+    )
 
 
 def test_valid_loinc_codes():
-    assert set(VALID_LOINC_CODES) == {"8867-4", "2708-6", "8480-6", "8462-4", "9279-1"}
+    expect.equal(set(VALID_LOINC_CODES), {"8867-4", "2708-6", "8480-6", "8462-4", "9279-1"})
 
 
 def test_compound_uniqueness_key():
-    assert ("observation_id", "loinc_code") == ("observation_id", "loinc_code")
+    expect.equal(("observation_id", "loinc_code"), ("observation_id", "loinc_code"))
 
 
 def test_quality_container_packages_great_expectations_runner():
     dockerfile = (ROOT / "deploy/soda/Dockerfile").read_text(encoding="utf-8")
 
-    assert '"great-expectations==${GREAT_EXPECTATIONS_VERSION}"' in dockerfile
-    assert "COPY data_quality/great_expectations/validate_processed_observations.py /app/validate_processed_observations.py" in dockerfile
-    assert 'CMD ["python", "/app/run_soda_with_lineage.py"]' in dockerfile
+    expect.is_in('"great-expectations==${GREAT_EXPECTATIONS_VERSION}"', dockerfile)
+    expect.is_in("COPY data_quality/great_expectations/validate_processed_observations.py /app/validate_processed_observations.py", dockerfile)
+    expect.is_in('CMD ["python", "/app/run_soda_with_lineage.py"]', dockerfile)
 
 
 def test_connection_string_uses_dedicated_great_expectations_output(monkeypatch):
@@ -66,7 +70,7 @@ def test_connection_string_uses_dedicated_great_expectations_output(monkeypatch)
 
     connection_string = validate_processed_observations.build_connection_string()
 
-    assert "s3_staging_dir=s3://example-bucket/athena_results/great_expectations/" in connection_string
+    expect.is_in("s3_staging_dir=s3://example-bucket/athena_results/great_expectations/", connection_string)
 
 
 def test_validate_runs_suite_once_and_emits_complete_lineage(monkeypatch):
@@ -94,5 +98,5 @@ def test_validate_runs_suite_once_and_emits_complete_lineage(monkeypatch):
 
     validate_processed_observations.validate()
 
-    assert validate_calls == 1
-    assert lineage_calls == [(RunState.START, None), (RunState.COMPLETE, "quality-run-id")]
+    expect.equal(validate_calls, 1)
+    expect.equal(lineage_calls, [(RunState.START, None), (RunState.COMPLETE, "quality-run-id")])

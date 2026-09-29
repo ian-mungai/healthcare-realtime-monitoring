@@ -20,6 +20,7 @@ from jobs.ml.train_logistic_regression import (
     validate_scoring_contract,
     write_artifacts,
 )
+from testkit import expect
 
 
 def training_record(index: int, split: str, label: int) -> dict[str, Any]:
@@ -49,18 +50,18 @@ def sample_records() -> list[dict[str, Any]]:
 def test_dataset_fingerprint_is_order_independent() -> None:
     records = sample_records()
 
-    assert dataset_fingerprint(records) == dataset_fingerprint(list(reversed(records)))
+    expect.equal(dataset_fingerprint(records), dataset_fingerprint(list(reversed(records))))
 
 
 def test_train_baseline_is_reproducible() -> None:
     first_model, first_manifest = train_baseline(sample_records())
     second_model, second_manifest = train_baseline(sample_records())
 
-    assert first_manifest == second_manifest
-    assert first_manifest["training_row_count"] == 4
-    assert first_manifest["test_row_count"] == 2
-    assert first_manifest["training_class_counts"] == {"0": 2, "1": 2}
-    assert first_model.named_steps["classifier"].coef_.tolist() == second_model.named_steps["classifier"].coef_.tolist()
+    expect.equal(first_manifest, second_manifest)
+    expect.equal(first_manifest["training_row_count"], 4)
+    expect.equal(first_manifest["test_row_count"], 2)
+    expect.equal(first_manifest["training_class_counts"], {"0": 2, "1": 2})
+    expect.equal(first_model.named_steps["classifier"].coef_.tolist(), second_model.named_steps["classifier"].coef_.tolist())
 
 
 def test_train_baseline_rejects_single_class_training_data() -> None:
@@ -85,13 +86,15 @@ def test_write_artifacts_creates_loadable_model_and_manifest(tmp_path: Path) -> 
 
     write_artifacts(model, manifest, tmp_path, evaluation, predictions)
 
-    assert (tmp_path / "manifest.json").is_file()
-    assert (tmp_path / "evaluation.json").is_file()
-    assert len((tmp_path / "predictions.jsonl").read_text().splitlines()) == len(sample_records())
+    if not (tmp_path / "manifest.json").is_file():
+        expect.fail('expected: (tmp_path / "manifest.json").is_file()')
+    if not (tmp_path / "evaluation.json").is_file():
+        expect.fail('expected: (tmp_path / "evaluation.json").is_file()')
+    expect.equal(len((tmp_path / "predictions.jsonl").read_text().splitlines()), len(sample_records()))
     loaded_model = joblib.load(tmp_path / "model.joblib")
-    assert loaded_model.predict([[1.0] * len(FEATURE_COLUMNS)]).shape == (1,)
+    expect.equal(loaded_model.predict([[1.0] * len(FEATURE_COLUMNS)]).shape, (1,))
     persisted_manifest = json.loads((tmp_path / "manifest.json").read_text())
-    assert persisted_manifest["model_sha256"] == manifest["model_sha256"]
+    expect.equal(persisted_manifest["model_sha256"], manifest["model_sha256"])
 
 
 def test_evaluate_baseline_reports_test_metrics_and_training_threshold() -> None:
@@ -99,13 +102,14 @@ def test_evaluate_baseline_reports_test_metrics_and_training_threshold() -> None
 
     evaluation = evaluate_baseline(model, sample_records())
 
-    assert evaluation["evaluation_partition"] == "test"
-    assert evaluation["evaluation_row_count"] == 2
-    assert evaluation["evaluation_class_counts"] == {"0": 1, "1": 1}
-    assert 0.0 <= evaluation["roc_auc"] <= 1.0
-    assert evaluation["default_operating_point"]["threshold"] == 0.5
-    assert evaluation["threshold_selection"]["partition"] == "train"
-    assert sum(evaluation["selected_operating_point"]["confusion_matrix"].values()) == 2
+    expect.equal(evaluation["evaluation_partition"], "test")
+    expect.equal(evaluation["evaluation_row_count"], 2)
+    expect.equal(evaluation["evaluation_class_counts"], {"0": 1, "1": 1})
+    if not (0.0 <= evaluation["roc_auc"] <= 1.0):
+        expect.fail('expected: 0.0 <= evaluation["roc_auc"] <= 1.0')
+    expect.equal(evaluation["default_operating_point"]["threshold"], 0.5)
+    expect.equal(evaluation["threshold_selection"]["partition"], "train")
+    expect.equal(sum(evaluation["selected_operating_point"]["confusion_matrix"].values()), 2)
 
 
 def test_evaluate_baseline_rejects_single_class_test_data() -> None:
@@ -123,14 +127,15 @@ def test_prediction_records_include_traceability_and_operating_point() -> None:
 
     predictions = build_prediction_records(model, records, manifest, 0.4, datetime(2026, 9, 13, 12, 30, tzinfo=UTC))
 
-    assert len(predictions) == len(records)
-    assert predictions[0]["encounter_key"] == records[0]["encounter_key"]
-    assert predictions[0]["patient_key"] == records[0]["patient_key"]
-    assert predictions[0]["model_version"] == manifest["model_version"]
-    assert predictions[0]["dataset_fingerprint"] == dataset_fingerprint(records, SCORING_REQUIRED_COLUMNS)
-    assert predictions[0]["decision_threshold"] == 0.4
-    assert predictions[0]["predicted_label"] in {0, 1}
-    assert 0.0 <= predictions[0]["deterioration_probability"] <= 1.0
+    expect.equal(len(predictions), len(records))
+    expect.equal(predictions[0]["encounter_key"], records[0]["encounter_key"])
+    expect.equal(predictions[0]["patient_key"], records[0]["patient_key"])
+    expect.equal(predictions[0]["model_version"], manifest["model_version"])
+    expect.equal(predictions[0]["dataset_fingerprint"], dataset_fingerprint(records, SCORING_REQUIRED_COLUMNS))
+    expect.equal(predictions[0]["decision_threshold"], 0.4)
+    expect.is_in(predictions[0]["predicted_label"], {0, 1})
+    if not (0.0 <= predictions[0]["deterioration_probability"] <= 1.0):
+        expect.fail('expected: 0.0 <= predictions[0]["deterioration_probability"] <= 1.0')
 
 
 def test_prediction_records_allow_unlabelled_prospective_features() -> None:
@@ -140,8 +145,8 @@ def test_prediction_records_allow_unlabelled_prospective_features() -> None:
 
     predictions = build_prediction_records(model, scoring_records, manifest, 0.4, datetime(2026, 9, 13, 12, 30, tzinfo=UTC))
 
-    assert predictions[0]["data_split"] is None
-    assert predictions[0]["actual_label"] is None
+    expect.identical(predictions[0]["data_split"], None)
+    expect.identical(predictions[0]["actual_label"], None)
 
 
 def test_scoring_contract_rejects_a_model_trained_on_an_old_feature_schema() -> None:
@@ -170,19 +175,21 @@ def test_publish_artifacts_uses_versioned_encrypted_paths(tmp_path: Path) -> Non
 
     published = publish_artifacts(tmp_path, "example-bucket", "logistic-abc123", client)
 
-    assert len(client.requests) == 4
-    assert all(request["ServerSideEncryption"] == "AES256" for request in client.requests)
-    assert all(len(request["Metadata"]["sha256"]) == 64 for request in client.requests)
-    assert published["model.joblib"] == "s3://example-bucket/ml/model_artifacts/logistic-abc123/model.joblib"
-    assert published["predictions.jsonl"] == "s3://example-bucket/ml/predictions/model_version=logistic-abc123/predictions.jsonl"
+    expect.equal(len(client.requests), 4)
+    if not all(request["ServerSideEncryption"] == "AES256" for request in client.requests):
+        expect.fail('expected: all(request["ServerSideEncryption"] == "AES256" for request in client.requests)')
+    if not all(len(request["Metadata"]["sha256"]) == 64 for request in client.requests):
+        expect.fail('expected: all(len(request["Metadata"]["sha256"]) == 64 for request in client.requests)')
+    expect.equal(published["model.joblib"], "s3://example-bucket/ml/model_artifacts/logistic-abc123/model.joblib")
+    expect.equal(published["predictions.jsonl"], "s3://example-bucket/ml/predictions/model_version=logistic-abc123/predictions.jsonl")
 
 
 def test_prediction_partition_statement_targets_ml_database() -> None:
     add_partition = prediction_partition_statement("example_ml", "example_predictions", "example-bucket", "logistic-abc123")
 
-    assert "example_ml.example_predictions" in add_partition
-    assert "model_version = 'logistic-abc123'" in add_partition
-    assert "create external table" not in add_partition
+    expect.is_in("example_ml.example_predictions", add_partition)
+    expect.is_in("model_version = 'logistic-abc123'", add_partition)
+    expect.not_in("create external table", add_partition)
 
 
 def test_published_prediction_lines_exclude_partition_column(tmp_path: Path) -> None:
@@ -194,7 +201,7 @@ def test_published_prediction_lines_exclude_partition_column(tmp_path: Path) -> 
     publish_predictions(tmp_path / "predictions.jsonl", "example-bucket", manifest["model_version"], client)
 
     persisted = json.loads(client.requests[0]["Body"].decode().splitlines()[0])
-    assert "model_version" not in persisted
+    expect.not_in("model_version", persisted)
 
 
 def test_athena_loader_rejects_unsafe_identifiers() -> None:

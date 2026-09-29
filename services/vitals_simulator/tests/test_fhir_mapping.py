@@ -4,6 +4,7 @@ import json
 import pytest
 
 from services.vitals_simulator.app.fhir import mapping
+from testkit import expect
 
 
 def build_resource_map() -> dict:
@@ -26,8 +27,8 @@ def test_load_fhir_resource_map_from_s3(monkeypatch):
 
     class FakeS3Client:
         def get_object(self, Bucket: str, Key: str) -> dict:
-            assert Bucket == "healthcare-test"
-            assert Key == "config/vitals_simulator/fhir_resource_map.json"
+            expect.equal(Bucket, "healthcare-test")
+            expect.equal(Key, "config/vitals_simulator/fhir_resource_map.json")
             body = io.BytesIO(json.dumps(resource_map).encode("utf-8"))
             return {"Body": body}
 
@@ -37,7 +38,7 @@ def test_load_fhir_resource_map_from_s3(monkeypatch):
 
     loaded = mapping.load_fhir_resource_map()
 
-    assert loaded == resource_map
+    expect.equal(loaded, resource_map)
 
 
 def test_s3_configuration_requires_bucket_and_key(monkeypatch):
@@ -55,6 +56,6 @@ def test_get_patient_cohort_from_s3(monkeypatch):
 
     cohort = mapping.get_patient_cohort()
 
-    assert len(cohort) == 10
-    assert cohort[0].hapi_patient_id == "patient-0"
-    assert cohort[0].hapi_encounter_id == "encounter-0"
+    expect.equal(len(cohort), 10)
+    expect.equal(cohort[0].hapi_patient_id, "patient-0")
+    expect.equal(cohort[0].hapi_encounter_id, "encounter-0")

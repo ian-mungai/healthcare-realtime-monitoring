@@ -3,6 +3,7 @@ import pytest
 import respx
 
 from services.vitals_simulator.app.fhir.client import FHIRPermanentError, HAPIFHIRClient
+from testkit import expect
 
 FHIR_BASE_URL = "https://hapi.fhir.org/baseR4"
 
@@ -28,9 +29,9 @@ def test_post_resource_returns_created_resource():
     client = HAPIFHIRClient(base_url=FHIR_BASE_URL)
     created = client.post_resource(sample_observation())
 
-    assert created.resource_type == "Observation"
-    assert created.resource_id == "observation_123"
-    assert created.status_code == 201
+    expect.equal(created.resource_type, "Observation")
+    expect.equal(created.resource_id, "observation_123")
+    expect.equal(created.status_code, 201)
 
 
 @respx.mock
@@ -63,8 +64,8 @@ def test_post_resource_retries_transient_failure():
     client = HAPIFHIRClient(base_url=FHIR_BASE_URL, max_retries=3, retry_delay_seconds=0)
     created = client.post_resource(sample_observation())
 
-    assert route.call_count == 2
-    assert created.resource_id == "observation_456"
+    expect.equal(route.call_count, 2)
+    expect.equal(created.resource_id, "observation_456")
 
 
 @respx.mock
@@ -80,7 +81,7 @@ def test_post_resource_does_not_retry_bad_request():
     with pytest.raises(FHIRPermanentError):
         client.post_resource(sample_observation())
 
-    assert route.call_count == 1
+    expect.equal(route.call_count, 1)
 
 
 def test_build_headers_adds_conditional_create():
@@ -91,5 +92,5 @@ def test_build_headers_adds_conditional_create():
 
     headers = client._build_headers(observation)
 
-    assert "If-None-Exist" in headers
-    assert "abc123" in headers["If-None-Exist"]
+    expect.is_in("If-None-Exist", headers)
+    expect.is_in("abc123", headers["If-None-Exist"])

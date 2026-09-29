@@ -9,6 +9,7 @@ from types import ModuleType
 
 import pytest
 
+from testkit import expect
 from tools.process import run_command
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -26,7 +27,8 @@ MANAGER_PATH = REPO_ROOT / "infra/iam/scripts/manage_policies.py"
 
 def load_module(path: Path, name: str) -> ModuleType:
     spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
+    if not (spec is not None and spec.loader is not None):
+        expect.fail("expected: spec is not None and spec.loader is not None")
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
     spec.loader.exec_module(module)
@@ -37,9 +39,9 @@ def test_state_policy_limits_object_access_to_backend_prefix() -> None:
     policy = json.loads(POLICY_PATH.read_text(encoding="utf-8"))
     statements = {statement["Sid"]: statement for statement in policy["Statement"]}
 
-    assert statements["ManageTerraformStateBucket"]["Resource"] == "arn:aws:s3:::${TF_STATE_BUCKET}"
-    assert statements["ManageTerraformStateObjects"]["Resource"] == ("arn:aws:s3:::${TF_STATE_BUCKET}/${PROJECT_NAME}/terraform/*")
-    assert "s3:DeleteBucket" not in statements["ManageTerraformStateBucket"]["Action"]
+    expect.equal(statements["ManageTerraformStateBucket"]["Resource"], "arn:aws:s3:::${TF_STATE_BUCKET}")
+    expect.equal(statements["ManageTerraformStateObjects"]["Resource"], "arn:aws:s3:::${TF_STATE_BUCKET}/${PROJECT_NAME}/terraform/*")
+    expect.not_in("s3:DeleteBucket", statements["ManageTerraformStateBucket"]["Action"])
 
 
 def test_ecr_policy_can_read_image_scan_findings() -> None:
@@ -47,8 +49,8 @@ def test_ecr_policy_can_read_image_scan_findings() -> None:
     statements = {statement["Sid"]: statement for statement in policy["Statement"]}
 
     actions = statements["ManageHealthcareRealtimeRepositories"]["Action"]
-    assert "ecr:DescribeImageScanFindings" in actions
-    assert "ecr:StartImageScan" in actions
+    expect.is_in("ecr:DescribeImageScanFindings", actions)
+    expect.is_in("ecr:StartImageScan", actions)
 
 
 def test_region_readiness_permissions_are_tracked() -> None:
@@ -59,7 +61,8 @@ def test_region_readiness_permissions_are_tracked() -> None:
     ]
     actions = {action for document in documents for statement in document["Statement"] for action in statement["Action"]}
 
-    assert {"iam:GetAccountSummary", "cloudformation:DescribeType", "servicequotas:GetServiceQuota"} <= actions
+    if not ({"iam:GetAccountSummary", "cloudformation:DescribeType", "servicequotas:GetServiceQuota"} <= actions):
+        expect.fail('expected: {"iam:GetAccountSummary", "cloudformation:DescribeType", "servicequotas:GetServiceQuota"} <= actions')
 
 
 def test_renderer_replaces_state_bucket_placeholder(tmp_path: Path) -> None:
@@ -76,8 +79,8 @@ def test_renderer_replaces_state_bucket_placeholder(tmp_path: Path) -> None:
     run_command(sys.executable, [str(RENDERER_PATH), str(POLICY_PATH), "--output", str(rendered_path)], check=True, env=environment)
 
     rendered = rendered_path.read_text(encoding="utf-8")
-    assert "${TF_STATE_BUCKET}" not in rendered
-    assert "arn:aws:s3:::example-state/example-project/terraform/*" in rendered
+    expect.not_in("${TF_STATE_BUCKET}", rendered)
+    expect.is_in("arn:aws:s3:::example-state/example-project/terraform/*", rendered)
 
 
 def test_kms_policy_uses_configured_project_tag(tmp_path: Path) -> None:
@@ -88,8 +91,8 @@ def test_kms_policy_uses_configured_project_tag(tmp_path: Path) -> None:
 
     document = json.loads(rendered_path.read_text(encoding="utf-8"))
     statements = {statement["Sid"]: statement for statement in document["Statement"]}
-    assert statements["CreateHealthcareRealtimeKmsKeys"]["Condition"]["StringEquals"]["aws:RequestTag/Project"] == "example-project"
-    assert statements["ManageHealthcareRealtimeKmsKeys"]["Condition"]["StringEquals"]["aws:ResourceTag/Project"] == "example-project"
+    expect.equal(statements["CreateHealthcareRealtimeKmsKeys"]["Condition"]["StringEquals"]["aws:RequestTag/Project"], "example-project")
+    expect.equal(statements["ManageHealthcareRealtimeKmsKeys"]["Condition"]["StringEquals"]["aws:ResourceTag/Project"], "example-project")
 
 
 def test_secretsmanager_policy_reads_only_configured_webhook_secret(tmp_path: Path) -> None:
@@ -101,16 +104,17 @@ def test_secretsmanager_policy_reads_only_configured_webhook_secret(tmp_path: Pa
     document = json.loads(rendered_path.read_text(encoding="utf-8"))
     statements = {statement["Sid"]: statement for statement in document["Statement"]}
     webhook_access = statements["ReadFHIRWebhookSecret"]
-    assert webhook_access["Action"] == ["secretsmanager:DescribeSecret", "secretsmanager:GetSecretValue"]
-    assert webhook_access["Resource"] == "arn:aws:secretsmanager:example-region-1:111111111111:secret:example-project/fhir-webhook-*"
+    expect.equal(webhook_access["Action"], ["secretsmanager:DescribeSecret", "secretsmanager:GetSecretValue"])
+    expect.equal(webhook_access["Resource"], "arn:aws:secretsmanager:example-region-1:111111111111:secret:example-project/fhir-webhook-*")
 
 
 def test_exporter_redacts_state_bucket(monkeypatch: pytest.MonkeyPatch) -> None:
     exporter = load_module(EXPORTER_PATH, "export_policies_for_test")
     monkeypatch.setenv("TF_STATE_BUCKET", "private-state-bucket")
 
-    assert exporter.sanitize_string("arn:aws:s3:::private-state-bucket/example-project/terraform/terraform.tfstate") == (
-        "arn:aws:s3:::${TF_STATE_BUCKET}/example-project/terraform/terraform.tfstate"
+    expect.equal(
+        exporter.sanitize_string("arn:aws:s3:::private-state-bucket/example-project/terraform/terraform.tfstate"),
+        "arn:aws:s3:::${TF_STATE_BUCKET}/example-project/terraform/terraform.tfstate",
     )
 
 
@@ -119,7 +123,7 @@ class PolicyPaginator:
         self.policies = policies
 
     def paginate(self, **kwargs: object) -> list[dict[str, object]]:
-        assert kwargs == {"Scope": "Local"}
+        expect.equal(kwargs, {"Scope": "Local"})
         return [{"Policies": self.policies}]
 
 
@@ -128,7 +132,7 @@ class EmptyAccountIam:
         self.created: list[dict[str, object]] = []
 
     def get_paginator(self, name: str) -> PolicyPaginator:
-        assert name == "list_policies"
+        expect.equal(name, "list_policies")
         return PolicyPaginator([])
 
     def create_policy(self, **kwargs: object) -> None:
@@ -140,13 +144,13 @@ class ExistingAccountIam:
         self.document = document
 
     def get_paginator(self, name: str) -> PolicyPaginator:
-        assert name == "list_policies"
+        expect.equal(name, "list_policies")
         return PolicyPaginator(
             [{"PolicyName": "healthcare_realtime_example", "Arn": "arn:aws:iam::111111111111:policy/healthcare_realtime_example", "DefaultVersionId": "v1"}]
         )
 
     def get_policy_version(self, **kwargs: object) -> dict[str, object]:
-        assert kwargs["VersionId"] == "v1"
+        expect.equal(kwargs["VersionId"], "v1")
         return {"PolicyVersion": {"Document": self.document}}
 
 
@@ -173,8 +177,8 @@ def test_policy_manager_plans_and_creates_every_policy_in_an_empty_account(monke
     changes = manager.plan_changes(iam, documents)
     manager.apply_changes(iam, documents, changes)
 
-    assert [change.action for change in changes] == ["create", "create"]
-    assert [call["PolicyName"] for call in iam.created] == sorted(documents)
+    expect.equal([change.action for change in changes], ["create", "create"])
+    expect.equal([call["PolicyName"] for call in iam.created], sorted(documents))
 
 
 def test_policy_manager_normalizes_aws_scalar_lists_and_order(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -197,7 +201,7 @@ def test_policy_manager_normalizes_aws_scalar_lists_and_order(monkeypatch: pytes
 
     changes = manager.plan_changes(ExistingAccountIam(stored_document), {"healthcare_realtime_example": template_document})
 
-    assert [change.action for change in changes] == ["no-change"]
+    expect.equal([change.action for change in changes], ["no-change"])
 
 
 def test_policy_manager_collects_failures_and_continues(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -212,11 +216,10 @@ def test_policy_manager_collects_failures_and_continues(monkeypatch: pytest.Monk
 
     results = manager.apply_changes(iam, documents, changes)
 
-    assert [(result.name, result.status) for result in results] == [
-        ("healthcare_realtime_example_one", "failed"),
-        ("healthcare_realtime_example_two", "applied"),
-    ]
-    assert iam.created == ["healthcare_realtime_example_two"]
+    expect.equal(
+        [(result.name, result.status) for result in results], [("healthcare_realtime_example_one", "failed"), ("healthcare_realtime_example_two", "applied")]
+    )
+    expect.equal(iam.created, ["healthcare_realtime_example_two"])
 
 
 def test_policy_manager_loads_ignored_environment_values(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -225,7 +228,7 @@ def test_policy_manager_loads_ignored_environment_values(tmp_path: Path, monkeyp
     environment_file = tmp_path / ".env"
     environment_file.write_text("AWS_PROFILE=example\nTF_STATE_BUCKET='example-state'\n", encoding="utf-8")
 
-    assert manager.load_environment_file(environment_file) == {"AWS_PROFILE": "example", "TF_STATE_BUCKET": "example-state"}
+    expect.equal(manager.load_environment_file(environment_file), {"AWS_PROFILE": "example", "TF_STATE_BUCKET": "example-state"})
 
 
 def test_policy_manager_can_limit_an_update_to_selected_templates(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -236,4 +239,4 @@ def test_policy_manager_can_limit_an_update_to_selected_templates(monkeypatch: p
 
     documents = manager.load_documents(terraform_var_file, environment, {"healthcare_realtime_cloudformation_policy"})
 
-    assert set(documents) == {"healthcare_realtime_cloudformation_policy"}
+    expect.equal(set(documents), {"healthcare_realtime_cloudformation_policy"})

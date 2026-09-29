@@ -25,6 +25,7 @@ from services.vitals_simulator.app.simulation.realtime_cohort_runner import (
     run_cycle,
     wait_for_next_cycle,
 )
+from testkit import expect
 
 
 def build_context(patient_id: str) -> FHIRPatientContext:
@@ -42,7 +43,7 @@ def test_available_cycle_count_uses_shortest_record():
         PatientSimulation(context=build_context("1003"), bidmc_record_number=2, readings=[1, 2], bp_cadence=None),
         PatientSimulation(context=build_context("1005"), bidmc_record_number=3, readings=[1, 2, 3, 4], bp_cadence=None),
     ]
-    assert get_available_cycle_count(simulations) == 2
+    expect.equal(get_available_cycle_count(simulations), 2)
 
 
 def test_available_cycle_count_rejects_empty_cohort():
@@ -54,11 +55,11 @@ def test_available_cycle_count_rejects_empty_cohort():
     ("value", "expected"), [("true", True), ("TRUE", True), ("1", True), ("yes", True), ("false", False), ("FALSE", False), ("0", False), ("no", False)]
 )
 def test_parse_bool(value: str, expected: bool):
-    assert parse_bool(value, False) is expected
+    expect.identical(parse_bool(value, False), expected)
 
 
 def test_parse_bool_uses_default():
-    assert parse_bool(None, True) is True
+    expect.identical(parse_bool(None, True), True)
 
 
 def test_parse_bool_rejects_invalid_value():
@@ -67,11 +68,11 @@ def test_parse_bool_rejects_invalid_value():
 
 
 def test_parse_optional_positive_int():
-    assert parse_optional_positive_int("10", 5) == 10
+    expect.equal(parse_optional_positive_int("10", 5), 10)
 
 
 def test_parse_optional_positive_int_supports_unlimited():
-    assert parse_optional_positive_int("unlimited", 10) is None
+    expect.identical(parse_optional_positive_int("unlimited", 10), None)
 
 
 def test_parse_optional_positive_int_rejects_zero():
@@ -80,7 +81,7 @@ def test_parse_optional_positive_int_rejects_zero():
 
 
 def test_parse_positive_float():
-    assert parse_positive_float("0.5", 1.0) == 0.5
+    expect.equal(parse_positive_float("0.5", 1.0), 0.5)
 
 
 def test_parse_positive_float_rejects_zero():
@@ -95,8 +96,8 @@ def test_parse_ratio_rejects_values_above_one():
 
 def test_simulator_settings_support_unlimited_replay():
     settings = SimulatorSettings(interval_seconds=1.0, bp_interval_seconds=300, max_cycles=None, replay=True)
-    assert settings.max_cycles is None
-    assert settings.replay is True
+    expect.identical(settings.max_cycles, None)
+    expect.identical(settings.replay, True)
 
 
 def test_load_settings_reads_publication_resilience_controls(monkeypatch):
@@ -107,28 +108,28 @@ def test_load_settings_reads_publication_resilience_controls(monkeypatch):
 
     settings = load_settings()
 
-    assert settings.fhir_max_attempts == 4
-    assert settings.fhir_retry_backoff_seconds == 1.5
-    assert settings.max_consecutive_failed_cycles == 6
-    assert settings.failure_ratio_threshold == 0.7
+    expect.equal(settings.fhir_max_attempts, 4)
+    expect.equal(settings.fhir_retry_backoff_seconds, 1.5)
+    expect.equal(settings.max_consecutive_failed_cycles, 6)
+    expect.equal(settings.failure_ratio_threshold, 0.7)
 
 
 def test_get_replay_reading_first_epoch_preserves_offset():
     reading = VitalReading(source_record_id="bidmc01n", offset_seconds=5, heart_rate=80.0, respiratory_rate=18.0, spo2=98.0)
     replayed = get_replay_reading(reading, replay_index=0, available_cycles=600)
-    assert replayed.offset_seconds == 5
+    expect.equal(replayed.offset_seconds, 5)
 
 
 def test_get_replay_reading_second_epoch_advances_offset():
     reading = VitalReading(source_record_id="bidmc01n", offset_seconds=5, heart_rate=80.0, respiratory_rate=18.0, spo2=98.0)
     replayed = get_replay_reading(reading, replay_index=1, available_cycles=600)
-    assert replayed.offset_seconds == 605
+    expect.equal(replayed.offset_seconds, 605)
 
 
 def test_get_replay_reading_does_not_modify_original():
     reading = VitalReading(source_record_id="bidmc01n", offset_seconds=5, heart_rate=80.0, respiratory_rate=18.0, spo2=98.0)
     get_replay_reading(reading, replay_index=2, available_cycles=600)
-    assert reading.offset_seconds == 5
+    expect.equal(reading.offset_seconds, 5)
 
 
 def test_replay_boundary_is_continuous():
@@ -136,9 +137,9 @@ def test_replay_boundary_is_continuous():
     first_next_epoch_reading = VitalReading(source_record_id="bidmc01n", offset_seconds=0, heart_rate=80.0, respiratory_rate=18.0, spo2=98.0)
     last_epoch = get_replay_reading(last_epoch_reading, replay_index=0, available_cycles=481)
     next_epoch = get_replay_reading(first_next_epoch_reading, replay_index=1, available_cycles=481)
-    assert last_epoch.offset_seconds == 480
-    assert next_epoch.offset_seconds == 481
-    assert next_epoch.offset_seconds == last_epoch.offset_seconds + 1
+    expect.equal(last_epoch.offset_seconds, 480)
+    expect.equal(next_epoch.offset_seconds, 481)
+    expect.equal(next_epoch.offset_seconds, last_epoch.offset_seconds + 1)
 
 
 def test_cycle_simulation_start_makes_effective_time_equal_publication_time():
@@ -147,7 +148,7 @@ def test_cycle_simulation_start_makes_effective_time_equal_publication_time():
 
     simulation_start = get_cycle_simulation_start(cycle_timestamp, reading)
 
-    assert simulation_start.isoformat() == "2026-09-03T16:55:38+00:00"
+    expect.equal(simulation_start.isoformat(), "2026-09-03T16:55:38+00:00")
 
 
 def test_initialize_simulation_run_creates_fresh_encounters_and_assigns_scenarios():
@@ -167,10 +168,12 @@ def test_initialize_simulation_run_creates_fresh_encounters_and_assigns_scenario
         simulations, started_at=datetime(2026, 9, 17, 12, 0, tzinfo=UTC), seed="test-seed", client=FakeClient(), run_id="run-123"
     )
 
-    assert run_id == "run-123"
-    assert [simulation.context.hapi_encounter_id for simulation in initialized] == ["run-encounter-1000", "run-encounter-1001"]
-    assert all(resource["identifier"][0]["value"].startswith("run-123:") for resource in resources)
-    assert all(simulation.scenario in {"normal", "deterioration_proxy"} for simulation in initialized)
+    expect.equal(run_id, "run-123")
+    expect.equal([simulation.context.hapi_encounter_id for simulation in initialized], ["run-encounter-1000", "run-encounter-1001"])
+    if not all(resource["identifier"][0]["value"].startswith("run-123:") for resource in resources):
+        expect.fail('expected: all(resource["identifier"][0]["value"].startswith("run-123:") for resource in resources)')
+    if not all(simulation.scenario in {"normal", "deterioration_proxy"} for simulation in initialized):
+        expect.fail('expected: all(simulation.scenario in {"normal", "deterioration_proxy"} for simulation in initialized)')
 
 
 def test_publish_patient_cycle_delegates_retries_to_hapi_client(monkeypatch):
@@ -205,9 +208,9 @@ def test_publish_patient_cycle_delegates_retries_to_hapi_client(monkeypatch):
         fhir_retry_backoff_seconds=0.5,
     )
 
-    assert result.published_count == 3
-    assert calls == [event]
-    assert client_settings == [{"max_retries": 2, "retry_delay_seconds": 0.5}]
+    expect.equal(result.published_count, 3)
+    expect.equal(calls, [event])
+    expect.equal(client_settings, [{"max_retries": 2, "retry_delay_seconds": 0.5}])
 
 
 def test_publish_patient_cycle_does_not_retry_permanent_failure(monkeypatch):
@@ -236,15 +239,15 @@ def test_publish_patient_cycle_does_not_retry_permanent_failure(monkeypatch):
             fhir_retry_backoff_seconds=0.5,
         )
 
-    assert len(calls) == 1
+    expect.equal(len(calls), 1)
 
 
 def test_wait_for_next_cycle_reports_overrun(monkeypatch, capsys):
     monkeypatch.setattr(realtime_cohort_runner.time, "monotonic", lambda: 15.5)
     monkeypatch.setattr(realtime_cohort_runner.shutdown_event, "wait", lambda timeout: False)
 
-    assert wait_for_next_cycle(cycle_started=10.0, interval_seconds=5.0) == 0.5
-    assert "cycle_overrun overrun_seconds=0.500" in capsys.readouterr().out
+    expect.equal(wait_for_next_cycle(cycle_started=10.0, interval_seconds=5.0), 0.5)
+    expect.is_in("cycle_overrun overrun_seconds=0.500", capsys.readouterr().out)
 
 
 def test_run_cycle_isolates_one_failed_patient(monkeypatch):
@@ -262,9 +265,9 @@ def test_run_cycle_isolates_one_failed_patient(monkeypatch):
     with ThreadPoolExecutor(max_workers=10) as executor:
         result = run_cycle(executor, simulations, cycle_index=0, replay_index=0, available_cycles=1, cycle_timestamp=datetime(2026, 9, 8, 16, 0, tzinfo=UTC))
 
-    assert result.published_count == 9
-    assert result.observation_count == 27
-    assert result.failures == (PatientCycleFailure("1004", 4, "FHIRRetryableError", "temporary failure", True),)
+    expect.equal(result.published_count, 9)
+    expect.equal(result.observation_count, 27)
+    expect.equal(result.failures, (PatientCycleFailure("1004", 4, "FHIRRetryableError", "temporary failure", True),))
 
 
 def test_realtime_cohort_stops_only_at_consecutive_failure_threshold(monkeypatch):
@@ -288,7 +291,7 @@ def test_realtime_cohort_stops_only_at_consecutive_failure_threshold(monkeypatch
     with pytest.raises(RuntimeError, match="2 consecutive systemic failure cycles"):
         realtime_cohort_runner.run_realtime_cohort(settings)
 
-    assert len(cycle_calls) == 2
+    expect.equal(len(cycle_calls), 2)
 
 
 def test_realtime_cohort_disables_permanent_failure_and_continues(monkeypatch):
@@ -313,5 +316,5 @@ def test_realtime_cohort_disables_permanent_failure_and_continues(monkeypatch):
     monkeypatch.setattr(realtime_cohort_runner, "run_cycle", run_test_cycle)
     settings = SimulatorSettings(interval_seconds=1, bp_interval_seconds=300, max_cycles=2, replay=True)
 
-    assert realtime_cohort_runner.run_realtime_cohort(settings) == 2
-    assert active_patient_sets == [{"1001", "1002"}, {"1002"}]
+    expect.equal(realtime_cohort_runner.run_realtime_cohort(settings), 2)
+    expect.equal(active_patient_sets, [{"1001", "1002"}, {"1002"}])

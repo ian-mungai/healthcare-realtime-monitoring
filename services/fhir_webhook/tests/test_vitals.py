@@ -4,6 +4,7 @@ import pytest
 
 from services.fhir_webhook.app.models import FHIRWebhookEvent
 from services.fhir_webhook.app.vitals import transform_fhir_vitals
+from testkit import expect
 
 
 def build_heart_rate_event(resource_id: str | None = "observation_123") -> FHIRWebhookEvent:
@@ -27,11 +28,11 @@ def build_heart_rate_event(resource_id: str | None = "observation_123") -> FHIRW
 def test_transform_fhir_vitals_preserves_observation_id() -> None:
     result = transform_fhir_vitals(build_heart_rate_event())
 
-    assert result["observation_id"] == "observation_123"
-    assert result["patient_id"] == "patient_123"
-    assert result["encounter_id"] == "encounter_456"
-    assert result["schema_version"] == "1.1"
-    assert result["heart_rate"] == 94.0
+    expect.equal(result["observation_id"], "observation_123")
+    expect.equal(result["patient_id"], "patient_123")
+    expect.equal(result["encounter_id"], "encounter_456")
+    expect.equal(result["schema_version"], "1.1")
+    expect.equal(result["heart_rate"], 94.0)
 
 
 def test_transform_fhir_vitals_rejects_missing_observation_id() -> None:

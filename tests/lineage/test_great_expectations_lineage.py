@@ -1,19 +1,20 @@
 from lineage.openlineage.great_expectations_lineage import GX_VALIDATION_DATASET, NAMESPACE, PROCESSED_DATASET, S3_LINEAGE_EVENT_PATH
+from testkit import expect
 
 
 def test_great_expectations_lineage_namespace() -> None:
-    assert NAMESPACE == "example-project"
+    expect.equal(NAMESPACE, "example-project")
 
 
 def test_processed_dataset() -> None:
-    assert PROCESSED_DATASET.namespace == "aws-glue"
-    assert PROCESSED_DATASET.name == "example_source.example_processed_observations"
+    expect.equal(PROCESSED_DATASET.namespace, "aws-glue")
+    expect.equal(PROCESSED_DATASET.name, "example_source.example_processed_observations")
 
 
 def test_great_expectations_validation_dataset() -> None:
-    assert GX_VALIDATION_DATASET.namespace == "great-expectations"
-    assert GX_VALIDATION_DATASET.name == "processed_fhir_observations_quality"
+    expect.equal(GX_VALIDATION_DATASET.namespace, "great-expectations")
+    expect.equal(GX_VALIDATION_DATASET.name, "processed_fhir_observations_quality")
 
 
 def test_great_expectations_lineage_s3_path() -> None:
-    assert S3_LINEAGE_EVENT_PATH == "s3://example-data-bucket/lineage/openlineage/great_expectations/event"
+    expect.equal(S3_LINEAGE_EVENT_PATH, "s3://example-data-bucket/lineage/openlineage/great_expectations/event")

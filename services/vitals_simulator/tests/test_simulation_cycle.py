@@ -4,6 +4,7 @@ from services.vitals_simulator.app.bidmc.source import VitalReading
 from services.vitals_simulator.app.simulation.cycle import build_simulator_event
 from services.vitals_simulator.app.synthea.blood_pressure import BloodPressureReading
 from services.vitals_simulator.app.synthea.blood_pressure_cadence import BloodPressureCadence
+from testkit import expect
 
 
 def build_test_reading(offset_seconds: int) -> VitalReading:
@@ -18,8 +19,8 @@ def test_event_contains_bp_when_due():
     event = build_simulator_event(build_test_reading(0), "patient_123", "encounter_456", simulation_start, cadence)
     codes = {observation["code"]["coding"][0]["code"] for observation in event.observations}
 
-    assert event.observation_count == 4
-    assert "85354-9" in codes
+    expect.equal(event.observation_count, 4)
+    expect.is_in("85354-9", codes)
 
 
 def test_event_excludes_bp_between_intervals():
@@ -30,8 +31,8 @@ def test_event_excludes_bp_between_intervals():
     event = build_simulator_event(build_test_reading(1), "patient_123", "encounter_456", simulation_start, cadence)
     codes = {observation["code"]["coding"][0]["code"] for observation in event.observations}
 
-    assert event.observation_count == 3
-    assert "85354-9" not in codes
+    expect.equal(event.observation_count, 3)
+    expect.not_in("85354-9", codes)
 
 
 def test_event_uses_publication_elapsed_time_for_bp_cadence():
@@ -42,8 +43,8 @@ def test_event_uses_publication_elapsed_time_for_bp_cadence():
     first_event = build_simulator_event(build_test_reading(0), "patient_123", "encounter_456", simulation_start, cadence, bp_elapsed_seconds=0)
     next_event = build_simulator_event(build_test_reading(60), "patient_123", "encounter_456", simulation_start, cadence, bp_elapsed_seconds=300)
 
-    assert first_event.observation_count == 4
-    assert next_event.observation_count == 4
+    expect.equal(first_event.observation_count, 4)
+    expect.equal(next_event.observation_count, 4)
 
 
 def test_bp_observation_contains_systolic_and_diastolic():
@@ -55,4 +56,4 @@ def test_bp_observation_contains_systolic_and_diastolic():
     bp_observation = next(observation for observation in event.observations if observation["code"]["coding"][0]["code"] == "85354-9")
     component_codes = {component["code"]["coding"][0]["code"] for component in bp_observation["component"]}
 
-    assert component_codes == {"8480-6", "8462-4"}
+    expect.equal(component_codes, {"8480-6", "8462-4"})

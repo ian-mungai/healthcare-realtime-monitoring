@@ -21,6 +21,7 @@ from services.vitals_stream_processor.handler import (
     write_load_test_result,
 )
 from services.vitals_stream_processor.schema import PermanentRecordError
+from testkit import expect
 
 
 def build_kinesis_record(payload: dict, sequence_number: str = "1") -> dict:
@@ -41,7 +42,7 @@ def test_decode_kinesis_record() -> None:
         "diastolic_bp": 76.0,
     }
 
-    assert decode_kinesis_record(build_kinesis_record(payload)) == payload
+    expect.equal(decode_kinesis_record(build_kinesis_record(payload)), payload)
 
 
 @pytest.mark.parametrize("encoded_data", ["not-base64!", base64.b64encode(b"not-json").decode("utf-8"), base64.b64encode(b"[]").decode("utf-8")])
@@ -55,28 +56,28 @@ def test_to_dynamodb_item_converts_floats() -> None:
 
     item = to_dynamodb_item(payload)
 
-    assert item["patient_id"] == "137506799"
-    assert item["heart_rate"] == Decimal("94.5")
+    expect.equal(item["patient_id"], "137506799")
+    expect.equal(item["heart_rate"], Decimal("94.5"))
 
 
 @patch("services.vitals_stream_processor.handler.latest_vitals_table")
 def test_write_latest_vitals_merges_partial_updates_with_equal_timestamps(latest_vitals_table) -> None:
     payload = {"patient_id": "1000", "encounter_id": "encounter_456", "event_timestamp": "2026-08-31T22:42:19Z", "spo2": 97.0, "_replay_attempt": 1}
 
-    assert write_latest_vitals(payload) is True
+    expect.identical(write_latest_vitals(payload), True)
 
     arguments = latest_vitals_table.update_item.call_args.kwargs
-    assert arguments["Key"] == {"patient_id": "1000"}
-    assert arguments["ConditionExpression"] == "(attribute_not_exists(#event_epoch_0) OR #event_epoch_0 <= :incoming_event_epoch)"
-    assert "patient_id" not in arguments["ExpressionAttributeNames"].values()
-    assert "spo2" in arguments["ExpressionAttributeNames"].values()
-    assert "encounter_id" in arguments["ExpressionAttributeNames"].values()
-    assert "encounter_456" in arguments["ExpressionAttributeValues"].values()
-    assert "spo2_event_timestamp" in arguments["ExpressionAttributeNames"].values()
-    assert "REMOVE" in arguments["UpdateExpression"]
-    assert "_replay_attempt" in arguments["ExpressionAttributeNames"].values()
-    assert Decimal("1") not in arguments["ExpressionAttributeValues"].values()
-    assert Decimal("97.0") in arguments["ExpressionAttributeValues"].values()
+    expect.equal(arguments["Key"], {"patient_id": "1000"})
+    expect.equal(arguments["ConditionExpression"], "(attribute_not_exists(#event_epoch_0) OR #event_epoch_0 <= :incoming_event_epoch)")
+    expect.not_in("patient_id", arguments["ExpressionAttributeNames"].values())
+    expect.is_in("spo2", arguments["ExpressionAttributeNames"].values())
+    expect.is_in("encounter_id", arguments["ExpressionAttributeNames"].values())
+    expect.is_in("encounter_456", arguments["ExpressionAttributeValues"].values())
+    expect.is_in("spo2_event_timestamp", arguments["ExpressionAttributeNames"].values())
+    expect.is_in("REMOVE", arguments["UpdateExpression"])
+    expect.is_in("_replay_attempt", arguments["ExpressionAttributeNames"].values())
+    expect.not_in(Decimal("1"), arguments["ExpressionAttributeValues"].values())
+    expect.is_in(Decimal("97.0"), arguments["ExpressionAttributeValues"].values())
 
 
 @patch("services.vitals_stream_processor.handler.idempotency_table")
@@ -84,7 +85,7 @@ def test_claim_observation_rejects_duplicate_observation_id(idempotency_table) -
     error_response = {"Error": {"Code": "ConditionalCheckFailedException", "Message": "duplicate"}, "ResponseMetadata": {"HTTPStatusCode": 400}}
     idempotency_table.put_item.side_effect = ClientError(cast(Any, error_response), "PutItem")
 
-    assert claim_observation({"observation_id": "observation-1"}) is None
+    expect.identical(claim_observation({"observation_id": "observation-1"}), None)
 
 
 @patch("services.vitals_stream_processor.handler.uuid4", return_value="claim-token")
@@ -94,13 +95,13 @@ def test_claim_observation_uses_expiring_owner_lease(idempotency_table, _uuid4) 
 
     with patch("services.vitals_stream_processor.handler.datetime") as mocked_datetime:
         mocked_datetime.now.return_value = current_time
-        assert claim_observation({"observation_id": "observation-1"}) == "claim-token"
+        expect.equal(claim_observation({"observation_id": "observation-1"}), "claim-token")
 
     arguments = idempotency_table.put_item.call_args.kwargs
-    assert arguments["Item"]["status"] == "processing"
-    assert arguments["Item"]["claim_token"] == "claim-token"
-    assert arguments["Item"]["lease_expires_at"] == int(current_time.timestamp()) + 60
-    assert "#lease_expires_at < :now_epoch" in arguments["ConditionExpression"]
+    expect.equal(arguments["Item"]["status"], "processing")
+    expect.equal(arguments["Item"]["claim_token"], "claim-token")
+    expect.equal(arguments["Item"]["lease_expires_at"], int(current_time.timestamp()) + 60)
+    expect.is_in("#lease_expires_at < :now_epoch", arguments["ConditionExpression"])
 
 
 @patch("services.vitals_stream_processor.handler.idempotency_table")
@@ -108,10 +109,10 @@ def test_complete_observation_claim_requires_owner_token(idempotency_table) -> N
     complete_observation_claim("observation-1", "claim-token")
 
     arguments = idempotency_table.update_item.call_args.kwargs
-    assert arguments["Key"] == {"observation_id": "observation-1"}
-    assert arguments["ConditionExpression"] == "#claim_token = :claim_token"
-    assert arguments["ExpressionAttributeValues"][":claim_token"] == "claim-token"
-    assert "REMOVE #claim_token, #lease_expires_at" in arguments["UpdateExpression"]
+    expect.equal(arguments["Key"], {"observation_id": "observation-1"})
+    expect.equal(arguments["ConditionExpression"], "#claim_token = :claim_token")
+    expect.equal(arguments["ExpressionAttributeValues"][":claim_token"], "claim-token")
+    expect.is_in("REMOVE #claim_token, #lease_expires_at", arguments["UpdateExpression"])
 
 
 @patch("services.vitals_stream_processor.handler.latest_vitals_table")
@@ -119,7 +120,7 @@ def test_write_latest_vitals_ignores_stale_updates(latest_vitals_table) -> None:
     error_response = {"Error": {"Code": "ConditionalCheckFailedException", "Message": "stale"}, "ResponseMetadata": {"HTTPStatusCode": 400}}
     latest_vitals_table.update_item.side_effect = ClientError(cast(Any, error_response), "UpdateItem")
 
-    assert write_latest_vitals({"patient_id": "1000", "event_timestamp": "2026-08-31T22:42:19Z", "heart_rate": 82.0}) is False
+    expect.identical(write_latest_vitals({"patient_id": "1000", "event_timestamp": "2026-08-31T22:42:19Z", "heart_rate": 82.0}), False)
 
 
 @patch("services.vitals_stream_processor.handler.load_test_results_table")
@@ -139,9 +140,9 @@ def test_write_load_test_result_records_processing_time_and_expiry(load_test_res
         write_load_test_result(payload)
 
     item = load_test_results_table.put_item.call_args.kwargs["Item"]
-    assert item["observation_id"] == payload["observation_id"]
-    assert item["processed_at"] == "2026-09-09T12:00:01Z"
-    assert item["expires_at"] == int(current_time.timestamp()) + 86400
+    expect.equal(item["observation_id"], payload["observation_id"])
+    expect.equal(item["processed_at"], "2026-09-09T12:00:01Z")
+    expect.equal(item["expires_at"], int(current_time.timestamp()) + 86400)
 
 
 @patch("services.vitals_stream_processor.handler.emit_metrics")
@@ -167,7 +168,7 @@ def test_lambda_handler_processes_record(claim_observation, write_latest_vitals,
     complete_observation_claim.assert_called_once_with("observation_123", "claim-token")
     emit_metrics.assert_called_once()
 
-    assert result == {"batchItemFailures": []}
+    expect.equal(result, {"batchItemFailures": []})
 
 
 @patch("services.vitals_stream_processor.handler.emit_metrics")
@@ -196,15 +197,12 @@ def test_lambda_handler_isolates_load_test_record(
     push_vitals.assert_called_once_with(payload)
     complete_observation_claim.assert_called_once_with("load-test-run-01-00000001", "claim-token")
     metric_data = emit_metrics.call_args.args[0]
-    assert {metric["MetricName"] for metric in metric_data} == {
-        "RecordsProcessed",
-        "WebSocketDeliveries",
-        "WebSocketDeliveryFailures",
-        "ActiveConnections",
-        "ProcessingLatencyMilliseconds",
-    }
-    assert emit_metrics.call_args.kwargs == {"namespace": "HealthcareRealtime/LoadTest"}
-    assert result == {"batchItemFailures": []}
+    expect.equal(
+        {metric["MetricName"] for metric in metric_data},
+        {"RecordsProcessed", "WebSocketDeliveries", "WebSocketDeliveryFailures", "ActiveConnections", "ProcessingLatencyMilliseconds"},
+    )
+    expect.equal(emit_metrics.call_args.kwargs, {"namespace": "HealthcareRealtime/LoadTest"})
+    expect.equal(result, {"batchItemFailures": []})
 
 
 @patch("services.vitals_stream_processor.handler.release_observation_claim")
@@ -226,7 +224,7 @@ def test_lambda_handler_reports_failed_record(write_latest_vitals, claim_observa
 
     result = lambda_handler(event, None)
 
-    assert result == {"batchItemFailures": [{"itemIdentifier": "12345"}]}
+    expect.equal(result, {"batchItemFailures": [{"itemIdentifier": "12345"}]})
     release_observation_claim.assert_called_once_with("observation-1", "claim-token")
 
 
@@ -236,9 +234,9 @@ def test_lambda_handler_drops_permanently_invalid_record(emit_metrics) -> None:
 
     result = lambda_handler(event, None)
 
-    assert result == {"batchItemFailures": []}
+    expect.equal(result, {"batchItemFailures": []})
     metric_data = emit_metrics.call_args.args[0]
-    assert metric_data == [{"MetricName": "PermanentRecordsRejected", "Value": 1, "Unit": "Count"}]
+    expect.equal(metric_data, [{"MetricName": "PermanentRecordsRejected", "Value": 1, "Unit": "Count"}])
 
 
 @patch("services.vitals_stream_processor.handler.emit_metrics")
@@ -255,10 +253,10 @@ def test_lambda_handler_batches_duplicate_metrics_once(claim_observation, emit_m
 
     result = lambda_handler({"Records": [build_kinesis_record(payload, "1"), build_kinesis_record(payload, "2")]}, None)
 
-    assert result == {"batchItemFailures": []}
+    expect.equal(result, {"batchItemFailures": []})
     emit_metrics.assert_called_once()
     metric_names = [metric["MetricName"] for metric in emit_metrics.call_args.args[0]]
-    assert metric_names.count("DuplicatesSkipped") == 2
+    expect.equal(metric_names.count("DuplicatesSkipped"), 2)
 
 
 @patch("services.vitals_stream_processor.handler.connections_table")
@@ -267,14 +265,14 @@ def test_get_patient_connections_queries_patient_index(connections_table) -> Non
 
     connection_ids = get_patient_connections("137506799")
 
-    assert connection_ids == ["connection-1", "connection-2"]
+    expect.equal(connection_ids, ["connection-1", "connection-2"])
 
     connections_table.query.assert_called_once()
 
     query_arguments = connections_table.query.call_args.kwargs
 
-    assert query_arguments["IndexName"] == "patient_id-index"
-    assert query_arguments["ProjectionExpression"] == "connection_id"
+    expect.equal(query_arguments["IndexName"], "patient_id-index")
+    expect.equal(query_arguments["ProjectionExpression"], "connection_id")
 
 
 @patch("services.vitals_stream_processor.handler.connections_table")
@@ -286,13 +284,13 @@ def test_get_patient_connections_handles_pagination(connections_table) -> None:
 
     connection_ids = get_patient_connections("137506799")
 
-    assert connection_ids == ["connection-1", "connection-2"]
+    expect.equal(connection_ids, ["connection-1", "connection-2"])
 
-    assert connections_table.query.call_count == 2
+    expect.equal(connections_table.query.call_count, 2)
 
     second_query_arguments = connections_table.query.call_args_list[1].kwargs
 
-    assert second_query_arguments["ExclusiveStartKey"] == {"patient_id": "137506799", "connection_id": "connection-1"}
+    expect.equal(second_query_arguments["ExclusiveStartKey"], {"patient_id": "137506799", "connection_id": "connection-1"})
 
 
 @patch("services.vitals_stream_processor.handler.connections_table")
@@ -301,7 +299,7 @@ def test_get_patient_connections_returns_empty_list(connections_table) -> None:
 
     connection_ids = get_patient_connections("137506799")
 
-    assert connection_ids == []
+    expect.equal(connection_ids, [])
 
     connections_table.query.assert_called_once()
 
@@ -324,10 +322,10 @@ def test_push_vitals_sends_to_patient_connections(get_api_gateway_client, get_pa
 
     get_patient_connections_mock.assert_called_once_with("137506799")
 
-    assert api_gateway.post_to_connection.call_count == 2
-    assert deliveries == 2
-    assert failures == 0
-    assert active_connections == 2
+    expect.equal(api_gateway.post_to_connection.call_count, 2)
+    expect.equal(deliveries, 2)
+    expect.equal(failures, 0)
+    expect.equal(active_connections, 2)
 
 
 @patch("services.vitals_stream_processor.handler.get_patient_connections")
@@ -346,9 +344,9 @@ def test_push_vitals_uses_payload_patient_id(get_api_gateway_client, get_patient
 
     get_patient_connections_mock.assert_called_once_with("999999999")
 
-    assert deliveries == 0
-    assert failures == 0
-    assert active_connections == 0
+    expect.equal(deliveries, 0)
+    expect.equal(failures, 0)
+    expect.equal(active_connections, 0)
 
 
 @patch("services.vitals_stream_processor.handler.delete_connection")
@@ -374,9 +372,9 @@ def test_push_vitals_deletes_stale_connection(get_api_gateway_client, get_patien
 
     delete_connection.assert_called_once_with("stale-connection")
 
-    assert deliveries == 0
-    assert failures == 0
-    assert active_connections == 1
+    expect.equal(deliveries, 0)
+    expect.equal(failures, 0)
+    expect.equal(active_connections, 1)
 
 
 @patch("services.vitals_stream_processor.handler.delete_connection")
@@ -402,9 +400,9 @@ def test_push_vitals_counts_non_410_delivery_failure(get_api_gateway_client, get
 
     delete_connection.assert_not_called()
 
-    assert deliveries == 0
-    assert failures == 1
-    assert active_connections == 1
+    expect.equal(deliveries, 0)
+    expect.equal(failures, 1)
+    expect.equal(active_connections, 1)
 
 
 @patch("services.vitals_stream_processor.handler.get_api_gateway_client")
@@ -432,4 +430,4 @@ def test_calculate_latency_ms() -> None:
 
         latency = calculate_latency_ms("2026-08-28T16:00:03Z")
 
-    assert latency == 2000.0
+    expect.equal(latency, 2000.0)

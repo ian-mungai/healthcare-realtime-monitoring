@@ -7,6 +7,7 @@ import pytest
 from scripts.load_testing import realtime_load_test
 from scripts.load_testing.realtime_load_test import build_payload, build_records
 from services.vitals_stream_processor.schema import validate_vitals_payload
+from testkit import expect
 
 
 def test_load_test_payload_passes_stream_validation() -> None:
@@ -14,7 +15,7 @@ def test_load_test_payload_passes_stream_validation() -> None:
 
     validate_vitals_payload(payload)
 
-    assert payload["observation_id"] == "load-test-test-run-03-00000042"
+    expect.equal(payload["observation_id"], "load-test-test-run-03-00000042")
 
 
 def test_load_test_observation_ids_are_unique_and_repeatable() -> None:
@@ -26,15 +27,16 @@ def test_load_test_observation_ids_are_unique_and_repeatable() -> None:
     repeated_ids = [json.loads(record["Data"])["observation_id"] for record in repeated_batch]
     next_ids = [json.loads(record["Data"])["observation_id"] for record in next_batch]
 
-    assert len(first_ids) == len(set(first_ids))
-    assert repeated_ids == first_ids
-    assert set(first_ids).isdisjoint(next_ids)
+    expect.equal(len(first_ids), len(set(first_ids)))
+    expect.equal(repeated_ids, first_ids)
+    if not set(first_ids).isdisjoint(next_ids):
+        expect.fail("expected: set(first_ids).isdisjoint(next_ids)")
 
 
 def test_percentile_handles_empty_and_ordered_values() -> None:
-    assert realtime_load_test.percentile([], 0.95) == 0
-    assert realtime_load_test.percentile([40, 10, 30, 20], 0.50) == 20
-    assert realtime_load_test.percentile([40, 10, 30, 20], 0.95) == 30
+    expect.equal(realtime_load_test.percentile([], 0.95), 0)
+    expect.equal(realtime_load_test.percentile([40, 10, 30, 20], 0.50), 20)
+    expect.equal(realtime_load_test.percentile([40, 10, 30, 20], 0.95), 30)
 
 
 def test_put_batch_reports_success_failures_and_latency(monkeypatch) -> None:
@@ -46,9 +48,9 @@ def test_put_batch_reports_success_failures_and_latency(monkeypatch) -> None:
 
     result = realtime_load_test.put_batch(client, "test-stream", records)
 
-    assert result.successful_observation_ids == ["load-test-test-run-01-00000001"]
-    assert result.failed == 1
-    assert result.latency_ms == pytest.approx(25)
+    expect.equal(result.successful_observation_ids, ["load-test-test-run-01-00000001"])
+    expect.equal(result.failed, 1)
+    expect.equal(result.latency_ms, pytest.approx(25))
 
 
 def test_put_batch_rejects_incomplete_kinesis_response(monkeypatch) -> None:
@@ -87,9 +89,9 @@ def test_run_load_test_reports_successful_batch(monkeypatch, capsys) -> None:
     realtime_load_test.run_load_test(2, 1, 1, "test-stream", "example-region-1")
 
     output = capsys.readouterr().out
-    assert "Successful writes: 2" in output
-    assert "Success rate: 100.00%" in output
-    assert "mean: 12.50 ms" in output
+    expect.is_in("Successful writes: 2", output)
+    expect.is_in("Success rate: 100.00%", output)
+    expect.is_in("mean: 12.50 ms", output)
 
 
 def test_run_load_test_counts_failed_batch(monkeypatch, capsys) -> None:
@@ -102,9 +104,9 @@ def test_run_load_test_counts_failed_batch(monkeypatch, capsys) -> None:
         realtime_load_test.run_load_test(2, 1, 1, "test-stream", "example-region-1")
 
     output = capsys.readouterr().out
-    assert "Batch 0 failed: throttled" in output
-    assert "Failed writes: 2" in output
-    assert "Success rate: 0.00%" in output
+    expect.is_in("Batch 0 failed: throttled", output)
+    expect.is_in("Failed writes: 2", output)
+    expect.is_in("Success rate: 0.00%", output)
 
 
 def test_wait_for_results_polls_until_observations_arrive(monkeypatch) -> None:
@@ -119,8 +121,8 @@ def test_wait_for_results_polls_until_observations_arrive(monkeypatch) -> None:
 
     results = realtime_load_test.wait_for_results(dynamodb, "test-results", {"one", "two"}, 1)
 
-    assert set(results) == {"one", "two"}
-    assert dynamodb.batch_get_item.call_count == 2
+    expect.equal(set(results), {"one", "two"})
+    expect.equal(dynamodb.batch_get_item.call_count, 2)
 
 
 def test_cleanup_results_deletes_only_current_run_observations() -> None:
@@ -132,7 +134,7 @@ def test_cleanup_results_deletes_only_current_run_observations() -> None:
 
     realtime_load_test.cleanup_results(table, {"run-one", "run-two"})
 
-    assert batch.delete_item.call_count == 2
+    expect.equal(batch.delete_item.call_count, 2)
     batch.delete_item.assert_any_call(Key={"observation_id": "run-one"})
     batch.delete_item.assert_any_call(Key={"observation_id": "run-two"})
 
@@ -142,8 +144,9 @@ def test_websocket_observer_builds_patient_subscription_and_filters_results(monk
     observer.received_at = {"expected": datetime(2026, 9, 9, tzinfo=UTC), "other": datetime(2026, 9, 9, tzinfo=UTC)}
     monkeypatch.setattr(realtime_load_test.time, "monotonic", lambda: 0.0)
 
-    assert observer._subscription_url("load_test_patient_01").endswith("mode=test&patient_id=load_test_patient_01")
-    assert observer.wait_for({"expected"}, 1) == {"expected": datetime(2026, 9, 9, tzinfo=UTC)}
+    if not observer._subscription_url("load_test_patient_01").endswith("mode=test&patient_id=load_test_patient_01"):
+        expect.fail('expected: observer._subscription_url("load_test_patient_01").endswith("mode=test&patient_id=load_test_patient_01")')
+    expect.equal(observer.wait_for({"expected"}, 1), {"expected": datetime(2026, 9, 9, tzinfo=UTC)})
     observer.stop()
 
 
@@ -151,11 +154,11 @@ def test_report_latencies_prints_end_to_end_percentiles(capsys) -> None:
     realtime_load_test.report_latencies("End-to-end latency", [10.0, 20.0, 30.0])
 
     output = capsys.readouterr().out
-    assert "observed: 3" in output
-    assert "mean: 20.00 ms" in output
-    assert "p95:  20.00 ms" in output
-    assert "max:  30.00 ms" in output
+    expect.is_in("observed: 3", output)
+    expect.is_in("mean: 20.00 ms", output)
+    expect.is_in("p95:  20.00 ms", output)
+    expect.is_in("max:  30.00 ms", output)
 
 
 def test_parse_timestamp_accepts_utc_z_suffix() -> None:
-    assert realtime_load_test.parse_timestamp("2026-09-09T12:00:00Z") == datetime(2026, 9, 9, 12, tzinfo=UTC)
+    expect.equal(realtime_load_test.parse_timestamp("2026-09-09T12:00:00Z"), datetime(2026, 9, 9, 12, tzinfo=UTC))

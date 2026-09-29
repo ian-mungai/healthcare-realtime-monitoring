@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 
 from dashboard.analytics import load_latest_predictions
+from testkit import expect
 
 
 class RecordingAthenaClient:
@@ -14,7 +15,7 @@ class RecordingAthenaClient:
 
     def start_query_execution(self, **request: Any) -> dict[str, str]:
         self.query = request["QueryString"]
-        assert request["ResultConfiguration"]["OutputLocation"] == "s3://example-bucket/athena_results/dashboard/"
+        expect.equal(request["ResultConfiguration"]["OutputLocation"], "s3://example-bucket/athena_results/dashboard/")
         return {"QueryExecutionId": "query-1"}
 
     def get_query_execution(self, **request: Any) -> dict[str, Any]:
@@ -96,11 +97,11 @@ def test_load_latest_predictions_returns_one_ranked_row_per_patient() -> None:
         poll_interval_seconds=0,
     )
 
-    assert records[0]["patient_id"] == "Patient/1000"
-    assert "partition by predictions.patient_key" in str(client.query)
-    assert "where patient_rank = 1" in str(client.query)
-    assert "example_dim_encounter" in str(client.query)
-    assert "example_features" in str(client.query)
+    expect.equal(records[0]["patient_id"], "Patient/1000")
+    expect.is_in("partition by predictions.patient_key", str(client.query))
+    expect.is_in("where patient_rank = 1", str(client.query))
+    expect.is_in("example_dim_encounter", str(client.query))
+    expect.is_in("example_features", str(client.query))
 
 
 def test_load_latest_predictions_reports_athena_failure() -> None:

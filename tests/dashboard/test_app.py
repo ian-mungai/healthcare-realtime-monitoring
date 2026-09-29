@@ -13,6 +13,7 @@ os.environ["VITALS_WEBSOCKET_URL"] = "wss://websocket.example.com/development"
 os.environ["FHIR_RESOURCE_MAP_FILE"] = str(Path(__file__).resolve().parents[1] / "fixtures" / "dashboard_fhir_resource_map.json")
 
 from dashboard import app
+from testkit import expect
 
 
 class SessionState(dict):
@@ -30,16 +31,17 @@ def test_api_and_websocket_urls_use_patient_id(monkeypatch) -> None:
     request = Mock(return_value=response)
     monkeypatch.setattr(app.requests, "get", request)
 
-    assert app.get_initial_vitals("1000") == {"patient_id": "1000", "heart_rate": 82}
+    expect.equal(app.get_initial_vitals("1000"), {"patient_id": "1000", "heart_rate": 82})
     request.assert_called_once_with("https://api.example.com/development/patients/1000/vitals", headers={"Authorization": "signed"}, timeout=10)
-    assert app.websocket_subscription_url("1000").endswith("?patient_id=1000")
+    if not app.websocket_subscription_url("1000").endswith("?patient_id=1000"):
+        expect.fail('expected: app.websocket_subscription_url("1000").endswith("?patient_id=1000")')
 
 
 def test_api_returns_none_for_patient_without_vitals(monkeypatch) -> None:
     monkeypatch.setattr(app, "get_sigv4_headers", lambda url: {})
     monkeypatch.setattr(app.requests, "get", Mock(return_value=Mock(status_code=404)))
 
-    assert app.get_initial_vitals("1000") is None
+    expect.identical(app.get_initial_vitals("1000"), None)
 
 
 def test_append_history_merges_same_timestamp_and_keeps_new_snapshot(monkeypatch) -> None:
@@ -50,9 +52,9 @@ def test_append_history_merges_same_timestamp_and_keeps_new_snapshot(monkeypatch
     app.append_history("1000", {"event_timestamp": "2026-09-09T12:00:00Z", "spo2": 98})
     app.append_history("1000", {"event_timestamp": "2026-09-09T12:00:01Z", "heart_rate": 83})
 
-    assert len(state.cohort_history["1000"]) == 2
-    assert state.cohort_history["1000"][0]["spo2"] == 98
-    assert state.cohort_history["1000"][1]["heart_rate"] == 83
+    expect.equal(len(state.cohort_history["1000"]), 2)
+    expect.equal(state.cohort_history["1000"][0]["spo2"], 98)
+    expect.equal(state.cohort_history["1000"][1]["heart_rate"], 83)
 
 
 def test_websocket_messages_keep_latest_patient_update(monkeypatch) -> None:
@@ -70,29 +72,29 @@ def test_websocket_messages_keep_latest_patient_update(monkeypatch) -> None:
 
     app.process_websocket_messages()
 
-    assert state.cohort_vitals["1000"]["heart_rate"] == 81
-    assert len(state.cohort_history["1000"]) == 1
-    assert state.websocket_latency_ms["1000"] == 250
+    expect.equal(state.cohort_vitals["1000"]["heart_rate"], 81)
+    expect.equal(len(state.cohort_history["1000"]), 1)
+    expect.equal(state.websocket_latency_ms["1000"], 250)
 
 
 def test_dashboard_formatting_and_clinical_status_helpers() -> None:
-    assert len(app.PATIENT_IDS) == 10
-    assert app.format_value(None) == "--"
-    assert app.format_value(82.25, decimals=1) == "82.2"
-    assert app.format_delta(-2, "bpm") == "-2 bpm"
-    assert app.heart_rate_status(59) == "Low"
-    assert app.heart_rate_status(82) == "Normal"
-    assert app.heart_rate_status(101) == "High"
-    assert app.spo2_status(89) == "Critical"
-    assert app.spo2_status(94) == "Low"
-    assert app.spo2_status(98) == "Normal"
-    assert app.respiratory_rate_status(11) == "Low"
-    assert app.respiratory_rate_status(18) == "Normal"
-    assert app.respiratory_rate_status(21) == "High"
-    assert app.patient_freshness(10) == ("Current", "green")
-    assert app.patient_freshness(10.01) == ("Delayed", "orange")
-    assert app.patient_freshness(90) == ("Stale", "red")
-    assert app.format_event_time("invalid") == "invalid"
+    expect.equal(len(app.PATIENT_IDS), 10)
+    expect.equal(app.format_value(None), "--")
+    expect.equal(app.format_value(82.25, decimals=1), "82.2")
+    expect.equal(app.format_delta(-2, "bpm"), "-2 bpm")
+    expect.equal(app.heart_rate_status(59), "Low")
+    expect.equal(app.heart_rate_status(82), "Normal")
+    expect.equal(app.heart_rate_status(101), "High")
+    expect.equal(app.spo2_status(89), "Critical")
+    expect.equal(app.spo2_status(94), "Low")
+    expect.equal(app.spo2_status(98), "Normal")
+    expect.equal(app.respiratory_rate_status(11), "Low")
+    expect.equal(app.respiratory_rate_status(18), "Normal")
+    expect.equal(app.respiratory_rate_status(21), "High")
+    expect.equal(app.patient_freshness(10), ("Current", "green"))
+    expect.equal(app.patient_freshness(10.01), ("Delayed", "orange"))
+    expect.equal(app.patient_freshness(90), ("Stale", "red"))
+    expect.equal(app.format_event_time("invalid"), "invalid")
 
 
 def test_live_vitals_applies_measurement_specific_freshness() -> None:
@@ -112,10 +114,10 @@ def test_live_vitals_applies_measurement_specific_freshness() -> None:
 
     filtered = app.live_vitals(vitals, now)
 
-    assert filtered["heart_rate"] == 82
-    assert filtered["systolic_bp"] == 119
-    assert "spo2" not in filtered
-    assert "diastolic_bp" not in filtered
+    expect.equal(filtered["heart_rate"], 82)
+    expect.equal(filtered["systolic_bp"], 119)
+    expect.not_in("spo2", filtered)
+    expect.not_in("diastolic_bp", filtered)
 
 
 def test_warning_vitals_require_contemporaneous_blood_pressure() -> None:
@@ -128,12 +130,12 @@ def test_warning_vitals_require_contemporaneous_blood_pressure() -> None:
         "systolic_bp_event_timestamp": "2026-09-11T11:55:00Z",
     }
 
-    assert app.warning_vitals(vitals, now) == {"patient_id": "1000", "heart_rate": 82, "heart_rate_event_timestamp": "2026-09-11T11:59:55Z"}
+    expect.equal(app.warning_vitals(vitals, now), {"patient_id": "1000", "heart_rate": 82, "heart_rate_event_timestamp": "2026-09-11T11:59:55Z"})
 
 
 def test_analytical_quarantine_label_identifies_out_of_range_vitals() -> None:
-    assert app.analytical_quarantine_label({"systolic_bp": 261, "diastolic_bp": 29}) == "Systolic BP, Diastolic BP"
-    assert app.analytical_quarantine_label({"systolic_bp": 260, "diastolic_bp": 30}) is None
+    expect.equal(app.analytical_quarantine_label({"systolic_bp": 261, "diastolic_bp": 29}), "Systolic BP, Diastolic BP")
+    expect.identical(app.analytical_quarantine_label({"systolic_bp": 260, "diastolic_bp": 30}), None)
 
 
 def test_history_dataframe_includes_required_columns(monkeypatch) -> None:
@@ -142,5 +144,6 @@ def test_history_dataframe_includes_required_columns(monkeypatch) -> None:
 
     dataframe = app.history_dataframe()
 
-    assert list(dataframe["patient_id"]) == ["1000"]
-    assert {"heart_rate", "spo2", "respiratory_rate", "systolic_bp", "diastolic_bp"} <= set(dataframe.columns)
+    expect.equal(list(dataframe["patient_id"]), ["1000"])
+    if not ({"heart_rate", "spo2", "respiratory_rate", "systolic_bp", "diastolic_bp"} <= set(dataframe.columns)):
+        expect.fail('expected: {"heart_rate", "spo2", "respiratory_rate", "systolic_bp", "diastolic_bp"} <= set(dataframe.columns)')

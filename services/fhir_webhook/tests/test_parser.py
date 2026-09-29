@@ -1,6 +1,7 @@
 import pytest
 
 from services.fhir_webhook.app.parser import InvalidFHIRPayloadError, parse_fhir_payload
+from testkit import expect
 
 
 def test_parse_observation():
@@ -8,9 +9,9 @@ def test_parse_observation():
 
     event = parse_fhir_payload(payload)
 
-    assert event.resource_type == "Observation"
-    assert event.resource_id == "observation_123"
-    assert event.payload == payload
+    expect.equal(event.resource_type, "Observation")
+    expect.equal(event.resource_id, "observation_123")
+    expect.equal(event.payload, payload)
 
 
 def test_reject_missing_resource_type():

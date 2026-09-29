@@ -20,10 +20,11 @@ from scripts.synthea_loader.src.load_fhir import (
     search_resource_by_identifier,
     select_seed_resources,
 )
+from testkit import expect
 
 
 def test_default_fhir_base_url_is_local():
-    assert DEFAULT_FHIR_BASE_URL == "http://127.0.0.1:8090/fhir"
+    expect.equal(DEFAULT_FHIR_BASE_URL, "http://127.0.0.1:8090/fhir")
 
 
 @pytest.fixture
@@ -76,70 +77,73 @@ def sample_bundle(sample_patient, older_encounter, sample_encounter):
 
 
 def test_contains_resource(sample_bundle):
-    assert contains_resource(sample_bundle, "Patient")
+    if not contains_resource(sample_bundle, "Patient"):
+        expect.fail('expected: contains_resource(sample_bundle, "Patient")')
 
-    assert contains_resource(sample_bundle, "Encounter")
+    if not contains_resource(sample_bundle, "Encounter"):
+        expect.fail('expected: contains_resource(sample_bundle, "Encounter")')
 
-    assert not contains_resource(sample_bundle, "Observation")
+    if contains_resource(sample_bundle, "Observation"):
+        expect.fail('expected: not contains_resource(sample_bundle, "Observation")')
 
 
 def test_sanitize_patient(sample_patient):
     patient = sanitize_patient(sample_patient)
 
-    assert "managingOrganization" not in patient
-    assert "generalPractitioner" not in patient
+    expect.not_in("managingOrganization", patient)
+    expect.not_in("generalPractitioner", patient)
 
-    assert patient["id"] == "synthea-patient-1"
+    expect.equal(patient["id"], "synthea-patient-1")
 
 
 def test_sanitize_patient_does_not_modify_original(sample_patient):
     sanitize_patient(sample_patient)
 
-    assert "managingOrganization" in sample_patient
-    assert "generalPractitioner" in sample_patient
+    expect.is_in("managingOrganization", sample_patient)
+    expect.is_in("generalPractitioner", sample_patient)
 
 
 def test_sanitize_encounter(sample_encounter):
     encounter = sanitize_encounter(sample_encounter)
 
-    assert "participant" not in encounter
-    assert "serviceProvider" not in encounter
-    assert "location" not in encounter
+    expect.not_in("participant", encounter)
+    expect.not_in("serviceProvider", encounter)
+    expect.not_in("location", encounter)
 
-    assert encounter["subject"]["reference"] == ("urn:uuid:patient-full-url")
+    expect.equal(encounter["subject"]["reference"], "urn:uuid:patient-full-url")
 
 
 def test_sanitize_encounter_does_not_modify_original(sample_encounter):
     sanitize_encounter(sample_encounter)
 
-    assert "participant" in sample_encounter
-    assert "serviceProvider" in sample_encounter
-    assert "location" in sample_encounter
+    expect.is_in("participant", sample_encounter)
+    expect.is_in("serviceProvider", sample_encounter)
+    expect.is_in("location", sample_encounter)
 
 
 def test_select_seed_resources_chooses_patient_and_latest_encounter(sample_bundle):
     patient, encounter = select_seed_resources(sample_bundle)
 
-    assert patient["resourceType"] == "Patient"
-    assert patient["id"] == "synthea-patient-1"
+    expect.equal(patient["resourceType"], "Patient")
+    expect.equal(patient["id"], "synthea-patient-1")
 
-    assert encounter["resourceType"] == "Encounter"
-    assert encounter["id"] == "synthea-encounter-1"
+    expect.equal(encounter["resourceType"], "Encounter")
+    expect.equal(encounter["id"], "synthea-encounter-1")
 
 
 def test_select_seed_resources_sanitizes_patient(sample_bundle):
     patient, _ = select_seed_resources(sample_bundle)
 
-    assert "managingOrganization" not in patient
-    assert "generalPractitioner" not in patient
+    expect.not_in("managingOrganization", patient)
+    expect.not_in("generalPractitioner", patient)
 
 
 def test_select_seed_resources_sanitizes_encounter(sample_bundle):
     _, encounter = select_seed_resources(sample_bundle)
 
-    assert "participant" not in encounter
-    assert "serviceProvider" not in encounter
-    assert "location" not in encounter
+    expect.not_in("participant", encounter)
+    expect.not_in("serviceProvider", encounter)
+    expect.not_in("location", encounter)
 
 
 def test_select_seed_resources_requires_patient():
@@ -162,11 +166,11 @@ def test_select_seed_resources_requires_encounter():
 def test_find_conditional_references(sample_encounter):
     references = find_conditional_references(sample_encounter)
 
-    assert "Practitioner?identifier=http://hl7.org/fhir/sid/us-npi|123" in references
+    expect.is_in("Practitioner?identifier=http://hl7.org/fhir/sid/us-npi|123", references)
 
-    assert "Organization?identifier=test" in references
+    expect.is_in("Organization?identifier=test", references)
 
-    assert "Location?identifier=test" in references
+    expect.is_in("Location?identifier=test", references)
 
 
 def test_sanitized_encounter_has_no_conditional_references(sample_encounter):
@@ -174,14 +178,14 @@ def test_sanitized_encounter_has_no_conditional_references(sample_encounter):
 
     references = find_conditional_references(encounter)
 
-    assert references == set()
+    expect.equal(references, set())
 
 
 def test_get_synthea_identifier(sample_patient):
     system, value = get_synthea_identifier(sample_patient)
 
-    assert system == SYNTHEA_IDENTIFIER_SYSTEM
-    assert value == "synthea-patient-1"
+    expect.equal(system, SYNTHEA_IDENTIFIER_SYSTEM)
+    expect.equal(value, "synthea-patient-1")
 
 
 def test_get_synthea_identifier_fallback():
@@ -189,8 +193,8 @@ def test_get_synthea_identifier_fallback():
 
     system, value = get_synthea_identifier(resource)
 
-    assert system == "https://example.org/test"
-    assert value == "abc123"
+    expect.equal(system, "https://example.org/test")
+    expect.equal(value, "abc123")
 
 
 def test_get_synthea_identifier_missing():
@@ -203,13 +207,13 @@ def test_get_synthea_identifier_missing():
 def test_extract_id_from_relative_location():
     resource_id = extract_id_from_location("Patient/137506799/_history/1")
 
-    assert resource_id == "137506799"
+    expect.equal(resource_id, "137506799")
 
 
 def test_extract_id_from_absolute_location():
     resource_id = extract_id_from_location("https://hapi.fhir.org/baseR4/Patient/137506799/_history/1")
 
-    assert resource_id == "137506799"
+    expect.equal(resource_id, "137506799")
 
 
 @respx.mock
@@ -222,10 +226,12 @@ def test_search_resource_by_identifier_found():
 
     resource = search_resource_by_identifier("Patient", SYNTHEA_IDENTIFIER_SYSTEM, "synthea-patient-1")
 
-    assert route.called
-    assert resource is not None
-    assert resource["resourceType"] == "Patient"
-    assert resource["id"] == "137506799"
+    if not route.called:
+        expect.fail("expected: route.called")
+    if resource is None:
+        expect.fail("expected: resource is not None")
+    expect.equal(resource["resourceType"], "Patient")
+    expect.equal(resource["id"], "137506799")
 
 
 @respx.mock
@@ -234,8 +240,9 @@ def test_search_resource_by_identifier_not_found():
 
     resource = search_resource_by_identifier("Patient", SYNTHEA_IDENTIFIER_SYSTEM, "missing-patient")
 
-    assert route.called
-    assert resource is None
+    if not route.called:
+        expect.fail("expected: route.called")
+    expect.identical(resource, None)
 
 
 @respx.mock
@@ -244,9 +251,10 @@ def test_get_resource():
 
     patient = get_resource("Patient", "137506799")
 
-    assert route.called
-    assert patient["resourceType"] == "Patient"
-    assert patient["id"] == "137506799"
+    if not route.called:
+        expect.fail("expected: route.called")
+    expect.equal(patient["resourceType"], "Patient")
+    expect.equal(patient["id"], "137506799")
 
 
 @respx.mock
@@ -275,8 +283,9 @@ def test_ensure_patient_exists_reuses_existing(sample_patient):
 
     result = ensure_patient_exists(patient)
 
-    assert search_route.called
-    assert result["id"] == "137506799"
+    if not search_route.called:
+        expect.fail("expected: search_route.called")
+    expect.equal(result["id"], "137506799")
 
 
 @respx.mock
@@ -291,11 +300,13 @@ def test_ensure_patient_exists_creates_when_missing(sample_patient):
 
     result = ensure_patient_exists(patient)
 
-    assert search_route.called
-    assert create_route.called
+    if not search_route.called:
+        expect.fail("expected: search_route.called")
+    if not create_route.called:
+        expect.fail("expected: create_route.called")
 
-    assert result["resourceType"] == "Patient"
-    assert result["id"] == "new-patient-id"
+    expect.equal(result["resourceType"], "Patient")
+    expect.equal(result["id"], "new-patient-id")
 
 
 @respx.mock
@@ -324,8 +335,9 @@ def test_ensure_encounter_exists_reuses_existing(sample_encounter):
 
     result = ensure_encounter_exists(encounter, "137506799")
 
-    assert search_route.called
-    assert result["id"] == "137506800"
+    if not search_route.called:
+        expect.fail("expected: search_route.called")
+    expect.equal(result["id"], "137506800")
 
 
 @respx.mock
@@ -342,14 +354,16 @@ def test_ensure_encounter_exists_creates_when_missing(sample_encounter):
 
     result = ensure_encounter_exists(encounter, "137506799")
 
-    assert search_route.called
-    assert create_route.called
+    if not search_route.called:
+        expect.fail("expected: search_route.called")
+    if not create_route.called:
+        expect.fail("expected: create_route.called")
 
-    assert result["resourceType"] == "Encounter"
-    assert result["id"] == "new-encounter-id"
+    expect.equal(result["resourceType"], "Encounter")
+    expect.equal(result["id"], "new-encounter-id")
 
     request = create_route.calls[0].request
 
     submitted = json.loads(request.content.decode("utf-8"))
 
-    assert submitted["subject"]["reference"] == ("Patient/137506799")
+    expect.equal(submitted["subject"]["reference"], "Patient/137506799")

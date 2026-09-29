@@ -6,6 +6,7 @@ import pytest
 
 from services.fhir_webhook.app import lambda_handler as webhook_lambda_handler
 from services.fhir_webhook.app.kinesis.client import KinesisPublisherError, KinesisPublishResult
+from testkit import expect
 
 TEST_SECRET = "test_webhook_secret"
 
@@ -29,42 +30,42 @@ def webhook_secret():
 def test_health():
     response = lambda_handler({"routeKey": "GET /health"}, None)
 
-    assert response["statusCode"] == 200
-    assert json.loads(response["body"])["status"] == "healthy"
+    expect.equal(response["statusCode"], 200)
+    expect.equal(json.loads(response["body"])["status"], "healthy")
 
 
 def test_webhook_get_reachability():
     response = lambda_handler({"routeKey": "GET /webhooks/fhir"}, None)
 
-    assert response["statusCode"] == 200
-    assert json.loads(response["body"])["status"] == "reachable"
+    expect.equal(response["statusCode"], 200)
+    expect.equal(json.loads(response["body"])["status"], "reachable")
 
 
 def test_webhook_head_reachability():
     response = lambda_handler({"routeKey": "HEAD /webhooks/fhir"}, None)
 
-    assert response["statusCode"] == 200
+    expect.equal(response["statusCode"], 200)
 
 
 def test_empty_webhook_handshake():
     response = lambda_handler({"routeKey": "POST /webhooks/fhir", "body": "", "headers": {}}, None)
 
-    assert response["statusCode"] == 200
-    assert json.loads(response["body"])["status"] == "handshake_accepted"
+    expect.equal(response["statusCode"], 200)
+    expect.equal(json.loads(response["body"])["status"], "handshake_accepted")
 
 
 def test_empty_bundle_handshake():
     response = lambda_handler({"routeKey": "POST /webhooks/fhir", "body": json.dumps({"resourceType": "Bundle", "entry": []}), "headers": {}}, None)
 
-    assert response["statusCode"] == 200
-    assert json.loads(response["body"])["status"] == "handshake_accepted"
+    expect.equal(response["statusCode"], 200)
+    expect.equal(json.loads(response["body"])["status"], "handshake_accepted")
 
 
 def test_unauthenticated_request_is_rejected_before_body_parsing():
     response = webhook_lambda_handler.lambda_handler({"routeKey": "POST /webhooks/fhir", "body": "not-json", "headers": {}}, None)
 
-    assert response["statusCode"] == 401
-    assert json.loads(response["body"])["detail"] == "Invalid webhook secret"
+    expect.equal(response["statusCode"], 401)
+    expect.equal(json.loads(response["body"])["detail"], "Invalid webhook secret")
 
 
 @pytest.mark.parametrize(
@@ -84,7 +85,7 @@ def test_all_supported_routes_require_secret_before_decoding(route, secret):
     headers = {} if secret is None else {"x-webhook-secret": secret}
     with patch.object(webhook_lambda_handler, "decode_body") as decode:
         response = webhook_lambda_handler.lambda_handler({"routeKey": route, "headers": headers, "body": ""}, None)
-    assert response["statusCode"] == 401
+    expect.equal(response["statusCode"], 401)
     decode.assert_not_called()
 
 
@@ -103,8 +104,8 @@ def test_observation_is_published(mock_publisher_class):
         None,
     )
 
-    assert response["statusCode"] == 202
-    assert json.loads(response["body"])["resource_id"] == "observation_123"
+    expect.equal(response["statusCode"], 202)
+    expect.equal(json.loads(response["body"])["resource_id"], "observation_123")
     publisher.publish.assert_called_once()
 
 
@@ -123,8 +124,8 @@ def test_observation_without_patient_reference_returns_400(mock_publisher_class)
         None,
     )
 
-    assert response["statusCode"] == 400
-    assert json.loads(response["body"])["detail"] == "FHIR Observation subject must reference a Patient"
+    expect.equal(response["statusCode"], 400)
+    expect.equal(json.loads(response["body"])["detail"], "FHIR Observation subject must reference a Patient")
 
 
 @patch("services.fhir_webhook.app.lambda_handler.KinesisPublisher")
@@ -142,8 +143,8 @@ def test_unsupported_vital_returns_400(mock_publisher_class):
         None,
     )
 
-    assert response["statusCode"] == 400
-    assert json.loads(response["body"])["detail"] == "Unsupported FHIR vital Observation LOINC code: 1234-5"
+    expect.equal(response["statusCode"], 400)
+    expect.equal(json.loads(response["body"])["detail"], "Unsupported FHIR vital Observation LOINC code: 1234-5")
 
 
 @patch("services.fhir_webhook.app.lambda_handler.KinesisPublisher")
@@ -161,8 +162,8 @@ def test_missing_vital_value_returns_400(mock_publisher_class):
         None,
     )
 
-    assert response["statusCode"] == 400
-    assert json.loads(response["body"])["detail"] == "FHIR Observation 8867-4 does not contain valueQuantity.value"
+    expect.equal(response["statusCode"], 400)
+    expect.equal(json.loads(response["body"])["detail"], "FHIR Observation 8867-4 does not contain valueQuantity.value")
 
 
 @patch("services.fhir_webhook.app.lambda_handler.KinesisPublisher")
@@ -180,41 +181,42 @@ def test_kinesis_failure_returns_503(mock_publisher_class):
         None,
     )
 
-    assert response["statusCode"] == 503
-    assert json.loads(response["body"])["detail"] == "Kinesis ingestion failed"
+    expect.equal(response["statusCode"], 503)
+    expect.equal(json.loads(response["body"])["detail"], "Kinesis ingestion failed")
 
 
 def test_fhir_metadata():
     response = lambda_handler({"routeKey": "GET /webhooks/fhir/metadata"}, None)
 
-    assert response["statusCode"] == 200
-    assert response["headers"]["content-type"] == "application/fhir+json"
+    expect.equal(response["statusCode"], 200)
+    expect.equal(response["headers"]["content-type"], "application/fhir+json")
 
     payload = json.loads(response["body"])
 
-    assert payload["resourceType"] == "CapabilityStatement"
-    assert payload["fhirVersion"] == "4.0.1"
-    assert payload["rest"][0]["resource"][0]["type"] == "Observation"
-    assert payload["rest"][0]["resource"][0]["profile"].endswith("/healthcare-realtime-vital-observation")
-    assert "Encounter reference" in payload["rest"][0]["documentation"]
-    assert payload["rest"][0]["resource"][0]["interaction"] == [{"code": "update"}]
+    expect.equal(payload["resourceType"], "CapabilityStatement")
+    expect.equal(payload["fhirVersion"], "4.0.1")
+    expect.equal(payload["rest"][0]["resource"][0]["type"], "Observation")
+    if not payload["rest"][0]["resource"][0]["profile"].endswith("/healthcare-realtime-vital-observation"):
+        expect.fail('expected: payload["rest"][0]["resource"][0]["profile"].endswith("/healthcare-realtime-vital-observation")')
+    expect.is_in("Encounter reference", payload["rest"][0]["documentation"])
+    expect.equal(payload["rest"][0]["resource"][0]["interaction"], [{"code": "update"}])
 
 
 def test_fhir_observation_profile_requires_encounter():
     response = lambda_handler({"routeKey": "GET /webhooks/fhir/StructureDefinition/healthcare-realtime-vital-observation"}, None)
 
-    assert response["statusCode"] == 200
-    assert response["headers"]["content-type"] == "application/fhir+json"
+    expect.equal(response["statusCode"], 200)
+    expect.equal(response["headers"]["content-type"], "application/fhir+json")
 
     payload = json.loads(response["body"])
     encounter = payload["differential"]["element"][0]
 
-    assert payload["resourceType"] == "StructureDefinition"
-    assert payload["url"] == webhook_lambda_handler.FHIR_OBSERVATION_PROFILE
-    assert payload["baseDefinition"] == "http://hl7.org/fhir/StructureDefinition/Observation"
-    assert encounter["path"] == "Observation.encounter"
-    assert encounter["min"] == 1
-    assert encounter["max"] == "1"
+    expect.equal(payload["resourceType"], "StructureDefinition")
+    expect.equal(payload["url"], webhook_lambda_handler.FHIR_OBSERVATION_PROFILE)
+    expect.equal(payload["baseDefinition"], "http://hl7.org/fhir/StructureDefinition/Observation")
+    expect.equal(encounter["path"], "Observation.encounter")
+    expect.equal(encounter["min"], 1)
+    expect.equal(encounter["max"], "1")
 
 
 @patch("services.fhir_webhook.app.lambda_handler.KinesisPublisher")
@@ -235,9 +237,9 @@ def test_hapi_fhir_update_is_published(mock_publisher_class):
         None,
     )
 
-    assert response["statusCode"] == 200
-    assert response["headers"]["content-type"] == "application/fhir+json"
-    assert json.loads(response["body"]) == observation
+    expect.equal(response["statusCode"], 200)
+    expect.equal(response["headers"]["content-type"], "application/fhir+json")
+    expect.equal(json.loads(response["body"]), observation)
     publisher.publish.assert_called_once()
 
 
@@ -253,8 +255,8 @@ def test_hapi_fhir_update_resource_type_mismatch_returns_400(mock_publisher_clas
         None,
     )
 
-    assert response["statusCode"] == 400
-    assert json.loads(response["body"])["detail"] == "FHIR resource type does not match request path"
+    expect.equal(response["statusCode"], 400)
+    expect.equal(json.loads(response["body"])["detail"], "FHIR resource type does not match request path")
     mock_publisher_class.assert_not_called()
 
 
@@ -270,6 +272,6 @@ def test_hapi_fhir_update_resource_id_mismatch_returns_400(mock_publisher_class)
         None,
     )
 
-    assert response["statusCode"] == 400
-    assert json.loads(response["body"])["detail"] == "FHIR resource identifier does not match request path"
+    expect.equal(response["statusCode"], 400)
+    expect.equal(json.loads(response["body"])["detail"], "FHIR resource identifier does not match request path")
     mock_publisher_class.assert_not_called()

@@ -6,6 +6,7 @@ from typing import Any
 import pandas as pd
 
 from dashboard import model_analytics_app
+from testkit import expect
 
 
 def test_get_model_predictions_uses_environment_configuration(monkeypatch) -> None:
@@ -31,20 +32,23 @@ def test_get_model_predictions_uses_environment_configuration(monkeypatch) -> No
     monkeypatch.setattr(model_analytics_app, "load_latest_predictions", record_loader)
 
     model_analytics_app.get_model_predictions.clear()
-    assert model_analytics_app.get_model_predictions() == []
-    assert loader_calls == [
-        {
-            "database": "example_database",
-            "predictions_table": "example_predictions",
-            "patient_table": "example_patients",
-            "encounter_table": "example_encounters",
-            "features_table": "example_features",
-            "output_location": "s3://example-bucket/results/",
-            "region": "example-region-1",
-            "catalog": "example_catalog",
-            "workgroup": "example_workgroup",
-        }
-    ]
+    expect.equal(model_analytics_app.get_model_predictions(), [])
+    expect.equal(
+        loader_calls,
+        [
+            {
+                "database": "example_database",
+                "predictions_table": "example_predictions",
+                "patient_table": "example_patients",
+                "encounter_table": "example_encounters",
+                "features_table": "example_features",
+                "output_location": "s3://example-bucket/results/",
+                "region": "example-region-1",
+                "catalog": "example_catalog",
+                "workgroup": "example_workgroup",
+            }
+        ],
+    )
 
 
 def test_get_model_predictions_reports_missing_configuration(monkeypatch) -> None:
@@ -65,8 +69,8 @@ def test_get_model_predictions_reports_missing_configuration(monkeypatch) -> Non
     try:
         model_analytics_app.get_model_predictions()
     except ValueError as error:
-        assert "AWS_REGION" in str(error)
-        assert "ATHENA_RESULTS_S3_URI" in str(error)
+        expect.is_in("AWS_REGION", str(error))
+        expect.is_in("ATHENA_RESULTS_S3_URI", str(error))
     else:
         raise AssertionError("Missing model analytics configuration should fail")
 
@@ -75,9 +79,11 @@ def test_format_scored_at_uses_local_timezone() -> None:
     timestamp = pd.Timestamp("2026-09-16T12:00:00Z")
     formatted = model_analytics_app.format_scored_at(timestamp)
 
-    assert formatted.startswith("2026-09-16")
-    assert model_analytics_app.format_scored_at_compact(timestamp).startswith("Sep 16")
-    assert timestamp.tzinfo == UTC
+    if not formatted.startswith("2026-09-16"):
+        expect.fail('expected: formatted.startswith("2026-09-16")')
+    if not model_analytics_app.format_scored_at_compact(timestamp).startswith("Sep 16"):
+        expect.fail('expected: model_analytics_app.format_scored_at_compact(timestamp).startswith("Sep 16")')
+    expect.equal(timestamp.tzinfo, UTC)
 
 
 def test_prepare_predictions_adds_readable_labels_and_numeric_features() -> None:
@@ -100,18 +106,21 @@ def test_prepare_predictions_adds_readable_labels_and_numeric_features() -> None
         ]
     )
 
-    assert dataframe.iloc[0]["patient_id"] == "1000"
-    assert dataframe.iloc[0]["risk_label"] == "Elevated proxy"
-    assert dataframe.iloc[0]["probability_label"] == "82.5%"
-    assert dataframe.iloc[0]["heart_rate_mean"] == 82.5
+    expect.equal(dataframe.iloc[0]["patient_id"], "1000")
+    expect.equal(dataframe.iloc[0]["risk_label"], "Elevated proxy")
+    expect.equal(dataframe.iloc[0]["probability_label"], "82.5%")
+    expect.equal(dataframe.iloc[0]["heart_rate_mean"], 82.5)
 
 
 def test_clinical_validation_values_are_parsed_explicitly() -> None:
-    assert model_analytics_app.is_clinically_validated("true")
-    assert model_analytics_app.is_clinically_validated(1)
-    assert not model_analytics_app.is_clinically_validated("false")
+    if not model_analytics_app.is_clinically_validated("true"):
+        expect.fail('expected: model_analytics_app.is_clinically_validated("true")')
+    if not model_analytics_app.is_clinically_validated(1):
+        expect.fail("expected: model_analytics_app.is_clinically_validated(1)")
+    if model_analytics_app.is_clinically_validated("false"):
+        expect.fail('expected: not model_analytics_app.is_clinically_validated("false")')
 
 
 def test_probability_labels_keep_small_values_readable() -> None:
-    assert model_analytics_app.format_probability(0.825) == "82.5%"
-    assert model_analytics_app.format_probability(0.00001) == "<0.1%"
+    expect.equal(model_analytics_app.format_probability(0.825), "82.5%")
+    expect.equal(model_analytics_app.format_probability(0.00001), "<0.1%")
