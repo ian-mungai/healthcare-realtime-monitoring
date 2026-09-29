@@ -15,6 +15,7 @@ BIDMC measurements -> FHIR Observation -> Kinesis -> realtime serving
 
 | Dataset | System | Purpose |
 | --- | --- | --- |
+| `seed/synthea/fhir/` | Amazon S3 | Synthetic Synthea bundles uploaded for the FHIR setup task's cohort load |
 | `raw/fhir_observations/` | Amazon S3 | Immutable normalized FHIR vital-event landing area |
 | `${ATHENA_SOURCE_DATABASE}.${ATHENA_PROCESSED_TABLE}` | Glue Catalog / Iceberg | Validated, deduplicated observations |
 | `${ATHENA_DBT_DATABASE}.${DBT_STAGING_TABLE}` | Athena / dbt | Clean analytical staging model |
@@ -134,7 +135,7 @@ Terraform state, credentials, webhook secrets, alert addresses, connection IDs a
 
 ## Retention and recovery
 
-CloudWatch log groups for HAPI, dbt, Soda and the vitals simulator retain logs for 14 days. SQS failure and replay-DLQ messages are retained for 14 days. HAPI RDS automated backups are retained for one day. DynamoDB point-in-time recovery protects the latest-vitals table.
+CloudWatch log groups for HAPI, dbt, Soda, the vitals simulator and the FHIR setup task retain logs for 14 days. SQS failure and replay-DLQ messages are retained for 14 days. HAPI RDS automated backups are retained for one day. DynamoDB point-in-time recovery protects the latest-vitals table.
 
 The processed Iceberg table uses Glue managed table optimizers once `ENABLE_ICEBERG_TABLE_OPTIMIZERS=true` is set after its first Glue run: compaction, snapshot retention (snapshots older than seven days expire while at least three are kept) and orphan-file deletion after seven days. dbt rebuilds its Iceberg tables on each run, so they need no separate maintenance.
 

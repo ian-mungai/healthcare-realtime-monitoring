@@ -115,7 +115,7 @@ All Python code starts programs through `run_command` in `tools/process.py`, inc
 | `CKV_AWS_173` | Lambda environment variables hold names only, no secrets; the webhook secret stays in Secrets Manager. |
 | `CKV_AWS_18` | S3 server access logging is not kept for the demo; CloudTrail covers API access. |
 | `CKV_AWS_195` | The Glue job writes to an SSE-S3 encrypted bucket; a separate Glue security configuration is not used. |
-| `CKV_AWS_2` | HAPI load balancer serves HTTP; access is limited to the NAT gateway and operator addresses, and there is no project domain for a certificate. |
+| `CKV_AWS_2` | HAPI load balancer serves HTTP; access is limited to the NAT gateway, and there is no project domain for a certificate. |
 | `CKV_AWS_272` | Lambda code signing is not used; packages are built reproducibly in CI. |
 | `CKV_AWS_293` | Deletion protection is driven by allow_destructive_teardown so the guarded teardown can remove databases. |
 | `CKV_AWS_309` | Webhook routes authenticate with the shared-secret header and WebSocket $disconnect cannot carry authorization. |
