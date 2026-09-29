@@ -38,6 +38,7 @@ SUBNET_CSV="$(terraform -chdir="$REPO_ROOT/infra" output -json private_subnet_id
 RUN_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ARTIFACT_DIR="${FHIR_SETUP_ARTIFACT_DIR:-$REPO_ROOT/artifacts/e2e/fhir_setup}/$(date -u +%Y%m%dT%H%M%SZ)_$COMMAND"
 TASK_ARN=""
+TASK_ID=""
 EXIT_CODE=""
 STOPPED_REASON=""
 STATUS="failed"
@@ -50,10 +51,10 @@ write_report() {
   dirty="$([[ -n "$(git -C "$REPO_ROOT" status --porcelain --untracked-files=no)" ]] && echo true || echo false)"
   jq -n \
     --arg run_at "$RUN_AT" --arg command "$COMMAND" --arg revision "$revision" --argjson dirty "$dirty" \
-    --arg task_definition_family "$TASK_FAMILY" --arg task_arn "$TASK_ARN" --arg exit_code "$EXIT_CODE" \
+    --arg task_definition_family "$TASK_FAMILY" --arg task_id "$TASK_ID" --arg exit_code "$EXIT_CODE" \
     --arg stopped_reason "$STOPPED_REASON" --arg status "$STATUS" --arg error "$ERROR" --arg log_group "$LOG_GROUP" \
     '{run_at: $run_at, command: $command, code_revision: $revision, uncommitted_tracked_changes: $dirty,
-      task_definition_family: $task_definition_family, task_arn: $task_arn, container_exit_code: $exit_code,
+      task_definition_family: $task_definition_family, task_id: $task_id, container_exit_code: $exit_code,
       stopped_reason: $stopped_reason, status: $status, error: $error, log_group: $log_group,
       limits: "Checks the task outcome only; the loaded resources and subscription are verified in HAPI and by the live demo."}' \
     > "$ARTIFACT_DIR/report.json"
@@ -66,7 +67,7 @@ write_report() {
     echo "| Status | $STATUS |"
     echo "| Code revision | \`$revision\` (uncommitted tracked changes: $dirty) |"
     echo "| Task definition family | \`$TASK_FAMILY\` |"
-    echo "| Task | \`${TASK_ARN:-not started}\` |"
+    echo "| Task ID | \`${TASK_ID:-not started}\` |"
     echo "| Container exit code | ${EXIT_CODE:-none} |"
     echo "| Stopped reason | ${STOPPED_REASON:-none} |"
     echo "| Error | ${ERROR:-none} |"
@@ -123,10 +124,12 @@ RUN_RESULT="$(
 )"
 TASK_ARN="$(jq -r '.tasks[0].taskArn // empty' <<<"$RUN_RESULT")"
 if [[ -z "$TASK_ARN" ]]; then
-  fail "ECS did not start the task: $(jq -r '[.failures[]? | "\(.arn // "task"): \(.reason)"] | join("; ")' <<<"$RUN_RESULT")"
+  fail "ECS did not start the task: $(jq -r '[.failures[]?.reason] | join("; ")' <<<"$RUN_RESULT")"
 fi
+# Reports keep only the task ID: the full ARN contains the AWS account ID.
+TASK_ID="${TASK_ARN##*/}"
 
-echo "Waiting for $TASK_ARN to stop..."
+echo "Waiting for task $TASK_ID to stop..."
 # The tasks-stopped waiter polls every 6 seconds for up to 10 minutes.
 if ! aws ecs wait tasks-stopped --cluster "$ECS_CLUSTER_NAME" --tasks "$TASK_ARN" --region "$AWS_REGION"; then
   aws ecs stop-task --cluster "$ECS_CLUSTER_NAME" --task "$TASK_ARN" --reason "FHIR setup wait limit reached" --region "$AWS_REGION" >/dev/null || true

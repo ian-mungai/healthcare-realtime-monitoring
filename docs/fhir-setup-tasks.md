@@ -18,7 +18,7 @@ Both commands are safe to repeat: the loader reuses existing resources and the r
 
 ## E2E evidence
 
-Every run, passed or failed, writes `report.json` and `report.md` to `artifacts/e2e/fhir_setup/<UTC time>_<command>/`. They record the code revision (and whether tracked files had uncommitted changes), the command, the task ARN, the container exit code, the stopped reason, the status and the run's limits. Task logs stay in CloudWatch under `/ecs/healthcare-realtime-fhir-setup`; the report never contains the webhook URL or secret.
+Every run, passed or failed, writes `report.json` and `report.md` to `artifacts/e2e/fhir_setup/<UTC time>_<command>/`. They record the code revision (and whether tracked files had uncommitted changes), the command, the task ID (never the full ARN, which contains the account ID), the container exit code, the stopped reason, the status and the run's limits. Task logs stay in CloudWatch under `/ecs/healthcare-realtime-fhir-setup`; the report never contains the webhook URL or secret.
 
 ## Behavior to verify
 
