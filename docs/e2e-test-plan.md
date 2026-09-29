@@ -20,7 +20,7 @@ Prove the platform's behavior through its real entry points and record a repeata
 The `e2e/` package has one entry point, `python -m e2e.run <scenario> [--env-file PATH]`, and a session wrapper, `python -m e2e.run session`, that runs the implemented scenarios in order. Shared pieces: loading `.env` and Terraform outputs, SigV4-signed REST and WebSocket clients (reusing the dashboard's signing code), polling with deadlines, and the report writer. The existing `run_fhir_setup.sh` and `scripts/load_testing/realtime_load_test.py` stay as they are.
 
 ```zsh
-.venv/bin/python -m e2e.run realtime     # or access, rejection
+.venv/bin/python -m e2e.run realtime     # or access, rejection, replay
 .venv/bin/python -m e2e.run session      # every implemented scenario in order
 ```
 
@@ -55,7 +55,7 @@ About 480 pytest tests and 5 workflow tests cover pure logic: FHIR mapping and s
 
 ## First iteration
 
-`python -m e2e.run realtime`, `access` and `rejection` implement E2 to E5 and the part of E7 that needs no fault injection. Each reads `.env`, the Terraform outputs and the ten cohort patient IDs from the local resource map, and writes its report even when it stops early; a missing prerequisite gives status `blocked`.
+`python -m e2e.run realtime`, `access`, `rejection` and `replay` implement E2 to E5 and E7. Each reads `.env`, the Terraform outputs and the ten cohort patient IDs from the local resource map, and writes its report even when it stops early; a missing prerequisite gives status `blocked`.
 
 ### realtime (E2, E3, E4)
 
@@ -77,4 +77,26 @@ About 480 pytest tests and 5 workflow tests cover pure logic: FHIR mapping and s
 1. The failure queue and the replay dead-letter queue are empty before the run.
 2. One record with an unsupported `schema_version` goes onto the isolated load-test stream.
 3. Checks: within 5 minutes the processor's `PermanentRecordsRejected` metric counts it, and both queues are still empty, because a permanent error is rejected rather than retried or replayed.
-4. Not covered: the transient-failure replay path, which needs a controlled way to make a valid record fail. Adding a failure switch to production code for tests is discouraged by the testing standard, so that part of E7 waits for a decision.
+
+### replay (rest of E7)
+
+Owner's decision, Sep 29 2026: cause a real, temporary write failure instead of adding a failure switch to production code.
+
+1. The failure queue and the replay dead-letter queue are empty before the run.
+2. An explicit Deny on the processor role blocks DynamoDB writes to the latest-vitals table for one synthetic patient only (a `dynamodb:LeadingKeys` condition), and the run waits 45 seconds for IAM to apply it. The ten cohort patients are unaffected.
+3. One valid record for that patient goes onto the main stream, because the replay Lambda only replays the main stream.
+4. Checks: within 10 minutes the record reaches the replay dead-letter queue carrying `_replay_attempt` 1 and a "replay limit reached" reason, which proves the failure queue, one replay and the terminal path; no latest-vitals item exists for the synthetic patient; both queues are empty afterwards.
+5. Always, even after a failure: the Deny is removed, any item for the synthetic patient is deleted and the run's dead-letter message is removed.
+6. Side effect: the synthetic record and its one replay also reach raw storage through Firehose. The analytical models exclude patients outside the cohort, and the report says so.
+
+## Deployment session runbook
+
+One session deploys the development stack, runs the scenarios and tears everything down. Budget about three hours; at roughly $10 per day while deployed, that is a few dollars. Each apply and the teardown need the owner's go-ahead.
+
+1. **Before, no cost:** local CI passes on `main`; `.env` is complete; the AWS login for the development account works (`./scripts/infrastructure/check_prerequisites.sh local`).
+2. **IAM templates:** plan, review and apply them with `infra/iam/scripts/manage_policies.py` ([external prerequisites](external-prerequisites.md)). They changed since the last deployment.
+3. **Deploy:** follow the [quickstart](quickstart.md) steps 3 and 4: repositories, images, foundation, `run_fhir_setup.sh load`, application, convergence plan (`No changes`) and `run_fhir_setup.sh register`.
+4. **Test:** `.venv/bin/python -m e2e.run session`, then the [load test](load-testing.md). Also run the Glue job once, since its permissions changed, and confirm the realtime alarms are `OK`.
+5. **Evidence:** review the reports under `artifacts/e2e/`; commit the ones kept as evidence.
+6. **Teardown:** `teardown.sh prepare-plan` and `destroy-plan` with `CONFIRM_TEARDOWN`, then the storage cleanup and verification in the [infrastructure lifecycle guide](infrastructure-lifecycle.md).
+

@@ -181,6 +181,104 @@ def rejection(context: Context, report: Report) -> None:
     report.evidence["record_bytes_base64_length"] = len(base64.b64encode(json.dumps(record).encode()))
 
 
+REPLAY_DEADLINE_SECONDS = 600
+IAM_SETTLE_SECONDS = 45
+
+
+def replay(context: Context, report: Report) -> None:
+    """A valid record that keeps failing is replayed once and then parked as a terminal record in the dead-letter queue.
+
+    Writes are blocked only for one synthetic patient, through an explicit Deny on the processor role limited to that
+    partition key, so the ten cohort patients and live dashboards are untouched. The Deny is always removed.
+    """
+    iam, lam, sqs, kinesis = context.client("iam"), context.client("lambda"), context.client("sqs"), context.client("kinesis")
+    dynamodb = context.client("dynamodb")
+    queues = {"failure queue": context.output("realtime_failure_queue_url"), "replay dead-letter queue": context.output("realtime_replay_dlq_url")}
+    table_name = context.output("latest_vitals_table_name")
+    table_arn = context.output("latest_vitals_table_arn")
+    role_name = lam.get_function_configuration(FunctionName=context.output("realtime_processor_lambda_name"))["Role"].rsplit("/", 1)[-1]
+    run = uuid.uuid4().hex[:12]
+    patient_id, observation_id, policy_name = f"e2e-replay-{run}", f"e2e-replay-{run}", f"healthcare_realtime_e2e_replay_{run}"
+    report.parameters = {
+        "deadline_seconds": REPLAY_DEADLINE_SECONDS,
+        "iam_settle_seconds": IAM_SETTLE_SECONDS,
+        "patient": "one synthetic patient outside the cohort",
+    }
+
+    def depth(url: str) -> int:
+        attributes = sqs.get_queue_attributes(QueueUrl=url, AttributeNames=["ApproximateNumberOfMessages", "ApproximateNumberOfMessagesNotVisible"])[
+            "Attributes"
+        ]
+        return int(attributes["ApproximateNumberOfMessages"]) + int(attributes["ApproximateNumberOfMessagesNotVisible"])
+
+    if any(depth(url) for url in queues.values()):
+        raise Blocked("a failure queue already holds messages; inspect and drain it before this run")
+
+    deny = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Sid": "E2EReplayBlockOnePatient",
+                "Effect": "Deny",
+                "Action": ["dynamodb:PutItem", "dynamodb:UpdateItem"],
+                "Resource": table_arn,
+                "Condition": {"ForAnyValue:StringEquals": {"dynamodb:LeadingKeys": [patient_id]}},
+            }
+        ],
+    }
+    terminal_found = False
+    try:
+        iam.put_role_policy(RoleName=role_name, PolicyName=policy_name, PolicyDocument=json.dumps(deny))
+        time.sleep(IAM_SETTLE_SECONDS)
+        payload = {
+            "schema_version": "1.1",
+            "observation_id": observation_id,
+            "patient_id": patient_id,
+            "encounter_id": f"e2e-encounter-{run}",
+            "source": "e2e_replay",
+            "event_timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            "heart_rate": 72,
+        }
+        kinesis.put_record(StreamName=context.output("kinesis_stream_name"), Data=json.dumps(payload).encode(), PartitionKey=observation_id)
+
+        def terminal_message() -> dict | None:
+            messages = sqs.receive_message(QueueUrl=queues["replay dead-letter queue"], MaxNumberOfMessages=10, VisibilityTimeout=5, WaitTimeSeconds=5)
+            for message in messages.get("Messages", []):
+                body = json.loads(message["Body"])
+                if body.get("partition_key") == observation_id:
+                    return {"handle": message["ReceiptHandle"], "body": body}
+            return None
+
+        found: dict = {}
+        terminal_found = wait_until(lambda: bool(found.update(terminal_message() or {}) or found), REPLAY_DEADLINE_SECONDS, 15)
+        body = found.get("body", {})
+        replayed = json.loads(base64.b64decode(body.get("data_base64", "")) or b"{}").get("_replay_attempt") if body else None
+        report.check(
+            "Terminal record", "the record reaches the replay dead-letter queue within 10 minutes", "found" if terminal_found else "not found", terminal_found
+        )
+        report.check("Replayed once", "the parked record carries _replay_attempt 1", f"_replay_attempt {replayed}", replayed == 1)
+        report.check(
+            "Reason",
+            "the dead-letter body says the replay limit was reached",
+            "matches" if "replay limit reached" in str(body.get("reason", "")).lower() else "differs",
+            "replay limit reached" in str(body.get("reason", "")).lower(),
+        )
+        if found.get("handle"):
+            sqs.delete_message(QueueUrl=queues["replay dead-letter queue"], ReceiptHandle=found["handle"])
+        item = dynamodb.get_item(TableName=table_name, Key={"patient_id": {"S": patient_id}}).get("Item")
+        report.check("No write while blocked", "no latest-vitals item for the synthetic patient", "absent" if not item else "present", not item)
+    finally:
+        iam.delete_role_policy(RoleName=role_name, PolicyName=policy_name)
+        dynamodb.delete_item(TableName=table_name, Key={"patient_id": {"S": patient_id}})
+    wait_until(lambda: not any(depth(url) for url in queues.values()), 120, 15)
+    for name, url in queues.items():
+        count = depth(url)
+        report.check(f"Empty {name} afterwards", "no messages left by the run", f"{count} messages", count == 0)
+    report.evidence["side_effect"] = (
+        "the synthetic record and its one replay also reached raw storage through Firehose; the analytical models exclude patients outside the cohort"
+    )
+
+
 SCENARIOS = {
     "realtime": (
         realtime,
