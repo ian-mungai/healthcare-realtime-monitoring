@@ -28,7 +28,7 @@ This inventory lists technologies used by committed code, infrastructure, tests 
 | --- | --- |
 | Apache Airflow 3.3.1 and SQLAlchemy 2.0.50 | Portable native DAG, workflow-generation contract and SQL persistence compatibility in the pinned local toolchain |
 | MWAA Serverless | Daily AWS-managed orchestration without a continuously running Airflow environment |
-| dbt Core and dbt-athena | Staging, Kimball dimensions/fact, fixed-window features, model inputs and prediction views |
+| dbt Core and dbt-athena | Silver staging model, gold Kimball dimensions/fact, fixed-window features, model inputs and prediction views |
 | Great Expectations and Soda | Processed-table expectations plus analytical contracts and prediction freshness |
 | OpenLineage and Marquez | START/COMPLETE/FAIL lineage events, shared collector, SigV4 transport and S3 fallback |
 | Python, SQL, pandas, NumPy, PyAthena, scikit-learn and joblib | Data preparation, Athena analysis, feature engineering, logistic regression, evaluation, serialization and approved-model scoring |
@@ -44,7 +44,7 @@ This inventory lists technologies used by committed code, infrastructure, tests 
 | HTTP and service integration | Requests, HTTPX, Respx, WebSocket Client, Botocore signing, SQLAlchemy and PostgreSQL drivers |
 | Manual verification | Postman, AWS CLI, GitHub CLI, `jq`, Athena SQL, CloudWatch dashboards |
 | Infrastructure and delivery | Terraform AWS/AWSCC providers, Docker Buildx, Git, GitHub Actions, OIDC, protected environments, immutable image tags |
-| Quality engineering | pytest, unittest, pytest-cov, Ruff, MyPy, Terraform tests, container smoke tests, contract syntax checks, pre-commit, gitleaks, tflint and checkov |
+| Quality engineering | pytest, unittest, pytest-cov, Ruff, MyPy, Terraform tests, container smoke tests, contract syntax checks, pre-commit, gitleaks, tflint, checkov and SQLFluff |
 | Test-data toolchain | Java 17, Gradle, Synthea, WFDB, deterministic seeds and patient/encounter mapping |
 | Reporting | Power BI Desktop through the Amazon Athena connector and Athena ODBC 2.x driver; DirectQuery report pages, DAX measures, drillthrough and synchronized slicers; the `.pbix` remains outside the repository |
 

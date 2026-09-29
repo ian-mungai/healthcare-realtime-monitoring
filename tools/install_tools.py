@@ -1,9 +1,10 @@
 """Install the pinned command-line tools the repository checks need into ``.tools``.
 
 Run from the repository root: ``.venv/bin/python -m tools.install_tools``. Each binary download is checked against its
-pinned SHA-256 before anything is extracted, and nothing from it runs until the check passes. checkov is installed into
-its own virtual environment so its dependencies never touch ``.venv``. Idempotent: a tool whose installed version already
-matches is left alone.
+pinned SHA-256 before anything is extracted, and nothing from it runs until the check passes. checkov and SQLFluff (with
+the dbt templater, dbt-core and dbt-athena) are installed into their own virtual environments so their dependencies never
+touch ``.venv``; dbt-athena's pyathena range conflicts with the project pin. Idempotent: a tool whose installed version
+already matches is left alone.
 """
 
 from __future__ import annotations
@@ -41,6 +42,9 @@ TFLINT_ASSETS = {
 }
 
 CHECKOV_VERSION = "3.3.19"
+
+# dbt-core and dbt-athena match deploy/dbt/Dockerfile so SQLFluff compiles the models the way the dbt image runs them.
+SQLFLUFF_PACKAGES = ("sqlfluff==4.3.0", "sqlfluff-templater-dbt==4.3.0", "dbt-core==1.12.3", "dbt-athena==1.11.0")
 
 
 def installed_version(binary: Path, *args: str) -> str:
@@ -120,9 +124,25 @@ def install_checkov() -> str:
     return f"installed  checkov {installed_version(binary, '--version')} (isolated environment)"
 
 
+def install_sqlfluff() -> str:
+    """Install SQLFluff, its dbt templater and the pinned dbt packages into their own virtual environment under .tools."""
+    environment = TOOLS / "sqlfluff"
+    python = environment / "bin" / "python"
+    frozen = installed_version(python, "-m", "pip", "freeze").lower().splitlines()
+    if all(package in frozen for package in SQLFLUFF_PACKAGES):
+        return f"unchanged  {' '.join(SQLFLUFF_PACKAGES)}"
+    run_command(sys.executable, ["-m", "venv", "--clear", str(environment)], timeout=300, check=True)
+    run_command(str(python), ["-m", "pip", "install", "--quiet", *SQLFLUFF_PACKAGES], timeout=900, check=True)
+    TOOLS_BIN.mkdir(parents=True, exist_ok=True)
+    link = TOOLS_BIN / "sqlfluff"
+    link.unlink(missing_ok=True)
+    link.symlink_to(environment / "bin" / "sqlfluff")
+    return f"installed  {' '.join(SQLFLUFF_PACKAGES)} (isolated environment)"
+
+
 def main() -> int:
     """Install every pinned tool and report the result."""
-    for installer in (install_gitleaks, install_tflint, install_checkov):
+    for installer in (install_gitleaks, install_tflint, install_checkov, install_sqlfluff):
         sys.stdout.write(installer() + "\n")
     return 0
 

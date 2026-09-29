@@ -20,7 +20,7 @@ from tools.process import clear_git_environment, run_command
 
 ROOT = Path(__file__).resolve().parents[1]
 PRE_COMMIT = ROOT / ".venv" / "bin" / "pre-commit"
-COPIED = [".pre-commit-config.yaml", "pyproject.toml", ".env.example", ".checkov.yaml"]
+COPIED = [".pre-commit-config.yaml", "pyproject.toml", ".env.example", ".checkov.yaml", ".sqlfluff"]
 NOQA = "no" + "qa"
 TYPE_IGNORE = "type" + ": ignore"
 FAKE_PAT = "gh" + "p_" + "Zx7Qm2Lp9Rt4Wv8Ks3Nd6Hy1Bc5Fj0Ga2TeQ"
@@ -44,6 +44,11 @@ OPEN_SSH_GROUP = """resource "aws_security_group" "open" {
   }
 }
 """
+SQL_PROJECT = {
+    "dbt/dbt_project.yml": 'name: sample\nversion: "1.0.0"\nconfig-version: 2\nprofile: healthcare_realtime\nmodel-paths:\n  - models\n',
+    "deploy/dbt/profiles.yml": (ROOT / "deploy" / "dbt" / "profiles.yml").read_text(),
+}
+SQLFLUFF_CONFIG = (ROOT / ".sqlfluff").read_text()
 TERRAFORM_VERSIONS = 'terraform {\n  required_version = ">= 1.11"\n}\n\n'
 
 
@@ -94,6 +99,11 @@ CASES = [
     Case("unused Terraform variable", "tflint", False, {"infra/main.tf": TERRAFORM_VERSIONS + 'variable "unused" {\n  type = string\n}\n'}),
     Case("Terraform without findings", "checkov", True, {"infra/main.tf": 'output "region" {\n  value = "us-west-2"\n}\n'}),
     Case("SSH open to the internet", "checkov", False, {"infra/main.tf": OPEN_SSH_GROUP}),
+    Case("styled dbt model", "sqlfluff", True, {"dbt/models/sample.sql": "select\n    1 as sample_id,\n    'a' as sample_code\n"}, committed=SQL_PROJECT),
+    Case("upper-case SQL keywords", "sqlfluff", False, {"dbt/models/sample.sql": "SELECT\n    1 AS sample_id\n"}, committed=SQL_PROJECT),
+    Case("SQL noqa comment", "suppressions", False, {"dbt/models/sample.sql": "select 1 as sample_id  -- " + NOQA + "\n"}),
+    Case("SQLFluff rule excluded", "lint-settings", False, {".sqlfluff": SQLFLUFF_CONFIG.replace("[sqlfluff]\n", "[sqlfluff]\nexclude_rules = LT02\n")}),
+    Case("SQLFluff templater changed", "lint-settings", False, {".sqlfluff": SQLFLUFF_CONFIG.replace("templater = dbt", "templater = jinja")}),
     Case("checkov skip added", "lint-settings", False, {".checkov.yaml": CHECKOV_CONFIG + "  - CKV_AWS_24  # sample\n"}),
     Case("documented variable", "env-example", True, {"scripts/tool.py": "import os\n\nNAME = " + ENVIRON + '.get("AWS_REGION", "")\n'}),
     Case("undocumented variable", "env-example", False, {"scripts/tool.py": "import os\n\nNAME = " + ENVIRON + '["NEW_SETTING"]\n'}),

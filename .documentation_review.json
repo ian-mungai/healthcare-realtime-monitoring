@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "reviewer": "AI review agent",
-  "reviewed_at_utc": "2026-09-29T03:02:47Z",
-  "snapshot_sha256": "e722a75509c38447495ef248e6a92dc73a7690f02a3ff8985c72ac46fcd43a88",
+  "reviewed_at_utc": "2026-09-29T03:03:07Z",
+  "snapshot_sha256": "b1584806755d80d49ac8b95c41dbc6442ff74d82fc2cb2bf07814af83b91515c",
   "extra_documents": [],
   "documents": [
     {
@@ -20,13 +20,13 @@
     {
       "path": "README.md",
       "blob": "2f1b29da8235caf63e884085b7558f38c244161a",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "Repository Layout dbt row names the silver and gold models."
     },
     {
       "path": "docs/analytics-star-schema.md",
       "blob": "72c54340abe7ab5d6cf4a936285146d6ca0f2e5b",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "Added the Model layers section: bronze sources, silver staging view and gold star schema and ML datasets, matching dbt ls output after the rename."
     },
     {
@@ -127,9 +127,9 @@
     },
     {
       "path": "docs/quality-checks.md",
-      "blob": "68d83219614b1af15fbe7414d75a82e57155fda5",
-      "outcome": "current",
-      "notes": "Terraform section now says checkov blocks and lists every accepted rule with its reason; matches .checkov.yaml and tools/repo_checks.py."
+      "blob": "f8786aa7cc123e7b5406522f28183315491b97dd",
+      "outcome": "updated",
+      "notes": "Setup explains the isolated SQLFluff and dbt environment and why; new SQL section describes the settings, runner, lint-settings guard and noqa block, with report and fix commands."
     },
     {
       "path": "docs/quickstart.md",
@@ -157,9 +157,9 @@
     },
     {
       "path": "docs/technology-inventory.md",
-      "blob": "f036ee7c64f0efdbe0e2feacce5b0dd2ffcb646d",
-      "outcome": "current",
-      "notes": "Tools and services match the committed code, including pre-commit, gitleaks, tflint and checkov."
+      "blob": "5ef128db554478057050143381b26e407904319e",
+      "outcome": "updated",
+      "notes": "dbt row names the silver staging model and gold dimensions; quality engineering lists SQLFluff."
     }
   ]
 }

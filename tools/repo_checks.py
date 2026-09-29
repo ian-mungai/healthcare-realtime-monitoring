@@ -10,6 +10,7 @@ docs/quality-checks.md.
 from __future__ import annotations
 
 import argparse
+import configparser
 import fnmatch
 import os
 import re
@@ -41,7 +42,7 @@ DATA_EXTENSIONS = {".csv", ".tsv", ".parquet", ".xlsx", ".xls", ".jsonl", ".ndjs
 DATA_FOLDERS = ("dbt/seeds/", "tests/fixtures/")  # Declared folders for synthetic seeds and fixtures only.
 MAX_BYTES = 5 * 1024 * 1024
 
-NOQA = re.compile(r"#\s*" + "no" + r"qa\b(?::\s*(?P<codes>[A-Z]+\d+(?:\s*,\s*[A-Z]+\d+)*))?(?P<rest>.*)", re.IGNORECASE)
+NOQA = re.compile(r"(?:#|--)\s*" + "no" + r"qa\b(?::\s*(?P<codes>[A-Z]+\d+(?:\s*,\s*[A-Z]+\d+)*))?(?P<rest>.*)", re.IGNORECASE)
 OTHER_SUPPRESSIONS = re.compile("|".join([r"#\s*type:\s*" + "ignore", "eslint" + "-disable", "@ts-" + "ignore", "@ts-" + "expect-error"]))
 APPROVED_SUPPRESSIONS = {"S603": "tools/process.py"}  # Rule code: the one file allowed to carry it.
 REASON = re.compile(r"^\s+-\s+\S")
@@ -99,6 +100,9 @@ CHECKOV_ACCEPTED = {
     "CKV_AWS_50",
     "CKV_AWS_91",
 }
+# SQLFluff settings the dbt models must keep (docs/quality-checks.md#sql); rule selection may not be narrowed.
+SQLFLUFF_REQUIRED = {"sqlfluff": {"templater": "dbt", "dialect": "athena", "max_line_length": "160"}}
+SQLFLUFF_LOOSENING_KEYS = {"rules", "exclude_rules", "ignore", "ignore_templated_areas", "warnings", "large_file_skip_byte_limit", "processes"}
 CHECKOV_SKIP = re.compile(r"^\s*-\s*(CKV\w+)", re.MULTILINE)
 
 ENV_READ = re.compile(r"""(?:os\.environ(?:\.get)?\s*[\[(]\s*|os\.getenv\s*\(\s*|required_env\s*\(\s*)["']([A-Z][A-Z0-9_]*)["']""")
@@ -219,12 +223,29 @@ def lint_settings() -> list[Finding]:
         findings.append(Finding("pyproject.toml", f"MyPy excludes added: {', '.join(added)}", rule, "type-check the code instead of excluding it"))
     if mypy.get("strict") is False:
         findings.append(Finding("pyproject.toml", "MyPy strict is switched off", rule, "remove strict = false"))
+    findings.extend(sqlfluff_settings(rule))
     checkov = Path(".checkov.yaml")
     unapproved = sorted(set(CHECKOV_SKIP.findall(checkov.read_text())) - CHECKOV_ACCEPTED) if checkov.exists() else []
     if unapproved:
         findings.append(
             Finding(".checkov.yaml", f"checkov rules skipped without approval: {', '.join(unapproved)}", rule, "fix the Terraform instead of skipping the rule")
         )
+    return findings
+
+
+def sqlfluff_settings(rule: str) -> list[Finding]:
+    """SQLFluff keeps the dbt templater, the Athena dialect and line length 160, and never narrows its rules."""
+    config = configparser.ConfigParser()
+    if not config.read(".sqlfluff"):
+        return [Finding(".sqlfluff", "SQLFluff configuration missing", rule, "restore .sqlfluff")]
+    findings = []
+    for section, required in SQLFLUFF_REQUIRED.items():
+        for key, value in required.items():
+            if config.get(section, key, fallback=None) != value:
+                findings.append(Finding(".sqlfluff", f"[{section}] {key} must be {value}", rule, f"restore {key} = {value}"))
+    loosening = sorted({key for section in config.sections() for key in config[section]} & SQLFLUFF_LOOSENING_KEYS)
+    if loosening:
+        findings.append(Finding(".sqlfluff", f"SQLFluff loosening keys present: {', '.join(loosening)}", rule, "remove them and fix the SQL"))
     return findings
 
 

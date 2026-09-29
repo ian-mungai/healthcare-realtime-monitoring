@@ -10,7 +10,7 @@ Every commit runs the hooks in `.pre-commit-config.yaml` through `.githooks/`, a
 git config core.hooksPath .githooks
 ```
 
-`tools/install_tools.py` installs pinned gitleaks and tflint binaries after verifying their SHA-256 checksums, and a pinned checkov release in its own virtual environment under the ignored `.tools/` folder.
+`tools/install_tools.py` installs pinned gitleaks and tflint binaries after verifying their SHA-256 checksums, and pinned checkov and SQLFluff releases in their own virtual environments under the ignored `.tools/` folder. SQLFluff's environment also holds dbt-core and dbt-athena at the versions the dbt image uses; they stay out of `.venv` because dbt-athena's `pyathena` range conflicts with the project pin.
 
 Run every hook across the repository:
 
@@ -56,6 +56,15 @@ Ruff keeps line length 160 and at least the rule families `E`, `F`, `I`, `B`, `U
 | Rule | Allowed only in | Condition |
 | --- | --- | --- |
 | Ruff `S603` | `tools/process.py` | Full executable path, list arguments, no shell, stdin closed and a timeout, with the reason on the line |
+
+## SQL
+
+SQLFluff lints every dbt model and singular test with the dbt templater and the Athena dialect, using the settings in `.sqlfluff`: lowercase keywords, functions, literals and types, four-space indentation, trailing commas and line length 160. `tools/lint_sql.py` runs it with fixed placeholder deployment names, so the result never depends on a local `.env` and nothing connects to AWS. The lint-settings check keeps the templater, dialect and line length and blocks any setting that narrows the rules; SQL `noqa` comments are blocked like Python suppressions.
+
+```zsh
+.venv/bin/python -m tools.lint_sql          # report
+.venv/bin/python -m tools.lint_sql --fix    # apply SQLFluff's layout fixes, then review the diff
+```
 
 ## Process Launcher
 
