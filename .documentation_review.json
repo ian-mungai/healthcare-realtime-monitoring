@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "reviewer": "AI review agent",
-  "reviewed_at_utc": "2026-09-29T03:03:07Z",
-  "snapshot_sha256": "b1584806755d80d49ac8b95c41dbc6442ff74d82fc2cb2bf07814af83b91515c",
+  "reviewed_at_utc": "2026-09-29T03:14:42Z",
+  "snapshot_sha256": "5ec220782139c2145096d8ab6bca30e2820d96700b424b35a2b329fed62bad87",
   "extra_documents": [],
   "documents": [
     {
@@ -127,9 +127,9 @@
     },
     {
       "path": "docs/quality-checks.md",
-      "blob": "f8786aa7cc123e7b5406522f28183315491b97dd",
+      "blob": "152f351e5db0b14150361ae19b4dbea6dc151ed5",
       "outcome": "updated",
-      "notes": "Setup explains the isolated SQLFluff and dbt environment and why; new SQL section describes the settings, runner, lint-settings guard and noqa block, with report and fix commands."
+      "notes": "SQL section now explains the relation-cache entry point, placeholder AWS credentials and that SQLFluff runs only through tools/lint_sql.py."
     },
     {
       "path": "docs/quickstart.md",
@@ -158,7 +158,7 @@
     {
       "path": "docs/technology-inventory.md",
       "blob": "5ef128db554478057050143381b26e407904319e",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "dbt row names the silver staging model and gold dimensions; quality engineering lists SQLFluff."
     }
   ]

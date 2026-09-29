@@ -59,7 +59,7 @@ Ruff keeps line length 160 and at least the rule families `E`, `F`, `I`, `B`, `U
 
 ## SQL
 
-SQLFluff lints every dbt model and singular test with the dbt templater and the Athena dialect, using the settings in `.sqlfluff`: lowercase keywords, functions, literals and types, four-space indentation, trailing commas and line length 160. `tools/lint_sql.py` runs it with fixed placeholder deployment names, so the result never depends on a local `.env` and nothing connects to AWS. The lint-settings check keeps the templater, dialect and line length and blocks any setting that narrows the rules; SQL `noqa` comments are blocked like Python suppressions.
+SQLFluff lints every dbt model and singular test with the dbt templater and the Athena dialect, using the settings in `.sqlfluff`: lowercase keywords, functions, literals and types, four-space indentation, trailing commas and line length 160. `tools/lint_sql.py` runs it with fixed placeholder deployment names, so the result never depends on a local `.env`. The dbt templater normally lists the Glue catalog before compiling; `tools/sqlfluff_offline.py` turns that off, and the runner removes any AWS profile and supplies placeholder credentials, so linting never reaches AWS and any attempt fails instead of using a real login. Run SQLFluff only through this runner. The lint-settings check keeps the templater, dialect and line length and blocks any setting that narrows the rules; SQL `noqa` comments are blocked like Python suppressions.
 
 ```zsh
 .venv/bin/python -m tools.lint_sql          # report

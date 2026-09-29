@@ -125,7 +125,10 @@ def install_checkov() -> str:
 
 
 def install_sqlfluff() -> str:
-    """Install SQLFluff, its dbt templater and the pinned dbt packages into their own virtual environment under .tools."""
+    """Install SQLFluff, its dbt templater and the pinned dbt packages into their own virtual environment under .tools.
+
+    There is no .tools/bin link: SQLFluff runs only through tools/lint_sql.py, which keeps the dbt templater offline.
+    """
     environment = TOOLS / "sqlfluff"
     python = environment / "bin" / "python"
     frozen = installed_version(python, "-m", "pip", "freeze").lower().splitlines()
@@ -133,10 +136,6 @@ def install_sqlfluff() -> str:
         return f"unchanged  {' '.join(SQLFLUFF_PACKAGES)}"
     run_command(sys.executable, ["-m", "venv", "--clear", str(environment)], timeout=300, check=True)
     run_command(str(python), ["-m", "pip", "install", "--quiet", *SQLFLUFF_PACKAGES], timeout=900, check=True)
-    TOOLS_BIN.mkdir(parents=True, exist_ok=True)
-    link = TOOLS_BIN / "sqlfluff"
-    link.unlink(missing_ok=True)
-    link.symlink_to(environment / "bin" / "sqlfluff")
     return f"installed  {' '.join(SQLFLUFF_PACKAGES)} (isolated environment)"
 
 

@@ -77,7 +77,7 @@ repos:
         entry: .venv/bin/python -m tools.lint_sql
         language: system
         pass_filenames: false
-        files: ^(dbt/.*\.(sql|yml)|deploy/dbt/profiles\.yml|\.sqlfluff|tools/lint_sql\.py)$
+        files: ^(dbt/.*\.(sql|yml)|deploy/dbt/profiles\.yml|\.sqlfluff|tools/(lint_sql|sqlfluff_offline)\.py)$
       - id: terraform-fmt
         name: Terraform format
         entry: terraform fmt -check -recursive infra
