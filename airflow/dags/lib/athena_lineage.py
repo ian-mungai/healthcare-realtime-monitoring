@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import os
+import re
 import time
+from string import Template
 from typing import Any
 from uuid import uuid4
 
@@ -12,13 +14,15 @@ from lineage.openlineage.athena_lineage import emit_s3_athena_lineage
 
 ATHENA_POLL_INTERVAL_SECONDS = int(os.getenv("ATHENA_POLL_INTERVAL_SECONDS", "5"))
 ATHENA_TERMINAL_STATES = {"SUCCEEDED", "FAILED", "CANCELLED"}
+IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
-def validation_query(database: str, table: str) -> str:
-    return f"""
+# Athena cannot bind identifiers as query parameters, so names are checked against IDENTIFIER_PATTERN first.
+VALIDATION_QUERY = Template(
+    """
     WITH invalid_rows AS (
         SELECT 1 AS violation
-        FROM {database}.{table}
+        FROM $table
         WHERE observation_id IS NULL
         OR patient_id IS NULL
         OR patient_id = ''
@@ -28,7 +32,7 @@ def validation_query(database: str, table: str) -> str:
     ),
     duplicate_grains AS (
         SELECT observation_id, loinc_code
-        FROM {database}.{table}
+        FROM $table
         WHERE observation_id IS NOT NULL
         AND loinc_code IS NOT NULL
         GROUP BY observation_id, loinc_code
@@ -37,7 +41,15 @@ def validation_query(database: str, table: str) -> str:
     SELECT
         (SELECT COUNT(*) FROM invalid_rows)
         + (SELECT COUNT(*) FROM duplicate_grains) AS invalid_row_count
-    """.strip()
+    """
+)
+
+
+def validation_query(database: str, table: str) -> str:
+    for identifier in (database, table):
+        if not IDENTIFIER_PATTERN.fullmatch(identifier):
+            raise ValueError(f"Invalid Athena identifier: {identifier}")
+    return VALIDATION_QUERY.substitute(table=f"{database}.{table}").strip()
 
 
 def emit_athena_lineage_event(run_state: RunState, lineage_run_id: str | None = None) -> str:

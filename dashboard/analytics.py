@@ -2,11 +2,75 @@ from __future__ import annotations
 
 import re
 import time
+from string import Template
 from typing import Any
 
 import boto3
 
 IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+# Athena cannot bind identifiers as query parameters, so every name is checked against IDENTIFIER_PATTERN first.
+LATEST_PREDICTIONS_QUERY = Template(
+    """
+with ranked as (
+    select
+        patients.patient_reference as patient_id,
+        encounters.encounter_id,
+        predictions.encounter_key,
+        predictions.model_version,
+        predictions.deterioration_probability,
+        predictions.predicted_label,
+        predictions.decision_threshold,
+        predictions.proxy_risk_band,
+        predictions.feature_schema_version,
+        predictions.label_definition_version,
+        predictions.dataset_fingerprint,
+        predictions.prediction_scope,
+        predictions.is_clinically_validated,
+        predictions.scored_at,
+        features.feature_observation_count,
+        features.heart_rate_mean,
+        features.respiratory_rate_mean,
+        features.spo2_mean,
+        features.systolic_bp_mean,
+        features.diastolic_bp_mean,
+        row_number() over (
+            partition by predictions.patient_key
+            order by predictions.scored_at desc, predictions.encounter_key desc
+        ) as patient_rank
+    from $database.$predictions_table as predictions
+    inner join $database.$patient_table as patients
+        on predictions.patient_key = patients.patient_key
+    inner join $database.$encounter_table as encounters
+        on predictions.encounter_key = encounters.encounter_key
+    left join $database.$features_table as features
+        on predictions.encounter_key = features.encounter_key
+)
+select
+    patient_id,
+    encounter_id,
+    encounter_key,
+    model_version,
+    deterioration_probability,
+    predicted_label,
+    decision_threshold,
+    proxy_risk_band,
+    feature_schema_version,
+    label_definition_version,
+    dataset_fingerprint,
+    prediction_scope,
+    is_clinically_validated,
+    scored_at,
+    feature_observation_count,
+    heart_rate_mean,
+    respiratory_rate_mean,
+    spo2_mean,
+    systolic_bp_mean,
+    diastolic_bp_mean
+from ranked
+where patient_rank = 1
+order by deterioration_probability desc, patient_id
+"""
+)
 
 
 def _cell_value(cell: dict[str, str]) -> str | None:
@@ -68,66 +132,9 @@ def load_latest_predictions(
         raise ValueError("Athena output location must be an S3 URI")
 
     client = athena_client or boto3.client("athena", region_name=region)
-    query = f"""
-with ranked as (
-    select
-        patients.patient_reference as patient_id,
-        encounters.encounter_id,
-        predictions.encounter_key,
-        predictions.model_version,
-        predictions.deterioration_probability,
-        predictions.predicted_label,
-        predictions.decision_threshold,
-        predictions.proxy_risk_band,
-        predictions.feature_schema_version,
-        predictions.label_definition_version,
-        predictions.dataset_fingerprint,
-        predictions.prediction_scope,
-        predictions.is_clinically_validated,
-        predictions.scored_at,
-        features.feature_observation_count,
-        features.heart_rate_mean,
-        features.respiratory_rate_mean,
-        features.spo2_mean,
-        features.systolic_bp_mean,
-        features.diastolic_bp_mean,
-        row_number() over (
-            partition by predictions.patient_key
-            order by predictions.scored_at desc, predictions.encounter_key desc
-        ) as patient_rank
-    from {database}.{predictions_table} as predictions
-    inner join {database}.{patient_table} as patients
-        on predictions.patient_key = patients.patient_key
-    inner join {database}.{encounter_table} as encounters
-        on predictions.encounter_key = encounters.encounter_key
-    left join {database}.{features_table} as features
-        on predictions.encounter_key = features.encounter_key
-)
-select
-    patient_id,
-    encounter_id,
-    encounter_key,
-    model_version,
-    deterioration_probability,
-    predicted_label,
-    decision_threshold,
-    proxy_risk_band,
-    feature_schema_version,
-    label_definition_version,
-    dataset_fingerprint,
-    prediction_scope,
-    is_clinically_validated,
-    scored_at,
-    feature_observation_count,
-    heart_rate_mean,
-    respiratory_rate_mean,
-    spo2_mean,
-    systolic_bp_mean,
-    diastolic_bp_mean
-from ranked
-where patient_rank = 1
-order by deterioration_probability desc, patient_id
-""".strip()
+    query = LATEST_PREDICTIONS_QUERY.substitute(
+        database=database, encounter_table=encounter_table, features_table=features_table, patient_table=patient_table, predictions_table=predictions_table
+    ).strip()
     response = client.start_query_execution(
         QueryString=query,
         QueryExecutionContext={"Database": database, "Catalog": catalog},

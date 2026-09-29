@@ -3,9 +3,11 @@ import pytest
 from services.fhir_webhook.app.subscription import build_observation_subscription
 from testkit import expect
 
+SAMPLE_CREDENTIAL = "secret_123"
+
 
 def test_build_observation_subscription():
-    subscription = build_observation_subscription(webhook_url="https://example.com/webhooks/fhir", webhook_secret="secret_123")
+    subscription = build_observation_subscription(webhook_url="https://example.com/webhooks/fhir", webhook_secret=SAMPLE_CREDENTIAL)
 
     expect.equal(subscription["resourceType"], "Subscription")
     expect.equal(subscription["status"], "requested")
@@ -17,4 +19,4 @@ def test_build_observation_subscription():
 
 def test_subscription_requires_https():
     with pytest.raises(ValueError, match="HTTPS"):
-        build_observation_subscription(webhook_url="http://example.com/webhooks/fhir", webhook_secret="secret_123")
+        build_observation_subscription(webhook_url="http://example.com/webhooks/fhir", webhook_secret=SAMPLE_CREDENTIAL)

@@ -8,21 +8,21 @@ from services.fhir_webhook.app import lambda_handler as webhook_lambda_handler
 from services.fhir_webhook.app.kinesis.client import KinesisPublisherError, KinesisPublishResult
 from testkit import expect
 
-TEST_SECRET = "test_webhook_secret"
+TEST_CREDENTIAL = "test_webhook_secret"
 
 os.environ["KINESIS_STREAM_NAME"] = "healthcare_realtime_vitals"
 os.environ["AWS_REGION"] = "example-region-1"
 
 
 def lambda_handler(event, context):
-    event.setdefault("headers", {}).setdefault("x-webhook-secret", TEST_SECRET)
+    event.setdefault("headers", {}).setdefault("x-webhook-secret", TEST_CREDENTIAL)
     return webhook_lambda_handler.lambda_handler(event, context)
 
 
 @pytest.fixture(autouse=True)
 def webhook_secret():
     webhook_lambda_handler.get_kinesis_publisher.cache_clear()
-    with patch("services.fhir_webhook.app.security.get_webhook_secret", return_value=TEST_SECRET):
+    with patch("services.fhir_webhook.app.security.get_webhook_secret", return_value=TEST_CREDENTIAL):
         yield
     webhook_lambda_handler.get_kinesis_publisher.cache_clear()
 
@@ -98,7 +98,7 @@ def test_observation_is_published(mock_publisher_class):
     response = lambda_handler(
         {
             "routeKey": "POST /webhooks/fhir",
-            "headers": {"x-webhook-secret": TEST_SECRET},
+            "headers": {"x-webhook-secret": TEST_CREDENTIAL},
             "body": json.dumps({"resourceType": "Observation", "id": "observation_123", "status": "final", "subject": {"reference": "Patient/patient_123"}}),
         },
         None,
@@ -118,7 +118,7 @@ def test_observation_without_patient_reference_returns_400(mock_publisher_class)
     response = lambda_handler(
         {
             "routeKey": "POST /webhooks/fhir",
-            "headers": {"x-webhook-secret": TEST_SECRET},
+            "headers": {"x-webhook-secret": TEST_CREDENTIAL},
             "body": json.dumps({"resourceType": "Observation", "id": "observation_123", "status": "final"}),
         },
         None,
@@ -137,7 +137,7 @@ def test_unsupported_vital_returns_400(mock_publisher_class):
     response = lambda_handler(
         {
             "routeKey": "POST /webhooks/fhir",
-            "headers": {"x-webhook-secret": TEST_SECRET},
+            "headers": {"x-webhook-secret": TEST_CREDENTIAL},
             "body": json.dumps({"resourceType": "Observation", "id": "observation_123", "status": "final", "subject": {"reference": "Patient/patient_123"}}),
         },
         None,
@@ -156,7 +156,7 @@ def test_missing_vital_value_returns_400(mock_publisher_class):
     response = lambda_handler(
         {
             "routeKey": "POST /webhooks/fhir",
-            "headers": {"x-webhook-secret": TEST_SECRET},
+            "headers": {"x-webhook-secret": TEST_CREDENTIAL},
             "body": json.dumps({"resourceType": "Observation", "id": "observation_123", "status": "final", "subject": {"reference": "Patient/patient_123"}}),
         },
         None,
@@ -175,7 +175,7 @@ def test_kinesis_failure_returns_503(mock_publisher_class):
     response = lambda_handler(
         {
             "routeKey": "POST /webhooks/fhir",
-            "headers": {"x-webhook-secret": TEST_SECRET},
+            "headers": {"x-webhook-secret": TEST_CREDENTIAL},
             "body": json.dumps({"resourceType": "Observation", "id": "observation_123", "status": "final", "subject": {"reference": "Patient/patient_123"}}),
         },
         None,
@@ -231,7 +231,7 @@ def test_hapi_fhir_update_is_published(mock_publisher_class):
         {
             "routeKey": "PUT /webhooks/fhir/{resource_type}/{resource_id}",
             "pathParameters": {"resource_type": "Observation", "resource_id": "observation_123"},
-            "headers": {"x-webhook-secret": TEST_SECRET},
+            "headers": {"x-webhook-secret": TEST_CREDENTIAL},
             "body": json.dumps(observation),
         },
         None,
@@ -249,7 +249,7 @@ def test_hapi_fhir_update_resource_type_mismatch_returns_400(mock_publisher_clas
         {
             "routeKey": "PUT /webhooks/fhir/{resource_type}/{resource_id}",
             "pathParameters": {"resource_type": "Patient", "resource_id": "observation_123"},
-            "headers": {"x-webhook-secret": TEST_SECRET},
+            "headers": {"x-webhook-secret": TEST_CREDENTIAL},
             "body": json.dumps({"resourceType": "Observation", "id": "observation_123", "status": "final"}),
         },
         None,
@@ -266,7 +266,7 @@ def test_hapi_fhir_update_resource_id_mismatch_returns_400(mock_publisher_class)
         {
             "routeKey": "PUT /webhooks/fhir/{resource_type}/{resource_id}",
             "pathParameters": {"resource_type": "Observation", "resource_id": "observation_456"},
-            "headers": {"x-webhook-secret": TEST_SECRET},
+            "headers": {"x-webhook-secret": TEST_CREDENTIAL},
             "body": json.dumps({"resourceType": "Observation", "id": "observation_123", "status": "final"}),
         },
         None,

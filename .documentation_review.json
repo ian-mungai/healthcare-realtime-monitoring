@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "reviewer": "AI review agent",
-  "reviewed_at_utc": "2026-09-29T03:35:49Z",
-  "snapshot_sha256": "3ae773bbcedee6062db7a34e284b8187530c314c1ade1eadd859c75e5ee3d372",
+  "reviewed_at_utc": "2026-09-29T03:40:50Z",
+  "snapshot_sha256": "619e7c9e1c875a68355142b352b4eb08efae688c10b820466f6638216320ceb1",
   "extra_documents": [],
   "documents": [
     {
@@ -20,7 +20,7 @@
     {
       "path": "README.md",
       "blob": "8fa8fedd66bf18bcbe317a6dee2e4e2b865468d8",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "Repository Layout lists testkit/."
     },
     {
@@ -127,9 +127,9 @@
     },
     {
       "path": "docs/quality-checks.md",
-      "blob": "1479c304d3fa701077c4cd21278d129ed9c86941",
+      "blob": "5dcb3c39e2d9a147bfda3bfa8f94d263bd8e9d70",
       "outcome": "updated",
-      "notes": "Lint and Type Settings explains testkit.expect and the if-with-fail pattern for narrowing."
+      "notes": "Lint and Type Settings adds the S family and the validated-identifier Template rule for Athena queries."
     },
     {
       "path": "docs/quickstart.md",
