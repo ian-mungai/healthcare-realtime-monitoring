@@ -11,12 +11,13 @@ from services.vitals_simulator.app.bidmc.source import (
     normalize_channel_name,
     normalize_optional_float,
 )
+from testkit import expect
 
 
 def test_build_record_name():
-    assert build_record_name(1) == "bidmc01n"
+    expect.equal(build_record_name(1), "bidmc01n")
 
-    assert build_record_name(53) == "bidmc53n"
+    expect.equal(build_record_name(53), "bidmc53n")
 
 
 def test_invalid_record_number():
@@ -28,29 +29,29 @@ def test_invalid_record_number():
 
 
 def test_normalize_optional_float():
-    assert normalize_optional_float(94.0) == 94.0
+    expect.equal(normalize_optional_float(94.0), 94.0)
 
-    assert normalize_optional_float(np.nan) is None
+    expect.identical(normalize_optional_float(np.nan), None)
 
 
 def test_normalize_channel_name():
-    assert normalize_channel_name("HR,") == "HR"
+    expect.equal(normalize_channel_name("HR,"), "HR")
 
-    assert normalize_channel_name("RESP,") == "RESP"
+    expect.equal(normalize_channel_name("RESP,"), "RESP")
 
-    assert normalize_channel_name("SpO2,") == "SPO2"
+    expect.equal(normalize_channel_name("SpO2,"), "SPO2")
 
-    assert normalize_channel_name(" HR, ") == "HR"
+    expect.equal(normalize_channel_name(" HR, "), "HR")
 
 
 def test_find_channel_index_with_bidmc_names():
     signal_names = ["HR,", "PULSE,", "RESP,", "SpO2,"]
 
-    assert find_channel_index(signal_names, {"HR"}) == 0
+    expect.equal(find_channel_index(signal_names, {"HR"}), 0)
 
-    assert find_channel_index(signal_names, {"RESP", "RR"}) == 2
+    expect.equal(find_channel_index(signal_names, {"RESP", "RR"}), 2)
 
-    assert find_channel_index(signal_names, {"SPO2"}) == 3
+    expect.equal(find_channel_index(signal_names, {"SPO2"}), 3)
 
 
 def test_fetch_remote_bidmc_record_uses_s3_cache(monkeypatch):
@@ -62,7 +63,7 @@ def test_fetch_remote_bidmc_record_uses_s3_cache(monkeypatch):
 
     monkeypatch.setattr(source.wfdb, "rdsamp", remote_fetch)
 
-    assert fetch_remote_bidmc_record(1) == cached
+    expect.equal(fetch_remote_bidmc_record(1), cached)
 
 
 def test_fetch_physionet_record_retries_then_succeeds(monkeypatch):
@@ -81,7 +82,7 @@ def test_fetch_physionet_record_retries_then_succeeds(monkeypatch):
 
     source.fetch_physionet_record("bidmc01n")
 
-    assert attempts == 3
+    expect.equal(attempts, 3)
 
 
 def test_load_cached_bidmc_record_returns_none_when_object_is_missing(monkeypatch):
@@ -93,7 +94,7 @@ def test_load_cached_bidmc_record_returns_none_when_object_is_missing(monkeypatc
     monkeypatch.setenv("BIDMC_CACHE_S3_BUCKET", "healthcare-test")
     monkeypatch.setattr(source.boto3, "client", lambda _service_name: MissingCacheClient())
 
-    assert source.load_cached_bidmc_record("bidmc01n") is None
+    expect.identical(source.load_cached_bidmc_record("bidmc01n"), None)
 
 
 def test_fetch_physionet_record_fails_after_bounded_retries(monkeypatch):

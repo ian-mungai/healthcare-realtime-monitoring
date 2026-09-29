@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+from testkit import expect
+
 OUTPUT_DIR = Path(__file__).resolve().parents[1] / "synthea" / "output" / "fhir"
 
 
@@ -27,20 +29,25 @@ def get_resource_types(bundle):
 def test_fhir_bundle_generated():
     bundles = load_fhir_bundles()
 
-    assert bundles, "No FHIR Bundles were generated"
+    if not bundles:
+        expect.fail("No FHIR Bundles were generated")
 
 
 def test_bundle_contains_patient():
     bundles = load_fhir_bundles()
 
-    assert bundles, "No FHIR Bundles were generated"
+    if not bundles:
+        expect.fail("No FHIR Bundles were generated")
 
-    assert any("Patient" in get_resource_types(bundle) for bundle in bundles), "No generated FHIR Bundle contains a Patient resource"
+    if not any("Patient" in get_resource_types(bundle) for bundle in bundles):
+        expect.fail("No generated FHIR Bundle contains a Patient resource")
 
 
 def test_bundle_contains_encounter():
     bundles = load_fhir_bundles()
 
-    assert bundles, "No FHIR Bundles were generated"
+    if not bundles:
+        expect.fail("No FHIR Bundles were generated")
 
-    assert any("Encounter" in get_resource_types(bundle) for bundle in bundles), "No generated FHIR Bundle contains an Encounter resource"
+    if not any("Encounter" in get_resource_types(bundle) for bundle in bundles):
+        expect.fail("No generated FHIR Bundle contains an Encounter resource")

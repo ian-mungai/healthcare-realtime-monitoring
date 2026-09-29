@@ -1,6 +1,7 @@
 from services.vitals_simulator.app.fhir.client import CreatedFHIRResource
 from services.vitals_simulator.app.fhir.publisher import publish_simulator_event
 from services.vitals_simulator.app.simulation.event import SimulatorEvent
+from testkit import expect
 
 
 class FakeFHIRClient:
@@ -31,7 +32,7 @@ def test_publish_simulator_event():
     client = FakeFHIRClient()
     result = publish_simulator_event(event, client)
 
-    assert result.published_count == 3
-    assert len(result.resources) == 3
-    assert len(client.resources) == 3
-    assert result.resources[0].resource_id == "observation_1"
+    expect.equal(result.published_count, 3)
+    expect.equal(len(result.resources), 3)
+    expect.equal(len(client.resources), 3)
+    expect.equal(result.resources[0].resource_id, "observation_1")

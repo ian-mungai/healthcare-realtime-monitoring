@@ -2,6 +2,8 @@ from pathlib import Path
 
 import yaml
 
+from testkit import expect
+
 ROOT = Path(__file__).resolve().parents[3]
 
 CONTRACTS_DIR = ROOT / "data_quality" / "soda" / "contracts"
@@ -26,7 +28,7 @@ EXPECTED_CONTRACT_FILES = {
 def test_soda_contract_files_exist() -> None:
     contract_files = {path.name for path in CONTRACTS_DIR.glob("*.yml")}
 
-    assert contract_files == EXPECTED_CONTRACT_FILES
+    expect.equal(contract_files, EXPECTED_CONTRACT_FILES)
 
 
 def test_soda_contract_files_are_valid_yaml() -> None:
@@ -34,8 +36,8 @@ def test_soda_contract_files_are_valid_yaml() -> None:
         with path.open(encoding="utf-8") as file:
             contract = yaml.safe_load(file)
 
-        assert "dataset" in contract
-        assert "columns" in contract
+        expect.is_in("dataset", contract)
+        expect.is_in("columns", contract)
 
 
 def test_fact_contract_checks_compound_grain_uniqueness() -> None:
@@ -44,17 +46,17 @@ def test_fact_contract_checks_compound_grain_uniqueness() -> None:
 
     duplicate_check = next(check["duplicate"] for check in contract["checks"] if "duplicate" in check)
 
-    assert duplicate_check["columns"] == ["observation_id", "loinc_code"]
-    assert duplicate_check["threshold"]["must_be"] == 0
+    expect.equal(duplicate_check["columns"], ["observation_id", "loinc_code"])
+    expect.equal(duplicate_check["threshold"]["must_be"], 0)
 
 
 def test_soda_example_configuration_is_valid_yaml() -> None:
     with EXAMPLE_CONFIG.open(encoding="utf-8") as file:
         config = yaml.safe_load(file)
 
-    assert config["name"] == "${env.SODA_DATA_SOURCE_NAME}"
-    assert config["type"] == "athena"
-    assert "connection" in config
+    expect.equal(config["name"], "${env.SODA_DATA_SOURCE_NAME}")
+    expect.equal(config["type"], "athena")
+    expect.is_in("connection", config)
 
 
 def test_soda_configurations_use_environment_namespace() -> None:
@@ -63,6 +65,6 @@ def test_soda_configurations_use_environment_namespace() -> None:
             config = yaml.safe_load(file)
 
         connection = config["connection"]
-        assert connection["region_name"] == "${env.AWS_REGION}"
-        assert connection["staging_dir"] == ("s3://${env.DATA_BUCKET_NAME}/athena_results/soda/")
-        assert connection["catalog"] == "${env.ATHENA_CATALOG}"
+        expect.equal(connection["region_name"], "${env.AWS_REGION}")
+        expect.equal(connection["staging_dir"], "s3://${env.DATA_BUCKET_NAME}/athena_results/soda/")
+        expect.equal(connection["catalog"], "${env.ATHENA_CATALOG}")

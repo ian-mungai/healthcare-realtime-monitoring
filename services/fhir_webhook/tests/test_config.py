@@ -4,6 +4,7 @@ from unittest.mock import Mock
 import pytest
 
 from services.fhir_webhook.app import config
+from testkit import expect
 
 
 @pytest.fixture(autouse=True)
@@ -28,7 +29,7 @@ def test_refresh_failure_does_not_return_expired_secret(monkeypatch):
     monkeypatch.setenv("FHIR_WEBHOOK_SECRET_CACHE_TTL_SECONDS", "60")
     monkeypatch.setattr(config.boto3, "client", lambda _: client)
     monkeypatch.setattr(config.time, "time", lambda: 120)
-    assert config.get_webhook_secret() == "old"
+    expect.equal(config.get_webhook_secret(), "old")
     monkeypatch.setattr(config.time, "time", lambda: 180)
     with pytest.raises(RuntimeError, match="unavailable"):
         config.get_webhook_secret()
@@ -44,7 +45,7 @@ def test_get_webhook_secret_reads_named_json_key(monkeypatch):
     monkeypatch.setattr(config.boto3, "client", lambda _: client)
     config._get_webhook_secret.cache_clear()
 
-    assert config.get_webhook_secret() == "expected-secret"
+    expect.equal(config.get_webhook_secret(), "expected-secret")
 
 
 def test_get_webhook_secret_requires_configured_identifier(monkeypatch):
@@ -70,8 +71,8 @@ def test_get_webhook_secret_refreshes_after_ttl_window(monkeypatch):
     config._get_webhook_secret.cache_clear()
 
     monkeypatch.setattr(config.time, "time", lambda: 120)
-    assert config.get_webhook_secret() == "secret-1"
-    assert config.get_webhook_secret() == "secret-1"
+    expect.equal(config.get_webhook_secret(), "secret-1")
+    expect.equal(config.get_webhook_secret(), "secret-1")
 
     monkeypatch.setattr(config.time, "time", lambda: 180)
-    assert config.get_webhook_secret() == "secret-2"
+    expect.equal(config.get_webhook_secret(), "secret-2")

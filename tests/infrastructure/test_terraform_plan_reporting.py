@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 from scripts.infrastructure.sanitize_terraform_output import collect_string_values, sanitize
+from testkit import expect
 from tools.process import run_command
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -22,15 +23,15 @@ def test_plan_summary_lists_actions_without_values(tmp_path: Path) -> None:
 
     result = run_command(sys.executable, [str(REPO_ROOT / "scripts/infrastructure/summarize_terraform_plan.py"), str(plan_path)], check=True)
 
-    assert "module.api.aws_lambda_function.webhook" in result.stdout
-    assert "module.data.aws_s3_bucket.raw" in result.stdout
-    assert "replace" in result.stdout
-    assert "old" not in result.stdout
-    assert "new" not in result.stdout
-    assert "123456789012" not in result.stdout
-    assert "private" not in result.stdout
-    assert 'aws_iam_role_policy_attachment.deploy["<key>"]' in result.stdout
-    assert "Review required" in result.stdout
+    expect.is_in("module.api.aws_lambda_function.webhook", result.stdout)
+    expect.is_in("module.data.aws_s3_bucket.raw", result.stdout)
+    expect.is_in("replace", result.stdout)
+    expect.not_in("old", result.stdout)
+    expect.not_in("new", result.stdout)
+    expect.not_in("123456789012", result.stdout)
+    expect.not_in("private", result.stdout)
+    expect.is_in('aws_iam_role_policy_attachment.deploy["<key>"]', result.stdout)
+    expect.is_in("Review required", result.stdout)
 
 
 def test_failed_plan_diagnostics_are_redacted() -> None:
@@ -38,14 +39,14 @@ def test_failed_plan_diagnostics_are_redacted() -> None:
 
     sanitized = sanitize(output, ["private-state", "private-prefix"])
 
-    assert "Error reading" in sanitized
-    assert "private-state" not in sanitized
-    assert "private-prefix" not in sanitized
-    assert "123456789012" not in sanitized
-    assert "abc.execute-api.example-region-1.amazonaws.com" not in sanitized
+    expect.is_in("Error reading", sanitized)
+    expect.not_in("private-state", sanitized)
+    expect.not_in("private-prefix", sanitized)
+    expect.not_in("123456789012", sanitized)
+    expect.not_in("abc.execute-api.example-region-1.amazonaws.com", sanitized)
 
 
 def test_private_json_strings_are_collected_for_redaction() -> None:
     values = {"bucket": "private-data", "nested": {"tables": ["patients", "observations"]}, "enabled": True}
 
-    assert collect_string_values(values) == ["private-data", "patients", "observations"]
+    expect.equal(collect_string_values(values), ["private-data", "patients", "observations"])

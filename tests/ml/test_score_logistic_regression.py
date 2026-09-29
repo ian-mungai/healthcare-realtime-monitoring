@@ -9,6 +9,7 @@ import pytest
 
 from jobs.ml.score_logistic_regression import load_published_model, write_predictions
 from jobs.ml.train_logistic_regression import FEATURE_COLUMNS, train_baseline
+from testkit import expect
 from tests.ml.test_logistic_regression import sample_records
 
 
@@ -45,8 +46,8 @@ def test_load_published_model_verifies_version_and_feature_contract() -> None:
 
     model, manifest = load_published_model(f"s3://example-bucket/ml/model_artifacts/{model_version}", client)
 
-    assert manifest["model_version"] == model_version
-    assert model.predict_proba([[1.0] * len(FEATURE_COLUMNS)]).shape == (1, 2)
+    expect.equal(manifest["model_version"], model_version)
+    expect.equal(model.predict_proba([[1.0] * len(FEATURE_COLUMNS)]).shape, (1, 2))
 
 
 def test_load_published_model_rejects_mismatched_prefix() -> None:
@@ -64,4 +65,4 @@ def test_write_predictions_creates_json_lines(tmp_path: Path) -> None:
 
     write_predictions([{"model_version": "logistic-example", "predicted_label": 1}], path)
 
-    assert json.loads(path.read_text()) == {"model_version": "logistic-example", "predicted_label": 1}
+    expect.equal(json.loads(path.read_text()), {"model_version": "logistic-example", "predicted_label": 1})

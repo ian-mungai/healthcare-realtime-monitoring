@@ -5,6 +5,7 @@ from unittest.mock import Mock
 import pytest
 
 from scripts.quarantine.manage_quarantine import build_replay_payload, export_records, iter_quarantine_records, load_json_lines, publish_records
+from testkit import expect
 
 
 def quarantine_record(**overrides):
@@ -31,21 +32,24 @@ def test_iter_and_export_quarantine_records(tmp_path: Path) -> None:
 
     count = export_records(iter_quarantine_records(s3_client, "test-bucket", "quarantine/fhir/"), output, "missing_value")
 
-    assert count == 1
-    assert json.loads(output.read_text())["rejection_reason"] == "missing_value"
+    expect.equal(count, 1)
+    expect.equal(json.loads(output.read_text())["rejection_reason"], "missing_value")
 
 
 def test_build_replay_payload_maps_loinc_to_vital() -> None:
     payload = build_replay_payload(quarantine_record(loinc_code="8480-6", value=120.0))
 
-    assert payload == {
-        "schema_version": "1.0",
-        "observation_id": "observation-1",
-        "patient_id": "patient-1",
-        "source": "quarantine_replay",
-        "event_timestamp": "2026-09-09T12:00:00Z",
-        "systolic_bp": 120.0,
-    }
+    expect.equal(
+        payload,
+        {
+            "schema_version": "1.0",
+            "observation_id": "observation-1",
+            "patient_id": "patient-1",
+            "source": "quarantine_replay",
+            "event_timestamp": "2026-09-09T12:00:00Z",
+            "systolic_bp": 120.0,
+        },
+    )
 
 
 @pytest.mark.parametrize(
@@ -74,10 +78,10 @@ def test_publish_records_uses_patient_partition_key() -> None:
     client.put_records.return_value = {"Records": [{"SequenceNumber": "1"}]}
     payload = build_replay_payload(quarantine_record())
 
-    assert publish_records(client, "test-stream", [payload]) == 1
+    expect.equal(publish_records(client, "test-stream", [payload]), 1)
     record = client.put_records.call_args.kwargs["Records"][0]
-    assert record["PartitionKey"] == "patient-1"
-    assert json.loads(record["Data"])["source"] == "quarantine_replay"
+    expect.equal(record["PartitionKey"], "patient-1")
+    expect.equal(json.loads(record["Data"])["source"], "quarantine_replay")
 
 
 def test_publish_records_fails_on_partial_kinesis_rejection() -> None:

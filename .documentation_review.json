@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "reviewer": "AI review agent",
-  "reviewed_at_utc": "2026-09-29T03:32:06Z",
-  "snapshot_sha256": "f3bd19a4401583a7c7b316a8d178191a1c02481dd3e2235350b250f246cadae3",
+  "reviewed_at_utc": "2026-09-29T03:35:49Z",
+  "snapshot_sha256": "3ae773bbcedee6062db7a34e284b8187530c314c1ade1eadd859c75e5ee3d372",
   "extra_documents": [],
   "documents": [
     {
@@ -19,9 +19,9 @@
     },
     {
       "path": "README.md",
-      "blob": "2f1b29da8235caf63e884085b7558f38c244161a",
-      "outcome": "current",
-      "notes": "Repository Layout dbt row names the silver and gold models."
+      "blob": "8fa8fedd66bf18bcbe317a6dee2e4e2b865468d8",
+      "outcome": "updated",
+      "notes": "Repository Layout lists testkit/."
     },
     {
       "path": "docs/analytics-star-schema.md",
@@ -86,7 +86,7 @@
     {
       "path": "docs/external-prerequisites.md",
       "blob": "1223f05fb9809645a17c32188091e3e71f4791f2",
-      "outcome": "updated",
+      "outcome": "current",
       "notes": "Added the scoping rule for the policy templates, the remaining * cases including the EC2 statements and how to handle an AccessDenied."
     },
     {
@@ -127,9 +127,9 @@
     },
     {
       "path": "docs/quality-checks.md",
-      "blob": "041505d65556e3e7d034b119611079396c94b4e3",
-      "outcome": "current",
-      "notes": "IAM wildcard accepted-risk rows now describe only the KMS key policy, the ECR token and namespace-limited metric exceptions, and the broader AWSGlueServiceRole follow-up."
+      "blob": "1479c304d3fa701077c4cd21278d129ed9c86941",
+      "outcome": "updated",
+      "notes": "Lint and Type Settings explains testkit.expect and the if-with-fail pattern for narrowing."
     },
     {
       "path": "docs/quickstart.md",

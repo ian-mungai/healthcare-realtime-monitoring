@@ -199,6 +199,7 @@ Each apply phase requires `CONFIRM_TEARDOWN`; the full sequence, including stora
 | `deploy/` | Container definitions for dbt, Soda and Marquez |
 | `config/` | Shared vital-sign catalog and deployment defaults |
 | `tests/` | Contract, infrastructure, lineage, dashboard and pipeline tests |
+| `testkit/` | Shared test expectations used instead of `assert` |
 | `docs/` | Architecture, governance, operations, demo and Power BI connection documentation |
 
 ## Limitations

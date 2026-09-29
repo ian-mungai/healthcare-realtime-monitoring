@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pytest
 
 from services.vitals_api.handler import lambda_handler
+from testkit import expect
 
 PRINCIPAL_ARN = "arn:aws:iam::111111111111:user/dashboard-test"
 
@@ -41,13 +42,13 @@ def test_lambda_handler_returns_latest_vitals(get_latest_vitals_table) -> None:
 
     body = json.loads(result["body"])
 
-    assert result["statusCode"] == 200
-    assert body["patient_id"] == "137506799"
-    assert body["heart_rate"] == 96.0
-    assert body["event_timestamp"] == "2026-08-28T17:00:02Z"
-    assert "_event_timestamp_epoch_ms" not in body
-    assert "_replay_attempt" not in body
-    assert "Access-Control-Allow-Origin" not in result["headers"]
+    expect.equal(result["statusCode"], 200)
+    expect.equal(body["patient_id"], "137506799")
+    expect.equal(body["heart_rate"], 96.0)
+    expect.equal(body["event_timestamp"], "2026-08-28T17:00:02Z")
+    expect.not_in("_event_timestamp_epoch_ms", body)
+    expect.not_in("_replay_attempt", body)
+    expect.not_in("Access-Control-Allow-Origin", result["headers"])
 
 
 @patch("services.vitals_api.handler.get_latest_vitals_table")
@@ -57,18 +58,18 @@ def test_lambda_handler_returns_not_found(get_latest_vitals_table) -> None:
 
     result = lambda_handler(event_for("missing"), None)
 
-    assert result["statusCode"] == 404
+    expect.equal(result["statusCode"], 404)
 
 
 def test_lambda_handler_requires_patient_id() -> None:
     result = lambda_handler({"pathParameters": {}}, None)
 
-    assert result["statusCode"] == 400
+    expect.equal(result["statusCode"], 400)
 
 
 @patch("services.vitals_api.handler.get_latest_vitals_table")
 def test_lambda_handler_denies_unauthorized_patient(get_latest_vitals_table) -> None:
     result = lambda_handler(event_for("not-authorized"), None)
 
-    assert result["statusCode"] == 403
+    expect.equal(result["statusCode"], 403)
     get_latest_vitals_table.assert_not_called()

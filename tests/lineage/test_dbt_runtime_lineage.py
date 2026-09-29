@@ -3,6 +3,7 @@ from unittest.mock import Mock
 from openlineage.client.event_v2 import RunState
 
 from jobs.dbt import run_dbt_with_lineage
+from testkit import expect
 
 
 def test_dbt_runtime_emits_complete(monkeypatch) -> None:
@@ -16,8 +17,8 @@ def test_dbt_runtime_emits_complete(monkeypatch) -> None:
     monkeypatch.setattr(run_dbt_with_lineage, "run_command", lambda *args, **kwargs: Mock(returncode=0))
     monkeypatch.setattr(run_dbt_with_lineage.sys, "argv", ["run_dbt_with_lineage.py", "build"])
 
-    assert run_dbt_with_lineage.main() == 0
-    assert lineage_events == [(RunState.START, None), (RunState.COMPLETE, "00000000-0000-0000-0000-000000000001")]
+    expect.equal(run_dbt_with_lineage.main(), 0)
+    expect.equal(lineage_events, [(RunState.START, None), (RunState.COMPLETE, "00000000-0000-0000-0000-000000000001")])
 
 
 def test_dbt_runtime_emits_fail(monkeypatch) -> None:
@@ -31,5 +32,5 @@ def test_dbt_runtime_emits_fail(monkeypatch) -> None:
     monkeypatch.setattr(run_dbt_with_lineage, "run_command", lambda *args, **kwargs: Mock(returncode=1))
     monkeypatch.setattr(run_dbt_with_lineage.sys, "argv", ["run_dbt_with_lineage.py", "build"])
 
-    assert run_dbt_with_lineage.main() == 1
-    assert lineage_events == [(RunState.START, None), (RunState.FAIL, "00000000-0000-0000-0000-000000000001")]
+    expect.equal(run_dbt_with_lineage.main(), 1)
+    expect.equal(lineage_events, [(RunState.START, None), (RunState.FAIL, "00000000-0000-0000-0000-000000000001")])

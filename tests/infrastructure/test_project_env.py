@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from testkit import expect
 from tools.process import CompletedProcess, run_command
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -18,8 +19,8 @@ def test_loads_assignments_without_executing_shell(tmp_path: Path) -> None:
 
     result = run_loader(env_file, 'printf \'%s|%s\' "$REGION" "$QUOTED"')
 
-    assert result.returncode == 0
-    assert result.stdout == "example-region-1|project value"
+    expect.equal(result.returncode, 0)
+    expect.equal(result.stdout, "example-region-1|project value")
 
 
 def test_environment_file_has_precedence(tmp_path: Path) -> None:
@@ -29,8 +30,8 @@ def test_environment_file_has_precedence(tmp_path: Path) -> None:
     result = run_loader(env_file, "printf '%s' \"$REGION\"")
     result_with_override = run_command("bash", ["-c", f'export REGION=shell-region; source "{LOADER}"; load_project_env "{env_file}"; printf "%s" "$REGION"'])
 
-    assert result.stdout == "file-region"
-    assert result_with_override.stdout == "file-region"
+    expect.equal(result.stdout, "file-region")
+    expect.equal(result_with_override.stdout, "file-region")
 
 
 def test_rejects_non_assignment_lines(tmp_path: Path) -> None:
@@ -39,5 +40,5 @@ def test_rejects_non_assignment_lines(tmp_path: Path) -> None:
 
     result = run_loader(env_file, ":")
 
-    assert result.returncode == 2
-    assert "Invalid environment assignment" in result.stderr
+    expect.equal(result.returncode, 2)
+    expect.is_in("Invalid environment assignment", result.stderr)

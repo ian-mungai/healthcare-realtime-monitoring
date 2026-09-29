@@ -12,6 +12,7 @@ from scripts.infrastructure.cleanup_storage import (
     list_s3_object_versions,
     validate_targets,
 )
+from testkit import expect
 
 
 class Paginator:
@@ -65,7 +66,7 @@ class ReferencedManifestClient(Client):
 def test_lists_versions_and_delete_markers() -> None:
     client = Client([{"Versions": [{"Key": "data.json", "VersionId": "1"}], "DeleteMarkers": [{"Key": "old.json", "VersionId": "2"}]}])
 
-    assert list_s3_object_versions(client, "data") == [{"Key": "data.json", "VersionId": "1"}, {"Key": "old.json", "VersionId": "2"}]
+    expect.equal(list_s3_object_versions(client, "data"), [{"Key": "data.json", "VersionId": "1"}, {"Key": "old.json", "VersionId": "2"}])
 
 
 def test_storage_deletes_use_aws_batch_limits() -> None:
@@ -75,8 +76,8 @@ def test_storage_deletes_use_aws_batch_limits() -> None:
     delete_s3_object_versions(s3, "data", [{"Key": str(index), "VersionId": "1"} for index in range(1001)])
     delete_ecr_images(ecr, "images", [{"imageDigest": str(index)} for index in range(101)])
 
-    assert len([call for call in s3.calls if call[0] == "delete_objects"]) == 2
-    assert len([call for call in ecr.calls if call[0] == "batch_delete_image"]) == 2
+    expect.equal(len([call for call in s3.calls if call[0] == "delete_objects"]), 2)
+    expect.equal(len([call for call in ecr.calls if call[0] == "batch_delete_image"]), 2)
 
 
 def test_lists_all_ecr_images() -> None:
@@ -84,7 +85,7 @@ def test_lists_all_ecr_images() -> None:
         [{"imageIds": [{"imageDigest": "sha256:one", "imageTag": "release"}]}, {"imageIds": [{"imageDigest": "sha256:one"}, {"imageDigest": "sha256:two"}]}]
     )
 
-    assert list_ecr_images(client, "images") == [{"imageDigest": "sha256:one"}, {"imageDigest": "sha256:two"}]
+    expect.equal(list_ecr_images(client, "images"), [{"imageDigest": "sha256:one"}, {"imageDigest": "sha256:two"}])
 
 
 def test_retries_manifest_children_after_deleting_parent_indexes() -> None:
@@ -93,8 +94,8 @@ def test_retries_manifest_children_after_deleting_parent_indexes() -> None:
     delete_ecr_images(client, "images", [{"imageDigest": "sha256:child"}, {"imageDigest": "sha256:index"}])
 
     delete_calls = [call for call in client.calls if call[0] == "batch_delete_image"]
-    assert len(delete_calls) == 2
-    assert delete_calls[1][1]["imageIds"] == [{"imageDigest": "sha256:child"}]
+    expect.equal(len(delete_calls), 2)
+    expect.equal(delete_calls[1][1]["imageIds"], [{"imageDigest": "sha256:child"}])
 
 
 def test_fails_when_manifest_references_cannot_be_removed() -> None:
@@ -110,4 +111,4 @@ def test_refuses_to_clean_state_bucket() -> None:
 
 
 def test_chunks_empty_input() -> None:
-    assert list(chunks([], 1000)) == []
+    expect.equal(list(chunks([], 1000)), [])

@@ -7,6 +7,7 @@ from requests import Response
 from requests.exceptions import HTTPError
 
 from lineage.openlineage import client
+from testkit import expect
 
 
 def test_runtime_client_uses_s3_without_collector(monkeypatch, capsys) -> None:
@@ -15,9 +16,9 @@ def test_runtime_client_uses_s3_without_collector(monkeypatch, capsys) -> None:
     monkeypatch.delenv("OPENLINEAGE_URL", raising=False)
     monkeypatch.setattr(client, "build_s3_openlineage_client", build_s3)
 
-    assert client.build_runtime_openlineage_client("s3://project-bucket/lineage/event") is expected
+    expect.identical(client.build_runtime_openlineage_client("s3://project-bucket/lineage/event"), expected)
     build_s3.assert_called_once_with("s3://project-bucket/lineage/event")
-    assert "OpenLineage transport selected: S3" in capsys.readouterr().out
+    expect.is_in("OpenLineage transport selected: S3", capsys.readouterr().out)
 
 
 def test_runtime_client_uses_shared_http_collector(monkeypatch, capsys) -> None:
@@ -34,7 +35,7 @@ def test_runtime_client_uses_shared_http_collector(monkeypatch, capsys) -> None:
 
     sigv4_transport.assert_called_once_with("https://lineage.example.com/", "api/v1/lineage", "example-region-1")
     openlineage_client.assert_called_once_with(transport=transport)
-    assert "OpenLineage transport selected: SigV4 HTTP in example-region-1" in capsys.readouterr().out
+    expect.is_in("OpenLineage transport selected: SigV4 HTTP in example-region-1", capsys.readouterr().out)
 
 
 def test_runtime_client_sigv4_signs_managed_collector(monkeypatch) -> None:
@@ -49,8 +50,8 @@ def test_runtime_client_sigv4_signs_managed_collector(monkeypatch) -> None:
     client.build_runtime_openlineage_client("s3://project-bucket/lineage/event")
 
     url, endpoint, region = sigv4_transport.call_args.args
-    assert urljoin(url, endpoint) == "https://collector-id.execute-api.example-region-1.amazonaws.com/development/api/v1/lineage"
-    assert region == "example-region-1"
+    expect.equal(urljoin(url, endpoint), "https://collector-id.execute-api.example-region-1.amazonaws.com/development/api/v1/lineage")
+    expect.equal(region, "example-region-1")
     openlineage_client.assert_called_once_with(transport=transport)
 
 
@@ -68,12 +69,13 @@ def test_sigv4_transport_sends_the_signed_aws_request(monkeypatch) -> None:
         "https://collector-id.execute-api.example-region-1.amazonaws.com/development/", "api/v1/lineage", "example-region-1"
     )
 
-    assert transport.emit(Mock()) is response
+    expect.identical(transport.emit(Mock()), response)
     request = http_session.send.call_args.args[0]
-    assert request.url == "https://collector-id.execute-api.example-region-1.amazonaws.com/development/api/v1/lineage"
-    assert request.body == b'{"eventType":"START"}'
-    assert request.headers["Authorization"].startswith("AWS4-HMAC-SHA256")
-    assert request.headers["X-Amz-Security-Token"] == "session-token"
+    expect.equal(request.url, "https://collector-id.execute-api.example-region-1.amazonaws.com/development/api/v1/lineage")
+    expect.equal(request.body, b'{"eventType":"START"}')
+    if not request.headers["Authorization"].startswith("AWS4-HMAC-SHA256"):
+        expect.fail('expected: request.headers["Authorization"].startswith("AWS4-HMAC-SHA256")')
+    expect.equal(request.headers["X-Amz-Security-Token"], "session-token")
 
 
 def test_runtime_client_allows_unsigned_local_collector(monkeypatch) -> None:
@@ -86,7 +88,7 @@ def test_runtime_client_allows_unsigned_local_collector(monkeypatch) -> None:
 
     client.build_runtime_openlineage_client("s3://project-bucket/lineage/event")
 
-    assert http_transport.call_args.args[0].session is None
+    expect.identical(http_transport.call_args.args[0].session, None)
 
 
 def test_runtime_client_rejects_unsigned_remote_collector(monkeypatch) -> None:
@@ -117,8 +119,8 @@ def test_runtime_lineage_emission_does_not_fail_workload(monkeypatch, capsys) ->
 
     emitted = client.emit_runtime_lineage_event("s3://project-bucket/lineage/event", lambda: {"eventType": "START"}, "athena", "START")
 
-    assert emitted is False
-    assert "OpenLineage athena START emission failed: RuntimeError: collector unavailable" in capsys.readouterr().out
+    expect.identical(emitted, False)
+    expect.is_in("OpenLineage athena START emission failed: RuntimeError: collector unavailable", capsys.readouterr().out)
 
 
 def test_runtime_lineage_emission_logs_http_error_response(monkeypatch, capsys) -> None:
@@ -131,5 +133,7 @@ def test_runtime_lineage_emission_logs_http_error_response(monkeypatch, capsys) 
 
     emitted = client.emit_runtime_lineage_event("s3://project-bucket/lineage/event", lambda: {"eventType": "START"}, "glue", "START")
 
-    assert emitted is False
-    assert 'OpenLineage glue START emission failed: HTTPError: status=403; response={"message": "The security token is invalid"}' in capsys.readouterr().out
+    expect.identical(emitted, False)
+    expect.is_in(
+        'OpenLineage glue START emission failed: HTTPError: status=403; response={"message": "The security token is invalid"}', capsys.readouterr().out
+    )

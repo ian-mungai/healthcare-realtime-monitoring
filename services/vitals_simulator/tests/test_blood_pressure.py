@@ -7,6 +7,7 @@ from services.vitals_simulator.app.synthea.blood_pressure import (
     readings_for_patient,
 )
 from services.vitals_simulator.app.synthea.blood_pressure_cadence import BloodPressureCadence
+from testkit import expect
 
 
 def sample_bp_bundle() -> dict:
@@ -32,44 +33,49 @@ def sample_bp_bundle() -> dict:
 def test_get_systolic_component():
     observation = sample_bp_bundle()["entry"][1]["resource"]
 
-    assert get_component_value(observation, "8480-6") == 124.0
+    expect.equal(get_component_value(observation, "8480-6"), 124.0)
 
 
 def test_extract_blood_pressure_reading():
     readings = extract_blood_pressure_readings(sample_bp_bundle())
 
-    assert len(readings) == 1
-    assert readings[0].systolic == 124.0
-    assert readings[0].diastolic == 78.0
+    expect.equal(len(readings), 1)
+    expect.equal(readings[0].systolic, 124.0)
+    expect.equal(readings[0].diastolic, 78.0)
 
 
 def test_bp_cadence_due():
     readings = [BloodPressureReading("patient_1", "bp_1", 124.0, 78.0)]
     cadence = BloodPressureCadence(readings=readings, interval_seconds=300)
 
-    assert cadence.is_due(0)
-    assert not cadence.is_due(1)
-    assert not cadence.is_due(299)
-    assert cadence.is_due(300)
-    assert cadence.is_due(600)
+    if not cadence.is_due(0):
+        expect.fail("expected: cadence.is_due(0)")
+    if cadence.is_due(1):
+        expect.fail("expected: not cadence.is_due(1)")
+    if cadence.is_due(299):
+        expect.fail("expected: not cadence.is_due(299)")
+    if not cadence.is_due(300):
+        expect.fail("expected: cadence.is_due(300)")
+    if not cadence.is_due(600):
+        expect.fail("expected: cadence.is_due(600)")
 
 
 def test_bp_cadence_returns_none_between_measurements():
     readings = [BloodPressureReading("patient_1", "bp_1", 124.0, 78.0)]
     cadence = BloodPressureCadence(readings=readings, interval_seconds=300)
 
-    assert cadence.get_reading(1) is None
+    expect.identical(cadence.get_reading(1), None)
 
 
 def test_bp_cadence_emits_once_per_elapsed_interval():
     readings = [BloodPressureReading("patient_1", "bp_1", 124.0, 78.0)]
     cadence = BloodPressureCadence(readings=readings, interval_seconds=300)
 
-    assert cadence.get_reading(0) is readings[0]
-    assert cadence.get_reading(60) is None
-    assert cadence.get_reading(299.9) is None
-    assert cadence.get_reading(300) is readings[0]
-    assert cadence.get_reading(301) is None
+    expect.identical(cadence.get_reading(0), readings[0])
+    expect.identical(cadence.get_reading(60), None)
+    expect.identical(cadence.get_reading(299.9), None)
+    expect.identical(cadence.get_reading(300), readings[0])
+    expect.identical(cadence.get_reading(301), None)
 
 
 def test_bp_cadence_rejects_empty_readings():
@@ -84,7 +90,7 @@ def test_readings_for_patient_returns_only_matching_patient():
         BloodPressureReading("patient_1", "bp_3", 126.0, 80.0),
     ]
 
-    assert readings_for_patient(readings, "patient_1") == [readings[0], readings[2]]
+    expect.equal(readings_for_patient(readings, "patient_1"), [readings[0], readings[2]])
 
 
 def test_readings_for_patient_rejects_unmapped_patient():

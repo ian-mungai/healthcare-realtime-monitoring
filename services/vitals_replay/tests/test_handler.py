@@ -9,6 +9,7 @@ os.environ["KINESIS_STREAM_ARN"] = "arn:aws:kinesis:example-region-1:12345678901
 os.environ["REPLAY_DLQ_URL"] = "https://sqs.example-region-1.amazonaws.com/123456789012/replay-dlq"
 
 from services.vitals_replay import handler
+from testkit import expect
 
 handler = importlib.reload(handler)
 
@@ -29,7 +30,7 @@ def build_sqs_record(message_id: str = "message-1", stream_arn: str | None = Non
 def test_parse_failure_message() -> None:
     failure = handler.parse_failure_message(build_sqs_record())
 
-    assert failure == {"shard_id": "shardId-000000000000", "start_sequence_number": "100", "end_sequence_number": "101"}
+    expect.equal(failure, {"shard_id": "shardId-000000000000", "start_sequence_number": "100", "end_sequence_number": "101"})
 
 
 def test_parse_failure_message_requires_batch_info() -> None:
@@ -60,7 +61,7 @@ def test_get_failed_records_reads_sequence_range(kinesis) -> None:
 
     records = handler.get_failed_records("shardId-000000000000", "100", "101")
 
-    assert [record["SequenceNumber"] for record in records] == ["100", "101"]
+    expect.equal([record["SequenceNumber"] for record in records], ["100", "101"])
 
     kinesis.get_shard_iterator.assert_called_once_with(
         StreamARN=handler.KINESIS_STREAM_ARN, ShardId="shardId-000000000000", ShardIteratorType="AT_SEQUENCE_NUMBER", StartingSequenceNumber="100"
@@ -83,8 +84,8 @@ def test_get_failed_records_follows_next_iterator(kinesis) -> None:
 
     records = handler.get_failed_records("shardId-000000000000", "100", "101")
 
-    assert len(records) == 2
-    assert kinesis.get_records.call_count == 2
+    expect.equal(len(records), 2)
+    expect.equal(kinesis.get_records.call_count, 2)
 
 
 @patch("services.vitals_replay.handler.kinesis")
@@ -101,8 +102,8 @@ def test_build_replay_entry_adds_replay_attempt_and_preserves_partition_key() ->
 
     entry = handler.build_replay_entry(record)
 
-    assert json.loads(entry["Data"]) == {"patient_id": "137506799", "_replay_attempt": 1}
-    assert entry["PartitionKey"] == "137506799"
+    expect.equal(json.loads(entry["Data"]), {"patient_id": "137506799", "_replay_attempt": 1})
+    expect.equal(entry["PartitionKey"], "137506799")
 
 
 def test_build_replay_entry_rejects_record_at_replay_limit() -> None:
@@ -120,7 +121,7 @@ def test_replay_records_puts_records_back_to_stream(kinesis) -> None:
 
     replayed_count = handler.replay_records(records)
 
-    assert replayed_count == 1
+    expect.equal(replayed_count, 1)
 
     kinesis.put_records.assert_called_once_with(
         StreamARN=handler.KINESIS_STREAM_ARN, Records=[{"Data": b'{"patient_id":"137506799","_replay_attempt":1}', "PartitionKey": "137506799"}]
@@ -136,11 +137,11 @@ def test_replay_records_isolates_exhausted_record(kinesis, sqs) -> None:
         {"SequenceNumber": "101", "Data": b'{"patient_id":"poison","_replay_attempt":1}', "PartitionKey": "poison"},
     ]
 
-    assert handler.replay_records(records) == 1
+    expect.equal(handler.replay_records(records), 1)
 
-    assert kinesis.put_records.call_args.kwargs["Records"][0]["PartitionKey"] == "recoverable"
+    expect.equal(kinesis.put_records.call_args.kwargs["Records"][0]["PartitionKey"], "recoverable")
     terminal_body = json.loads(sqs.send_message.call_args.kwargs["MessageBody"])
-    assert terminal_body["sequence_number"] == "101"
+    expect.equal(terminal_body["sequence_number"], "101")
 
 
 @patch("services.vitals_replay.handler.kinesis")
@@ -160,7 +161,7 @@ def test_lambda_handler_processes_message(process_sqs_record) -> None:
     result = handler.lambda_handler({"Records": [build_sqs_record()]}, None)
 
     process_sqs_record.assert_called_once()
-    assert result == {"batchItemFailures": []}
+    expect.equal(result, {"batchItemFailures": []})
 
 
 @patch("services.vitals_replay.handler.process_sqs_record")
@@ -169,7 +170,7 @@ def test_lambda_handler_reports_failed_sqs_message(process_sqs_record) -> None:
 
     result = handler.lambda_handler({"Records": [build_sqs_record(message_id="failed-message")]}, None)
 
-    assert result == {"batchItemFailures": [{"itemIdentifier": "failed-message"}]}
+    expect.equal(result, {"batchItemFailures": [{"itemIdentifier": "failed-message"}]})
 
 
 @patch("services.vitals_replay.handler.process_sqs_record")
@@ -180,4 +181,4 @@ def test_lambda_handler_supports_partial_sqs_batch_failure(process_sqs_record) -
 
     result = handler.lambda_handler(event, None)
 
-    assert result == {"batchItemFailures": [{"itemIdentifier": "failed-message"}]}
+    expect.equal(result, {"batchItemFailures": [{"itemIdentifier": "failed-message"}]})

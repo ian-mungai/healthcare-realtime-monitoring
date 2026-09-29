@@ -3,6 +3,7 @@ from datetime import date
 from pathlib import Path
 
 from scripts.nppes.update_provider_history import merge_provider_history, update_provider_history
+from testkit import expect
 
 
 def current_provider(npi: str, taxonomy_code: str = "207R00000X") -> dict[str, str]:
@@ -31,18 +32,18 @@ def test_changed_provider_closes_current_version_and_appends_successor() -> None
 
     merged = merge_provider_history(history, snapshot, date(2025, 1, 1))
 
-    assert len(merged) == 2
-    assert merged[0]["valid_to"] == "2025-01-01"
-    assert merged[0]["is_current"] == "false"
-    assert merged[1]["taxonomy_code"] == "207RC0000X"
-    assert merged[1]["is_current"] == "true"
+    expect.equal(len(merged), 2)
+    expect.equal(merged[0]["valid_to"], "2025-01-01")
+    expect.equal(merged[0]["is_current"], "false")
+    expect.equal(merged[1]["taxonomy_code"], "207RC0000X")
+    expect.equal(merged[1]["is_current"], "true")
 
 
 def test_unchanged_provider_does_not_create_a_new_version() -> None:
     provider = current_provider("1999000013")
     snapshot = [{key: provider[key] for key in ("provider_npi", "provider_name", "taxonomy_code", "taxonomy_description", "provider_state")}]
 
-    assert merge_provider_history([provider], snapshot, date(2025, 1, 1)) == [provider]
+    expect.equal(merge_provider_history([provider], snapshot, date(2025, 1, 1)), [provider])
 
 
 def test_update_rejects_duplicate_snapshot_npis(tmp_path: Path) -> None:
@@ -64,6 +65,6 @@ def test_update_rejects_duplicate_snapshot_npis(tmp_path: Path) -> None:
     try:
         update_provider_history(snapshot_path, history_path, output_path, date(2025, 1, 1))
     except ValueError as error:
-        assert "duplicate provider_npi" in str(error)
+        expect.is_in("duplicate provider_npi", str(error))
     else:
         raise AssertionError("duplicate provider_npi values must fail")
