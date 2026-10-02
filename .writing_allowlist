@@ -1,0 +1,2 @@
+# Keep a Changelog release headings use machine-readable release dates.
+iso-date CHANGELOG.md -- Preserve verified release dates in the changelog format.

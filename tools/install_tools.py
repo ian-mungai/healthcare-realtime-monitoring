@@ -9,10 +9,13 @@ already matches is left alone.
 
 from __future__ import annotations
 
+import filecmp
 import hashlib
 import io
+import json
 import os
 import platform
+import shutil
 import sys
 import tarfile
 import tempfile
@@ -139,9 +142,47 @@ def install_sqlfluff() -> str:
     return f"installed  {' '.join(SQLFLUFF_PACKAGES)} (isolated environment)"
 
 
+MARKDOWNLINT_SOURCE = ROOT / "tools" / "markdownlint"
+MARKDOWNLINT_DIR = TOOLS / "markdownlint-cli2"
+NODE_MAJOR_MINIMUM = 22
+MARKDOWNLINT_FILES = ("package.json", "package-lock.json")
+
+
+def markdownlint_current() -> bool:
+    """Return whether the installed markdownlint-cli2 matches the pinned manifest and lockfile."""
+    installed = MARKDOWNLINT_DIR / "node_modules" / "markdownlint-cli2" / "package.json"
+    if not installed.exists():
+        return False
+    if not all(
+        (MARKDOWNLINT_DIR / name).exists() and filecmp.cmp(MARKDOWNLINT_SOURCE / name, MARKDOWNLINT_DIR / name, shallow=False) for name in MARKDOWNLINT_FILES
+    ):
+        return False
+    pinned = json.loads((MARKDOWNLINT_SOURCE / "package.json").read_text())["dependencies"]["markdownlint-cli2"]
+    return bool(json.loads(installed.read_text())["version"] == pinned)
+
+
+def install_markdownlint() -> str:
+    """Install markdownlint-cli2 from the committed lockfile with npm ci; return what happened."""
+    pinned = json.loads((MARKDOWNLINT_SOURCE / "package.json").read_text())["dependencies"]["markdownlint-cli2"]
+    if markdownlint_current():
+        return f"unchanged  markdownlint-cli2 {pinned}"
+    node = run_command("node", ["--version"], timeout=30, check=True).stdout.strip()
+    if int(node.lstrip("v").split(".")[0]) < NODE_MAJOR_MINIMUM:
+        raise SystemExit(f"markdownlint-cli2 needs Node.js {NODE_MAJOR_MINIMUM} or later; found {node}; nothing was installed")
+    MARKDOWNLINT_DIR.mkdir(parents=True, exist_ok=True)
+    for name in MARKDOWNLINT_FILES:
+        shutil.copyfile(MARKDOWNLINT_SOURCE / name, MARKDOWNLINT_DIR / name)
+    result = run_command("npm", ["ci", "--ignore-scripts", "--no-audit", "--no-fund"], cwd=MARKDOWNLINT_DIR, timeout=600)
+    if result.returncode:
+        for name in MARKDOWNLINT_FILES:  # A failed install must not look current on the next run.
+            (MARKDOWNLINT_DIR / name).unlink(missing_ok=True)
+        raise SystemExit(f"npm ci failed for markdownlint-cli2 {pinned}; nothing usable was installed:\n{result.stderr[-2000:]}")
+    return f"installed  markdownlint-cli2 {pinned} (npm ci, lockfile integrity verified, Node.js {node})"
+
+
 def main() -> int:
     """Install every pinned tool and report the result."""
-    for installer in (install_gitleaks, install_tflint, install_checkov, install_sqlfluff):
+    for installer in (install_gitleaks, install_tflint, install_checkov, install_sqlfluff, install_markdownlint):
         sys.stdout.write(installer() + "\n")
     return 0
 

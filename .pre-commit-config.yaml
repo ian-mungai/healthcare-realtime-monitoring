@@ -42,6 +42,24 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: writing-check
+        name: Markdown writing preferences
+        entry: .venv/bin/python -m tools.documentation_checks writing-check
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: front-matter
+        name: Document metadata
+        entry: .venv/bin/python -m tools.documentation_checks front-matter
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: markdownlint
+        name: Markdown syntax
+        entry: .tools/markdownlint-cli2/node_modules/.bin/markdownlint-cli2 --config .markdownlint-cli2.jsonc
+        language: system
+        files: \.md$
+        exclude: ^artifacts/e2e/
       - id: documentation-review
         name: All documentation reviewed for the staged revision
         entry: .venv/bin/python -m tools.documentation_review check

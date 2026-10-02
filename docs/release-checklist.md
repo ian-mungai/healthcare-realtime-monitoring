@@ -1,4 +1,52 @@
+---
+title: "Release Checklist"
+description: "Evaluate the release gate while retaining the checked historical acceptance record."
+last_updated: 2026-10-02
+audience: [developer, operator]
+---
+
 # Release Checklist
+
+For developers and operators: evaluate the release gate while retaining the checked historical acceptance record.
+
+## Contents
+
+- [Terminology](#terminology)
+- [Example Placeholders](#example-placeholders)
+- [Scope](#scope)
+- [Source and CI](#source-and-ci)
+- [Infrastructure Convergence](#infrastructure-convergence)
+- [Realtime Evidence](#realtime-evidence)
+- [Data and Operations Evidence](#data-and-operations-evidence)
+- [Model Activation](#model-activation)
+- [Public-artifact Redaction](#public-artifact-redaction)
+- [Next Release](#next-release)
+- [Release Tag](#release-tag)
+
+## Terminology
+
+- **API**: application programming interface.
+- **AWS**: Amazon Web Services.
+- **BI**: business intelligence.
+- **CI**: continuous integration.
+- **DSN**: data source name.
+- **ECR**: Elastic Container Registry.
+- **ECS**: Elastic Container Service.
+- **FHIR**: Fast Healthcare Interoperability Resources.
+- **IAM**: Identity and Access Management.
+- **MWAA**: Managed Workflows for Apache Airflow.
+- **ODBC**: Open Database Connectivity.
+- **OIDC**: OpenID Connect.
+- **REST**: Representational State Transfer.
+- **VPC**: virtual private cloud.
+
+## Example Placeholders
+
+Angle-bracket values are placeholders. Replace each with the approved value for its named subject before running a command; keep real deployment values private.
+
+- `<API_ID>`: api id for the selected environment or example.
+- `<AWS_REGION>`: aws region for the selected environment or example.
+- `<PROJECT_DATA_BUCKET>`: project data bucket for the selected environment or example.
 
 ## Scope
 
@@ -15,83 +63,83 @@ The portfolio release includes the completed Power BI-to-Athena connection and r
 - [x] GitHub Actions CI is green for the release commit, including Python checks, Terraform checks and container builds. Synthea validation may be skipped when its paths are unchanged.
 - [x] The release notes identify the release scope without publishing account IDs, endpoint identifiers, bucket names or secret material.
 
-## Infrastructure convergence
+## Infrastructure Convergence
 
-- [x] Run `./scripts/infrastructure/verify_reproducibility.sh` and confirm both builds produce identical artifact checksums and the empty-account tests pass.
-- [x] Complete one deployment from an empty backend in a new region using `docs/quickstart.md`.
-- [x] Run the guarded teardown and confirm only documented external prerequisites and the protected state bucket remain.
-- [x] Run `./scripts/infrastructure/check_prerequisites.sh post-deploy` and confirm every automated prerequisite passes.
-- [x] Run `terraform -chdir=infra fmt -check -recursive`.
-- [x] Run `terraform -chdir=infra validate`.
-- [x] Run `./scripts/infrastructure/render_project_config.sh --check`, then review `terraform -chdir=infra plan`.
-- [x] Confirm each action is an intended deployment change with no unexplained replacement, deletion or permission broadening.
-- [x] Apply only an approved saved plan.
-- [x] Regenerate the MWAA Serverless workflow from deployed Terraform outputs before applying workflow changes.
-- [x] Run Terraform plan again after deployment and confirm `No changes` after refresh-only reconciliation of computed values.
-- [x] Confirm the main state backend is separate from application storage and the bootstrap state is backed up privately.
+- [x] `verify_reproducibility.sh` passes with identical build checksums and passing empty-account tests.
+- [x] One deployment from an empty backend in a fresh region completes using `docs/quickstart.md`.
+- [x] Guarded teardown completes with only documented external prerequisites and the protected state bucket remaining.
+- [x] `check_prerequisites.sh post-deploy` reports every automated prerequisite passing.
+- [x] `terraform -chdir=infra fmt -check -recursive` passes.
+- [x] `terraform -chdir=infra validate` passes.
+- [x] The rendered configuration passes `--check` and the Terraform plan is reviewed.
+- [x] Each action is an intended deployment change with no unexplained replacement, deletion or permission broadening.
+- [x] Only the approved saved plan is applied.
+- [x] The Managed Workflows for Apache Airflow (MWAA) Serverless workflow is regenerated from deployed outputs before its changes are applied.
+- [x] The post-deployment Terraform plan reports `No changes` after refresh-only reconciliation of computed values.
+- [x] The main state backend is separate from application storage and the bootstrap state is backed up privately.
 
-The portability rollout intentionally changes the Glue job arguments, MWAA workflow definition and dbt/Soda ECS task-definition revisions. These changes make the target bucket and region runtime configuration rather than repository constants.
+The portability rollout intentionally changes the Glue job arguments, MWAA workflow definition and dbt/Soda Elastic Container Service (ECS) task-definition revisions. These changes make the target bucket and region runtime configuration rather than repository constants.
 
-## Realtime evidence
+## Realtime Evidence
 
-- [x] Start exactly one simulator task using `scripts/demo/start_vitals_demo.sh`.
-- [x] Confirm the simulator is running with `scripts/demo/status_vitals_demo.sh`.
-- [x] Open the cohort dashboard and verify current measurements for every configured simulated patient.
-- [x] Open the separate model analytics dashboard and verify its readiness state, governance labels and separation from the live cohort dashboard.
-- [x] Confirm trend focus and cohort return behavior without losing other patient lines.
-- [x] Verify REST latest-vitals responses for all ten patients with AWS IAM authorization.
-- [x] Verify live WebSocket delivery for all ten patients with AWS IAM authorization.
-- [x] Confirm every patient event timestamp advances during the demonstration.
-- [x] Stop the simulator with `scripts/demo/stop_vitals_demo.sh` after evidence capture.
+- [x] Exactly one simulator task starts through `scripts/demo/start_vitals_demo.sh`.
+- [x] The simulator is running with `scripts/demo/status_vitals_demo.sh`.
+- [x] The cohort dashboard displays current measurements for every configured simulated patient.
+- [x] The separate model analytics dashboard displays readiness and governance labels and remains separate from live monitoring.
+- [x] Trend focus and cohort return behavior without losing other patient lines.
+- [x] Representational State Transfer (REST) latest-vitals responses succeed for all ten patients with Amazon Web Services (AWS) Identity and Access Management (IAM) authorization.
+- [x] Live WebSocket delivery succeeds for all ten patients with AWS IAM authorization.
+- [x] Every patient event timestamp advances during the demonstration.
+- [x] The simulator stops through `scripts/demo/stop_vitals_demo.sh` after evidence capture.
 
 Detailed instructions are in [demo-guide.md](demo-guide.md).
 
-## Data and operations evidence
+## Data and Operations Evidence
 
-- [x] Confirm both Terraform-managed CloudWatch dashboards are present and their monitored services are healthy.
-- [x] Confirm the realtime dashboard shows current processing, low iterator age and no sustained delivery errors.
-- [x] Confirm all six realtime processing, iterator, delivery, error, throttle and replay alarms are `OK`.
-- [x] Record successful Glue, Athena, Great Expectations, dbt, Soda and OpenLineage validation outcomes.
-- [x] Confirm MWAA remains manual-only while `ML_APPROVED_MODEL_VERSION` is empty.
-- [x] Verify the failure queue and replay dead-letter queue are empty.
+- [x] Both Terraform-managed CloudWatch dashboards are present and their monitored services are healthy.
+- [x] The realtime dashboard shows current processing, low iterator age and no sustained delivery errors.
+- [x] All six realtime processing, iterator, delivery, error, throttle and replay alarms are `OK`.
+- [x] Successful Glue, Athena, Great Expectations, dbt, Soda and OpenLineage validation outcomes are recorded.
+- [x] MWAA remains manual-only while `ML_APPROVED_MODEL_VERSION` is empty.
+- [x] The failure queue and replay dead-letter queue are empty.
 
-Verified release evidence on 2026-09-16: the cohort dashboard displayed current measurements for all ten configured simulated patients; the model analytics dashboard displayed all ten Athena-backed approved-model scores with encounter, feature and governance context; one MWAA Serverless run completed all nine workflow tasks successfully; and the shared collector contained successful runs for all five expected analytical lineage jobs. Deployment-specific identifiers are intentionally omitted.
+Verified release evidence on Sep 16 2026: the cohort dashboard displayed current measurements for all ten configured simulated patients; the model analytics dashboard displayed all ten Athena-backed approved-model scores with encounter, feature and governance context; one MWAA Serverless run completed all nine workflow tasks successfully; and the shared collector contained successful runs for all five expected analytical lineage jobs. Deployment-specific identifiers are intentionally omitted.
 
-Verified release evidence on 2026-09-17: a fresh regional deployment completed from the quickstart; post-deployment prerequisites passed; GitHub OIDC was active; CI passed; Terraform converged; all ten live patients were current with active WebSocket connections; all realtime alarms were `OK`; and both failure queues were empty. The simulator published blood pressure on its documented five-minute wall-clock cadence. A later validation deployed random per-run scenarios, created fresh encounters for all ten patients and completed a healthy first cycle. Deployment-specific identifiers are intentionally omitted.
+Verified release evidence on Sep 17 2026: a fresh regional deployment completed from the quickstart; post-deployment prerequisites passed; GitHub OpenID Connect (OIDC) was active; CI passed; Terraform converged; all ten live patients were current with active WebSocket connections; all realtime alarms were `OK`; and both failure queues were empty. The simulator published blood pressure on its documented five-minute wall-clock cadence. A later validation deployed random per-run scenarios, created fresh encounters for all ten patients and completed a healthy first cycle. Deployment-specific identifiers are intentionally omitted.
 
-## Model activation
+## Model Activation
 
-- [x] Run enough complete 30-minute simulator sessions to produce both proxy-label classes in both patient-grouped partitions.
-- [x] Train, review and publish an immutable model artifact.
-- [x] Set `ML_APPROVED_MODEL_VERSION`, apply the reviewed Terraform plan and confirm MWAA changes from manual-only to the daily schedule.
-- [x] Run the full workflow and validate model scoring, prediction refresh and the populated model analytics dashboard in the fresh region.
+- [x] Complete 30-minute simulator sessions produce both proxy-label classes in both patient-grouped partitions.
+- [x] An immutable model artifact is trained, reviewed and published.
+- [x] The reviewed `ML_APPROVED_MODEL_VERSION` is set, its approved Terraform plan is applied and MWAA changes to the daily schedule.
+- [x] The full workflow passes with validated model scoring, prediction refresh and populated model analytics in the fresh region.
 
-Verified model evidence on 2026-09-18: the patient-grouped training and test partitions both contained proxy-label classes `0` and `1`; the reviewed immutable baseline was published; the downstream scoring, prediction-refresh and Soda tasks passed independently; and a final MWAA Serverless run completed all nine workflow tasks successfully. The approved-model Athena view returned one current score for each of the ten configured patients. Fresh S3-backed OpenLineage events were present for Glue, Athena, Great Expectations, dbt and Soda. Terraform reported `No changes` after refresh-only reconciliation of computed workflow metadata. Model results remain synthetic portfolio evidence and are not clinically validated.
+Verified model evidence on Sep 18 2026: the patient-grouped training and test partitions both contained proxy-label classes `0` and `1`; the reviewed immutable baseline was published; the downstream scoring, prediction-refresh and Soda tasks passed independently; and a final MWAA Serverless run completed all nine workflow tasks successfully. The approved-model Athena view returned one current score for each of the ten configured patients. Fresh S3-backed OpenLineage events were present for Glue, Athena, Great Expectations, dbt and Soda. Terraform reported `No changes` after refresh-only reconciliation of computed workflow metadata. Model results remain synthetic portfolio evidence and are not clinically validated.
 
-## Public-artifact redaction
+## Public-artifact Redaction
 
 Before committing screenshots, diagrams, examples or portfolio documents:
 
-- [x] Remove account IDs, ARNs, ECR registry URLs, bucket names, API IDs, load-balancer names, endpoint URLs, connection IDs, private IPs, local usernames and email addresses.
-- [x] Remove secrets, signed authorization headers, API keys, webhook values, Terraform state and terminal output containing any of them.
-- [x] Replace environment values with reproducible placeholders such as `<aws-region>`, `<project-data-bucket>` and `<api-id>`.
-- [x] Review every redaction-scan match manually; do not replace implementation configuration merely to conceal documentation.
-- [x] Confirm Power BI Desktop can connect to the Athena analytical tables through the Amazon Athena ODBC driver.
-- [x] Complete the local Power BI report and keep the `.pbix` outside the repository.
-- [x] Confirm the public release does not contain a `.pbix` binary or exported DSN.
+- [x] Public artifacts contain no account IDs, ARNs, Elastic Container Registry (ECR) registry URLs, bucket names, application programming interface (API) IDs, load-balancer names, endpoint URLs, connection IDs, private IPs, local usernames or email addresses.
+- [x] Public artifacts contain no secrets, signed authorization headers, API keys, webhook values, Terraform state or terminal output containing them.
+- [x] Environment values are replaced with reproducible placeholders such as `<AWS_REGION>`, `<PROJECT_DATA_BUCKET>` and `<API_ID>`.
+- [x] Every redaction match is reviewed manually; implementation configuration is preserved.
+- [x] Power BI Desktop can connect to the Athena analytical tables through the Amazon Athena Open Database Connectivity (ODBC) driver.
+- [x] The local Power BI report is complete and the `.pbix` remains outside the repository.
+- [x] The public release does not contain a `.pbix` binary or exported data source name (DSN).
 
-## Next release
+## Next Release
 
-These checks cover the in-VPC FHIR setup task, the scoped IAM policies and roles and the end-to-end runner added after v1.0.1. The end-to-end test plan lists them in session order.
+These checks cover the Fast Healthcare Interoperability Resources (FHIR) setup task inside the virtual private cloud (VPC), the scoped IAM policies and roles and the end-to-end runner added after v1.0.1. The end-to-end test plan lists them in session order.
 
-- [ ] Plan, review and apply the changed IAM policy templates with `infra/iam/scripts/manage_policies.py`.
-- [ ] Run `./scripts/infrastructure/run_fhir_setup.sh load` and `register` and keep both passed reports under `artifacts/e2e/fhir_setup/`.
-- [ ] Run `.venv/bin/python -m e2e.run session` with no simulator task running and confirm every scenario passed; keep the reports under `artifacts/e2e/`.
-- [ ] Run the [load test](load-testing.md) and keep its report.
-- [ ] Run the MWAA workflow once, so the Glue job runs under its scoped role, then set `ENABLE_ICEBERG_TABLE_OPTIMIZERS=true` and apply a reviewed plan.
-- [ ] Confirm the realtime alarms are `OK`, both failure queues are empty and no `healthcare_realtime_e2e_replay_*` policy remains on the processor role.
+- [ ] The changed IAM templates are planned, reviewed and applied using `infra/iam/scripts/manage_policies.py`.
+- [ ] FHIR setup `load` and `register` pass with both reports retained under `artifacts/e2e/fhir_setup/`.
+- [ ] The E2E session starts with no simulator running and every scenario passes, with reports retained under `artifacts/e2e/`.
+- [ ] The [load test](load-testing.md) passes with its report retained.
+- [ ] The MWAA workflow runs Glue under its scoped role before `ENABLE_ICEBERG_TABLE_OPTIMIZERS=true` is applied through a reviewed plan.
+- [ ] The realtime alarms are `OK`, both failure queues are empty and no `healthcare_realtime_e2e_replay_*` policy remains on the processor role.
 
-## Release tag
+## Release Tag
 
 Create a release tag only after CI is green, Terraform has converged and the evidence checklist is complete. The command below is the v1.0.1 record; use the new version for the next release:
 

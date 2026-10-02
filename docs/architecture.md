@@ -1,8 +1,49 @@
+---
+title: "Architecture"
+description: "Trace realtime delivery, analytical processing, recovery and security boundaries."
+last_updated: 2026-10-02
+audience: [developer, operator]
+---
+
 # Architecture
+
+For developers and operators: trace realtime delivery, analytical processing, recovery and security boundaries.
+
+## Contents
+
+- [Terminology](#terminology)
+- [Purpose](#purpose)
+- [System Overview](#system-overview)
+- [Realtime Path](#realtime-path)
+- [Analytical Path](#analytical-path)
+- [Failure and Recovery Model](#failure-and-recovery-model)
+- [Security Boundaries](#security-boundaries)
+- [Observability](#observability)
+- [Deployment and Configuration](#deployment-and-configuration)
+- [Trade-offs](#trade-offs)
+
+## Terminology
+
+- **API**: application programming interface.
+- **AWS**: Amazon Web Services.
+- **BIDMC**: Beth Israel Deaconess Medical Center.
+- **DAG**: directed acyclic graph.
+- **ECS**: Elastic Container Service.
+- **FHIR**: Fast Healthcare Interoperability Resources.
+- **HTML**: HyperText Markup Language.
+- **HTTP**: HyperText Transfer Protocol.
+- **IAM**: Identity and Access Management.
+- **MWAA**: Managed Workflows for Apache Airflow.
+- **NAT**: network address translation.
+- **PNG**: Portable Network Graphics.
+- **RDS**: Relational Database Service.
+- **REST**: Representational State Transfer.
+- **SQS**: Simple Queue Service.
+- **VPC**: virtual private cloud.
 
 ## Purpose
 
-This portfolio project demonstrates an AWS-based healthcare monitoring platform using synthetic Synthea records and BIDMC waveform-derived vital signs. It is a technical demonstration, not a clinical system and not a source of patient-care decisions.
+This portfolio project demonstrates an Amazon Web Services (AWS)-based healthcare monitoring platform using synthetic Synthea records and Beth Israel Deaconess Medical Center (BIDMC) waveform-derived vital signs. It is a technical demonstration, not a clinical system and not a source of patient-care decisions.
 
 The design keeps three concerns distinct:
 
@@ -10,9 +51,9 @@ The design keeps three concerns distinct:
 - durable, governed analytical processing; and
 - bounded failure recovery with observable operational controls.
 
-## System overview
+## System Overview
 
-The rendered diagram at [architecture/architecture.png](architecture/architecture.png) is built from [architecture/architecture.html](architecture/architecture.html). After changing the HTML, render the PNG again with headless Chrome:
+The rendered diagram at [architecture/architecture.png](architecture/architecture.png) is built from [architecture/architecture.html](architecture/architecture.html). After changing the HyperText Markup Language (HTML), render the Portable Network Graphics (PNG) again with headless Chrome:
 
 ```zsh
 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars --window-size=1200,1180 --virtual-time-budget=5000 --screenshot=docs/architecture/architecture.png "file://$PWD/docs/architecture/architecture.html"
@@ -82,34 +123,34 @@ flowchart LR
     HAPI --> CW
 ```
 
-## Realtime path
+## Realtime Path
 
-1. The simulator converts synthetic cohort measurements into FHIR R4 `Observation` resources and submits them to HAPI FHIR.
+1. The simulator converts synthetic cohort measurements into Fast Healthcare Interoperability Resources (FHIR) R4 `Observation` resources and submits them to HAPI FHIR.
 2. The HAPI subscription invokes the webhook Lambda. The webhook validates its shared secret and publishes normalized events to Kinesis.
 3. The processor Lambda validates realtime payloads, rejects stale or duplicate state updates, writes the newest state per patient to DynamoDB and broadcasts accepted updates to connected WebSocket clients.
-4. The REST API provides an IAM-authorized latest-state fallback. The Streamlit dashboard uses the WebSocket feed while merging REST-polling results to remain responsive during a transient connection interruption.
+4. The Representational State Transfer (REST) application programming interface (API) provides an Identity and Access Management (IAM)-authorized latest-state fallback. The Streamlit dashboard uses the WebSocket feed while merging REST-polling results to remain responsive during a transient connection interruption.
 
 The realtime serving model is deliberately cohort-first: the live dashboard keeps all simulated patients visible and permits an operator to focus on one patient without losing the wider clinical context.
 
-## Analytical path
+## Analytical Path
 
-Kinesis Data Firehose writes immutable normalized vital events to the data bucket. These rows preserve FHIR identifiers and coding but are not complete FHIR resources. Glue reads that current event contract, classifies each measurement, exposes rejected rows through an Athena-readable quarantine table and deduplicates and merges accepted measurements into an Iceberg table. Reviewed quarantine rows can be corrected and republished through the controlled replay utility. The native Airflow DAG and MWAA Serverless workflow coordinate Glue, Athena validation, Great Expectations, dbt, approved-model scoring, prediction refresh and Soda in sequence:
+Kinesis Data Firehose writes immutable normalized vital events to the data bucket. These rows preserve FHIR identifiers and coding but are not complete FHIR resources. Glue reads that current event contract, classifies each measurement, exposes rejected rows through an Athena-readable quarantine table and deduplicates and merges accepted measurements into an Iceberg table. Reviewed quarantine rows can be corrected and republished through the controlled replay utility. The native Airflow directed acyclic graph (DAG) and Managed Workflows for Apache Airflow (MWAA) Serverless workflow coordinate Glue, Athena validation, Great Expectations, dbt, approved-model scoring, prediction refresh and Soda in sequence:
 
 ```text
 raw event arrival -> Glue -> Athena -> Great Expectations -> dbt -> approved-model scoring -> prediction refresh -> Soda
 ```
 
-dbt produces a keyed observation fact, conformed dimensions, fixed-window encounter features and separate training and prospective-scoring datasets. The daily workflow scores the latter with one explicitly approved immutable model, publishes predictions to the Terraform-owned catalog named by `ATHENA_ML_DATABASE`, rebuilds the serving views and then runs freshness-aware Soda contracts. The separate model analytics dashboard joins the latest approved score to patient, encounter and feature-window context. It displays ranked proxy probability, model controls, scoring freshness and explicit synthetic and nonclinical labels without affecting live monitoring priorities. The [analytics star schema](analytics-star-schema.md) defines the analytical grain, keys, join paths and bus matrix. Each executed analytical validation emits OpenLineage lifecycle events with a shared run identity. The managed collector runs Marquez on private ECS and RDS resources behind explicit IAM-authorized API Gateway routes. Emitters sign remote requests using temporary workload credentials; S3 remains the durable fallback when the collector is disabled.
+dbt produces a keyed observation fact, conformed dimensions, fixed-window encounter features and separate training and prospective-scoring datasets. The daily workflow scores the latter with one explicitly approved immutable model, publishes predictions to the Terraform-owned catalog named by `ATHENA_ML_DATABASE`, rebuilds the serving views and then runs freshness-aware Soda contracts. The separate model analytics dashboard joins the latest approved score to patient, encounter and feature-window context. It displays ranked proxy probability, model controls, scoring freshness and explicit synthetic and nonclinical labels without affecting live monitoring priorities. The [analytics star schema](analytics-star-schema.md) defines the analytical grain, keys, join paths and bus matrix. Each executed analytical validation emits OpenLineage lifecycle events with a shared run identity. The managed collector runs Marquez on private Elastic Container Service (ECS) and Relational Database Service (RDS) resources behind explicit IAM-authorized API Gateway routes. Emitters sign remote requests using temporary workload credentials; S3 remains the durable fallback when the collector is disabled.
 
-## Failure and recovery model
+## Failure and Recovery Model
 
-The processor rejects records that fail validation without retrying them and counts them in the `PermanentRecordsRejected` metric. Retryable failures are retried by Lambda and then reported to an encrypted SQS failure queue. The replay Lambda retrieves the original range from the main vitals stream and republishes it once. A record already at the replay limit goes straight to a separate replay dead-letter queue with its reason; a failure message that cannot be replayed, including any from the isolated load-test stream, moves there after five failed receives. Operators investigate the dead-letter queue; see [data governance](data-governance.md#failure-handling-and-replay).
+The processor rejects records that fail validation without retrying them and counts them in the `PermanentRecordsRejected` metric. Retryable failures are retried by Lambda and then reported to an encrypted Simple Queue Service (SQS) failure queue. The replay Lambda retrieves the original range from the main vitals stream and republishes it once. A record already at the replay limit goes straight to a separate replay dead-letter queue with its reason; a failure message that cannot be replayed, including any from the isolated load-test stream, moves there after five failed receives. Operators investigate the dead-letter queue; see [data governance](data-governance.md#failure-handling-and-replay).
 
 This design prefers controlled replay over blind redrive: an operator should identify the underlying data or deployment issue, inspect the dead-letter record and then validate fresh state, dashboard behavior and alarms after recovery. The full procedure is in [operations-runbook.md](operations-runbook.md).
 
-## Security boundaries
+## Security Boundaries
 
-- HAPI FHIR runs behind an application load balancer that accepts HTTP only from the NAT gateway, used by the simulator and the one-off FHIR setup task ([FHIR setup tasks](fhir-setup-tasks.md)); the service and database remain in the project VPC.
+- HAPI FHIR runs behind an application load balancer that accepts HyperText Transfer Protocol (HTTP) only from the network address translation (NAT) gateway, used by the simulator and the one-off FHIR setup task ([FHIR setup tasks](fhir-setup-tasks.md)); the service and database remain in the project virtual private cloud (VPC).
 - The webhook secret resides in AWS Secrets Manager and is retrieved at runtime. It is not embedded in Terraform configuration or public artifacts.
 - REST and WebSocket clients authenticate with AWS IAM. Postman testing uses temporary authorization generated for the target environment.
 - The Marquez service and database are private. Only SigV4-authenticated requests can traverse API Gateway to its internal load balancer.
@@ -127,12 +168,12 @@ terraform -chdir=infra output -raw realtime_observability_dashboard_name
 
 | Dashboard | Operational focus |
 | --- | --- |
-| Pipeline observability output | End-to-end pipeline: Kinesis, Firehose, Glue, MWAA, dbt, Soda and analytical failures |
+| Pipeline observability output | End-to-End pipeline: Kinesis, Firehose, Glue, MWAA, dbt, Soda and analytical failures |
 | Realtime observability output | Realtime state: processor errors, iterator age, processing latency, WebSocket delivery and simulator activity |
 
 Alarms cover pipeline task failures, throttling, Firehose delivery, processor errors and throttles, iterator age, live processing latency, WebSocket-delivery failures, collector health, missing lineage events and client-side lineage-emission failures. Operational validation is complete only when current state advances, monitoring clients receive updates and the relevant alarms are `OK`.
 
-## Deployment and configuration
+## Deployment and Configuration
 
 Terraform owns the AWS infrastructure. A clone supplies target-specific configuration through one ignored local file:
 

@@ -113,6 +113,11 @@ jobs:
         with:
           terraform_version: "1.11.0"
 
+      - name: Setup Node.js for Markdown checks
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
       - name: Install dependencies and pinned tools
         run: |
           python -m venv .venv

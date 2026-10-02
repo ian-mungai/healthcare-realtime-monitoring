@@ -1,33 +1,64 @@
+---
+title: "Environments"
+description: "Select an environment file and preserve account and backend isolation."
+last_updated: 2026-10-02
+audience: [developer, operator]
+---
+
 # Environments
 
-The project has two deployment environments, each in its own AWS account:
+For developers and operators: select an environment file and preserve account and backend isolation.
+
+The project has two deployment environments, each in its own Amazon Web Services (AWS) account:
 
 | Environment | `DEPLOYMENT_ENVIRONMENT` | Environment file | Purpose |
 | --- | --- | --- | --- |
-| Development | `development` (default when unset) | `.env` | Demos, E2E runs and changes under test; torn down after each demo |
+| Development | `development` (default when unset) | `.env` | Demos, end-to-end (E2E) runs and changes under test; torn down after each demo |
 | Production | `production` | `.env.production` | The reviewed release deployment |
 
-Separate accounts keep the environments apart without renaming resources: the Terraform resource names are fixed per project, so two environments in one account would collide. Each account has its own Terraform state bucket, bootstrap state, webhook secret, IAM policies and GitHub environment.
+Separate accounts keep the environments apart without renaming resources: the Terraform resource names are fixed per project, so two environments in one account would collide. Each account has its own Terraform state bucket, bootstrap state, webhook secret, Identity and Access Management (IAM) policies and GitHub environment.
 
-## Select an environment
+## Terminology
 
-Every script reads the environment file named by `PROJECT_ENV_FILE`, or `.env` when it is unset. Both files are ignored by Git. Select production for a whole shell session:
+- **AWS**: Amazon Web Services.
+- **E2E**: end-to-end.
+- **IAM**: Identity and Access Management.
 
-```zsh
-export PROJECT_ENV_FILE=.env.production
-set -a
-source "$PROJECT_ENV_FILE"
-set +a
-```
+## Example Placeholders
 
-The production file holds the production account's `AWS_PROFILE`, `AWS_ACCOUNT_ID`, `TF_STATE_BUCKET`, `DATA_BUCKET_NAME` and alert address, plus:
+Angle-bracket values are placeholders. Replace each with the approved value for its named subject before running a command; keep real deployment values private.
 
-```dotenv
-DEPLOYMENT_ENVIRONMENT=production
-FHIR_RESOURCE_MAP_FILE=scripts/synthea_loader/state/production/fhir_resource_map.json
-```
+- `<ENVIRONMENT>`: environment for the selected environment or example.
 
-`FHIR_RESOURCE_MAP_FILE` keeps each environment's HAPI patient IDs apart, because every HAPI server assigns its own IDs.
+## Before You Start
+
+- Work from the repository root with the project virtual environment and the tools in the [prerequisite inventory](external-prerequisites.md).
+- Select the target environment with `PROJECT_ENV_FILE`; use the [environment safeguards](environments.md) before direct infrastructure or AWS commands.
+- Obtain owner approval for deployment, publication, secret changes or destructive operations; examples do not grant authorization.
+
+## Select an Environment
+
+Every script reads the environment file named by `PROJECT_ENV_FILE` or `.env` when it is unset. Both files are ignored by Git. Select production for a whole shell session:
+
+1. Run the following command block:
+
+   ```zsh
+   export PROJECT_ENV_FILE=.env.production
+   set -a
+   source "$PROJECT_ENV_FILE"
+   set +a
+   ```
+
+   The production file holds the production account's `AWS_PROFILE`, `AWS_ACCOUNT_ID`, `TF_STATE_BUCKET`, `DATA_BUCKET_NAME` and alert address, plus:
+
+2. Configure the following settings:
+
+   ```dotenv
+   DEPLOYMENT_ENVIRONMENT=production
+   FHIR_RESOURCE_MAP_FILE=scripts/synthea_loader/state/production/fhir_resource_map.json
+   ```
+
+   `FHIR_RESOURCE_MAP_FILE` keeps each environment's HAPI patient IDs apart, because every HAPI server assigns its own IDs.
 
 ## Safeguards
 
@@ -37,9 +68,9 @@ FHIR_RESOURCE_MAP_FILE=scripts/synthea_loader/state/production/fhir_resource_map
 - Saved plans carry the environment in their names, for example `tfplan-bootstrap-application-production`, so a plan from one environment is never applied in another.
 - Before any main-stack plan, apply, teardown or demo command, the scripts stop if `infra/` is initialized for a different state bucket than the selected file names. Run `./scripts/infrastructure/bootstrap.sh main-init` after switching environments.
 - `check_prerequisites.sh` fails when the signed-in AWS account differs from `AWS_ACCOUNT_ID` in the selected file.
-- Teardown asks for `CONFIRM_TEARDOWN=delete-healthcare-realtime-<environment>`, so deleting production needs its own confirmation.
+- Teardown asks for `CONFIRM_TEARDOWN=delete-healthcare-realtime-<ENVIRONMENT>`, so deleting production needs its own confirmation.
 
-## Create production
+## Create Production
 
 Follow the [first-deployment quickstart](quickstart.md) in the production account with `PROJECT_ENV_FILE=.env.production` exported for the whole session. Then configure a protected GitHub environment named by `GITHUB_DEPLOYMENT_ENVIRONMENT` in the production file, with its own `AWS_REGION` variable and `AWS_DEPLOY_ROLE_ARN`, `TF_STATE_BUCKET` and `TF_STATE_PREFIX` secrets, as described in the [deployment guide](deployment.md). The Deploy workflow's environment input selects the account through those secrets.
 
