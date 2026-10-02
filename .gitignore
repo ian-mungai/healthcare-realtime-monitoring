@@ -75,3 +75,6 @@ airflow/serverless/generated/
 
 # Local documentation-review evidence; never committed.
 /.documentation_review.json
+
+# Local verification evidence; scenario source in e2e/ remains tracked.
+/artifacts/e2e/

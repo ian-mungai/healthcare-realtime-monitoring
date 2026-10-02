@@ -1,10 +1,19 @@
+---
+title: "v1.0.1 Release Notes"
+description: "Read the recorded portability acceptance evidence for the second portfolio release."
+last_updated: 2026-10-02
+audience: [developer, operator]
+---
+
 # v1.0.1 Release Notes
 
-## Release scope
+For developers and operators: read the recorded portability acceptance evidence for the second portfolio release.
+
+## Release Scope
 
 Version 1.0.1 completes the approval-gated synthetic model path introduced in v1.0.0. It preserves the reproducible realtime, analytical and infrastructure baseline while adding a reviewed immutable model artifact, daily scoring and validated model analytics.
 
-## Model activation
+## Model Activation
 
 - Repeated complete simulator sessions produced both synthetic proxy-label classes in the patient-grouped training and test partitions.
 - The reviewed logistic-regression baseline was published as an immutable checksummed artifact in encrypted project storage.
@@ -12,9 +21,9 @@ Version 1.0.1 completes the approval-gated synthetic model path introduced in v1
 - ML scoring, prediction-model refresh and Soda validation passed independently before the final end-to-end run.
 - The model analytics dashboard now reads the approved-model view with one current score for each of the ten configured patients.
 
-## Acceptance evidence
+## Acceptance Evidence
 
-Release checks completed on 2026-09-18:
+Release checks completed on Sep 18 2026:
 
 - The training partition contained 18 eligible encounters across both labels and the test partition contained two eligible encounters across both labels.
 - One final MWAA Serverless run completed all nine workflow tasks successfully in under 25 minutes.

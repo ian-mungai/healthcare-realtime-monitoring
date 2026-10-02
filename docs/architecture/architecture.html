@@ -273,8 +273,8 @@
         <!-- Components -->
         <rect x="20" y="100" width="150" height="50" rx="6" fill="#0f172a"/>
         <rect x="20" y="100" width="150" height="50" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
-        <text x="95.0" y="118" fill="white" font-size="11" font-weight="600" text-anchor="middle">Synthea loader</text>
-        <text x="95.0" y="132" fill="#94a3b8" font-size="8.5" text-anchor="middle">local · uploaded to S3</text>
+        <text x="95.0" y="118" fill="white" font-size="11" font-weight="600" text-anchor="middle">Synthea bundles</text>
+        <text x="95.0" y="132" fill="#94a3b8" font-size="8.5" text-anchor="middle">local generation → S3</text>
         <rect x="20" y="180" width="150" height="50" rx="6" fill="#0f172a"/>
         <rect x="20" y="180" width="150" height="50" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
         <text x="95.0" y="198" fill="white" font-size="11" font-weight="600" text-anchor="middle">PhysioNet BIDMC</text>
@@ -296,7 +296,7 @@
         <rect x="225" y="90" width="150" height="50" rx="6" fill="#0f172a"/>
         <rect x="225" y="90" width="150" height="50" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
         <text x="300.0" y="108" fill="white" font-size="11" font-weight="600" text-anchor="middle">HAPI ALB</text>
-        <text x="300.0" y="122" fill="#94a3b8" font-size="8.5" text-anchor="middle">HTTP :80 · NAT gateway only</text>
+        <text x="300.0" y="122" fill="#94a3b8" font-size="8.5" text-anchor="middle">HTTP :80 · approved sources</text>
         <rect x="400" y="90" width="150" height="50" rx="6" fill="#0f172a"/>
         <rect x="400" y="90" width="150" height="50" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
         <text x="475.0" y="108" fill="white" font-size="11" font-weight="600" text-anchor="middle">HAPI FHIR R4</text>
@@ -307,8 +307,8 @@
         <text x="475.0" y="197" fill="#94a3b8" font-size="8.5" text-anchor="middle">HAPI store · encrypted</text>
         <rect x="225" y="165" width="150" height="50" rx="6" fill="#0f172a"/>
         <rect x="225" y="165" width="150" height="50" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
-        <text x="300.0" y="183" fill="white" font-size="11" font-weight="600" text-anchor="middle">Vitals simulator</text>
-        <text x="300.0" y="197" fill="#94a3b8" font-size="8.5" text-anchor="middle">ECS task · also FHIR setup</text>
+        <text x="300.0" y="183" fill="white" font-size="11" font-weight="600" text-anchor="middle">Simulator / FHIR setup</text>
+        <text x="300.0" y="197" fill="#94a3b8" font-size="8.5" text-anchor="middle">separate ECS tasks in VPC</text>
         <rect x="225" y="235" width="325" height="45" rx="6" fill="#0f172a"/>
         <rect x="225" y="235" width="325" height="45" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
         <text x="387.5" y="253" fill="white" font-size="11" font-weight="600" text-anchor="middle">dbt · ML scoring · Great Expectations · Soda</text>
@@ -454,7 +454,7 @@
 
     <!-- Footer -->
     <p class="footer">
-      Healthcare Realtime Monitoring • built from infra/ Terraform, services/ and airflow/ at commit 1427293 • synthetic data only
+      Healthcare Realtime Monitoring • reviewed against infra/, services/ and airflow/ at commit 8f7c07c • synthetic data only
     </p>
   </div>
 

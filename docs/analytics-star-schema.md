@@ -1,75 +1,115 @@
+---
+title: "Analytics Star Schema"
+description: "Look up analytical grains, keys, conformed dimensions and permitted joins."
+last_updated: 2026-10-02
+audience: [developer, operator]
+---
+
 # Analytics Star Schema
 
-## Model layers
+For developers and operators: look up analytical grains, keys, conformed dimensions and permitted joins.
+
+## Contents
+
+- [Terminology](#terminology)
+- [Model Layers](#model-layers)
+- [Fact Grain](#fact-grain)
+- [Conformed Dimensions](#conformed-dimensions)
+- [Example Placeholders](#example-placeholders)
+- [Bus Matrix](#bus-matrix)
+- [Feature and Label Construction](#feature-and-label-construction)
+- [Training Dataset](#training-dataset)
+- [Join Paths](#join-paths)
+
+## Terminology
+
+- **BIDMC**: Beth Israel Deaconess Medical Center.
+- **FHIR**: Fast Healthcare Interoperability Resources.
+- **ID**: identifier.
+- **LOINC**: Logical Observation Identifiers Names and Codes.
+- **MD5**: Message Digest 5.
+- **NEWS2**: National Early Warning Score 2.
+- **NPPES**: National Plan and Provider Enumeration System.
+- **UTF**: Unicode Transformation Format.
+
+## Model Layers
 
 The analytical path uses bronze, silver and gold layers. All dbt models build into the one dbt database, `${ATHENA_DBT_DATABASE}`.
 
 | Layer | Location | Contents |
 | --- | --- | --- |
-| Bronze | S3 raw landing and the dbt sources in `dbt/models/sources.yml` | Landed FHIR vital events, the Glue-processed Iceberg observation table and the published model predictions |
+| Bronze | S3 raw landing and the dbt sources in `dbt/models/sources.yml` | Landed Fast Healthcare Interoperability Resources (FHIR) vital events, the Glue-processed Iceberg observation table and the published model predictions |
 | Silver | `dbt/models/silver/` | `stg_fhir_observations`, the cleaned and cohort-limited observations (view) |
 | Gold | `dbt/models/gold/core/` and `dbt/models/gold/analytics/` | The star schema (`dim_` and `fact_` tables) and the feature, training, scoring and prediction datasets |
 
-## Fact grain
+## Fact Grain
 
 `${ATHENA_DBT_DATABASE}.${DBT_FACT_OBSERVATIONS_TABLE}` contains one vital-sign measurement per `observation_id` and `loinc_code`. Blood pressure panels therefore produce separate systolic and diastolic fact rows while retaining the same FHIR observation identifier.
 
 `fact_observation_key` is the stable hash of that compound business key. The fact also carries conformed foreign keys for patient, encounter, effective provider version, observation type and observation date. Natural identifiers remain available for traceability and compatibility with existing validation queries.
 
-## Conformed dimensions
+## Conformed Dimensions
 
 | Dimension | Business key | Surrogate key | Purpose |
 | --- | --- | --- | --- |
 | `DBT_DIM_PATIENT_TABLE` | `patient_id` | `patient_key` | Synthetic FHIR subject identity and source classification |
 | `DBT_DIM_ENCOUNTER_TABLE` | `encounter_id` | `encounter_key` | Patient encounter and its observed analysis window |
 | `DBT_DIM_PROVIDER_TABLE` | `provider_npi` plus `valid_from` | `provider_version_key` | Effective-dated provider identity, taxonomy and state |
-| `DBT_DIM_OBSERVATION_TYPE_TABLE` | `loinc_code` | `observation_type_key` | LOINC vital-sign name, code, unit and code system |
+| `DBT_DIM_OBSERVATION_TYPE_TABLE` | `loinc_code` | `observation_type_key` | Logical Observation Identifiers Names and Codes (LOINC) vital-sign name, code, unit and code system |
 | `DBT_DIM_DATE_TABLE` | `full_date` | `date_key` | Calendar attributes for the observation date |
 
-All hash keys use lowercase MD5 hex over stable UTF-8 business identifiers. `date_key` uses the integer `YYYYMMDD` convention.
+All hash keys use lowercase Message Digest 5 (MD5) hex over stable Unicode Transformation Format (UTF)-8 business identifiers. `date_key` uses the integer `YYYYMMDD` convention.
 
 The analytical staging boundary includes only the ten patient identifiers supplied through the private deployment configuration and observations with a valid `encounter_id`. Historical schema `1.0` rows and out-of-cohort patients remain in the immutable source layer for audit and replay purposes but are excluded from the star schema. Schema `1.1` events require `encounter_id`.
 
 The table named by `DBT_DIM_PROVIDER_TABLE` uses a type 2 slowly changing dimension. A changed provider name, taxonomy, description or state closes the current row at the new snapshot's effective date and creates a successor row. Encounter and fact rows retain both the stable `provider_key` and the effective `provider_version_key`.
 
-The committed provider seed is a synthetic NPPES-compatible fixture for reproducible portfolio runs. Because the source observations do not contain a practitioner reference, the table named by `DBT_DIM_ENCOUNTER_TABLE` assigns the current synthetic roster deterministically and marks the result with `is_synthetic_provider_assignment`. This demonstrates temporal attribution mechanics; it does not claim that a named clinician treated a patient.
+The committed provider seed is a synthetic National Plan and Provider Enumeration System (NPPES)-compatible fixture for reproducible portfolio runs. Because the source observations do not contain a practitioner reference, the table named by `DBT_DIM_ENCOUNTER_TABLE` assigns the current synthetic roster deterministically and marks the result with `is_synthetic_provider_assignment`. This demonstrates temporal attribution mechanics; it does not claim that a named clinician treated a patient.
 
 To prepare a private provider history from a normalized NPPES snapshot, supply `provider_npi`, `provider_name`, `taxonomy_code`, `taxonomy_description` and `provider_state`:
 
 ```bash
 python -m scripts.nppes.update_provider_history \
-  --snapshot path/to/nppes_snapshot.csv \
+  --snapshot "<NPPES_SNAPSHOT>" \
   --history dbt/seeds/provider_history.csv \
-  --output path/to/provider_history.csv \
-  --effective-date YYYY-MM-DD
+  --output "<PROVIDER_HISTORY_OUTPUT>" \
+  --effective-date "<EFFECTIVE_DATE>"
 ```
 
 Review the generated history before replacing the synthetic seed. Do not commit real provider data to the portfolio repository.
 
-## Bus matrix
+## Example Placeholders
+
+- `<NPPES_SNAPSHOT>`: private normalized NPPES input CSV path.
+- `<PROVIDER_HISTORY_OUTPUT>`: private generated provider-history CSV path.
+- `<EFFECTIVE_DATE>`: approved snapshot date in `YYYY-MM-DD` format.
+
+## Bus Matrix
 
 | Business process | Grain | Patient | Encounter | Provider | Observation type | Date | Measures |
 | --- | --- | :---: | :---: | :---: | :---: | :---: | --- |
-| Record vital-sign observation | One row per observation ID and LOINC code | X | X | X | X | X | `value` |
-| Construct encounter features and label | One row per encounter | X | X | X |  |  | Vital aggregates and deterioration proxy |
+| Record vital-sign observation | One row per observation identifier (ID) and LOINC code | X | X | X | X | X | `value` |
+| Construct encounter features and label | One row per encounter | X | X | X | | | Vital aggregates and deterioration proxy |
 
-## Feature and label construction
+## Feature and Label Construction
 
 `${ATHENA_DBT_DATABASE}.${DBT_ENCOUNTER_FEATURES_TABLE}` uses absolute windows that are independent of the encounter's eventual duration. The first 15 minutes produce model-ready vital aggregates and the following 15 minutes produce the binary `deterioration_proxy_label`. The tables named by `DBT_ML_SCORING_TABLE` and `DBT_ML_TRAINING_TABLE` become eligible after the feature and outcome windows respectively.
 
-The versioned `news2-repeated-extreme-proxy-v2` label is `1` when at least two observations of the same vital cross a NEWS2 extreme threshold during the outcome window: heart rate at or below 40 or at or above 131, respiratory rate at or below 8 or at or above 25, oxygen saturation at or below 91 or systolic pressure at or below 90. Requiring repeated threshold crossings prevents one isolated synthetic measurement from determining the encounter label. The minimum count is declared by `deterioration_min_repeated_extreme_observations` in `dbt_project.yml`. `is_training_eligible` requires observations in both windows.
+The versioned `news2-repeated-extreme-proxy-v2` label is `1` when at least two observations of the same vital cross a National Early Warning Score 2 (NEWS2) extreme threshold during the outcome window: heart rate at or below 40 or at or above 131, respiratory rate at or below 8 or at or above 25, oxygen saturation at or below 91 or systolic pressure at or below 90. Requiring repeated threshold crossings prevents one isolated synthetic measurement from determining the encounter label. The minimum count is declared by `deterioration_min_repeated_extreme_observations` in `dbt_project.yml`. `is_training_eligible` requires observations in both windows.
 
-Every simulator task creates a new encounter for each cohort patient and randomly selects a normal or deterioration-proxy outcome scenario. Source BIDMC measurements remain unchanged during the feature window. Scenario transformations apply only during the outcome window so they cannot leak into model features. Random assignment improves label diversity across repeated complete runs but does not guarantee both classes in either patient-grouped partition after one run.
+Every simulator task creates a new encounter for each cohort patient and randomly selects a normal or deterioration-proxy outcome scenario. Source Beth Israel Deaconess Medical Center (BIDMC) measurements remain unchanged during the feature window. Scenario transformations apply only during the outcome window so they cannot leak into model features. Random assignment improves label diversity across repeated complete runs but does not guarantee both classes in either patient-grouped partition after one run.
 
 This label is a synthetic engineering proxy derived from NEWS2 extreme thresholds. It is not a diagnosis, a validated clinical outcome or suitable for patient care or clinical model training.
 
-## Training dataset
+## Training Dataset
 
 `${ATHENA_DBT_DATABASE}.${DBT_ML_TRAINING_TABLE}` contains only training-eligible encounters and preserves the feature and label definition versions. The split is deterministic: a stable bucket derived from `patient_key` assigns buckets 0 through 7 to training and 8 through 9 to testing. Grouping by patient prevents encounters for the same synthetic patient from appearing in both partitions.
 
 The baseline model uses the twelve vital-sign aggregates as predictors. Encounter, patient and provider keys remain available for traceability but are excluded from model features.
 
-## Join paths
+## Join Paths
+
+This SQL is a template for Athena, not a directly runnable statement. Substitute the `${...}` identifiers with the corresponding database/table values in generated `infra/deployment.auto.tfvars.json`, using the mappings in `scripts/infrastructure/render_project_config.py`. Preserve identifier validation and use only the selected environment's catalog. The aliases and keys match the dbt dimension and fact models. Parsing after placeholder substitution checks syntax; execution needs an authorized deployed catalog.
 
 ```sql
 select

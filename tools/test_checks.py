@@ -21,7 +21,7 @@ from tools.process import clear_git_environment, run_command
 
 ROOT = Path(__file__).resolve().parents[1]
 PRE_COMMIT = ROOT / ".venv" / "bin" / "pre-commit"
-COPIED = [".pre-commit-config.yaml", "pyproject.toml", ".env.example", ".checkov.yaml", ".sqlfluff"]
+COPIED = [".pre-commit-config.yaml", "pyproject.toml", ".env.example", ".checkov.yaml", ".sqlfluff", ".markdownlint-cli2.jsonc"]
 NOQA = "no" + "qa"
 TYPE_IGNORE = "type" + ": ignore"
 FAKE_PAT = "gh" + "p_" + "Zx7Qm2Lp9Rt4Wv8Ks3Nd6Hy1Bc5Fj0Ga2TeQ"
@@ -186,7 +186,34 @@ CASES = [
 ]
 
 # The diagnostic each rejection must cite, so a hook that fails for an unrelated reason cannot pass as a block.
+GOOD_DOC = "---\ntitle: Guide\ndescription: Read the setup guide.\nlast_updated: 2026-10-02\n---\n\n# Guide\n\nFor operators configuring the service.\n"
+CASES.extend(
+    [
+        Case("valid document metadata", "front-matter", True, {"docs/guide.md": GOOD_DOC}),
+        Case("missing document metadata", "front-matter", False, {"docs/guide.md": "# Guide\n"}),
+        Case("metadata title mismatch", "front-matter", False, {"docs/guide.md": GOOD_DOC.replace("title: Guide", "title: Other")}),
+        Case("invalid metadata date", "front-matter", False, {"docs/guide.md": GOOD_DOC.replace("2026-10-02", "2026-99-99")}),
+        Case("metadata timestamp rejected", "front-matter", False, {"docs/guide.md": GOOD_DOC.replace("2026-10-02", "2026-10-02T12:00:00Z")}),
+        Case("README-like guide metadata", "front-matter", False, {"docs/README_policy.md": "# Policy\n"}),
+        Case("nested writing code exemption", "writing-check", True, {"docs/guide.md": GOOD_DOC + "\n````markdown\n```text\nA, B, and C.\n```\n````\n"}),
+        Case("README metadata exemption", "front-matter", True, {"README.md": "# Project\n"}),
+        Case("writing code exemption", "writing-check", True, {"docs/guide.md": GOOD_DOC + "\n```text\nA, and B on 2026-10-02.\n```\n"}),
+        Case("writing conjunction", "writing-check", False, {"docs/guide.md": GOOD_DOC + "\nA, B, and C.\n"}),
+        Case("writing time word", "writing-check", False, {"docs/guide.md": GOOD_DOC + "\nIt currently runs.\n"}),
+        Case("clean Markdown", "markdownlint", True, {"docs/guide.md": GOOD_DOC}),
+        Case("duplicate Markdown headings", "markdownlint", False, {"docs/guide.md": GOOD_DOC + "\n## Setup\n\nText.\n\n## Setup\n\nText.\n"}),
+    ]
+)
+
 BLOCK_REASONS = {
+    "missing document metadata": "no front matter",
+    "README-like guide metadata": "no front matter",
+    "metadata title mismatch": "title does not match",
+    "invalid metadata date": "last_updated",
+    "metadata timestamp rejected": "last_updated",
+    "writing conjunction": "docs/guide.md:11: comma before a final",
+    "writing time word": "docs/guide.md:11: time-bound word",
+    "duplicate Markdown headings": "MD024",
     "GitHub token": "leaks found: 1",
     ".env": ".env: credential or state file staged",
     "Terraform state": "infra/terraform.tfstate: credential or state file staged",
@@ -394,11 +421,11 @@ def run_hook_case() -> tuple[bool, str]:
         repo = scratch_repo(Path(scratch), Case("hook setup", "commit-msg", True))
         shutil.copytree(ROOT / ".githooks", repo / ".githooks")
         git(repo, "config", "core.hooksPath", ".githooks")
-        write(repo, {"notes.md": "A clean change.\n"})
+        write(repo, {"notes.md": GOOD_DOC + "\nA clean change.\n"})
         git(repo, "add", "notes.md")
         review_all(repo)
         good = run_command("git", ["commit", "-qm", "docs: add notes"], cwd=repo, timeout=300)
-        write(repo, {"notes.md": "A second change.\n"})
+        write(repo, {"notes.md": GOOD_DOC + "\nA second change.\n"})
         git(repo, "add", "notes.md")
         review_all(repo)
         bad = run_command("git", ["commit", "-qm", f"docs: more notes\n\n{CREDIT}: Claude <{VENDOR_ADDRESS}>"], cwd=repo, timeout=300)

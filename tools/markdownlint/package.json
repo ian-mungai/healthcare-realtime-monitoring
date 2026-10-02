@@ -1,0 +1,11 @@
+{
+  "name": "healthcare-documentation-checks",
+  "private": true,
+  "description": "Pinned markdownlint-cli2 for the markdownlint pre-commit hook; installed into .tools/markdownlint-cli2 by tools/install_tools.py.",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "markdownlint-cli2": "0.23.3"
+  }
+}

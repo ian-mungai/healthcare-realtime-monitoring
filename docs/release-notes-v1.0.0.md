@@ -1,6 +1,15 @@
+---
+title: "v1.0.0 Release Notes"
+description: "Read the recorded scope and acceptance evidence for the initial portfolio release."
+last_updated: 2026-10-02
+audience: [developer, operator]
+---
+
 # v1.0.0 Release Notes
 
-## Release scope
+For developers and operators: read the recorded scope and acceptance evidence for the initial portfolio release.
+
+## Release Scope
 
 Version 1.0.0 is the first reproducible portfolio release of Healthcare Realtime Monitoring. The implementation baseline includes commit `5f7cc8b` with final evidence documentation added before tagging.
 
@@ -12,7 +21,7 @@ This release includes:
 - Terraform-managed networking, compute, storage, recovery, observability, GitHub OIDC and protected remote state.
 - A canonical first-deployment quickstart plus guarded teardown, recreation and operations procedures.
 
-## Release corrections
+## Release Corrections
 
 - Blood pressure now follows publication wall-clock time, so a five-second simulator cadence produces a BP observation every five minutes instead of every 25 minutes.
 - GitHub deployment uses the existing service policies through a protected OIDC environment without long-lived AWS access keys.
@@ -20,9 +29,9 @@ This release includes:
 - Power BI connection and report-building guidance is complete while the private `.pbix` remains outside the repository.
 - Every simulator task creates fresh encounters and randomly assigns normal or deterioration-proxy outcome scenarios without modifying the feature window.
 
-## Acceptance evidence
+## Acceptance Evidence
 
-Release checks completed on 2026-09-17:
+Release checks completed on Sep 17 2026:
 
 - GitHub Actions passed Python checks, Terraform checks and all container builds for the release candidate.
 - Local validation passed 466 Python tests with the required coverage, five workflow tests and Terraform validation.

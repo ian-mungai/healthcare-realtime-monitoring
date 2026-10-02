@@ -1,53 +1,90 @@
+---
+title: "Realtime Load Testing"
+description: "Measure isolated throughput and delivery latency with repeatable local reports."
+last_updated: 2026-10-02
+audience: [developer, operator]
+---
+
 # Realtime Load Testing
+
+For developers and operators: measure isolated throughput and delivery latency with repeatable local reports.
 
 The realtime load test uses a dedicated Kinesis stream and DynamoDB results table. The test stream is not connected to Firehose, so test events do not enter the raw S3, Glue, Iceberg, Athena or dbt paths. The processor stores each test observation separately, delivers it to subscribed WebSocket clients and publishes test metrics under `HealthcareRealtime/LoadTest` rather than the live namespace.
 
-## Deploy the isolated lane
+## Terminology
+
+- **E2E**: end-to-end.
+- **TTL**: time to live.
+
+## Before You Start
+
+- Work from the repository root with the project virtual environment and the tools named in the [prerequisite inventory](external-prerequisites.md).
+- Select the target environment with `PROJECT_ENV_FILE`; use the [environment safeguards](environments.md) before direct infrastructure or AWS commands.
+- Obtain owner approval for deployment, publication, secret changes or destructive operations; examples do not grant authorization.
+
+## Deploy the Isolated Lane
 
 Build the realtime processor Lambda package, review the Terraform plan and apply it using the configuration for your environment:
 
-```zsh
-cd healthcare-realtime-monitoring
-set -a
-source .env
-set +a
+1. Run the following command block:
 
-scripts/lambda/build_vitals_stream_processor.sh
-./scripts/infrastructure/render_project_config.sh --check
-terraform -chdir=infra plan -var-file=deployment.auto.tfvars.json -out=tfplan-load-test
-terraform -chdir=infra show -no-color tfplan-load-test
-terraform -chdir=infra apply tfplan-load-test
-```
+   ```zsh
+   set -a
+   source "${PROJECT_ENV_FILE:-.env}"
+   set +a
 
-The plan should add the isolated stream, results table, processor event-source mapping and related least-privilege permissions. It should not attach the test stream to Firehose.
+   scripts/lambda/build_vitals_stream_processor.sh
+   ./scripts/infrastructure/render_project_config.sh --check
+   terraform -chdir=infra plan -var-file=deployment.auto.tfvars.json -out=tfplan-load-test
+   terraform -chdir=infra show -no-color tfplan-load-test
+   ```
 
-## Run an end-to-end test
+   Review the preceding plan or cleanup preview. Obtain approval for its exact changes before running the next action. Stop on unexpected deletion, replacement or permission changes.
+
+2. Apply only the reviewed and approved action:
+
+   ```zsh
+   terraform -chdir=infra apply tfplan-load-test
+   ```
+
+   The plan should add the isolated stream, results table, processor event-source mapping and related least-privilege permissions. It should not attach the test stream to Firehose.
+
+## Run an End-to-End Test
 
 Retrieve the deployed names instead of copying environment-specific identifiers into commands:
 
-```zsh
-export VITALS_WEBSOCKET_URL="$(terraform -chdir=infra output -raw realtime_websocket_url)"
-export KINESIS_STREAM_NAME="$(terraform -chdir=infra output -raw kinesis_stream_name)"
-export LOAD_TEST_KINESIS_STREAM_NAME="$(terraform -chdir=infra output -raw load_test_kinesis_stream_name)"
-export LOAD_TEST_RESULTS_TABLE="$(terraform -chdir=infra output -raw load_test_results_table_name)"
+1. Run the following command block:
 
-.venv/bin/python scripts/load_testing/realtime_load_test.py \
-  --stream-name "$LOAD_TEST_KINESIS_STREAM_NAME" \
-  --results-table "$LOAD_TEST_RESULTS_TABLE" \
-  --websocket-url "$VITALS_WEBSOCKET_URL" \
-  --patients 10 \
-  --events-per-second 1 \
-  --duration-seconds 60
-```
+   ```zsh
+   export VITALS_WEBSOCKET_URL="$(terraform -chdir=infra output -raw realtime_websocket_url)"
+   export KINESIS_STREAM_NAME="$(terraform -chdir=infra output -raw kinesis_stream_name)"
+   export LOAD_TEST_KINESIS_STREAM_NAME="$(terraform -chdir=infra output -raw load_test_kinesis_stream_name)"
+   export LOAD_TEST_RESULTS_TABLE="$(terraform -chdir=infra output -raw load_test_results_table_name)"
 
-The runner reads `KINESIS_STREAM_NAME` so it can refuse to write to the production stream. The command fails if an accepted observation does not reach DynamoDB or a subscribed WebSocket within the timeout. It reports Kinesis request latency, Kinesis-to-DynamoDB processing latency and Kinesis-to-WebSocket delivery latency.
+   .venv/bin/python scripts/load_testing/realtime_load_test.py \
+     --stream-name "$LOAD_TEST_KINESIS_STREAM_NAME" \
+     --results-table "$LOAD_TEST_RESULTS_TABLE" \
+     --websocket-url "$VITALS_WEBSOCKET_URL" \
+     --patients 10 \
+     --events-per-second 1 \
+     --duration-seconds 60
+   ```
 
-## E2E artifact
+   The runner reads `KINESIS_STREAM_NAME` so it can refuse to write to the production stream. The command fails if an accepted observation does not reach DynamoDB or a subscribed WebSocket within the timeout. It reports Kinesis request latency, Kinesis-to-DynamoDB processing latency and Kinesis-to-WebSocket delivery latency.
 
-Every run, passed or failed, writes `report.json` and `report.md` to `artifacts/e2e/load_test/<UTC time>_<run id>/`. They record the code revision (and whether tracked files had uncommitted changes), the parameters, producer, DynamoDB and WebSocket results with latency percentiles, the pass or fail status and error, and the run's limits. The WebSocket URL is never written. Use `--artifact-dir` to choose another folder. Review a report before committing it as release evidence.
+## E2E Artifact
 
-## Cleanup and safeguards
+Every run, passed or failed, writes `report.json` and `report.md` to `artifacts/e2e/load_test/<UTC_TIME>_<RUN_ID>/`. They record the code revision (and whether tracked files had uncommitted changes), the parameters, producer, DynamoDB and WebSocket results with latency percentiles, the pass or fail status and error and the run's limits. The WebSocket URL is never written. Use `--artifact-dir` to choose another folder. Review a report before using it as local release evidence. Keep reports ignored and outside Git and release archives.
 
-The runner deletes only observation IDs created by its current run. DynamoDB TTL removes abandoned results after 24 hours if the process is interrupted. WebSocket connections close at the end of the run; the production Kinesis stream is explicitly rejected by the runner.
+## Cleanup and Safeguards
+
+The runner deletes only observation IDs created by its current run. DynamoDB time to live (TTL) removes abandoned results after 24 hours if the process is interrupted. WebSocket connections close at the end of the run; the production Kinesis stream is explicitly rejected by the runner.
 
 Use `--retain-results` only when temporary DynamoDB evidence is required. Use `--skip-websocket` only for a deliberately limited processor test; it does not validate the complete realtime delivery path.
+
+## Artifact Path Placeholders
+
+- `<UTC_TIME>`: UTC timestamp generated by the runner.
+- `<RUN_ID>`: unique run identifier generated by the runner.
+
+These path components are output labels; you do not enter them as deployment inputs.

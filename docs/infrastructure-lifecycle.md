@@ -1,84 +1,164 @@
+---
+title: "Infrastructure Lifecycle"
+description: "Create state, tear down application resources and preserve or retire protected backups."
+last_updated: 2026-10-02
+audience: [developer, operator]
+---
+
 # Infrastructure Lifecycle
 
-## Safety model
+For developers and operators: create state, tear down application resources and preserve or retire protected backups.
 
-Normal deployments set `allow_destructive_teardown = false`. This keeps DynamoDB and RDS deletion protection enabled and prevents Terraform from deleting populated S3 buckets or ECR repositories.
+## Contents
+
+- [Terminology](#terminology)
+- [Example Placeholders](#example-placeholders)
+- [Before You Start](#before-you-start)
+- [Safety Model](#safety-model)
+- [Persistent State Bootstrap](#persistent-state-bootstrap)
+- [Controlled Application Teardown](#controlled-application-teardown)
+- [Full Account Retirement](#full-account-retirement)
+- [Recreation](#recreation)
+
+## Terminology
+
+- **API**: application programming interface.
+- **AWS**: Amazon Web Services.
+- **ECR**: Elastic Container Registry.
+- **ECS**: Elastic Container Service.
+- **FHIR**: Fast Healthcare Interoperability Resources.
+- **MWAA**: Managed Workflows for Apache Airflow.
+- **OIDC**: OpenID Connect.
+- **RDS**: Relational Database Service.
+
+## Example Placeholders
+
+Angle-bracket values are placeholders. Replace each with the approved value for its named subject before running a command; keep real deployment values private.
+
+- `<PROJECT_NAME>`: project name for the selected environment or example.
+- `<TERRAFORM_STATE_BUCKET>`: terraform state bucket for the selected environment or example.
+
+## Before You Start
+
+- Work from the repository root with the project virtual environment and the tools named in the [prerequisite inventory](external-prerequisites.md).
+- Select the target environment with `PROJECT_ENV_FILE`; use the [environment safeguards](environments.md) before direct infrastructure or Amazon Web Services (AWS) commands.
+- Obtain owner approval for deployment, publication, secret changes or destructive operations; examples do not grant authorization.
+
+## Safety Model
+
+Normal deployments set `allow_destructive_teardown = false`. This keeps DynamoDB and Relational Database Service (RDS) deletion protection enabled and prevents Terraform from deleting populated S3 buckets or Elastic Container Registry (ECR) repositories.
 
 The teardown workflow is deliberately two phase. The first reviewed apply disables protection. A second saved plan destroys resources. The separate Terraform state bucket is never a target of either application phase. Full account retirement is a third, separately authorized procedure.
 
-## Persistent state bootstrap
+## Persistent State Bootstrap
 
 For a fresh clone with no state bucket, follow the [first-deployment quickstart](quickstart.md). It is the canonical creation procedure. The persistent state bucket and application resources use the single `AWS_REGION` value, so a new regional deployment creates its state bucket in that region.
 
-The bootstrap stack intentionally uses local state and protects its bucket with `prevent_destroy`. The `state-backup` action saves the ignored bootstrap state at `s3://<terraform-state-bucket>/<project-name>/terraform/bootstrap/terraform.tfstate`. If local state is lost, restore this protected backup instead of trying to create a duplicate bucket.
+The bootstrap stack intentionally uses local state and protects its bucket with `prevent_destroy`. The `state-backup` action saves the ignored bootstrap state at `s3://<TERRAFORM_STATE_BUCKET>/<PROJECT_NAME>/terraform/bootstrap/terraform.tfstate`. If local state is lost, restore this protected backup instead of trying to create a duplicate bucket.
 
-The main state object uses `s3://<terraform-state-bucket>/<project-name>/terraform/terraform.tfstate`, keeping this project's state below a project-specific folder and Terraform subfolder.
+The main state object uses `s3://<TERRAFORM_STATE_BUCKET>/<PROJECT_NAME>/terraform/terraform.tfstate`, keeping this project's state below a project-specific folder and Terraform subfolder.
 
 To move an existing main stack from another backend, run `main-migrate` instead of `main-init` and approve Terraform's state migration:
 
-```zsh
-CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
-  ./scripts/infrastructure/bootstrap.sh main-migrate
-```
+1. Obtain authorization to migrate the existing state. Verify the source backend, destination state bucket and protected backup before starting. Review Terraform's interactive migration prompt and accept it only when it names the intended state transfer:
 
-## Controlled application teardown
+   ```zsh
+   CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
+     ./scripts/infrastructure/bootstrap.sh main-migrate
+   ```
 
-Stop demo tasks and any end-to-end run. If a replay scenario run was killed before its cleanup, remove its leftover `healthcare_realtime_e2e_replay_*` policy from the realtime processor role first, using the commands in the [operations runbook](operations-runbook.md#end-to-end-scenarios); Terraform does not manage that policy. Allow every MWAA workflow run to finish or stop it from the AWS console, then wait until its worker tasks have exited. An active workflow can prevent Terraform from deleting the workflow and can leave a metered ECS task running after an interrupted destroy.
+## Controlled Application Teardown
+
+Stop demo tasks and any end-to-end run. If a replay scenario run was killed before its cleanup, remove its leftover `healthcare_realtime_e2e_replay_*` policy from the realtime processor role first, using the commands in the [operations runbook](operations-runbook.md#end-to-end-scenarios); Terraform does not manage that policy. Allow every Managed Workflows for Apache Airflow (MWAA) workflow run to finish or stop it from the AWS console, then wait until its worker tasks have exited. An active workflow can prevent Terraform from deleting the workflow and can leave a metered Elastic Container Service (ECS) task running after an interrupted destroy.
 
 Export only approved synthetic evidence and decide whether database snapshots must be retained.
 
 Load the AWS context and persistent state bucket from the ignored environment file:
 
-```zsh
-set -a
-source .env
-set +a
-```
+1. Run the following command block:
 
-Create and inspect the protection-removal plan. For a complete portfolio teardown, the wrapper sets `openlineage_skip_final_snapshot=true`; change the workflow and use a unique snapshot identifier when retention is required.
+   ```zsh
+   set -a
+   source "${PROJECT_ENV_FILE:-.env}"
+   set +a
+   ```
 
-```zsh
-./scripts/infrastructure/teardown.sh prepare-plan
-terraform -chdir=infra show -no-color tfplan-teardown-prepare-development
-CONFIRM_TEARDOWN=delete-healthcare-realtime-development \
-  ./scripts/infrastructure/teardown.sh prepare-apply
-```
+   Create and inspect the protection-removal plan. For a complete portfolio teardown, the wrapper sets `openlineage_skip_final_snapshot=true`; change the workflow and use a unique snapshot identifier when retention is required.
 
-Preview application storage. The command refuses to operate when `TF_STATE_BUCKET` matches the data bucket. Executing cleanup removes every object version, delete marker and ECR image listed by the preview.
+2. Run the following command block:
 
-```zsh
-./scripts/infrastructure/teardown.sh cleanup-preview
-CONFIRM_TEARDOWN=delete-healthcare-realtime-development \
-  ./scripts/infrastructure/teardown.sh cleanup-apply
-```
+   ```zsh
+   ./scripts/infrastructure/teardown.sh prepare-plan
+   terraform -chdir=infra show -no-color "tfplan-teardown-prepare-${DEPLOYMENT_ENVIRONMENT:-development}"
+   ```
 
-Create the final destroy plan, review every deletion and apply only that saved plan:
+   Review the preceding plan or cleanup preview. Obtain approval for its exact changes before running the next action. Stop on unexpected deletion, replacement or permission changes.
 
-```zsh
-./scripts/infrastructure/teardown.sh destroy-plan
-terraform -chdir=infra show -no-color tfplan-teardown-destroy-development
-CONFIRM_TEARDOWN=delete-healthcare-realtime-development \
-  ./scripts/infrastructure/teardown.sh destroy-apply
-```
+3. Apply only the reviewed and approved action:
 
-If a destroy apply stops after deleting some resources, do not reuse its saved plan. Correct the permission or active-workflow cause, run `destroy-plan` again and review the replacement plan. The wrapper rebuilds packages while deployment outputs are available. After a partial destroy removes those outputs, it verifies and reuses the existing local artifacts so Terraform can finish removing the remaining resources.
+   ```zsh
+   CONFIRM_TEARDOWN="delete-healthcare-realtime-${DEPLOYMENT_ENVIRONMENT:-development}" \
+     ./scripts/infrastructure/teardown.sh prepare-apply
+   ```
 
-Confirm that no application resources remain before separately considering the webhook secret, GitHub environment, account policies, OIDC provider or retained RDS snapshots. Keep the Terraform state bucket for future recreation and audit history.
+   Preview application storage. The command refuses to operate when `TF_STATE_BUCKET` matches the data bucket. Executing cleanup removes every object version, delete marker and ECR image listed by the preview.
 
-Verify the destroyed application state and, when the deployment identity has Resource Groups Tagging API read access, search for tagged resources that require review:
+4. Run the following command block:
 
-```zsh
-test -z "$(terraform -chdir=infra state list)"
-aws resourcegroupstaggingapi get-resources \
-  --region "$AWS_REGION" \
-  --tag-filters "Key=Project,Values=$PROJECT_NAME" \
-  --query 'ResourceTagMappingList[].ResourceARN' \
-  --output text
-```
+   ```zsh
+   ./scripts/infrastructure/teardown.sh cleanup-preview
+   ```
 
-The second command may list retained external prerequisites. Review each result against [external-prerequisites.md](external-prerequisites.md); do not delete a shared OIDC provider, shared policy or protected state bucket merely to make the result empty. If `tag:GetResources` is not permitted, use the empty Terraform state plus the AWS Billing resource inventory and service consoles as the independent account-level check.
+   Review the preceding plan or cleanup preview. Obtain approval for its exact changes before running the next action. Stop on unexpected deletion, replacement or permission changes.
 
-## Full account retirement
+5. Apply only the reviewed and approved action:
+
+   ```zsh
+   CONFIRM_TEARDOWN="delete-healthcare-realtime-${DEPLOYMENT_ENVIRONMENT:-development}" \
+     ./scripts/infrastructure/teardown.sh cleanup-apply
+   ```
+
+   Create the final destroy plan, review every deletion and apply only that saved plan:
+
+6. Run the following command block:
+
+   ```zsh
+   ./scripts/infrastructure/teardown.sh destroy-plan
+   terraform -chdir=infra show -no-color "tfplan-teardown-destroy-${DEPLOYMENT_ENVIRONMENT:-development}"
+   ```
+
+   Review the preceding plan or cleanup preview. Obtain approval for its exact changes before running the next action. Stop on unexpected deletion, replacement or permission changes.
+
+7. Apply only the reviewed and approved action:
+
+   ```zsh
+   CONFIRM_TEARDOWN="delete-healthcare-realtime-${DEPLOYMENT_ENVIRONMENT:-development}" \
+     ./scripts/infrastructure/teardown.sh destroy-apply
+   ```
+
+   If a destroy apply stops after deleting some resources, do not reuse its saved plan. Correct the permission or active-workflow cause, run `destroy-plan` again and review the replacement plan. The wrapper rebuilds packages while deployment outputs are available. After a partial destroy removes those outputs, it verifies and reuses the existing local artifacts so Terraform can finish removing the remaining resources.
+
+   Confirm that no application resources remain before separately considering the webhook secret, GitHub environment, account policies, OpenID Connect (OIDC) provider or retained RDS snapshots. Keep the Terraform state bucket for future recreation and audit history.
+
+   Verify the destroyed application state and, when the deployment identity has Resource Groups Tagging application programming interface (API) read access, search for tagged resources that require review:
+
+8. Run the following command block:
+
+   ```zsh
+   (
+   STATE_LIST="$(terraform -chdir=infra state list)" || exit 1
+   test -z "$STATE_LIST" || exit 1
+   aws resourcegroupstaggingapi get-resources \
+     --region "$AWS_REGION" \
+     --tag-filters "Key=Project,Values=$PROJECT_NAME" \
+     --query 'ResourceTagMappingList[].ResourceARN' \
+     --output text
+   )
+   ```
+
+   The second command may list retained external prerequisites. Review each result against [external-prerequisites.md](external-prerequisites.md); do not delete a shared OIDC provider, shared policy or protected state bucket merely to make the result empty. If `tag:GetResources` is not permitted, use the empty Terraform state plus the AWS Billing resource inventory and service consoles as the independent account-level check.
+
+## Full Account Retirement
 
 Routine teardown keeps the versioned state bucket so the deployment remains auditable and recreatable. Retire that bucket only when all environments that use it are destroyed, `terraform -chdir=infra state list` is empty and an approved private state archive has been retained or explicitly declined.
 
@@ -86,53 +166,65 @@ The tracked deployment policy intentionally excludes `s3:DeleteObjectVersion` an
 
 Preview every retained version and delete marker before approving deletion:
 
-```zsh
-test -z "$(terraform -chdir=infra state list)"
-aws s3api list-object-versions \
-  --bucket "$TF_STATE_BUCKET" \
-  --query '{Versions: Versions[].{Key:Key,VersionId:VersionId}, DeleteMarkers: DeleteMarkers[].{Key:Key,VersionId:VersionId}}'
-```
+1. Run the following command block:
 
-After account-owner approval, delete versioned objects in bounded batches. The loop stops immediately if S3 reports a failed deletion:
+   ```zsh
+   (
+   STATE_LIST="$(terraform -chdir=infra state list)" || exit 1
+   test -z "$STATE_LIST" || exit 1
+   aws s3api list-object-versions \
+     --bucket "$TF_STATE_BUCKET" \
+     --query '{Versions: Versions[].{Key:Key,VersionId:VersionId}, DeleteMarkers: DeleteMarkers[].{Key:Key,VersionId:VersionId}}'
+   )
+   ```
 
-```zsh
-DELETE_REQUEST="$(mktemp "${TMPDIR:-/tmp}/healthcare-state-delete.XXXXXX")"
-DELETE_RESPONSE="$(mktemp "${TMPDIR:-/tmp}/healthcare-state-response.XXXXXX")"
+   After account-owner approval, delete versioned objects in bounded batches. The subshell stops if listing, parsing or deletion fails and retains its private request/response files for inspection. It deletes the bucket only after an empty version inventory:
 
-while true; do
-  aws s3api list-object-versions \
-    --bucket "$TF_STATE_BUCKET" \
-    --max-items 1000 \
-    --output json |
-    jq '{Objects: (((.Versions // []) + (.DeleteMarkers // [])) | map({Key, VersionId})), Quiet: true}' \
-      > "$DELETE_REQUEST"
+2. Run the following command block:
 
-  test "$(jq '.Objects | length' "$DELETE_REQUEST")" -eq 0 && break
-  aws s3api delete-objects \
-    --bucket "$TF_STATE_BUCKET" \
-    --delete "file://$DELETE_REQUEST" \
-    --output json > "$DELETE_RESPONSE"
-  jq -e '((.Errors // []) | length) == 0' "$DELETE_RESPONSE"
-done
+   ```zsh
+   (
+   set -o pipefail
+   DELETE_REQUEST="$(mktemp "${TMPDIR:-/tmp}/healthcare-state-delete.XXXXXX")"
+   DELETE_RESPONSE="$(mktemp "${TMPDIR:-/tmp}/healthcare-state-response.XXXXXX")"
 
-aws s3api delete-bucket --bucket "$TF_STATE_BUCKET" --region "$AWS_REGION"
-rm -f "$DELETE_REQUEST" "$DELETE_RESPONSE"
-```
+   while true; do
+     aws s3api list-object-versions \
+       --bucket "$TF_STATE_BUCKET" \
+       --max-items 1000 \
+       --output json |
+       jq '{Objects: (((.Versions // []) + (.DeleteMarkers // [])) | map({Key, VersionId})), Quiet: true}' \
+         > "$DELETE_REQUEST" || exit 1
 
-Remove the retired bucket resources from the ignored local bootstrap state so a later fresh deployment plans a new bucket instead of refreshing a deleted one:
+     test "$(jq '.Objects | length' "$DELETE_REQUEST")" -eq 0 && break
+     aws s3api delete-objects \
+       --bucket "$TF_STATE_BUCKET" \
+       --delete "file://$DELETE_REQUEST" \
+       --output json > "$DELETE_RESPONSE" || exit 1
+     jq -e '((.Errors // []) | length) == 0' "$DELETE_RESPONSE" || exit 1
+   done
 
-```zsh
-while IFS= read -r address; do
-  terraform -chdir=infra/bootstrap state rm "$address"
-done < <(terraform -chdir=infra/bootstrap state list)
-```
+   aws s3api delete-bucket --bucket "$TF_STATE_BUCKET" --region "$AWS_REGION" || exit 1
+   rm -f "$DELETE_REQUEST" "$DELETE_RESPONSE"
+   )
+   ```
 
-Confirm the bucket returns `NoSuchBucket`, revoke the temporary deletion permission and retain the webhook secret only when that is the approved retirement scope. A new account or region must start with the [first-deployment quickstart](quickstart.md) and an empty backend.
+   Remove the retired bucket resources from the ignored local bootstrap state so a later fresh deployment plans a new bucket instead of refreshing a deleted one:
+
+3. Run the following command block:
+
+   ```zsh
+   while IFS= read -r address; do
+     terraform -chdir=infra/bootstrap state rm "$address"
+   done < <(terraform -chdir=infra/bootstrap state list)
+   ```
+
+   Confirm the bucket returns `NoSuchBucket`, revoke the temporary deletion permission and retain the webhook secret only when that is the approved retirement scope. A new account or region must start with the [first-deployment quickstart](quickstart.md) and an empty backend.
 
 ## Recreation
 
 Reuse the persistent state bucket with a new empty state key or remove the old main-state object only after preserving an approved backup. When the state bucket was fully retired, recreate it through the bootstrap stage. Then follow the [first-deployment quickstart](quickstart.md) from the application repository at the intended commit. Use [deployment stages and recovery](bootstrap.md) only when a stage is interrupted.
 
-Bucket names are globally unique and may be unavailable after deletion. Use new names in the ignored configuration when AWS does not immediately release an old name. Recreate the webhook secret, image repositories and images, synthetic FHIR cohort, HAPI subscription, analytical tables and approved model in the documented order.
+Bucket names are globally unique and may be unavailable after deletion. Use new names in the ignored configuration when AWS does not immediately release an old name. Recreate the webhook secret, image repositories and images, synthetic Fast Healthcare Interoperability Resources (FHIR) cohort, HAPI subscription, analytical tables and approved model in the documented order.
 
 For a different AWS account, create a new state bucket with `infra/bootstrap` and initialize an empty backend. Never reuse main Terraform state that still binds resources to another account.
