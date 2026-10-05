@@ -135,6 +135,21 @@ jobs:
         run: |
           .venv/bin/pre-commit run --all-files --hook-stage manual --show-diff-on-failure
 
+      - name: Removed names in the pushed range
+        # The local hook sees only the staged diff; here, names removed anywhere in the pushed range.
+        env:
+          BEFORE: ${{ github.event.before }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ -n "$BASE_REF" ]; then
+            START="$(git merge-base "origin/$BASE_REF" HEAD)"
+          elif [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            START="$BEFORE"
+          else
+            START="$(git rev-list --max-parents=0 HEAD)"
+          fi
+          PRE_COMMIT_FROM_REF="$START" PRE_COMMIT_TO_REF=HEAD .venv/bin/python -m tools.repo_checks removed-names
+
       - name: Check samples
         run: |
           git config --global user.name "CI"

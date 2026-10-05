@@ -13,6 +13,7 @@ Notable changes to the synthetic portfolio system are recorded here. Releases us
 ### Added
 
 - Prepare prose, metadata and pinned Markdown syntax hooks, their CI setup and real-hook regression samples. The locked local installation and 91-case real-hook verification pass; preparation is not adoption.
+- Block commits that leave references to removed functions, classes, config keys, Terraform declarations, dbt models, Airflow task IDs or dependencies, in each commit and over each pushed range in CI. Report unused code (vulture), unused or undeclared dependencies (deptry), unreferenced files and unread `.env.example` entries in warn mode.
 
 ## [1.0.1] - 2026-09-17
 

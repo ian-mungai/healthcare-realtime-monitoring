@@ -11,9 +11,11 @@ from __future__ import annotations
 import argparse
 import configparser
 import fnmatch
+import json
 import os
 import re
 import sys
+import tempfile
 import tomllib
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -106,8 +108,54 @@ CHECKOV_SKIP = re.compile(r"^\s*-\s*(CKV\w+)", re.MULTILINE)
 
 ENV_READ = re.compile(r"""(?:os\.environ(?:\.get)?\s*[\[(]\s*|os\.getenv\s*\(\s*|required_env\s*\(\s*)["']([A-Z][A-Z0-9_]*)["']""")
 ENV_EXAMPLE_NAME = re.compile(r"^\s*#?\s*([A-Z][A-Z0-9_]*)\s*=", re.MULTILINE)
-SCRIPT_SUFFIXES = {".py", ".sh"}
+SCRIPT_SUFFIXES = {".py", ".sh", ".js", ".mjs", ".ts"}
 FLAG = re.compile(r"""add_argument\(\s*["'](--[\w-]+)["']""")
+CLEANUP_ALLOWLIST = ".cleanup_allowlist"
+CLEANUP_RULE = f"{POLICY}#cleanup-checks"
+REMOVED_KINDS = ["script", "flag", "env", "python", "config", "terraform", "dbt", "airflow", "dependency"]
+UNUSED_KINDS = ["unused-code", "unused-dependencies", "orphan"]
+CODE_SUFFIXES = {".py", ".sh", ".js", ".mjs", ".ts", ".sql", ".tf", ".yaml", ".yml", ".toml", ".json", ".ini", ".cfg", ".j2", ".jinja"}
+CODE_NAMES = {"Dockerfile", "Makefile", ".env.example"}
+CONFIG_SUFFIXES = {".yaml", ".yml", ".toml", ".json", ".ini", ".cfg"}
+PY_DEFINITION = re.compile(r"^[ \t]*(?:async[ \t]+def|def|class)[ \t]+([A-Za-z_]\w*)", re.MULTILINE)
+PY_TOP_LEVEL = re.compile(r"^(?:async[ \t]+def|def|class)[ \t]+([A-Za-z_]\w*)", re.MULTILINE)
+PY_ASSIGNED = re.compile(r"^[ \t]*([A-Za-z_]\w*)[ \t]*(?::[^=\n]*)?=(?!=)", re.MULTILINE)
+# Environment variables a shell script, workflow or rendered template still uses: $NAME, ${NAME}, vars.NAME, secrets.NAME, env.NAME.
+ENV_USE = re.compile(r"\$\{?([A-Z][A-Z0-9_]*)\b|\b(?:vars|secrets|env)\.([A-Z][A-Z0-9_]*)\b")
+PYTHON_REFERENCE_SUFFIXES = {".py", ".yaml", ".yml", ".toml", ".cfg", ".ini"}
+CONFIG_KEY = re.compile(r"""^\s*(?:-\s+)?["']?([A-Za-z_][\w-]*)["']?\s*[:=](?!:)""")
+TF_BLOCK = re.compile(r'^\s*(variable|output|module|resource|data)\s+"([\w-]+)"(?:\s+"([\w-]+)")?', re.MULTILINE)
+TASK_ID = re.compile(r"""task_id\s*=\s*["']([\w.-]+)["']""")
+REQUIREMENT = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:\[[^\]]*\])?\s*(?:[=<>!~;@]|$)")
+REQUIREMENT_FILE = re.compile(r"(^|/)requirements[^/]*\.(txt|in)$")
+# Distribution names whose import name differs; any other package imports as its name with dashes as underscores.
+MODULE_NAMES = {
+    "pyyaml": "yaml",
+    "beautifulsoup4": "bs4",
+    "scikit-learn": "sklearn",
+    "pillow": "PIL",
+    "python-dateutil": "dateutil",
+    "psycopg2-binary": "psycopg2",
+    "websocket-client": "websocket",
+    "python-hcl2": "hcl2",
+    "openlineage-python": "openlineage",
+}
+VULTURE_CONFIDENCE = 60  # Unused functions, classes and variables; lower levels flag dynamic uses vulture cannot see.
+DEPTRY_CODES = {"DEP001", "DEP002", "DEP003"}  # Missing, unused and transitive-only dependencies.
+TOOL_COMMENT = re.compile(r"#\s*(?:tool|dynamic):\s*\S")  # A requirement used as a command or imported dynamically, with why.
+# Files that may exist without another file naming them.
+WELL_KNOWN_FILES = {
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "pyproject.toml",
+    "Dockerfile",
+    "__init__.py",
+    "conftest.py",
+    "dbt_project.yml",
+    "packages.yml",
+    "package-lock.yml",
+}
 
 
 PRIVACY_RULE = f"{POLICY}#personal-data-and-environment-values"
@@ -155,16 +203,6 @@ def report(findings: list[Finding], *, warn: bool = False) -> int:
     for finding in findings:
         sys.stderr.write(f"{label}{finding.location}: {finding.problem}\n  policy: {finding.rule}\n  fix: {finding.fix}\n  {ASK}\n")
     return 0 if warn else int(bool(findings))
-
-
-def docs() -> list[Path]:
-    """Return tracked Markdown files that describe current behavior; release notes are historical and exempt."""
-    return [Path(p) for p in git("ls-files", "*.md").splitlines() if not Path(p).name.startswith("release-notes-")]
-
-
-def mentions(name: str, files: list[Path]) -> list[str]:
-    """Return ``file:line`` for every line in ``files`` that contains ``name``."""
-    return [f"{file}:{number}" for file in files if file.exists() for number, line in enumerate(file.read_text().splitlines(), 1) if name in line]
 
 
 def credential_files(paths: list[str]) -> list[Finding]:
@@ -288,19 +326,306 @@ def env_example() -> list[Finding]:
     return findings
 
 
-def removed_names() -> list[Finding]:
-    """A removed script, command-line flag or environment variable no longer appears in the docs."""
-    base = ["diff", os.environ["PRE_COMMIT_FROM_REF"], os.environ["PRE_COMMIT_TO_REF"]] if "PRE_COMMIT_FROM_REF" in os.environ else ["diff", "--cached"]
-    removed = [Path(p).name for p in git(*base, "--name-only", "--diff-filter=D").splitlines() if Path(p).suffix in SCRIPT_SUFFIXES]
-    tracked_code = "\n".join(Path(p).read_text() for p in git("ls-files", "*.py").splitlines() if Path(p).exists())
-    lines = [line[1:] for line in git(*base, "-U0", "--", "*.py").splitlines() if line.startswith("-") and not line.startswith("---")]
-    removed += [flag for line in lines for flag in FLAG.findall(line) if flag not in set(FLAG.findall(tracked_code))]
-    removed += [name for line in lines for name in ENV_READ.findall(line) if name not in set(ENV_READ.findall(tracked_code))]
+def env_example_unused() -> list[Finding]:
+    """Every variable .env.example documents is still read or used by a tracked file."""
+    example = Path(".env.example")
+    if not example.exists():
+        return []
+    others = "\n".join("\n".join(lines) for path, lines in reference_files().items() if path != ".env.example")
     findings = []
-    for name in dict.fromkeys(removed):
-        for location in mentions(name, [*docs(), Path(".env.example")]):
-            fix = "update or remove the text"
-            findings.append(Finding(location, f"{name} was removed but is still documented", f"{POLICY}#documentation-matches-the-code", fix))
+    for number, line in enumerate(example.read_text().splitlines(), 1):
+        match = ENV_EXAMPLE_NAME.match(line)
+        if match and not re.search(rf"\b{match.group(1)}\b", others):
+            fix = f"remove {match.group(1)} from .env.example, or restore the code that reads it"
+            findings.append(Finding(f".env.example:{number}", f"{match.group(1)} is documented but nothing reads it", CLEANUP_RULE, fix))
+    return findings
+
+
+def is_history(path: str) -> bool:
+    """Release notes and the changelog record past behavior, so removed names may stay in them."""
+    return Path(path).name == "CHANGELOG.md" or Path(path).name.startswith("release-notes-")
+
+
+def changed_lines_and_deletions() -> tuple[dict[str, list[str]], list[str]]:
+    """Return removed lines by file and deleted paths, from the staged diff or, in CI, the pushed range."""
+    refs = [os.environ["PRE_COMMIT_FROM_REF"], os.environ["PRE_COMMIT_TO_REF"]] if "PRE_COMMIT_FROM_REF" in os.environ else ["--cached"]
+    deleted = git("diff", *refs, "--name-only", "--diff-filter=D").splitlines()
+    removed: dict[str, list[str]] = {}
+    current, in_header = "", False
+    for line in git("diff", *refs, "-U0", "--no-color").splitlines():
+        if line.startswith("diff --git "):
+            current, in_header = "", True
+        elif in_header and line.startswith("--- "):
+            current = line[6:] if line.startswith("--- a/") else ""
+        elif line.startswith("@@"):
+            in_header = False
+        elif not in_header and line.startswith("-") and current:
+            removed.setdefault(current, []).append(line[1:])
+    return removed, deleted
+
+
+def reference_files() -> dict[str, list[str]]:
+    """Return the lines of every tracked text file that describes current behavior; history and the allowlist are exempt."""
+    files: dict[str, list[str]] = {}
+    for path in git("ls-files").splitlines():
+        if is_history(path) or path == CLEANUP_ALLOWLIST or not Path(path).is_file():
+            continue
+        try:
+            files[path] = Path(path).read_text().splitlines()
+        except UnicodeDecodeError:
+            continue
+    return files
+
+
+def search_view(kind: str, path: str, lines: list[str]) -> list[str] | None:
+    """Return the text of each line to search for a removed name of ``kind``, or None to skip the file.
+
+    Scripts, flags and dependencies: every line. Environment variables: Markdown and .env.example, where people read
+    them. Code names: code and config files, plus Markdown code spans and fences, so "the main branch" in prose is not a
+    reference. Python names skip quoted strings and attribute access in Python files and are not searched in Terraform,
+    SQL, JSON or shell files. Terraform skips ``from =`` lines: moved and removed blocks name old addresses on purpose.
+    """
+    suffix, name = Path(path).suffix, Path(path).name
+    if kind in ("script", "flag", "dependency"):
+        return lines
+    if kind == "env":
+        return lines if suffix == ".md" or name == ".env.example" else None
+    if suffix == ".md":
+        view, fence = [], False
+        for line in lines:
+            if re.match(r"^\s*(```|~~~)", line):
+                fence = not fence
+                view.append("")
+            else:
+                view.append(line if fence else " ".join(re.findall(r"`([^`\n]*)`", line)))
+        return view
+    if suffix not in CODE_SUFFIXES and name not in CODE_NAMES:
+        return None
+    if kind == "python":
+        if suffix not in PYTHON_REFERENCE_SUFFIXES:
+            return None
+        if suffix == ".py":
+            return python_code(lines)
+    if kind == "terraform" and suffix == ".tf":
+        return ["" if re.match(r"^\s*from\s*=", line) else line for line in lines]
+    return lines
+
+
+def python_code(lines: list[str]) -> list[str]:
+    """Return Python lines with docstrings, comments, strings and attribute access blanked, keeping line numbers."""
+    view, quote = [], ""
+    for line in lines:
+        if quote:
+            view.append("")
+            quote = "" if quote in line else quote
+            continue
+        start = re.match(r"^\s*[rRbBuUfF]?(\"\"\"|\'\'\')", line)
+        if start:
+            view.append("")
+            quote = "" if line.count(start.group(1)) >= 2 else start.group(1)
+            continue
+        code = re.sub(r"""(["'])(?:\\.|(?!\1).)*\1""", '""', line).split("#")[0]
+        view.append(re.sub(r"\.\s*[A-Za-z_]\w*", "", code))
+    return view
+
+
+def python_reference(name: str) -> re.Pattern[str]:
+    """Return the pattern for a removed Python name outside Python files: a call, import or dotted path, or the bare
+    name when it looks like an identifier (``_`` or a capital), so a removed ``docs`` does not match the commit type."""
+    word = re.escape(name)
+    contexts = [rf"(?<![\w./-]){word}\((?![^)\s]*\)!?:\s)", rf"\bimport\b[^\n]*\b{word}\b", rf"[.:]{word}\b"]
+    if re.search(r"_|[A-Z]", name):
+        contexts.append(rf"(?<![\w./-]){word}(?![\w/-]|\.(?:md|py|txt|json|ya?ml|toml|sh|sql|tf)\b)")
+    return re.compile("|".join(contexts))
+
+
+def config_key(line: str) -> str | None:
+    """Return the key a YAML, TOML, JSON or INI line defines, or None for comments and other lines."""
+    if line.lstrip().startswith(("#", ";", "//")):
+        return None
+    match = CONFIG_KEY.match(line)
+    return match.group(1) if match else None
+
+
+def requirement_names(lines_by_file: dict[str, list[str]]) -> set[str]:
+    """Return the lower-case package names in requirements files."""
+    names = set()
+    for path, lines in lines_by_file.items():
+        if REQUIREMENT_FILE.search(path):
+            names |= {match.group(1).lower() for line in lines if (match := REQUIREMENT.match(line))}
+    return names
+
+
+def removed_definitions(removed: dict[str, list[str]], deleted: list[str], files: dict[str, list[str]]) -> dict[str, dict[str, re.Pattern[str]]]:
+    """Find the names the change removed, by kind, each with the pattern that marks a remaining reference."""
+
+    def gone(found: set[str], still: set[str]) -> set[str]:
+        return {name for name in found - still if len(name) >= 3 and not (name.startswith("__") and name.endswith("__"))}
+
+    def joined(lines_by_file: dict[str, list[str]], suffixes: set[str]) -> str:
+        return "\n".join("\n".join(lines) for path, lines in lines_by_file.items() if Path(path).suffix in suffixes)
+
+    kinds: dict[str, dict[str, re.Pattern[str]]] = {kind: {} for kind in REMOVED_KINDS}
+    for path in deleted:
+        if Path(path).suffix in SCRIPT_SUFFIXES:
+            kinds["script"][Path(path).name] = re.compile(re.escape(Path(path).name))
+        if path.endswith(".sql") and re.search(r"(^|/)(models|snapshots)/", path):
+            stem = re.escape(Path(path).stem)
+            kinds["dbt"][Path(path).stem] = re.compile(rf"""ref\(\s*["']{stem}["']\s*\)|name:\s*{stem}\b|(?<![\w.]){stem}(?![\w.])""")
+    code_now, code_removed = joined(files, {".py"}), joined(removed, {".py"})
+    for flag in gone(set(FLAG.findall(code_removed)), set(FLAG.findall(code_now))):
+        kinds["flag"][flag] = re.compile(re.escape(flag) + r"(?![\w-])")
+    env_now = set(ENV_READ.findall(code_now)) | {a or b for a, b in ENV_USE.findall(joined(files, {".sh", ".yml", ".yaml", ".json", ".tf", ".tpl", ".j2", ""}))}
+    for name in gone(set(ENV_READ.findall(code_removed)), env_now):
+        kinds["env"][name] = re.compile(rf"\b{name}\b")
+    python_now = set(PY_DEFINITION.findall(code_now)) | set(PY_ASSIGNED.findall(code_now))
+    for name in gone(set(PY_TOP_LEVEL.findall(code_removed)), python_now):
+        kinds["python"][name] = re.compile(rf"(?<![\w./-]){re.escape(name)}(?![\w/-]|\.(?:md|py|txt|json|ya?ml|toml|sh|sql|tf)\b)")
+    for name in gone(set(TASK_ID.findall(code_removed)), set(TASK_ID.findall(code_now))):
+        kinds["airflow"][name] = re.compile(rf"""["']{re.escape(name)}["']|^{re.escape(name)}$""")
+    config_now = {key for line in joined(files, CONFIG_SUFFIXES).splitlines() if (key := config_key(line))}
+    # Keys of a deleted config file are often data fields the code still writes; only edited files count.
+    # Single-word keys (run, env, path) are schema vocabulary, not project settings.
+    edited = {path: lines for path, lines in removed.items() if path not in deleted}
+    config_removed = {key for line in joined(edited, CONFIG_SUFFIXES).splitlines() if (key := config_key(line)) and re.search(r"[_-]|[a-z][A-Z]", key)}
+    for name in gone(config_removed, config_now):
+        kinds["config"][name] = re.compile(rf"(?<![\w-]){re.escape(name)}(?![\w-])")
+    for kind, first, second in set(TF_BLOCK.findall(joined(removed, {".tf"}))) - set(TF_BLOCK.findall(joined(files, {".tf"}))):
+        one, two = re.escape(first), re.escape(second)
+        reference = {
+            "variable": rf"\bvar\.{one}\b",
+            "module": rf"\bmodule\.{one}\b",
+            "output": rf"\b(?:output(?:\s+-[\w-]+)*\s+|outputs?\.){one}\b",
+            "resource": rf"(?<![\w.]){one}\.{two}\b",
+            "data": rf"\bdata\.{one}\.{two}\b",
+        }[kind]
+        kinds["terraform"][first if kind in ("variable", "module", "output") else f"{first}.{second}"] = re.compile(reference)
+    for package in requirement_names(removed) - requirement_names(files):
+        module = re.escape(MODULE_NAMES.get(package, package.replace("-", "_")))
+        pip = rf"\bpip install\b.*(?<![\w-]){re.escape(package)}(?![\w-])"
+        kinds["dependency"][package] = re.compile(rf"^\s*(?:import|from)\s+{module}\b|{pip}", re.IGNORECASE)
+    return kinds
+
+
+def removed_names() -> list[Finding]:
+    """A name the change removed is no longer referenced in any file that describes current behavior.
+
+    Kinds: scripts, command-line flags, environment variables, Python functions and classes, config keys, Terraform
+    declarations, dbt models, Airflow task IDs and dependencies. Code names match code and config files and only the
+    code spans and fences of Markdown, so a removed ``main`` does not flag "the main branch" in prose.
+    """
+    allowed, findings = read_allowlist(CLEANUP_ALLOWLIST, REMOVED_KINDS + UNUSED_KINDS, CLEANUP_RULE, "why the reference stays")
+    removed, deleted = changed_lines_and_deletions()
+    files = reference_files()
+    for kind, names in removed_definitions(removed, deleted, files).items():
+        for name, pattern in sorted(names.items()):
+            for path, lines in files.items():
+                view = search_view(kind, path, lines)
+                if view is None or any(entry_kind == kind and fnmatch.fnmatch(path, glob) for entry_kind, glob in allowed):
+                    continue
+                matcher = python_reference(name) if kind == "python" and not path.endswith(".py") else pattern
+                for number, line in enumerate(view, 1):
+                    if matcher.search(line):
+                        fix = f"remove or update the reference, or add '{kind} {path} -- <why the reference stays>' to {CLEANUP_ALLOWLIST}"
+                        findings.append(Finding(f"{path}:{number}", f"{name} was removed but is still referenced", CLEANUP_RULE, fix))
+    return findings
+
+
+def allowed_paths(kind: str) -> tuple[list[str], list[Finding]]:
+    """Return the path globs .cleanup_allowlist exempts for ``kind`` and any malformed-entry findings."""
+    entries, findings = read_allowlist(CLEANUP_ALLOWLIST, REMOVED_KINDS + UNUSED_KINDS, CLEANUP_RULE, "why it stays")
+    return [glob for entry_kind, glob in entries if entry_kind == kind], findings
+
+
+def unused_code() -> list[Finding]:
+    """No Python function, class, method or variable that nothing uses (vulture, all tracked Python at once)."""
+    globs, findings = allowed_paths("unused-code")
+    paths = [p for p in git("ls-files", "*.py").splitlines() if Path(p).is_file()]
+    if not paths:
+        return findings
+    result = run_command(str(Path(".venv/bin/vulture").resolve()), [*paths, "--min-confidence", str(VULTURE_CONFIDENCE)], timeout=300)
+    if result.returncode not in (0, 3):  # 3: unused code found
+        raise SystemExit(f"vulture failed ({result.returncode}): {result.stderr[-2000:]}")
+    for line in result.stdout.splitlines():
+        match = re.match(r"^(.+?):(\d+): (.+?) \((\d+)% confidence\)", line)
+        if match and not any(fnmatch.fnmatch(match.group(1), glob) for glob in globs):
+            fix = f"delete it, or add 'unused-code {match.group(1)} -- <who uses it>' to {CLEANUP_ALLOWLIST}"
+            findings.append(Finding(f"{match.group(1)}:{match.group(2)}", match.group(3), CLEANUP_RULE, fix))
+    return findings
+
+
+def requirement_sources() -> list[str]:
+    """Return the requirement files that declare direct dependencies: each ``.in`` file, or the ``.txt`` file without one.
+
+    A hash-pinned ``.txt`` compiled from a ``.in`` lists transitive packages too, so only its ``.in`` is checked.
+    """
+    tracked = [p for p in git("ls-files").splitlines() if REQUIREMENT_FILE.search(p) and Path(p).is_file()]
+    return [p for p in tracked if p.endswith(".in") or str(Path(p).with_suffix(".in")) not in tracked]
+
+
+def unused_dependencies() -> list[Finding]:
+    """Every declared dependency is imported and every imported package is declared (deptry).
+
+    A requirement used as a command or imported dynamically carries ``# tool: <use>`` or ``# dynamic: <where>``.
+    """
+    globs, findings = allowed_paths("unused-dependencies")
+    requirements = requirement_sources()
+    if not requirements:
+        return findings
+    exempt = {
+        m.group(1).lower() for p in requirements for line in Path(p).read_text().splitlines() if TOOL_COMMENT.search(line) and (m := REQUIREMENT.match(line))
+    }
+    first_party = sorted(
+        {Path(p).stem for p in git("ls-files", "*.py").splitlines()} | {Path(p).parent.name for p in git("ls-files", "*/__init__.py").splitlines()}
+    )
+    with tempfile.TemporaryDirectory(prefix="deptry_") as scratch:
+        report_path = Path(scratch) / "deptry.json"
+        args = [".", "--requirements-files", ",".join(requirements), "--json-output", str(report_path), "--no-ansi"]
+        args += [flag for name in first_party for flag in ("--known-first-party", name)]
+        args += ["--per-rule-ignores", "DEP002=" + "|".join(sorted(exempt))] if exempt else []
+        result = run_command(str(Path(".venv/bin/deptry").resolve()), args, timeout=300)
+        if not report_path.exists():
+            raise SystemExit(f"deptry failed ({result.returncode}): {result.stderr[-2000:]}")
+        issues = json.loads(report_path.read_text())
+    for issue in issues:
+        code, module, location = issue["error"]["code"], issue["module"], issue["location"]
+        if code not in DEPTRY_CODES or any(fnmatch.fnmatch(location["file"], glob) for glob in globs):
+            continue
+        if code == "DEP002":
+            fix = "remove it, or mark the line '# tool: <use>' or '# dynamic: <where>' when it is not imported directly"
+            findings.append(Finding(location["file"], f"{module} is declared but nothing imports it", CLEANUP_RULE, fix))
+        else:
+            fix = f"pin it in the requirement file of the component that imports it ({', '.join(requirements)}), or replace the import"
+            findings.append(Finding(f"{location['file']}:{location['line']}", f"{module} is imported but not declared", CLEANUP_RULE, fix))
+    return findings
+
+
+def orphan_files() -> list[Finding]:
+    """Every tracked file is named by another tracked file (path, file name or Python import), or is well known."""
+    globs, findings = allowed_paths("orphan")
+    tracked = git("ls-files").splitlines()
+    texts = {}
+    for path in tracked:
+        try:
+            texts[path] = Path(path).read_text()
+        except (UnicodeDecodeError, FileNotFoundError, IsADirectoryError):
+            continue
+    for path in tracked:
+        name = Path(path).name
+        if path.startswith(".github/") or name.startswith(".") or name in WELL_KNOWN_FILES or any(fnmatch.fnmatch(path, glob) for glob in globs):
+            continue
+        if re.fullmatch(r"test_.*\.py|.*_test\.py|.*\.tf|.*\.tfvars", name):  # pytest discovers tests; Terraform loads a whole folder
+            continue
+        patterns = [re.escape(path), rf"(?<![\w.-]){re.escape(name)}(?![\w-])"]
+        parts = Path(path).parent.parts
+        if len(parts) >= 2:  # A file a script loads by folder, such as policies/*.json, is used when the folder is named
+            patterns.append(rf"(?<![\w-]){re.escape('/'.join(parts[-2:]))}(?![\w-])")
+        if path.endswith(".py"):
+            patterns.append(rf"(?<![\w-])(?:import|from|-m)\s+(?:[\w.]+\.)?{re.escape(Path(path).stem)}\b")
+        pattern = re.compile("|".join(patterns))
+        if not any(other != path and pattern.search(text) for other, text in texts.items()):
+            fix = f"delete it, link it from the file that uses it, or add 'orphan {path} -- <why it stays>' to {CLEANUP_ALLOWLIST}"
+            findings.append(Finding(path, "no other tracked file references it", CLEANUP_RULE, fix))
     return findings
 
 
@@ -315,26 +640,30 @@ def privacy_files(everything: bool) -> list[str]:
     return sorted(found)
 
 
-def privacy_allowlist() -> tuple[list[tuple[str, str]], list[Finding]]:
+def read_allowlist(name: str, kinds: list[str], rule: str, reason: str) -> tuple[list[tuple[str, str]], list[Finding]]:
     """Read ``type glob -- reason`` entries; an entry without a reason or with an unknown type is itself a finding."""
     entries: list[tuple[str, str]] = []
     findings: list[Finding] = []
-    if not Path(ALLOWLIST).exists():
+    if not Path(name).exists():
         return entries, findings
-    kinds = [*PRIVACY_PATTERNS, "env-value"]
-    for number, line in enumerate(Path(ALLOWLIST).read_text().splitlines(), 1):
+    for number, line in enumerate(Path(name).read_text().splitlines(), 1):
         text = "" if line.lstrip().startswith("#") else line.strip()
         if not text:
             continue
         match = re.fullmatch(r"(\S+)\s+(\S+)(?:\s+--\s*(.*))?", text)
-        location = f"{ALLOWLIST}:{number}"
+        location = f"{name}:{number}"
         if not match or match.group(1) not in kinds:
-            findings.append(Finding(location, "allowlist entry with an unknown type", PRIVACY_RULE, f"use one of: {', '.join(kinds)}"))
+            findings.append(Finding(location, "allowlist entry with an unknown type", rule, f"use one of: {', '.join(kinds)}"))
         elif not (match.group(3) or "").strip():
-            findings.append(Finding(location, "allowlist entry without a reason", PRIVACY_RULE, "add ' -- <why this value is intentionally public>'"))
+            findings.append(Finding(location, "allowlist entry without a reason", rule, f"add ' -- <{reason}>'"))
         else:
             entries.append((match.group(1), match.group(2)))
     return entries, findings
+
+
+def privacy_allowlist() -> tuple[list[tuple[str, str]], list[Finding]]:
+    """Read the privacy allowlist."""
+    return read_allowlist(ALLOWLIST, [*PRIVACY_PATTERNS, "env-value"], PRIVACY_RULE, "why this value is intentionally public")
 
 
 def env_values() -> list[str]:
@@ -402,6 +731,7 @@ def privacy_scan(everything: bool) -> tuple[list[Finding], list[str]]:
 def main() -> int:
     """Run the named check and report its findings."""
     checks = ["credential-files", "data-files", "suppressions", "subprocess-imports", "lint-settings", "env-example", "removed-names"]
+    checks += ["env-example-unused", "unused-code", "unused-dependencies", "orphan-files"]
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("check", choices=[*checks, "privacy-scan"])
     parser.add_argument("paths", nargs="*")
@@ -421,6 +751,10 @@ def main() -> int:
         "lint-settings": lint_settings,
         "env-example": env_example,
         "removed-names": removed_names,
+        "env-example-unused": env_example_unused,
+        "unused-code": unused_code,
+        "unused-dependencies": unused_dependencies,
+        "orphan-files": orphan_files,
     }
     return report(runners[args.check](), warn=args.warn)
 

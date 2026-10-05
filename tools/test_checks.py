@@ -40,6 +40,16 @@ PHONE = "(206) 555" + "-0100"
 AWS_ARN = "arn:aws:iam::" + "1234" + "56789012" + ":role/deploy"
 ENV_VALUE = "acme" + "-admin-profile"
 ALLOWLIST = ".privacy_allowlist"
+CLEANUP_ALLOWLIST = ".cleanup_allowlist"
+# Removed and unused names are assembled so this file, copied into each scratch repository, never references them.
+OLD_TOOL = "old_" + "tool"
+OLD_FUNCTION = "build_" + "report"
+OLD_VARIABLE = "legacy_" + "bucket"
+OLD_MODEL = "old_" + "model"
+OLD_TASK = "load_" + "vitals"
+UNUSED_FUNCTION = "never_called_" + "helper"
+UNUSED_SETTING = "LEGACY_" + "SETTING"
+ORPHAN_DOC = "docs/forgotten" + ".md"
 LAUNCHER_SOURCE = (ROOT / "tools" / "process.py").read_text()
 PYPROJECT = (ROOT / "pyproject.toml").read_text()
 CHECKOV_CONFIG = (ROOT / ".checkov.yaml").read_text()
@@ -141,13 +151,13 @@ CASES = [
     Case("allowlist entry without reason", "privacy-scan", False, {"notes.md": "Nothing here.\n", ALLOWLIST: "email notes.md\n"}),
     Case("documented variable", "env-example", True, {"scripts/tool.py": "import os\n\nNAME = " + ENVIRON + '.get("AWS_REGION", "")\n'}),
     Case("undocumented variable", "env-example", False, {"scripts/tool.py": "import os\n\nNAME = " + ENVIRON + '["NEW_SETTING"]\n'}),
-    Case("script removed with its docs", "removed-names", True, committed={"scripts/old_tool.py": "X = 1\n"}, delete=["scripts/old_tool.py"]),
+    Case("script removed with its docs", "removed-names", True, committed={f"scripts/{OLD_TOOL}.py": "X = 1\n"}, delete=[f"scripts/{OLD_TOOL}.py"]),
     Case(
         "script removed, docs still name it",
         "removed-names",
         False,
-        committed={"scripts/old_tool.py": "X = 1\n", "docs/guide.md": "Run `scripts/old_tool.py`.\n"},
-        delete=["scripts/old_tool.py"],
+        committed={f"scripts/{OLD_TOOL}.py": "X = 1\n", "docs/guide.md": f"Run `scripts/{OLD_TOOL}.py`.\n"},
+        delete=[f"scripts/{OLD_TOOL}.py"],
     ),
     Case(
         "flag removed, docs still name it",
@@ -201,6 +211,77 @@ CASES.extend(
         Case("writing conjunction", "writing-check", False, {"docs/guide.md": GOOD_DOC + "\nA, B, and C.\n"}),
         Case("writing time word", "writing-check", False, {"docs/guide.md": GOOD_DOC + "\nIt currently runs.\n"}),
         Case("clean Markdown", "markdownlint", True, {"docs/guide.md": GOOD_DOC}),
+        Case(
+            "function removed, code still calls it",
+            "removed-names",
+            False,
+            committed={
+                "scripts/helpers.py": f"def {OLD_FUNCTION}() -> int:\n    return 1\n",
+                "scripts/use.py": f"from scripts.helpers import {OLD_FUNCTION}\n",
+            },
+            files={"scripts/helpers.py": "X = 1\n"},
+        ),
+        Case(
+            "removed reference allowlisted",
+            "removed-names",
+            True,
+            committed={
+                "scripts/helpers.py": f"def {OLD_FUNCTION}() -> int:\n    return 1\n",
+                "scripts/use.py": f"from scripts.helpers import {OLD_FUNCTION}\n",
+            },
+            files={"scripts/helpers.py": "X = 1\n", CLEANUP_ALLOWLIST: "python scripts/use.py -- sample: the test asserts the old name is gone\n"},
+        ),
+        Case("cleanup allowlist entry without reason", "removed-names", False, files={CLEANUP_ALLOWLIST: "python scripts/use.py\n"}),
+        Case(
+            "Terraform variable removed, still referenced",
+            "removed-names",
+            False,
+            committed={
+                "infra/variables.tf": f'variable "{OLD_VARIABLE}" {{\n  type = string\n}}\n',
+                "infra/main.tf": f"locals {{\n  b = var.{OLD_VARIABLE}\n}}\n",
+            },
+            files={"infra/variables.tf": ""},
+        ),
+        Case(
+            "dbt model removed, still referenced",
+            "removed-names",
+            False,
+            committed={
+                f"dbt/models/{OLD_MODEL}.sql": "select 1 as x\n",
+                "dbt/models/daily.sql": "select * from {{ ref('MODEL') }}\n".replace("MODEL", OLD_MODEL),
+            },
+            delete=[f"dbt/models/{OLD_MODEL}.sql"],
+        ),
+        Case(
+            "Airflow task removed, docs still name it",
+            "removed-names",
+            False,
+            committed={"airflow/dags/pipeline.py": f'TASKS = dict(task_id="{OLD_TASK}")\n', "docs/guide.md": f"Rerun `{OLD_TASK}`.\n"},
+            files={"airflow/dags/pipeline.py": "TASKS: dict[str, str] = {}\n"},
+        ),
+        Case(
+            "dependency removed, still imported",
+            "removed-names",
+            False,
+            committed={"requirements_dev.txt": "wfdb==4.3.1\n", "scripts/tool.py": "import wfdb\n"},
+            files={"requirements_dev.txt": "pytest==9.1.1\n"},
+        ),
+        Case("unused function", "unused-code", False, {"scripts/tool.py": f"def {UNUSED_FUNCTION}() -> int:\n    return 1\n"}, expect_warning=True),
+        Case(
+            "declared dependency nobody imports",
+            "unused-dependencies",
+            False,
+            {"requirements_dev.txt": "wfdb==4.3.1\n", "scripts/tool.py": "import json\n\nX = json.dumps({})\n"},
+            expect_warning=True,
+        ),
+        Case("file nothing references", "orphan-files", False, {ORPHAN_DOC: "Nobody links here.\n"}, expect_warning=True),
+        Case(
+            "documented variable nothing reads",
+            "env-example-unused",
+            False,
+            {".env.example": f"AWS_REGION=\n{UNUSED_SETTING}=\n", "scripts/tool.py": "import os\n\nNAME = " + ENVIRON + '.get("AWS_REGION", "")\n'},
+            expect_warning=True,
+        ),
         Case("duplicate Markdown headings", "markdownlint", False, {"docs/guide.md": GOOD_DOC + "\n## Setup\n\nText.\n\n## Setup\n\nText.\n"}),
     ]
 )
@@ -246,8 +327,18 @@ BLOCK_REASONS = {
     "bucket named after the project": "docs/notes.md:1: value declared in .env",
     "allowlist entry without reason": ".privacy_allowlist:1: allowlist entry without a reason",
     "undocumented variable": "scripts/tool.py:3: NEW_SETTING is read but not in .env.example",
-    "script removed, docs still name it": "docs/guide.md:1: old_tool.py was removed but is still documented",
-    "flag removed, docs still name it": "docs/guide.md:1: --legacy-mode was removed but is still documented",
+    "script removed, docs still name it": f"docs/guide.md:1: {OLD_TOOL}.py was removed but is still referenced",
+    "flag removed, docs still name it": "docs/guide.md:1: --legacy-mode was removed but is still referenced",
+    "function removed, code still calls it": f"scripts/use.py:1: {OLD_FUNCTION} was removed but is still referenced",
+    "Terraform variable removed, still referenced": f"infra/main.tf:2: {OLD_VARIABLE} was removed but is still referenced",
+    "dbt model removed, still referenced": f"dbt/models/daily.sql:1: {OLD_MODEL} was removed but is still referenced",
+    "Airflow task removed, docs still name it": f"docs/guide.md:1: {OLD_TASK} was removed but is still referenced",
+    "dependency removed, still imported": "scripts/tool.py:1: wfdb was removed but is still referenced",
+    "cleanup allowlist entry without reason": ".cleanup_allowlist:1: allowlist entry without a reason",
+    "unused function": f"scripts/tool.py:1: unused function '{UNUSED_FUNCTION}'",
+    "declared dependency nobody imports": "requirements_dev.txt: wfdb is declared but nothing imports it",
+    "file nothing references": f"{ORPHAN_DOC}: no other tracked file references it",
+    "documented variable nothing reads": f".env.example:2: {UNUSED_SETTING} is documented but nothing reads it",
     "untyped subject": "commit message: subject is not a Conventional Commit",
     "missing space after colon": "commit message: subject is not a Conventional Commit",
     "unknown type": "commit message: subject is not a Conventional Commit",

@@ -18,3 +18,5 @@ soda-athena==4.22.0
 -r dashboard/requirements.txt
 
 PyYAML==6.0.3
+vulture==2.16  # tool: unused-code check
+deptry==0.25.1  # tool: unused-dependencies check

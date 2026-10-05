@@ -1,7 +1,7 @@
 ---
 title: "Technology Inventory"
 description: "Locate implemented components, runtime tools and their repository sources."
-last_updated: 2026-10-02
+last_updated: 2026-10-05
 audience: [developer, operator]
 ---
 
@@ -88,7 +88,7 @@ This inventory lists technologies used by committed code, infrastructure, tests 
 | HTTP and service integration | Requests, HTTPX, Respx, WebSocket Client, Botocore signing, SQLAlchemy and PostgreSQL drivers |
 | Manual verification | Postman, AWS command-line interface (CLI), GitHub CLI, `jq`, Athena SQL, CloudWatch dashboards |
 | Infrastructure and delivery | Terraform AWS/AWSCC providers, Docker Buildx, Git, GitHub Actions, OIDC, protected environments, immutable image tags |
-| Quality engineering | pytest, unittest, pytest-cov, Ruff, MyPy, Terraform tests, container smoke tests, contract syntax checks, pre-commit, gitleaks, tflint, checkov, SQLFluff, a whole-project privacy scan and the `e2e` scenario runner |
+| Quality engineering | pytest, unittest, pytest-cov, Ruff, MyPy, Terraform tests, container smoke tests, contract syntax checks, pre-commit, gitleaks, tflint, checkov, SQLFluff, vulture, deptry, a whole-project privacy scan and the `e2e` scenario runner |
 | Test-data toolchain | Java 17, Gradle, Synthea, WFDB, deterministic seeds and patient/encounter mapping |
 | Reporting | Power BI Desktop through the Amazon Athena connector and Athena Open Database Connectivity (ODBC) 2.x driver; DirectQuery report pages, Data Analysis Expressions (DAX) measures, drillthrough and synchronized slicers; the `.pbix` remains outside the repository |
 

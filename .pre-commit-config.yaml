@@ -31,11 +31,40 @@ repos:
         pass_filenames: false
         always_run: true
       - id: removed-names
-        name: Removed scripts, flags and variables gone from the docs
+        name: Removed names no longer referenced
         entry: .venv/bin/python -m tools.repo_checks removed-names
         language: system
         pass_filenames: false
         always_run: true
+      # Cleanup checks run in warn mode until a whole-repository run is clean.
+      - id: env-example-unused
+        name: Documented variables still read (warn)
+        entry: .venv/bin/python -m tools.repo_checks env-example-unused --warn
+        language: system
+        pass_filenames: false
+        always_run: true
+        verbose: true
+      - id: unused-code
+        name: Unused Python code (vulture, warn)
+        entry: .venv/bin/python -m tools.repo_checks unused-code --warn
+        language: system
+        pass_filenames: false
+        always_run: true
+        verbose: true
+      - id: unused-dependencies
+        name: Unused or undeclared dependencies (deptry, warn)
+        entry: .venv/bin/python -m tools.repo_checks unused-dependencies --warn
+        language: system
+        pass_filenames: false
+        always_run: true
+        verbose: true
+      - id: orphan-files
+        name: Files nothing references (warn)
+        entry: .venv/bin/python -m tools.repo_checks orphan-files --warn
+        language: system
+        pass_filenames: false
+        always_run: true
+        verbose: true
       - id: privacy-scan
         name: No personal data or environment-specific values in project files
         entry: .venv/bin/python -m tools.repo_checks privacy-scan
