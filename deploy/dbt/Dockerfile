@@ -30,7 +30,8 @@ COPY dbt /app/dbt
 COPY lineage /app/lineage
 COPY deploy/dbt/profiles.yml /app/profiles.yml
 COPY jobs/dbt/run_dbt_with_lineage.py /app/run_dbt_with_lineage.py
-COPY tools/__init__.py tools/process.py /app/tools/
+COPY tools/__init__.py tools/process.py tools/lint_sql.py tools/install_dbt_packages.py /app/tools/
+RUN python -m tools.install_dbt_packages dbt /app/dbt
 COPY jobs/ml /app/jobs/ml
 
 ENTRYPOINT ["python", "/app/run_dbt_with_lineage.py"]

@@ -142,6 +142,15 @@ def install_sqlfluff() -> str:
     return f"installed  {' '.join(SQLFLUFF_PACKAGES)} (isolated environment)"
 
 
+def install_dbt_packages() -> str:
+    """Install the dbt packages pinned in dbt/package-lock.yml into dbt/dbt_packages, which the dbt templater needs."""
+    dbt = TOOLS / "sqlfluff" / "bin" / "dbt"
+    result = run_command(sys.executable, ["-m", "tools.install_dbt_packages", str(dbt), "dbt"], cwd=ROOT, timeout=600)
+    if result.returncode:
+        raise SystemExit(f"dbt deps failed; the SQL lint cannot parse the project:\n{result.stdout[-2000:]}{result.stderr[-2000:]}")
+    return "installed  dbt packages from dbt/package-lock.yml"
+
+
 MARKDOWNLINT_SOURCE = ROOT / "tools" / "markdownlint"
 MARKDOWNLINT_DIR = TOOLS / "markdownlint-cli2"
 NODE_MAJOR_MINIMUM = 22
@@ -182,7 +191,7 @@ def install_markdownlint() -> str:
 
 def main() -> int:
     """Install every pinned tool and report the result."""
-    for installer in (install_gitleaks, install_tflint, install_checkov, install_sqlfluff, install_markdownlint):
+    for installer in (install_gitleaks, install_tflint, install_checkov, install_sqlfluff, install_dbt_packages, install_markdownlint):
         sys.stdout.write(installer() + "\n")
     return 0
 

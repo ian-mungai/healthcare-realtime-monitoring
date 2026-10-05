@@ -29,6 +29,9 @@ clean-targets:
   - dbt_packages
 
 models:
+  dbt_project_evaluator:
+    +enabled: "{{ var('run_project_evaluator', false) }}"
+
   healthcare_realtime:
     silver:
       +materialized: view
@@ -69,6 +72,9 @@ models:
           +alias: "{{ env_var('DBT_ML_PREDICTIONS_LATEST_TABLE') }}"
 
 seeds:
+  dbt_project_evaluator:
+    +enabled: "{{ var('run_project_evaluator', false) }}"
+
   healthcare_realtime:
     provider_history:
       +column_types:
@@ -81,3 +87,7 @@ seeds:
         valid_to: varchar
         is_current: boolean
         data_source: varchar
+
+data_tests:
+  dbt_project_evaluator:
+    +enabled: "{{ var('run_project_evaluator', false) }}"

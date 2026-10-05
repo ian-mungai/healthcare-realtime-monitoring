@@ -1,0 +1,5 @@
+# dbt-project-evaluator checks the project's own structure. Its models stay
+# disabled unless the run sets --vars '{run_project_evaluator: true}', so scheduled builds never run it.
+packages:
+  - package: dbt-labs/dbt_project_evaluator
+    version: 1.4.0

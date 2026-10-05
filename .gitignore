@@ -59,6 +59,7 @@ dbt/profiles.yml
 dbt/.user.yml
 dbt/target/
 dbt/logs/
+dbt/dbt_packages/
 
 #soda
 data_quality/soda/config/configuration.yml
