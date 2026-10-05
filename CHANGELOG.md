@@ -15,6 +15,7 @@ Notable changes to the synthetic portfolio system are recorded here. Releases us
 - Prepare prose, metadata and pinned Markdown syntax hooks, their CI setup and real-hook regression samples. The locked local installation and 91-case real-hook verification pass; preparation is not adoption.
 - Block commits that leave references to removed functions, classes, config keys, Terraform declarations, dbt models, Airflow task IDs or dependencies, in each commit and over each pushed range in CI. Report unused code (vulture), unused or undeclared dependencies (deptry), unreferenced files and unread `.env.example` entries in warn mode.
 - Add dbt-project-evaluator 1.4.0, locked with dbt_utils 1.4.1 and disabled unless a run opts in. Add an Airflow DagBag test for import errors, unused task IDs and unwired tasks.
+- Install every pipeline stage from a hash-pinned lock compiled from its `.in` source: the development environment, the Airflow package, the dbt, Soda and simulator images and the Glue job. The Glue job now pins `s3fs`, which had no version. `tools/compile_requirements.py` recompiles the locks in Linux containers and a `requirement-locks` hook keeps each lock in step with its source.
 
 ## [1.0.1] - 2026-09-17
 

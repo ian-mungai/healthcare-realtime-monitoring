@@ -276,6 +276,25 @@ CASES.extend(
         ),
         Case("file nothing references", "orphan-files", False, {ORPHAN_DOC: "Nobody links here.\n"}, expect_warning=True),
         Case(
+            "lock matches its source",
+            "requirement-locks",
+            True,
+            {
+                "services/app/requirements.in": "requests==2.33.1\n",
+                "services/app/requirements.txt": "requests==2.33.1 \\\n    --hash=sha256:" + "0" * 64 + "\n",
+            },
+        ),
+        Case("lock missing for a source", "requirement-locks", False, {"services/app/requirements.in": "requests==2.33.1\n"}),
+        Case(
+            "lock out of date",
+            "requirement-locks",
+            False,
+            {
+                "services/app/requirements.in": "requests==2.33.1\n",
+                "services/app/requirements.txt": "requests==2.32.0 \\\n    --hash=sha256:" + "0" * 64 + "\n",
+            },
+        ),
+        Case(
             "documented variable nothing reads",
             "env-example-unused",
             False,
@@ -338,6 +357,8 @@ BLOCK_REASONS = {
     "unused function": f"scripts/tool.py:1: unused function '{UNUSED_FUNCTION}'",
     "declared dependency nobody imports": "requirements_dev.txt: wfdb is declared but nothing imports it",
     "file nothing references": f"{ORPHAN_DOC}: no other tracked file references it",
+    "lock missing for a source": "services/app/requirements.in: no hash-pinned requirements.txt beside it",
+    "lock out of date": "services/app/requirements.txt: requests==2.33.1 from requirements.in is not pinned with hashes",
     "documented variable nothing reads": f".env.example:2: {UNUSED_SETTING} is documented but nothing reads it",
     "untyped subject": "commit message: subject is not a Conventional Commit",
     "missing space after colon": "commit message: subject is not a Conventional Commit",

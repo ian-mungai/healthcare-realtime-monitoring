@@ -254,6 +254,14 @@ resource "aws_s3_object" "glue_lineage_package" {
   etag   = filemd5("${path.root}/../build/glue/healthcare_realtime_lineage.zip")
 }
 
+# Hash-pinned lock compiled from jobs/glue/requirements.in; Glue 5.0 installs it with pip -r at job start.
+resource "aws_s3_object" "glue_python_requirements" {
+  bucket = var.bucket_name
+  key    = "glue/dependencies/requirements.txt"
+  source = "${path.root}/../jobs/glue/requirements.txt"
+  etag   = filemd5("${path.root}/../jobs/glue/requirements.txt")
+}
+
 resource "aws_glue_job" "raw_to_processed" {
   name     = var.job_name
   role_arn = aws_iam_role.glue.arn
@@ -270,26 +278,27 @@ resource "aws_glue_job" "raw_to_processed" {
   }
 
   default_arguments = merge({
-    "--job-language"                 = "python"
-    "--enable-job-insights"          = "true"
-    "--enable-metrics"               = "true"
-    "--enable-spark-ui"              = "true"
-    "--spark-event-logs-path"        = "s3://${var.bucket_name}/glue/spark-ui/"
-    "--TempDir"                      = "s3://${var.bucket_name}/glue/temp/"
-    "--datalake-formats"             = "iceberg"
-    "--RAW_PATH"                     = "s3://${var.bucket_name}/raw/fhir_observations/"
-    "--DATA_BUCKET_NAME"             = var.bucket_name
-    "--PROJECT_NAME"                 = var.project_name
-    "--DATABASE_NAME"                = var.database_name
-    "--TABLE_NAME"                   = var.processed_table_name
-    "--job-bookmark-option"          = "job-bookmark-enable"
-    "--QUARANTINE_PATH"              = var.quarantine_path
-    "--METRICS_PATH"                 = var.metrics_path
-    "--extra-py-files"               = "s3://${var.bucket_name}/glue/dependencies/healthcare_realtime_lineage.zip"
-    "--additional-python-modules"    = "openlineage-python[fsspec]==1.52.0,s3fs"
-    "--enable-observability-metrics" = "true"
-    "--continuous-log-logGroup"      = aws_cloudwatch_log_group.glue.name
-    "--conf"                         = "spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions --conf spark.sql.catalog.glue_catalog=org.apache.iceberg.spark.SparkCatalog --conf spark.sql.catalog.glue_catalog.warehouse=s3://${var.bucket_name}/processed/ --conf spark.sql.catalog.glue_catalog.catalog-impl=org.apache.iceberg.aws.glue.GlueCatalog --conf spark.sql.catalog.glue_catalog.io-impl=org.apache.iceberg.aws.s3.S3FileIO"
+    "--job-language"                    = "python"
+    "--enable-job-insights"             = "true"
+    "--enable-metrics"                  = "true"
+    "--enable-spark-ui"                 = "true"
+    "--spark-event-logs-path"           = "s3://${var.bucket_name}/glue/spark-ui/"
+    "--TempDir"                         = "s3://${var.bucket_name}/glue/temp/"
+    "--datalake-formats"                = "iceberg"
+    "--RAW_PATH"                        = "s3://${var.bucket_name}/raw/fhir_observations/"
+    "--DATA_BUCKET_NAME"                = var.bucket_name
+    "--PROJECT_NAME"                    = var.project_name
+    "--DATABASE_NAME"                   = var.database_name
+    "--TABLE_NAME"                      = var.processed_table_name
+    "--job-bookmark-option"             = "job-bookmark-enable"
+    "--QUARANTINE_PATH"                 = var.quarantine_path
+    "--METRICS_PATH"                    = var.metrics_path
+    "--extra-py-files"                  = "s3://${var.bucket_name}/glue/dependencies/healthcare_realtime_lineage.zip"
+    "--additional-python-modules"       = "s3://${var.bucket_name}/${aws_s3_object.glue_python_requirements.key}"
+    "--python-modules-installer-option" = "-r"
+    "--enable-observability-metrics"    = "true"
+    "--continuous-log-logGroup"         = aws_cloudwatch_log_group.glue.name
+    "--conf"                            = "spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions --conf spark.sql.catalog.glue_catalog=org.apache.iceberg.spark.SparkCatalog --conf spark.sql.catalog.glue_catalog.warehouse=s3://${var.bucket_name}/processed/ --conf spark.sql.catalog.glue_catalog.catalog-impl=org.apache.iceberg.aws.glue.GlueCatalog --conf spark.sql.catalog.glue_catalog.io-impl=org.apache.iceberg.aws.s3.S3FileIO"
     }, trimspace(var.openlineage_collector_url) != "" ? {
     "--OPENLINEAGE_URL" = var.openlineage_collector_url
   } : {})

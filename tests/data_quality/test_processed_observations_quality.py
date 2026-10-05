@@ -56,8 +56,10 @@ def test_compound_uniqueness_key():
 
 def test_quality_container_packages_great_expectations_runner():
     dockerfile = (ROOT / "deploy/soda/Dockerfile").read_text(encoding="utf-8")
+    lock = (ROOT / "deploy/soda/requirements.txt").read_text(encoding="utf-8")
 
-    expect.is_in('"great-expectations==${GREAT_EXPECTATIONS_VERSION}"', dockerfile)
+    expect.is_in("RUN pip install --no-cache-dir --require-hashes -r /tmp/requirements.txt", dockerfile)
+    expect.is_in("great-expectations==1.22.0 \\\n    --hash=sha256:", lock)
     expect.is_in("COPY data_quality/great_expectations/validate_processed_observations.py /app/validate_processed_observations.py", dockerfile)
     expect.is_in('CMD ["python", "/app/run_soda_with_lineage.py"]', dockerfile)
 

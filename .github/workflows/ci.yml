@@ -46,7 +46,6 @@ jobs:
           cache: pip
           cache-dependency-path: |
             requirements_dev.txt
-            requirements_ml.txt
 
       - name: Install dependencies
         run: |
@@ -106,7 +105,6 @@ jobs:
           cache: pip
           cache-dependency-path: |
             requirements_dev.txt
-            requirements_ml.txt
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
@@ -380,7 +378,6 @@ jobs:
           cache: pip
           cache-dependency-path: |
             requirements_dev.txt
-            requirements_ml.txt
 
       - name: Install Python dependencies
         run: |

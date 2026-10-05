@@ -600,6 +600,59 @@ def unused_dependencies() -> list[Finding]:
     return findings
 
 
+def requirement_pins(path: Path, seen: set[Path] | None = None) -> dict[str, str]:
+    """Return ``name: version`` for each requirement in a ``.in`` file and the ``.in`` files it includes (``""`` if unpinned)."""
+    seen = seen if seen is not None else set()
+    if path in seen:
+        return {}
+    seen.add(path)
+    pins: dict[str, str] = {}
+    for raw in path.read_text().splitlines():
+        line = raw.split("#")[0].strip()
+        if line.startswith("-r "):
+            continue
+        if match := re.match(r"^([A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:\[[^\]]*\])?\s*(?:==\s*([^\s;]+))?", line):
+            pins[match.group(1).lower().replace("_", "-")] = match.group(2) or ""
+    for included in included_sources(path):
+        pins |= requirement_pins(included, seen)
+    return pins
+
+
+def included_sources(path: Path) -> list[Path]:
+    """Return the ``.in`` files that ``path`` includes with ``-r``, relative to the repository root."""
+    root = Path.cwd().resolve()
+    lines = [raw.split("#")[0].strip() for raw in path.read_text().splitlines()]
+    return [(path.parent / line[3:].strip()).resolve().relative_to(root) for line in lines if line.startswith("-r ")]
+
+
+def requirement_locks() -> list[Finding]:
+    """Each ``requirements*.in`` has a hash-pinned ``.txt`` beside it that pins every requirement it lists."""
+    rule = f"{POLICY}#dependencies"
+    findings = []
+    sources = sorted(p for p in git("ls-files", "--cached", "--others", "--exclude-standard").splitlines() if REQUIREMENT_FILE.search(p) and p.endswith(".in"))
+    # A fragment that another source includes with -r is locked through that source's lock.
+    included = {str(path) for source in sources for path in included_sources(Path(source))}
+    for source in sources:
+        lock = Path(source).with_suffix(".txt")
+        if not lock.exists() and source in included:
+            continue
+        if not lock.exists():
+            fix = f"compile it with .venv/bin/python -m tools.compile_requirements {source}"
+            findings.append(Finding(source, f"no hash-pinned {lock.name} beside it", rule, fix))
+            continue
+        locked: dict[str, str] = {}
+        lines = lock.read_text().splitlines()
+        for number, line in enumerate(lines):
+            hashed = number + 1 < len(lines) and lines[number + 1].strip().startswith("--hash=sha256:")
+            if hashed and (match := re.match(r"^([A-Za-z0-9][A-Za-z0-9._-]*)==([^\s\\;]+)", line)):
+                locked[match.group(1).lower().replace("_", "-")] = match.group(2)
+        for name, version in requirement_pins(Path(source)).items():
+            if name not in locked or (version and locked[name] != version):
+                fix = f"recompile it with .venv/bin/python -m tools.compile_requirements {source}"
+                findings.append(Finding(str(lock), f"{name}=={version or '<any>'} from {Path(source).name} is not pinned with hashes", rule, fix))
+    return findings
+
+
 def orphan_files() -> list[Finding]:
     """Every tracked file is named by another tracked file (path, file name or Python import), or is well known."""
     globs, findings = allowed_paths("orphan")
@@ -731,7 +784,7 @@ def privacy_scan(everything: bool) -> tuple[list[Finding], list[str]]:
 def main() -> int:
     """Run the named check and report its findings."""
     checks = ["credential-files", "data-files", "suppressions", "subprocess-imports", "lint-settings", "env-example", "removed-names"]
-    checks += ["env-example-unused", "unused-code", "unused-dependencies", "orphan-files"]
+    checks += ["env-example-unused", "unused-code", "unused-dependencies", "orphan-files", "requirement-locks"]
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("check", choices=[*checks, "privacy-scan"])
     parser.add_argument("paths", nargs="*")
@@ -755,6 +808,7 @@ def main() -> int:
         "unused-code": unused_code,
         "unused-dependencies": unused_dependencies,
         "orphan-files": orphan_files,
+        "requirement-locks": requirement_locks,
     }
     return report(runners[args.check](), warn=args.warn)
 

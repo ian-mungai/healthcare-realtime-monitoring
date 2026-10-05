@@ -36,6 +36,12 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: requirement-locks
+        name: Hash-pinned locks match their requirement sources
+        entry: .venv/bin/python -m tools.repo_checks requirement-locks
+        language: system
+        pass_filenames: false
+        files: requirements[^/]*\.(in|txt)$
       # Cleanup checks run in warn mode until a whole-repository run is clean.
       - id: env-example-unused
         name: Documented variables still read (warn)

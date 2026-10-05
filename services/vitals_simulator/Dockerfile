@@ -7,8 +7,8 @@ WORKDIR /app
 
 COPY services/vitals_simulator/requirements.txt /tmp/requirements.txt
 
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r /tmp/requirements.txt
+# Hash-pinned lock compiled from requirements.in; pip refuses any package or file that does not match it.
+RUN pip install --no-cache-dir --require-hashes -r /tmp/requirements.txt
 
 COPY services/__init__.py ./services/__init__.py
 COPY services/vital_signs.py ./services/vital_signs.py

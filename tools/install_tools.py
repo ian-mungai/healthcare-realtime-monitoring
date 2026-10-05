@@ -46,7 +46,7 @@ TFLINT_ASSETS = {
 
 CHECKOV_VERSION = "3.3.19"
 
-# dbt-core and dbt-athena match deploy/dbt/Dockerfile so SQLFluff compiles the models the way the dbt image runs them.
+# dbt-core and dbt-athena match deploy/dbt/requirements.in so SQLFluff compiles the models the way the dbt image runs them.
 SQLFLUFF_PACKAGES = ("sqlfluff==4.3.0", "sqlfluff-templater-dbt==4.3.0", "dbt-core==1.12.3", "dbt-athena==1.11.0")
 
 

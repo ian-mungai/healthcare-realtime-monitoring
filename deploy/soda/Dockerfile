@@ -1,30 +1,13 @@
 FROM python:3.12-slim
 
-ARG SODA_ATHENA_VERSION=4.22.0
-ARG OPENLINEAGE_VERSION=1.52.0
-ARG GREAT_EXPECTATIONS_VERSION=1.22.0
-ARG SQLALCHEMY_VERSION=2.0.50
-ARG PYATHENA_VERSION=3.36.0
-ARG BOTO3_VERSION=1.43.75
-ARG BOTOCORE_VERSION=1.43.75
-ARG FSSPEC_VERSION=2026.6.0
-ARG S3FS_VERSION=2026.6.0
-
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir \
-    "soda-athena==${SODA_ATHENA_VERSION}" \
-    "openlineage-python[fsspec]==${OPENLINEAGE_VERSION}" \
-    "great-expectations==${GREAT_EXPECTATIONS_VERSION}" \
-    "sqlalchemy==${SQLALCHEMY_VERSION}" \
-    "pyathena==${PYATHENA_VERSION}" \
-    "boto3==${BOTO3_VERSION}" \
-    "botocore==${BOTOCORE_VERSION}" \
-    "fsspec==${FSSPEC_VERSION}" \
-    "s3fs==${S3FS_VERSION}"
+# Hash-pinned lock compiled from requirements.in; pip refuses any package or file that does not match it.
+COPY deploy/soda/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir --require-hashes -r /tmp/requirements.txt
 
 COPY lineage /app/lineage
 COPY config/vital_signs.json /app/config/vital_signs.json

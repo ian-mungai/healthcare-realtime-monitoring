@@ -1,0 +1,23 @@
+pytest==9.1.1
+pytest-cov==7.1.0
+ruff==0.16.3
+mypy==2.3.1
+pre-commit==4.6.2
+python-hcl2==8.1.4
+-r airflow/serverless/requirements_dev.in
+-r requirements_ml.in
+httpx==0.28.1
+respx==0.23.1
+wfdb==4.3.1
+boto3==1.43.87
+great-expectations==1.22.0
+sqlalchemy==2.0.50
+openlineage-python[fsspec]==1.53.0
+s3fs==0.4.2
+soda-athena==4.22.0
+-r dashboard/requirements.in
+
+PyYAML==6.0.3
+vulture==2.16  # tool: unused-code check
+deptry==0.25.1  # tool: unused-dependencies check
+pip-tools==7.6.1  # tool: compiles the hash-pinned requirement files
