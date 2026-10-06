@@ -62,6 +62,8 @@ def test_websocket_messages_keep_latest_patient_update(monkeypatch) -> None:
     messages.put({"patient_id": "1000", "event_timestamp": "2026-09-09T12:00:00Z", "heart_rate": 80})
     messages.put({"patient_id": "1000", "event_timestamp": "2026-09-09T12:00:01Z", "heart_rate": 81, "_received_at": "2026-09-09T12:00:01.250000+00:00"})
     messages.put({"patient_id": "unknown", "heart_rate": 200})
+    # Load-test events reach cohort subscribers too; the dashboard must not show them as patient vitals.
+    messages.put({"patient_id": "1000", "event_timestamp": "2026-09-09T12:00:02Z", "heart_rate": 150, "source": "load_test"})
     state = SessionState(
         message_queue=messages,
         cohort_vitals={},

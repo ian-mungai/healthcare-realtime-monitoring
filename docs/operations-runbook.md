@@ -1,7 +1,7 @@
 ---
 title: "Operations Runbook"
 description: "Verify service health, diagnose failures and recover bounded processing paths."
-last_updated: 2026-10-02
+last_updated: 2026-10-06
 audience: [developer, operator]
 ---
 
@@ -27,17 +27,20 @@ For developers and operators: verify service health, diagnose failures and recov
 
 - **ARN**: Amazon Resource Name.
 - **AWS**: Amazon Web Services.
+- **BIDMC**: Beth Israel Deaconess Medical Center.
 - **CI**: continuous integration.
 - **ECS**: Elastic Container Service.
 - **FHIR**: Fast Healthcare Interoperability Resources.
 - **IAM**: Identity and Access Management.
 - **ID**: identifier.
+- **JSON**: JavaScript Object Notation.
 - **JSONL**: JSON Lines.
 - **MWAA**: Managed Workflows for Apache Airflow.
 - **NAT**: network address translation.
 - **OIDC**: OpenID Connect.
 - **REST**: Representational State Transfer.
 - **SSO**: single sign-on.
+- **URL**: uniform resource locator.
 
 ## Example Placeholders
 
@@ -48,6 +51,7 @@ Angle-bracket values are placeholders. Replace each with the approved value for 
 - `<LISTED_POLICY_NAME>`: listed policy name for the selected environment or example.
 - `<REJECTION_REASON>`: rejection reason for the selected environment or example.
 - `<ROLE_NAME>`: role name for the selected environment or example.
+- `<RUN_ID>`: runner-generated unique run label in a temporary policy name, not a deployment input.
 
 ## Before You Start
 
@@ -57,7 +61,7 @@ Angle-bracket values are placeholders. Replace each with the approved value for 
 
 ## Scope
 
-This runbook covers the portfolio demonstration environment. It uses synthetic data only. Do not use it as a clinical production procedure.
+This runbook covers the portfolio demonstration environment. It uses synthetic patient identities and Synthea records with public deidentified BIDMC vital-sign recordings. Do not use it as a clinical production procedure.
 
 ## Prerequisites
 
@@ -109,9 +113,9 @@ Use the dedicated, private, versioned state bucket created by `infra/bootstrap`.
    ./scripts/infrastructure/bootstrap.sh state-plan
    ```
 
-   For a new environment, review and apply the state plan, then initialize the main stack:
+   For a new environment, inspect the state plan and obtain approval for its exact changes before the next step. Stop on unexpected deletion, replacement or permission changes.
 
-2. Run the following command block:
+2. Apply only the approved state plan and initialize the main stack:
 
    ```zsh
    CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
@@ -124,14 +128,14 @@ Use the dedicated, private, versioned state bucket created by `infra/bootstrap`.
 
    For an existing deployment, make a private backup and migrate it once:
 
-3. Run the following command block:
+3. Migrate only an existing deployment after approval for the exact state transfer. Skip this step for the new environment initialized above:
 
    ```zsh
    CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
      ./scripts/infrastructure/bootstrap.sh main-migrate
    ```
 
-   Confirm that the state object exists in the configured bucket before removing any local state backup. S3 versioning provides recovery and Terraform's `use_lockfile` setting provides native locking.
+4. Confirm that the state object and bootstrap backup exist in the configured bucket before removing any local state backup. S3 versioning provides recovery and Terraform's `use_lockfile` setting provides native locking.
 
 ## CI and Deployment Gate
 
@@ -149,7 +153,20 @@ Before infrastructure deployment, run:
    terraform -chdir=infra show -no-color tfplan-operations
    ```
 
-   Review every planned action, then apply only the saved plan with `terraform -chdir=infra apply tfplan-operations`. After deployment, repeat `terraform plan` and expect `No changes`.
+2. Review every planned action and obtain approval for the exact changes. Stop on unexpected deletion, replacement or permission changes.
+3. Apply only the reviewed and approved saved plan:
+
+   ```zsh
+   terraform -chdir=infra apply tfplan-operations
+   ```
+
+4. Verify convergence with the same configuration:
+
+   ```zsh
+   terraform -chdir=infra plan -var-file=deployment.auto.tfvars.json
+   ```
+
+   Successful deployment reports `No changes`.
 
 ## Demo Startup
 
@@ -171,16 +188,22 @@ Check current simulator state first:
 
    The start script discovers the project network and task security group at runtime. It refuses to start a second simulator task for the same family.
 
+3. Confirm the status command reports one running simulator task:
+
+   ```zsh
+   ./scripts/demo/status_vitals_demo.sh
+   ```
+
 ## Live Validation
 
 While the simulator is running, confirm all of the following:
 
-- The cohort dashboard shows current values for all simulated patients.
-- Heart rate, respiratory rate and oxygen saturation use a ten-second freshness ceiling. Blood pressure uses a 310-second ceiling for its five-minute cadence; historical trends remain available.
-- The live processing-latency and WebSocket-delivery alarms are `OK`.
-- The Representational State Transfer (REST) vitals endpoint returns a current record using AWS IAM authorization.
-- A Postman WebSocket connection authenticated with AWS IAM receives current patient updates.
-- The current-state table advances event timestamps for the simulated cohort.
+- [ ] The cohort dashboard shows current values for all simulated patients.
+- [ ] Heart rate, respiratory rate and oxygen saturation use a ten-second freshness ceiling. Blood pressure uses a 310-second ceiling for its five-minute cadence; historical trends remain available.
+- [ ] The live processing-latency and WebSocket-delivery alarms are `OK`.
+- [ ] The Representational State Transfer (REST) vitals endpoint returns a current record using AWS IAM authorization.
+- [ ] A Postman WebSocket connection authenticated with AWS IAM receives current patient updates.
+- [ ] The current-state table advances event timestamps for the simulated cohort.
 
 HAPI queues subscription notifications immediately and polls pending subscription work every second. If current values repeatedly cross the 10-second display ceiling, inspect HAPI logs and database load before changing the five-second simulator cadence.
 
@@ -190,9 +213,16 @@ Use temporary Postman variables for endpoints and authorization. Do not export c
 
 With no simulator task running, `.venv/bin/python -m e2e.run session` runs the realtime, access, rejection and replay scenarios and writes a report for each under `artifacts/e2e/`. Scenario details, prerequisites and the deployment-session steps are in the end-to-end test plan.
 
-The replay scenario adds a temporary inline Deny policy named `healthcare_realtime_e2e_replay_<RUN_ID>` to the realtime processor role and always removes it when the run ends. If a run is killed before its cleanup, the Deny stays and keeps blocking writes for that run's synthetic patient only. List and remove any leftover:
+The replay scenario adds a temporary inline Deny policy named `healthcare_realtime_e2e_replay_<RUN_ID>` to the realtime processor role. Its cleanup attempts removal and verifies policy absence even after failure. A killed run can leave the Deny in place for its test patient. A failed cleanup remains a report finding.
 
-1. Run the following command block:
+#### Remove a Leftover Replay Policy
+
+Prerequisites:
+
+- A stopped replay run and verified ownership of its synthetic test patient and policy.
+- Approval to delete the exact leftover inline policy.
+
+1. List matching policies on the selected deployment's processor role:
 
    ```zsh
    PROCESSOR_ROLE="$(aws lambda get-function-configuration \
@@ -201,8 +231,16 @@ The replay scenario adds a temporary inline Deny policy named `healthcare_realti
    PROCESSOR_ROLE="${PROCESSOR_ROLE##*/}"
    aws iam list-role-policies --role-name "$PROCESSOR_ROLE" \
      --query "PolicyNames[?starts_with(@, 'healthcare_realtime_e2e_replay_')]" --output text
+   ```
+
+2. Review the listed policy and confirm it belongs to the stopped run. Obtain approval for that exact deletion before continuing.
+3. Delete only the approved policy:
+
+   ```zsh
    aws iam delete-role-policy --role-name "$PROCESSOR_ROLE" --policy-name "<LISTED_POLICY_NAME>"
    ```
+
+4. Repeat the list command and verify the selected policy is absent. Verify restored processor writes before treating the incident as resolved.
 
 ## Incident Triage and Recovery
 
@@ -226,9 +264,7 @@ Inspect rejected rows through Athena before replaying anything:
    ORDER BY rejected_rows DESC;
    ```
 
-   Export a bounded reason group to local JSON Lines (JSONL), correct the rejected fields and validate the file without publishing:
-
-2. Run the following command block:
+2. Export a bounded reason group to a private local JSON Lines (JSONL) file:
 
    ```zsh
    export DATA_BUCKET="$(terraform -chdir=infra output -raw raw_s3_bucket_name)"
@@ -239,19 +275,36 @@ Inspect rejected rows through Athena before replaying anything:
      --bucket "$DATA_BUCKET" \
      --rejection-reason "<REJECTION_REASON>" \
      --output "$QUARANTINE_REVIEW_FILE"
+   ```
 
+3. Correct the rejected fields in that private file. Preserve the original observation identifiers and record the reviewed correction scope locally.
+4. Validate the corrected file without publishing:
+
+   ```zsh
    .venv/bin/python scripts/quarantine/manage_quarantine.py --region "$AWS_REGION" replay \
      --input "$QUARANTINE_REVIEW_FILE" \
      --stream-name "$VITALS_STREAM"
    ```
 
-   Review the validated count, then publish the corrected rows by repeating the replay command with `--confirm-replay`. Replayed rows retain the original observation identifier (ID), use `source=quarantine_replay`, pass through Firehose and Glue again and remain idempotent at the analytical `(observation_id, loinc_code)` grain.
+5. Review the validated count and corrected file. Obtain approval for that exact replay scope before publishing.
+6. Publish only the reviewed corrected rows:
+
+   ```zsh
+   .venv/bin/python scripts/quarantine/manage_quarantine.py --region "$AWS_REGION" replay \
+     --input "$QUARANTINE_REVIEW_FILE" \
+     --stream-name "$VITALS_STREAM" \
+     --confirm-replay
+   ```
+
+7. Verify the reported published count matches the approved validated count. Confirm the next analytical run accepts the corrected rows. Replayed rows retain the original observation identifier (ID), use `source=quarantine_replay`, pass through Firehose and Glue again and remain idempotent at the analytical `(observation_id, loinc_code)` grain.
 
 ### Optional Lineage Collector
 
 The analytical workflow always emits OpenLineage events. When the shared collector is disabled, Glue, Athena, dbt, Great Expectations and Soda store events in the project data bucket. Terraform omits the optional `--OPENLINEAGE_URL` Glue argument when no collector URL is configured. Do not add the argument with an empty value because AWS Glue treats an empty option as a missing command-line value.
 
-After correcting a Glue deployment failure, apply the reviewed Terraform change and start a fresh MWAA workflow run. The Glue sensor may retry while the failed job reaches its terminal state; verify the new Glue run ID before interpreting a sensor retry as another processing attempt.
+1. Correct the Glue deployment failure through the reviewed plan/apply procedure in [CI and Deployment Gate](#ci-and-deployment-gate).
+2. Start a fresh MWAA workflow run. Verify its new Glue run ID before interpreting a sensor retry as another attempt. The sensor can retry while a failed job reaches its terminal state.
+3. Confirm the new Glue job and workflow finish successfully before closing the incident.
 
 Terraform creates both the dbt presentation database and the published-model database before analytical Elastic Container Service (ECS) tasks run. The dbt task role manages tables and partitions inside its assigned database but cannot create new Glue databases. If a first dbt run reports `glue:CreateDatabase`, confirm the Terraform-managed dbt database exists before changing IAM permissions.
 
@@ -281,7 +334,9 @@ Stop the simulator immediately after validation or a recorded demo:
    ./scripts/demo/status_vitals_demo.sh
    ```
 
-   The simulator is the intentionally short-lived Fargate workload. After evidence capture, complete the approved [controlled application teardown](infrastructure-lifecycle.md#controlled-application-teardown), which removes HAPI and the processing resources while retaining the protected state bucket and documented prerequisites. Stopping the simulator alone does not end infrastructure charges. Review CloudWatch logs, Fargate task count, network address translation (NAT) gateway usage, managed database size and retained object storage periodically when the environment is not being demonstrated.
+2. Verify the status reports no running simulator. Complete the approved [controlled application teardown](infrastructure-lifecycle.md#controlled-application-teardown) after evidence capture.
+
+The simulator is the intentionally short-lived Fargate workload. Controlled teardown removes HAPI and processing resources while retaining the protected state bucket and documented prerequisites. Stopping the simulator alone does not end infrastructure charges. Review CloudWatch logs, Fargate task count, network address translation (NAT) gateway usage, managed database size and retained object storage periodically when the environment is not being demonstrated.
 
 ## Evidence Handoff
 

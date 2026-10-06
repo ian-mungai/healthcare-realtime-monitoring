@@ -39,6 +39,7 @@ WEBSOCKET_URL = os.environ["VITALS_WEBSOCKET_URL"]
 REFRESH_INTERVAL_SECONDS = 0.5
 API_REFRESH_INTERVAL_SECONDS = 2.0
 HISTORY_SIZE = 60
+LOAD_TEST_SOURCE = "load_test"
 MAX_LIVE_DATA_AGE_SECONDS = 10.0
 BLOOD_PRESSURE_MAX_LIVE_DATA_AGE_SECONDS = float(os.getenv("BLOOD_PRESSURE_MAX_LIVE_DATA_AGE_SECONDS", "310"))
 FRESH_EVENT_AGE_SECONDS = MAX_LIVE_DATA_AGE_SECONDS
@@ -257,7 +258,8 @@ def process_websocket_messages() -> None:
         try:
             payload = st.session_state.message_queue.get_nowait()
             patient_id = payload.get("patient_id")
-            if patient_id not in PATIENT_IDS:
+            # Load-test events share the cohort's WebSocket subscriptions but are not patient vitals.
+            if patient_id not in PATIENT_IDS or payload.get("source") == LOAD_TEST_SOURCE:
                 continue
             current_payload = latest_payloads.get(patient_id, {})
             if not is_stale_event(current_payload, payload):

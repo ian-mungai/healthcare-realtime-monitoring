@@ -1,15 +1,13 @@
 ---
 title: "FHIR Setup Tasks"
 description: "Load the synthetic cohort from inside the VPC and register the protected webhook."
-last_updated: 2026-10-02
+last_updated: 2026-10-06
 audience: [developer, operator]
 ---
 
 # FHIR Setup Tasks
 
-For developers and operators: load the synthetic cohort from inside the VPC and register the protected webhook.
-
-The two deployment steps that write to HAPI Fast Healthcare Interoperability Resources (FHIR), loading the ten-patient cohort and registering the Observation subscription, run as a one-off Elastic Container Service (ECS) task inside the project virtual private cloud (VPC). The task reaches the HAPI load balancer through the network address translation (NAT) gateway, which is the only address the load balancer accepts, so no operator machine needs network access to HAPI and no personal Internet Protocol (IP) address is configured anywhere.
+For developers and operators: load the synthetic cohort from inside the virtual private cloud (VPC) and register the protected webhook.
 
 ## Terminology
 
@@ -25,6 +23,8 @@ The two deployment steps that write to HAPI Fast Healthcare Interoperability Res
 - **IP**: Internet Protocol.
 - **NAT**: network address translation.
 - **VPC**: virtual private cloud.
+- **URL**: uniform resource locator.
+- **UTC**: Coordinated Universal Time.
 
 ## Example Placeholders
 
@@ -39,6 +39,8 @@ Angle-bracket values are placeholders. Replace each with the approved value for 
 - Obtain owner approval for deployment, publication, secret changes or destructive operations; examples do not grant authorization.
 
 ## How It Runs
+
+The two deployment steps that write to HAPI Fast Healthcare Interoperability Resources (FHIR), loading the ten-patient cohort and registering the Observation subscription, run as a one-off Elastic Container Service (ECS) task inside the project VPC. The task reaches the HAPI load balancer through the network address translation (NAT) gateway, which is the only address permitted by [the Terraform root](../infra/main.tf). Cohort setup requires no operator-machine access or personal Internet Protocol (IP) address. The [security reference](data-governance.md#security-and-access) describes this boundary.
 
 The `healthcare_realtime_fhir_setup` task definition is created in the foundation stage, alongside HAPI. It runs the vitals simulator image, which already contains the loader and the subscription code, in the private subnets of the HAPI cluster.
 

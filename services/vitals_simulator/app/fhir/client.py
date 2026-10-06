@@ -1,5 +1,6 @@
 import os
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from urllib.parse import quote
 
@@ -9,6 +10,7 @@ DEFAULT_FHIR_BASE_URL = "http://127.0.0.1:8090/fhir"
 DEFAULT_TIMEOUT_SECONDS = 30.0
 DEFAULT_MAX_RETRIES = 3
 DEFAULT_RETRY_DELAY_SECONDS = 1.0
+RETRYABLE_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
 
 
 @dataclass(frozen=True)
@@ -52,10 +54,24 @@ class HAPIFHIRClient:
 
         url = f"{self.base_url}/{resource_type}"
         headers = self._build_headers(resource)
+        response = self._send_with_retries(lambda: httpx.post(url, headers=headers, json=resource, timeout=self.timeout_seconds))
+        return self._extract_created_resource(response, resource_type)
 
+    def count_resources(self, resource_type: str, params: dict[str, str]) -> int:
+        """Return how many resources match a FHIR search, without downloading them."""
+        url = f"{self.base_url}/{resource_type}"
+        query = {**params, "_summary": "count"}
+        headers = {"Accept": "application/fhir+json"}
+        response = self._send_with_retries(lambda: httpx.get(url, headers=headers, params=query, timeout=self.timeout_seconds))
+        total = response.json().get("total")
+        if not isinstance(total, int):
+            raise FHIRClientError("FHIR search response did not contain a total")
+        return total
+
+    def _send_with_retries(self, send: Callable[[], httpx.Response]) -> httpx.Response:
         for attempt in range(1, self.max_retries + 1):
             try:
-                response = httpx.post(url, headers=headers, json=resource, timeout=self.timeout_seconds)
+                response = send()
             except httpx.RequestError as error:
                 if attempt == self.max_retries:
                     raise FHIRRetryableError(f"FHIR request failed after {attempt} attempts: {error}") from error
@@ -63,7 +79,7 @@ class HAPIFHIRClient:
                 self._wait_before_retry(attempt)
                 continue
 
-            if response.status_code in {408, 425, 429, 500, 502, 503, 504}:
+            if response.status_code in RETRYABLE_STATUS_CODES:
                 if attempt == self.max_retries:
                     raise FHIRRetryableError(f"FHIR server returned HTTP {response.status_code} after {attempt} attempts")
 
@@ -76,7 +92,7 @@ class HAPIFHIRClient:
             if response.is_server_error:
                 raise FHIRRetryableError(self._build_error_message(response))
 
-            return self._extract_created_resource(response, resource_type)
+            return response
 
         raise FHIRRetryableError("FHIR request failed without a response")
 

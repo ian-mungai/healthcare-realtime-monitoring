@@ -2,7 +2,7 @@ import httpx
 import pytest
 import respx
 
-from services.vitals_simulator.app.fhir.client import FHIRPermanentError, HAPIFHIRClient
+from services.vitals_simulator.app.fhir.client import FHIRClientError, FHIRPermanentError, HAPIFHIRClient
 from testkit import expect
 
 FHIR_BASE_URL = "https://hapi.fhir.org/baseR4"
@@ -94,3 +94,23 @@ def test_build_headers_adds_conditional_create():
 
     expect.is_in("If-None-Exist", headers)
     expect.is_in("abc123", headers["If-None-Exist"])
+
+
+@respx.mock
+def test_count_resources_uses_a_retried_summary_search():
+    route = respx.get(f"{FHIR_BASE_URL}/Encounter", params={"subject": "Patient/1000", "_tag": "system|normal", "_summary": "count"}).mock(
+        side_effect=[httpx.Response(503), httpx.Response(200, json={"resourceType": "Bundle", "type": "searchset", "total": 2})]
+    )
+
+    client = HAPIFHIRClient(base_url=FHIR_BASE_URL, max_retries=3, retry_delay_seconds=0)
+
+    expect.equal(client.count_resources("Encounter", {"subject": "Patient/1000", "_tag": "system|normal"}), 2)
+    expect.equal(route.call_count, 2)
+
+
+@respx.mock
+def test_count_resources_rejects_a_response_without_total():
+    respx.get(f"{FHIR_BASE_URL}/Encounter").mock(return_value=httpx.Response(200, json={"resourceType": "Bundle"}))
+
+    with pytest.raises(FHIRClientError, match="total"):
+        HAPIFHIRClient(base_url=FHIR_BASE_URL).count_resources("Encounter", {"subject": "Patient/1000"})

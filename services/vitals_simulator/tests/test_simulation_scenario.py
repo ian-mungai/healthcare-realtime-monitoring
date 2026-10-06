@@ -49,3 +49,22 @@ def test_normal_scenario_clamps_extreme_values_in_outcome_window():
 
     expect.equal((changed.heart_rate, changed.respiratory_rate, changed.spo2), (100.0, 20.0, 95.0))
     expect.equal((changed_bp.systolic, changed_bp.diastolic), (105.0, 60.0))
+
+
+def test_scenario_selection_gives_each_patient_the_less_frequent_outcome():
+    prior = {"1000": {NORMAL_SCENARIO: 2, DETERIORATION_SCENARIO: 1}, "1001": {NORMAL_SCENARIO: 0, DETERIORATION_SCENARIO: 1}}
+
+    expect.equal(choose_patient_scenarios(["1000", "1001"], prior_counts=prior), {"1000": DETERIORATION_SCENARIO, "1001": NORMAL_SCENARIO})
+
+
+def test_two_labelled_runs_give_every_patient_both_outcomes():
+    patient_ids = [str(patient_id) for patient_id in range(1000, 1010)]
+    prior: dict[str, dict[str, int]] = {patient_id: {} for patient_id in patient_ids}
+    seen: dict[str, set[str]] = {patient_id: set() for patient_id in patient_ids}
+
+    for _run in range(2):
+        for patient_id, scenario in choose_patient_scenarios(patient_ids, prior_counts=prior).items():
+            seen[patient_id].add(scenario)
+            prior[patient_id][scenario] = prior[patient_id].get(scenario, 0) + 1
+
+    expect.equal(seen, {patient_id: {NORMAL_SCENARIO, DETERIORATION_SCENARIO} for patient_id in patient_ids})

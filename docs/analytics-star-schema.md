@@ -1,7 +1,7 @@
 ---
 title: "Analytics Star Schema"
 description: "Look up analytical grains, keys, conformed dimensions and permitted joins."
-last_updated: 2026-10-02
+last_updated: 2026-10-06
 audience: [developer, operator]
 ---
 
@@ -16,6 +16,7 @@ For developers and operators: look up analytical grains, keys, conformed dimensi
 - [Fact Grain](#fact-grain)
 - [Conformed Dimensions](#conformed-dimensions)
 - [Example Placeholders](#example-placeholders)
+- [Prepare Private Provider History](#prepare-private-provider-history)
 - [Bus Matrix](#bus-matrix)
 - [Feature and Label Construction](#feature-and-label-construction)
 - [Training Dataset](#training-dataset)
@@ -24,12 +25,14 @@ For developers and operators: look up analytical grains, keys, conformed dimensi
 ## Terminology
 
 - **BIDMC**: Beth Israel Deaconess Medical Center.
+- **CSV**: comma-separated values.
 - **FHIR**: Fast Healthcare Interoperability Resources.
 - **ID**: identifier.
 - **LOINC**: Logical Observation Identifiers Names and Codes.
 - **MD5**: Message Digest 5.
 - **NEWS2**: National Early Warning Score 2.
 - **NPPES**: National Plan and Provider Enumeration System.
+- **SQL**: Structured Query Language.
 - **UTF**: Unicode Transformation Format.
 
 ## Model Layers
@@ -66,23 +69,32 @@ The table named by `DBT_DIM_PROVIDER_TABLE` uses a type 2 slowly changing dimens
 
 The committed provider seed is a synthetic National Plan and Provider Enumeration System (NPPES)-compatible fixture for reproducible portfolio runs. Because the source observations do not contain a practitioner reference, the table named by `DBT_DIM_ENCOUNTER_TABLE` assigns the current synthetic roster deterministically and marks the result with `is_synthetic_provider_assignment`. This demonstrates temporal attribution mechanics; it does not claim that a named clinician treated a patient.
 
-To prepare a private provider history from a normalized NPPES snapshot, supply `provider_npi`, `provider_name`, `taxonomy_code`, `taxonomy_description` and `provider_state`:
-
-```bash
-python -m scripts.nppes.update_provider_history \
-  --snapshot "<NPPES_SNAPSHOT>" \
-  --history dbt/seeds/provider_history.csv \
-  --output "<PROVIDER_HISTORY_OUTPUT>" \
-  --effective-date "<EFFECTIVE_DATE>"
-```
-
-Review the generated history before replacing the synthetic seed. Do not commit real provider data to the portfolio repository.
-
 ## Example Placeholders
 
 - `<NPPES_SNAPSHOT>`: private normalized NPPES input CSV path.
 - `<PROVIDER_HISTORY_OUTPUT>`: private generated provider-history CSV path.
 - `<EFFECTIVE_DATE>`: approved snapshot date in `YYYY-MM-DD` format.
+
+## Prepare Private Provider History
+
+Prerequisites:
+
+- A private normalized NPPES snapshot with `provider_npi`, `provider_name`, `taxonomy_code`, `taxonomy_description` and `provider_state`.
+- The project virtual environment and an approved effective date.
+- A private output path outside tracked files. Real provider data must remain outside this portfolio repository.
+
+1. Generate the candidate history:
+
+   ```bash
+   .venv/bin/python -m scripts.nppes.update_provider_history \
+     --snapshot "<NPPES_SNAPSHOT>" \
+     --history dbt/seeds/provider_history.csv \
+     --output "<PROVIDER_HISTORY_OUTPUT>" \
+     --effective-date "<EFFECTIVE_DATE>"
+   ```
+
+2. Review the generated history before replacing any synthetic seed. Verify the effective date, changed attributes, closed predecessor rows and current successor rows.
+3. Confirm the command completed without validation errors and the reviewed output remains private. A successful generation does not authorize committing real provider data.
 
 ## Bus Matrix
 
@@ -97,7 +109,18 @@ Review the generated history before replacing the synthetic seed. Do not commit 
 
 The versioned `news2-repeated-extreme-proxy-v2` label is `1` when at least two observations of the same vital cross a National Early Warning Score 2 (NEWS2) extreme threshold during the outcome window: heart rate at or below 40 or at or above 131, respiratory rate at or below 8 or at or above 25, oxygen saturation at or below 91 or systolic pressure at or below 90. Requiring repeated threshold crossings prevents one isolated synthetic measurement from determining the encounter label. The minimum count is declared by `deterioration_min_repeated_extreme_observations` in `dbt_project.yml`. `is_training_eligible` requires observations in both windows.
 
-Every simulator task creates a new encounter for each cohort patient and randomly selects a normal or deterioration-proxy outcome scenario. Source Beth Israel Deaconess Medical Center (BIDMC) measurements remain unchanged during the feature window. Scenario transformations apply only during the outcome window so they cannot leak into model features. Random assignment improves label diversity across repeated complete runs but does not guarantee both classes in either patient-grouped partition after one run.
+Every simulator task creates a new encounter for each cohort patient. For a run planned to cover the full 30-minute feature and outcome window, the [cohort runner](../services/vitals_simulator/app/simulation/realtime_cohort_runner.py) counts each patient's scenario-tagged encounters in HAPI FHIR. The [scenario selector](../services/vitals_simulator/app/simulation/scenario.py) chooses the less frequent normal or deterioration-proxy scenario. Ties use a stable hash of `SIMULATOR_SCENARIO_SEED` and the patient identifier when a seed is supplied or a random choice otherwise. Shorter planned runs use that seed or random choice without counting or tagging scenario history.
+
+Planned duration uses the cycle cap and interval, limited by available source cycles when replay is disabled. An unset or blank `SIMULATOR_MAX_CYCLES` defaults to ten cycles in the runner; `none` or `unlimited` removes the cap. Terraform configures unlimited cycles with replay. Scenario tags are written at encounter creation, so interrupted or concurrent runs can affect the counts without producing eligible analytical rows. Two complete runs are an initial attempt to supply both classes, not a guarantee. Verify actual observations in both windows, class diversity in both patient-grouped partitions and no patient leakage before training.
+
+Source Beth Israel Deaconess Medical Center (BIDMC) measurements and Synthea blood-pressure readings remain unchanged during the feature window. Scenario transformations apply only during the outcome window so they cannot leak into model features.
+
+<details>
+<summary>Old Patterns</summary>
+
+At `5765c1e`, scenario selection used only random choice or the stable seed and patient identifier for every run. Reusing the same seed repeated the assignment rather than increasing scenario diversity. Neither one run nor repeated same-seed runs guaranteed both classes in either patient-grouped partition. The history-based selector replaces that assignment rule; the analytical class and leakage gates remain.
+
+</details>
 
 This label is a synthetic engineering proxy derived from NEWS2 extreme thresholds. It is not a diagnosis, a validated clinical outcome or suitable for patient care or clinical model training.
 

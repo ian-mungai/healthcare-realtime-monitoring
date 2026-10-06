@@ -12,8 +12,3 @@ output "log_group_name" {
   description = "CloudWatch log group of the FHIR setup task."
   value       = aws_cloudwatch_log_group.fhir_setup.name
 }
-
-output "seed_bundles_s3_prefix" {
-  description = "S3 prefix where the Synthea bundles are uploaded."
-  value       = var.seed_bundles_s3_prefix
-}

@@ -17,6 +17,7 @@ from services.vitals_simulator.app.simulation.realtime_cohort_runner import (
     get_cycle_simulation_start,
     get_replay_reading,
     initialize_simulation_run,
+    is_label_eligible,
     load_settings,
     parse_bool,
     parse_optional_positive_int,
@@ -174,6 +175,41 @@ def test_initialize_simulation_run_creates_fresh_encounters_and_assigns_scenario
         expect.fail('expected: all(resource["identifier"][0]["value"].startswith("run-123:") for resource in resources)')
     if not all(simulation.scenario in {"normal", "deterioration_proxy"} for simulation in initialized):
         expect.fail('expected: all(simulation.scenario in {"normal", "deterioration_proxy"} for simulation in initialized)')
+
+
+def test_labelled_run_alternates_each_patient_from_its_earlier_runs():
+    simulations = [
+        PatientSimulation(context=build_context(patient_id), bidmc_record_number=index, readings=[], bp_cadence=None)
+        for index, patient_id in enumerate(("1000", "1001"), start=1)
+    ]
+    earlier = {("Patient/1000", "normal"): 1, ("Patient/1001", "deterioration_proxy"): 1}
+    resources = []
+
+    class FakeClient:
+        def count_resources(self, resource_type, params):
+            expect.equal(resource_type, "Encounter")
+            return earlier.get((params["subject"], params["_tag"].rsplit("|", 1)[1]), 0)
+
+        def post_resource(self, resource):
+            resources.append(resource)
+            return CreatedFHIRResource("Encounter", f"encounter-{len(resources)}", f"Encounter/encounter-{len(resources)}", 201)
+
+    _run_id, initialized = initialize_simulation_run(
+        simulations, started_at=datetime(2026, 9, 17, 12, 0, tzinfo=UTC), client=FakeClient(), run_id="run-456", label_eligible=True
+    )
+
+    expect.equal([simulation.scenario for simulation in initialized], ["deterioration_proxy", "normal"])
+    expect.equal([resource["meta"]["tag"][0]["code"] for resource in resources], ["deterioration_proxy", "normal"])
+
+
+def test_label_eligibility_requires_a_full_feature_and_outcome_window():
+    def settings(max_cycles, replay=True):
+        return SimulatorSettings(interval_seconds=1.0, bp_interval_seconds=300, max_cycles=max_cycles, replay=replay)
+
+    expect.equal(is_label_eligible(settings(None), available_cycles=4000), True)
+    expect.equal(is_label_eligible(settings(1860), available_cycles=4000), True)
+    expect.equal(is_label_eligible(settings(3), available_cycles=4000), False)
+    expect.equal(is_label_eligible(settings(None, replay=False), available_cycles=480), False)
 
 
 def test_publish_patient_cycle_delegates_retries_to_hapi_client(monkeypatch):

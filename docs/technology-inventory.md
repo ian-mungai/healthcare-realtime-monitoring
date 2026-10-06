@@ -1,15 +1,13 @@
 ---
 title: "Technology Inventory"
 description: "Locate implemented components, runtime tools and their repository sources."
-last_updated: 2026-10-05
+last_updated: 2026-10-06
 audience: [developer, operator]
 ---
 
 # Technology Inventory
 
-For developers and operators: locate implemented components, runtime tools and their repository sources.
-
-This inventory lists technologies used by committed code, infrastructure, tests or documented operator workflows. The project uses synthetic data and is not a clinical system.
+For developers and operators: locate implemented components, runtime tools and their repository sources. This inventory lists technologies used by committed code, infrastructure, tests or documented operator workflows. The project uses synthetic identities and demonstration measurements and is not a clinical system.
 
 ## Terminology
 
@@ -90,6 +88,6 @@ This inventory lists technologies used by committed code, infrastructure, tests 
 | Infrastructure and delivery | Terraform AWS/AWSCC providers, Docker Buildx, Git, GitHub Actions, OIDC, protected environments, immutable image tags |
 | Quality engineering | pytest, unittest, pytest-cov, Ruff, MyPy, Terraform tests, container smoke tests, contract syntax checks, pre-commit, gitleaks, tflint, checkov, SQLFluff, vulture, deptry, dbt-project-evaluator, an Airflow DagBag test, a whole-project privacy scan and the `e2e` scenario runner |
 | Test-data toolchain | Java 17, Gradle, Synthea, WFDB, deterministic seeds and patient/encounter mapping |
-| Reporting | Power BI Desktop through the Amazon Athena connector and Athena Open Database Connectivity (ODBC) 2.x driver; DirectQuery report pages, Data Analysis Expressions (DAX) measures, drillthrough and synchronized slicers; the `.pbix` remains outside the repository |
+| Reporting | Power BI Desktop through the Amazon Athena connector and Athena Open Database Connectivity (ODBC) 2.x driver; the private guide documents DirectQuery pages, Data Analysis Expressions (DAX) measures, drillthrough and synchronized slicers. Native measure execution and finished-report behavior are unverified; the `.pbix` remains outside the repository |
 
 Versions are pinned in Terraform constraints, Python requirements, Docker build arguments, GitHub workflows and the Synthea version file. The root development requirements include the Airflow generator requirements so a fresh clone resolves one tested environment. Review those machine-readable files rather than copying version numbers from prose.

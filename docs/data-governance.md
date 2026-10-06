@@ -1,7 +1,7 @@
 ---
 title: "Data Governance"
 description: "Look up schema validation, event identity, freshness, retention and lineage controls."
-last_updated: 2026-10-02
+last_updated: 2026-10-06
 audience: [developer, operator]
 ---
 
@@ -28,6 +28,8 @@ For developers and operators: look up schema validation, event identity, freshne
 ## Terminology
 
 - **API**: application programming interface.
+- **AES**: Advanced Encryption Standard.
+- **ARN**: Amazon Resource Name.
 - **AWS**: Amazon Web Services.
 - **BIDMC**: Beth Israel Deaconess Medical Center.
 - **CI**: continuous integration.
@@ -49,8 +51,11 @@ For developers and operators: look up schema validation, event identity, freshne
 - **NPPES**: National Plan and Provider Enumeration System.
 - **RDS**: Relational Database Service.
 - **REST**: Representational State Transfer.
+- **SCD2**: type 2 slowly changing dimension.
 - **SQS**: Simple Queue Service.
 - **VPC**: virtual private cloud.
+- **UI**: user interface.
+- **URL**: uniform resource locator.
 
 ## Example Placeholders
 
@@ -97,7 +102,7 @@ BIDMC measurements -> FHIR Observation -> Kinesis -> realtime serving
 | `metrics/glue/` | Amazon S3 | Per-run candidate, valid and rejected counts |
 | `glue/temp/` and `glue/spark-ui/` | Amazon S3 | Glue job temporary files and Spark UI event logs, kept in the project bucket so the job role needs no other bucket |
 
-Formal business owners and data stewards are not encoded in repository metadata. Until that is added, the repository owner operates the portfolio datasets and infrastructure.
+The repository owner operates the portfolio datasets and infrastructure. Formal business owners and data stewards are not encoded in repository metadata.
 
 ## Standards and Schema
 
@@ -136,7 +141,9 @@ The committed provider history is a synthetic National Plan and Provider Enumera
 
 The encounter feature table uses the first fixed 15 minutes for features and the following fixed 15 minutes for the outcome proxy. The boundary is computable while an encounter is in progress and does not depend on its eventual end time. The outcome window produces a versioned deterioration proxy that requires repeated observations of the same vital beyond a National Early Warning Score 2 (NEWS2) extreme threshold, reducing sensitivity to isolated synthetic measurements. This proxy supports pipeline demonstration only and is not a diagnosis, a validated clinical outcome or approved training data for clinical use.
 
-The simulator creates fresh encounter identifiers at task startup and randomly assigns each patient encounter a normal or deterioration-proxy scenario. Transformations are confined to the outcome window. The assignment is recorded in simulator logs for audit while the analytical split remains grouped by patient to prevent leakage.
+The simulator creates fresh encounter identifiers at task startup. Runs planned to cover the full 30-minute window count each patient's scenario-tagged encounters in HAPI FHIR and select the less frequent normal or deterioration-proxy scenario. Ties use `SIMULATOR_SCENARIO_SEED` and the patient identifier or a random choice. Shorter planned runs use the seed or random choice without counting or tagging history.
+
+Tags and logs record startup assignments, not completed analytical labels. Interrupted or concurrent runs can affect the counts. Transformations remain confined to the outcome window and the analytical split stays grouped by patient to prevent leakage. Actual window observations, class diversity in both partitions and no patient leakage determine readiness; the [star-schema reference](analytics-star-schema.md#feature-and-label-construction) defines these boundaries.
 
 The training dataset excludes ineligible encounters and assigns complete patient histories to either training or testing. Its feature schema, label definition, split rule and source-row fingerprint are recorded with every baseline model artifact. Generated model files remain under the ignored `build/` directory unless a reviewed private artifact store is configured.
 
@@ -194,7 +201,7 @@ Great Expectations also emits an independent quality lineage edge from processed
 ## Security and Access
 
 - The data bucket blocks public access, enables versioning and uses AES-256 server-side encryption.
-- The HAPI FHIR load balancer accepts HTTP from the network address translation (NAT) gateway and explicitly configured `HAPI_OPERATOR_CIDRS`. Cohort loading and subscription registration run inside the virtual private cloud (VPC) and need no operator address.
+- The HAPI FHIR load balancer accepts HTTP only from the network address translation (NAT) gateway, as configured in [the Terraform root](../infra/main.tf). Cohort loading and subscription registration run inside the virtual private cloud (VPC) and need no operator address.
 - The Kinesis stream uses Amazon Web Services (AWS)-managed Key Management Service (KMS) encryption.
 - The latest-vitals DynamoDB table has point-in-time recovery enabled.
 - application programming interface (API) Gateway Representational State Transfer (REST) and WebSocket connection routes use AWS Identity and Access Management (IAM) authorization where configured.
@@ -211,6 +218,13 @@ Why: operational values are outside the portfolio evidence boundary.
 
 - Do: use placeholders in shareable evidence.
 - Don't: publish state, credentials or signed requests.
+
+<details>
+<summary>Old Patterns</summary>
+
+Commit `53ff5b1` permits the NAT gateway and configured operator network ranges to reach HAPI. The task-based cohort setup introduced in commit `b9db2e8` supplies only the NAT gateway to the HAPI module. Operator-machine access is outside that implemented configuration.
+
+</details>
 
 ## Retention and Recovery
 

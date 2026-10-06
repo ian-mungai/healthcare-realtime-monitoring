@@ -1,5 +1,7 @@
 # Pull Request
 
+For reviewers: assess the change, its verification and any remaining limits.
+
 ## What Changed
 
 <!-- Summarize the change. The pull request title must be a Conventional Commit message, for example `fix(pipeline): handle duplicate events`. -->
@@ -10,15 +12,15 @@
 
 ## How It Was Verified
 
-<!-- Commands run (local CI, Terraform checks, E2E run) and their results. Link the E2E artifact. -->
+<!-- Commands run (local continuous integration (CI), Terraform checks, end-to-end (E2E) run) and their results. Link the E2E artifact. -->
 
 - [ ] Local CI passed
-- [ ] E2E artifact: <!-- link or path -->
+- [ ] The E2E artifact is linked or its absence is explained: <!-- link, path or reason -->
 
-## Sensitive-data Impact
+## Sensitive-Data Impact
 
-<!-- Data classes touched (this project uses synthetic data only). Confirm no secrets, account identifiers, bucket names, endpoints or personal data are added. -->
+<!-- Data classes touched (synthetic patient identities and Synthea data, plus public deidentified Beth Israel Deaconess Medical Center (BIDMC) physiology). Confirm no secrets, account identifiers, bucket names, endpoints or identifiable personal data are added. -->
 
-## Follow-up Cleanup
+## Follow-Up Cleanup
 
 <!-- Obsolete code, files, configuration or documentation this change leaves behind or "None". -->

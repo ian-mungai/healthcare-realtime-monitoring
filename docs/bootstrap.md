@@ -12,6 +12,7 @@ For developers and operators: choose the deployment stage and recover from inter
 ## Terminology
 
 - **ECR**: Elastic Container Registry.
+- **AWS**: Amazon Web Services.
 - **FHIR**: Fast Healthcare Interoperability Resources.
 - **OIDC**: OpenID Connect.
 

@@ -1,7 +1,7 @@
 ---
 title: Documentation Index
 description: Find deployment, operational, analytical and historical project documentation.
-last_updated: 2026-10-02
+last_updated: 2026-10-06
 audience: [developer, operator]
 ---
 
@@ -45,8 +45,10 @@ For developers and operators of the synthetic portfolio system: select the docum
 
 ## Local Evidence and Reporting
 
-End-to-End (E2E) run reports remain ignored under `artifacts/e2e/`. Documentation review evidence remains in ignored `.documentation_review.json`. A private Power BI report guide and the Power BI binary are local artifacts outside the tracked documentation inventory; [Athena connection](power-bi-connection.md) is the public reference.
+End-to-End (E2E) run reports remain ignored under `artifacts/e2e/`. Documentation review evidence remains in ignored `.documentation_review.json`. The private Power BI report guide and the future recording procedure at `artifacts/capture/REQUIREMENT_replay_30min.md` are outside the tracked inventory but included in the authored-document format review. A future procedure remains authored documentation even when its folder also contains historical recordings. The private Power BI binary is a generated artifact; its native model and visuals remain unverified. [Athena connection](power-bi-connection.md) is the public reference.
 
 ## Format Review
 
-Metadata, headings and syntax are prepared for verification. Adoption requires the complete manual document and workflow review plus passing real hooks. Use no hard wrapping; preserve established names. Keep architecture source and its generated image under `docs/architecture/`.
+Conventional Docs is adopted for this project's authored Markdown, including the ignored private Power BI report guide and future recording procedure. Complete manual document and workflow review plus passing real hooks verify metadata, anatomy, terminology, procedures, links and examples. README uses the separate Standard Readme structure; historical release records and run evidence preserve their recorded scope. Generated diagrams remain outside the authored-document format requirements.
+
+Example verification includes manual syntax and schema-context review where native execution is unavailable. Native Power BI verification, article publication review and failed or unrun deployed checks remain open; format adoption does not certify those outcomes. Use no hard wrapping; preserve established names. Keep architecture source and its generated image under `docs/architecture/`; its documented update trigger remains in effect.

@@ -19,7 +19,7 @@ For developers and operators: evaluate the release gate while retaining the chec
 - [Realtime Evidence](#realtime-evidence)
 - [Data and Operations Evidence](#data-and-operations-evidence)
 - [Model Activation](#model-activation)
-- [Public-artifact Redaction](#public-artifact-redaction)
+- [Public-Artifact Redaction](#public-artifact-redaction)
 - [Next Release](#next-release)
 - [Release Tag](#release-tag)
 
@@ -32,6 +32,7 @@ For developers and operators: evaluate the release gate while retaining the chec
 - **DSN**: data source name.
 - **ECR**: Elastic Container Registry.
 - **ECS**: Elastic Container Service.
+- **E2E**: end-to-end.
 - **FHIR**: Fast Healthcare Interoperability Resources.
 - **IAM**: Identity and Access Management.
 - **MWAA**: Managed Workflows for Apache Airflow.
@@ -116,7 +117,7 @@ Verified release evidence on Sep 17 2026: a fresh regional deployment completed 
 
 Verified model evidence on Sep 18 2026: the patient-grouped training and test partitions both contained proxy-label classes `0` and `1`; the reviewed immutable baseline was published; the downstream scoring, prediction-refresh and Soda tasks passed independently; and a final MWAA Serverless run completed all nine workflow tasks successfully. The approved-model Athena view returned one current score for each of the ten configured patients. Fresh S3-backed OpenLineage events were present for Glue, Athena, Great Expectations, dbt and Soda. Terraform reported `No changes` after refresh-only reconciliation of computed workflow metadata. Model results remain synthetic portfolio evidence and are not clinically validated.
 
-## Public-artifact Redaction
+## Public-Artifact Redaction
 
 Before committing screenshots, diagrams, examples or portfolio documents:
 

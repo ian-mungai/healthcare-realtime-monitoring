@@ -1,5 +1,6 @@
 import hashlib
 import secrets
+from collections.abc import Mapping
 from dataclasses import replace
 
 from services.vitals_simulator.app.bidmc.source import VitalReading
@@ -11,16 +12,31 @@ SCENARIOS = (NORMAL_SCENARIO, DETERIORATION_SCENARIO)
 
 FEATURE_WINDOW_SECONDS = 15 * 60
 OUTCOME_WINDOW_SECONDS = 15 * 60
+# A run shorter than this produces no outcome label.
+LABEL_WINDOW_SECONDS = FEATURE_WINDOW_SECONDS + OUTCOME_WINDOW_SECONDS
 
 
-def choose_patient_scenarios(patient_ids: list[str], seed: str | int | None = None) -> dict[str, str]:
-    """Assign each patient a scenario: a stable hash of seed and patient when seeded, otherwise at random.
+def choose_patient_scenarios(
+    patient_ids: list[str], seed: str | int | None = None, prior_counts: Mapping[str, Mapping[str, int]] | None = None
+) -> dict[str, str]:
+    """Assign each patient a scenario.
 
+    With prior_counts (each patient's earlier labelled runs per scenario), a patient gets the scenario it has had less
+    often, so any two labelled runs give every patient both outcome classes, whichever patients the model tests on.
+    Ties, and runs without prior_counts, use a stable hash of seed and patient when seeded, otherwise a random choice.
     The hash gives the same assignment for the same seed on every Python version and host.
     """
-    if seed is None:
-        return {patient_id: secrets.choice(SCENARIOS) for patient_id in patient_ids}
-    return {patient_id: SCENARIOS[_seeded_index(seed, patient_id)] for patient_id in patient_ids}
+    scenarios = {}
+    for patient_id in patient_ids:
+        counts = (prior_counts or {}).get(patient_id, {})
+        normal_runs, deterioration_runs = counts.get(NORMAL_SCENARIO, 0), counts.get(DETERIORATION_SCENARIO, 0)
+        if normal_runs != deterioration_runs:
+            scenarios[patient_id] = NORMAL_SCENARIO if normal_runs < deterioration_runs else DETERIORATION_SCENARIO
+        elif seed is None:
+            scenarios[patient_id] = secrets.choice(SCENARIOS)
+        else:
+            scenarios[patient_id] = SCENARIOS[_seeded_index(seed, patient_id)]
+    return scenarios
 
 
 def _seeded_index(seed: str | int, patient_id: str) -> int:

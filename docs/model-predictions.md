@@ -1,7 +1,7 @@
 ---
 title: "Model Predictions"
 description: "Score encounter features with an approved immutable model and inspect governed results."
-last_updated: 2026-10-02
+last_updated: 2026-10-06
 audience: [developer, operator]
 ---
 
@@ -12,6 +12,7 @@ For developers and operators: score encounter features with an approved immutabl
 ## Terminology
 
 - **DAG**: directed acyclic graph.
+- **AWS**: Amazon Web Services.
 - **MWAA**: Managed Workflows for Apache Airflow.
 - **SHA**: Secure Hash Algorithm.
 - **UTC**: Coordinated Universal Time.
@@ -59,6 +60,8 @@ Select an exact version-named model prefix rather than resolving a mutable `late
 
    The scorer verifies the model and manifest Secure Hash Algorithm (SHA)-256 metadata, checks the feature order, requires an evaluated threshold, scores without retraining and writes the selected model-version partition idempotently.
 
+2. Confirm scoring completes without checksum, feature-schema or threshold errors. Verify the published partition names the selected immutable model version and the subsequent dbt prediction refresh and Soda checks pass.
+
 ## Athena Presentation
 
 - `${ATHENA_DBT_DATABASE}.${DBT_ML_PREDICTIONS_SERVING_TABLE}` retains versioned scoring history.
@@ -76,4 +79,4 @@ dbt feature build -> approved-model scoring -> prediction-view refresh -> Soda f
 
 The scorer reads `${ATHENA_DBT_DATABASE}.${DBT_ML_SCORING_TABLE}`, which does not require a completed outcome window or training label. It resolves the exact artifact from `ML_APPROVED_MODEL_VERSION`, never a mutable `latest` pointer and does not retrain. Soda fails the workflow when the newest `scored_at` is 26 hours old or older.
 
-The separate Streamlit model analytics dashboard reads `${DBT_ML_PREDICTIONS_LATEST_TABLE}` through Athena and shows one latest prediction per patient. It combines each score with its encounter and feature-window vital summaries, ranks the cohort by proxy probability and displays the approved model, decision threshold, schema, label definition, freshness, prediction scope and clinical-validation status. Launch it with `./scripts/demo/start_model_analytics_dashboard.sh`. Results are cached for five minutes and cannot alter the live cohort dashboard's vital-warning priorities.
+The separate Streamlit model analytics dashboard reads `${DBT_ML_PREDICTIONS_LATEST_TABLE}` through Athena and shows one latest prediction per patient. It combines each score with its encounter and feature-window vital summaries, ranks the cohort by proxy probability and displays the approved model, decision threshold, schema, label definition, freshness, prediction scope and clinical-validation status. Its launch entry point is `./scripts/demo/start_model_analytics_dashboard.sh`; [Start the Dashboards](demo-guide.md#start-the-dashboards) supplies the procedure. Results are cached for five minutes and cannot alter the live cohort dashboard's vital-warning priorities.

@@ -55,7 +55,7 @@ output "openlineage_emission_failure_alarm_name" {
 
 output "github_deployment_role_arn" {
   description = "GitHub Actions OIDC deployment role ARN, or null when OIDC is disabled."
-  value       = var.enable_github_oidc ? aws_iam_role.github_deployment[0].arn : null
+  value       = one(aws_iam_role.github_deployment[*].arn)
 }
 
 output "firehose_delivery_stream_name" {
@@ -365,11 +365,6 @@ output "fhir_setup_security_group_id" {
 output "fhir_setup_log_group_name" {
   description = "CloudWatch log group of the FHIR setup task."
   value       = module.fhir_setup_ecs.log_group_name
-}
-
-output "fhir_setup_seed_bundles_s3_prefix" {
-  description = "S3 prefix where run_fhir_setup.sh uploads the Synthea bundles."
-  value       = module.fhir_setup_ecs.seed_bundles_s3_prefix
 }
 
 output "private_subnet_ids" {

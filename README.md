@@ -172,6 +172,8 @@ Use the [load-testing guide](docs/load-testing.md) to run an isolated test that 
 
 The diagram source is [docs/architecture/architecture.html](docs/architecture/architecture.html). The [architecture guide](docs/architecture.md) describes the realtime path, analytical path, recovery model, security boundaries and observability design.
 
+The diagram is a design snapshot identified as commit `8f7c07c`. Its synthetic-only footer does not describe the public deidentified BIDMC measurements. [Data](#data) records the source provenance; the architecture guide explains the diagram's historical boundary.
+
 ```text
 Simulator -> HAPI FHIR -> webhook -> Kinesis -> Lambda -> DynamoDB -> REST/WebSocket -> live cohort dashboard
                                             \-> Firehose -> S3 -> Glue -> Athena -> dbt -> ML scoring -> model analytics dashboard
@@ -182,11 +184,11 @@ Simulator -> HAPI FHIR -> webhook -> Kinesis -> Lambda -> DynamoDB -> REST/WebSo
 
 | Source | Use | Classification | Terms of use |
 | --- | --- | --- | --- |
-| [Synthea](https://github.com/synthetichealth/synthea) v4.0.0 | Synthetic patients and encounters loaded into HAPI FHIR | Synthetic | Synthea software is Apache License 2.0 |
+| [Synthea](https://github.com/synthetichealth/synthea) v4.0.0 | Synthetic patients, encounters and blood-pressure readings loaded into HAPI FHIR or exported for the simulator | Synthetic | Synthea software is Apache License 2.0 |
 | [BIDMC PPG and Respiration Dataset](https://physionet.org/content/bidmc/1.0.0/) (PhysioNet) | De-identified waveform-derived heart rate, respiratory rate and SpO₂ readings replayed by the simulator | Public | Open Data Commons Attribution License v1.0; cite Pimentel et al., IEEE Transactions on Biomedical Engineering 64(8), 2016 and PhysioNet |
 | Committed provider seed (`dbt/seeds/provider_history.csv`) | National Plan and Provider Enumeration System (NPPES)-compatible provider history for the type 2 provider dimension | Synthetic | Fictional clinicians created for this repository |
 
-The simulator attaches BIDMC readings to synthetic Synthea patients, so every patient record in this project is synthetic. The analytical models label their rows `data_classification = 'synthetic'`.
+The simulator attaches public de-identified BIDMC heart-rate, respiratory-rate and oxygen-saturation readings and synthetic Synthea blood pressure to synthetic Synthea patient identities. Outcome scenarios can transform these readings to produce the synthetic deterioration proxy. The analytical models label their rows `data_classification = 'synthetic'`; that label does not change the public recordings' provenance.
 
 The [data governance guide](docs/data-governance.md) documents datasets, schema controls, quality gates, deduplication, retention, replay and evidence expectations.
 
@@ -229,7 +231,7 @@ Tear the stack down after every demo with the [controlled application teardown](
 
 ## Limitations
 
-- All patient data is synthetic. Vital-sign values come from de-identified public recordings replayed onto synthetic patients; nothing here is real patient data.
+- Patient identities and encounters are synthetic. Heart rate, respiratory rate and oxygen saturation use public de-identified physiological recordings; blood pressure comes from Synthea. Replaying real physiological measurements under synthetic identities does not make their source synthetic.
 - The deterioration label is a synthetic engineering proxy derived from National Early Warning Score 2 (NEWS2) extreme thresholds. The model is not clinically validated and must not be used for patient care.
 - The portfolio environment keeps short log and backup retention to control cost. A production deployment would need formal retention, recovery, compliance and clinical-safety review.
 - There is no live public demo, because the full AWS stack is billable while it runs.

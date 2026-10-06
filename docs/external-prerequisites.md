@@ -1,7 +1,7 @@
 ---
 title: "Externally Managed Prerequisites"
 description: "Identify account resources maintained outside application Terraform."
-last_updated: 2026-10-02
+last_updated: 2026-10-06
 audience: [developer, operator]
 ---
 
@@ -56,7 +56,7 @@ These prerequisites are intentionally outside the main application Terraform sta
 | --- | --- | --- | --- |
 | Bootstrap AWS identity | Terraform cannot create the identity whose credentials create the first resources | Grant the documented project-policy actions to a temporary administrator or deployment group | Remove or disable separately after verifying no other workload uses it |
 | Customer-managed deployment policies | Existing account policies are shared by the local deployment identity and GitHub role | Render the tracked templates under `infra/iam/policies/`, create/update the policies and attach them through the account's approved group model | Not removed by application Terraform |
-| Persistent Terraform state bucket | The main stack cannot safely manage the bucket containing its own state | Create once with `infra/bootstrap`; run the guarded bootstrap-state backup | Survives routine application teardown; retire separately only after every environment is destroyed and state is archived |
+| Persistent Terraform state bucket | The main stack cannot safely manage the bucket containing its own state | Create once with `infra/bootstrap`; run the guarded bootstrap-state backup | Survives routine application teardown. Retirement requires all environments to be destroyed and the reviewed archive to be retained or explicitly declined; follow the [state-retirement scope](infrastructure-lifecycle.md#full-account-retirement). |
 | Fast Healthcare Interoperability Resources (FHIR) webhook secret | Secret values must not enter Terraform plans or tracked configuration | Create the secret named by `FHIR_WEBHOOK_SECRET_ID` with the JavaScript Object Notation (JSON) key named by `FHIR_WEBHOOK_SECRET_KEY` | Delete separately only after HAPI subscriptions and the application are gone |
 | GitHub repository environment | Repository approvals and encrypted settings belong to GitHub | Configure `AWS_REGION` as non-sensitive configuration and store `AWS_DEPLOY_ROLE_ARN`, `TF_STATE_BUCKET` and `TF_STATE_PREFIX` as protected secrets | Remove separately if the repository is retired |
 | Private deployment configuration | Account-specific Terraform inputs must remain outside public GitHub configuration | Enter them once in the selected `${PROJECT_ENV_FILE:-.env}` file, render the ignored Terraform JSON and synchronize it to the encrypted, versioned `<PROJECT_NAME>/terraform/config/` state-bucket prefix | Remove with the persistent state bucket only after all environments are retired |
@@ -76,14 +76,7 @@ The policy JSON files are reproducible policy definitions, not Terraform-managed
      --region "$AWS_REGION"
    ```
 
-   Apply the reviewed create and update actions only from an approved bootstrap identity:
-
-2. Run the following command block:
-
-   ```zsh
-   ```
-
-   Review the preceding plan or cleanup preview. Obtain approval for its exact changes before running the next action. Stop on unexpected deletion, replacement or permission changes.
+2. Review the policy plan and obtain approval for its exact create and update actions. Use only an approved bootstrap identity. Stop on unexpected deletion, replacement or permission changes.
 
 3. Apply only the reviewed and approved action:
 

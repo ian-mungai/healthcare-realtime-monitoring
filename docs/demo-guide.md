@@ -1,7 +1,7 @@
 ---
 title: "Demo Guide"
 description: "Run a synthetic cohort demonstration and verify its observable results."
-last_updated: 2026-10-02
+last_updated: 2026-10-06
 audience: [developer, operator]
 ---
 
@@ -82,7 +82,9 @@ From the repository root, load the ignored target-environment settings:
 
    In the simulator log stream, healthy cycles report `status=healthy`, `patients_succeeded=10` and `patients_failed=0`. Investigate any `status=degraded` cycle before using the run as release evidence.
 
-   Task startup logs one `scenario_assigned` record per patient with a fresh encounter identifier and a randomly selected `normal` or `deterioration_proxy` scenario. A realtime-only demonstration can remain short. A run intended to create model-training rows must continue for at least 30 minutes so every encounter has a complete feature window and outcome window.
+   Task startup logs one `scenario_assigned` record per patient with a fresh encounter identifier and a `normal` or `deterioration_proxy` scenario. The startup log also states whether the run is planned to cover the full 30-minute window. The [scenario selector](analytics-star-schema.md#feature-and-label-construction) favors each patient's less frequent tagged scenario for those runs; ties and shorter planned runs use the seed or a random choice. Short planned runs do not count or add scenario-history tags.
+
+   A realtime-only demonstration can remain short. For model-training rows, complete the full feature and outcome windows with observations in both. Two complete runs are an initial attempt to supply both classes; verify actual class diversity in both patient-grouped partitions and no patient leakage. Startup tags do not certify completed labels, so interrupted or concurrent runs can affect balancing.
 
 ## Start the Dashboards
 
@@ -96,11 +98,11 @@ Start the live cohort dashboard in its own terminal:
 
    In the live dashboard, verify that:
 
-   1. The cohort view contains every configured simulated patient.
-   2. Heart rate, oxygen saturation, respiratory rate and blood pressure update while the simulator is running.
-   3. Heart rate, oxygen saturation and respiratory rate are no more than 10 seconds old; blood pressure follows its separate five-minute cadence and remains current for up to 310 seconds.
-   4. The chart time axis advances with full timestamps.
-   5. Selecting **View trends** focuses a patient without hiding the rest of the cohort.
+   - [ ] The cohort view contains every configured simulated patient.
+   - [ ] Heart rate, oxygen saturation, respiratory rate and blood pressure update while the simulator is running.
+   - [ ] Heart rate, oxygen saturation and respiratory rate are no more than 10 seconds old; blood pressure follows its separate five-minute cadence and remains current for up to 310 seconds.
+   - [ ] The chart time axis advances with full timestamps.
+   - [ ] Selecting **View trends** focuses a patient without hiding the rest of the cohort.
 
    Start the separate model analytics dashboard in another terminal:
 
@@ -114,32 +116,38 @@ Start the live cohort dashboard in its own terminal:
 
 ## Postman REST Check
 
-Create a temporary Postman environment with the following variables. Do not export it with deployed values.
+1. Create a temporary Postman environment with the following variables. Do not export it with deployed values.
 
-| Variable | Value |
-| --- | --- |
-| `aws_region` | Target AWS region |
-| `vitals_api_endpoint` | Terraform `vitals_api_endpoint` output |
-| `realtime_websocket_url` | Terraform `realtime_websocket_url` output, used by the WebSocket check |
-| `patient_id` | One simulated patient identifier |
+   | Variable | Value |
+   | --- | --- |
+   | `aws_region` | Target AWS region |
+   | `vitals_api_endpoint` | Terraform `vitals_api_endpoint` output |
+   | `realtime_websocket_url` | Terraform `realtime_websocket_url` output, used by the WebSocket check |
+   | `patient_id` | One simulated patient identifier |
 
-Create a `GET` request:
+2. Create a `GET` request:
 
-```text
-{{vitals_api_endpoint}}/patients/{{patient_id}}/vitals
-```
+   ```text
+   {{vitals_api_endpoint}}/patients/{{patient_id}}/vitals
+   ```
 
-Configure the request for AWS Signature authorization with service name `execute-api` and region `{{aws_region}}`. Run it twice during the demo and confirm that each returned vital’s `<FIELD>_event_timestamp` advances, using the vital field names in the response.
+3. Configure AWS Signature authorization with service name `execute-api` and region `{{aws_region}}`.
+4. Run the request twice during the demo.
+
+Verify success by confirming that each returned vital's `<FIELD>_event_timestamp` advances, using the vital field names in the response. `<FIELD>` names the returned vital field, such as `heart_rate`.
 
 ## Postman WebSocket Check
 
-Create a temporary WebSocket request in the same Postman environment:
+1. Create a temporary WebSocket request in the same Postman environment:
 
-```text
-{{realtime_websocket_url}}?patient_id={{patient_id}}
-```
+   ```text
+   {{realtime_websocket_url}}?patient_id={{patient_id}}
+   ```
 
-Use AWS Identity and Access Management (IAM) signing for the target application programming interface (API) Gateway WebSocket connection. Connect while the simulator is running, then confirm that messages contain current measurements for the selected patient. Do not save signed authorization headers in a collection or evidence artifact; they are temporary credentials.
+2. Configure AWS Identity and Access Management (IAM) signing for the target application programming interface (API) Gateway WebSocket connection.
+3. Connect while the simulator is running.
+
+Verify success by confirming that messages contain current measurements for the selected patient. Do not save signed authorization headers in a collection or evidence artifact; they are temporary credentials.
 
 ## CloudWatch Check
 
@@ -173,11 +181,18 @@ The REST, WebSocket, access-control and failure-handling checks above also run a
 
 ## Analytics and Recovery Evidence
 
-For an extended demonstration, show a successful MWAA workflow run and its Glue, Athena, Great Expectations, dbt, approved-model scoring, prediction refresh and Soda tasks. Confirm that prediction freshness and OpenLineage validation completed successfully. When the `openlineage_collector_url` Terraform output is nonempty, confirm the shared collector contains matching START and COMPLETE events for the same run IDs.
+Before you start:
 
-For training-data generation, let the simulator run for at least 30 minutes before stopping it. Random scenarios do not guarantee that one run supplies both labels to both patient-grouped partitions. Repeat the complete run only when the dbt readiness test reports a missing class.
+- Complete the deployed configuration and model approval prerequisites for the analytical workflow.
+- Use the [model-training guide](model-training.md) when generating training data.
 
-Stop the simulator before starting the analytical workflow so Firehose can settle and the run processes a bounded cohort snapshot. After starting MWAA Serverless, wait 30 minutes before checking the final state; recent runs have taken 26 to 28 minutes.
+1. Run the simulator for at least 30 minutes when generating training data so each encounter covers both analytical windows.
+2. Stop the simulator so Firehose can settle before processing a bounded cohort snapshot.
+3. Start the analytical workflow through the selected environment's MWAA Serverless workflow.
+4. Inspect the workflow and each Glue, Athena, Great Expectations, dbt, approved-model scoring, prediction-refresh and Soda task. Allow 30 minutes before checking the final state.
+5. Inspect prediction freshness and OpenLineage validation. When `openlineage_collector_url` is nonempty, inspect matching START and COMPLETE events for the same run IDs in the shared collector.
+
+Verify success by confirming that the workflow, each task, prediction freshness and lineage validation report success. Elapsed time alone does not establish completion. Scenario assignment does not guarantee both labels in both patient-grouped partitions; repeat a complete training run only when the dbt readiness test reports a missing class.
 
 Do not intentionally inject a production-style failure during a portfolio recording. If recovery evidence is needed, use the report from the replay scenario, which blocks writes for one synthetic patient outside the cohort or follow the controlled replay procedure in the [operations runbook](operations-runbook.md).
 

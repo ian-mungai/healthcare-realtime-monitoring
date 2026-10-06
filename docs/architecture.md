@@ -1,7 +1,7 @@
 ---
 title: "Architecture"
 description: "Trace realtime delivery, analytical processing, recovery and security boundaries."
-last_updated: 2026-10-02
+last_updated: 2026-10-06
 audience: [developer, operator]
 ---
 
@@ -20,7 +20,7 @@ For developers and operators: trace realtime delivery, analytical processing, re
 - [Security Boundaries](#security-boundaries)
 - [Observability](#observability)
 - [Deployment and Configuration](#deployment-and-configuration)
-- [Trade-offs](#trade-offs)
+- [Trade-Offs](#trade-offs)
 
 ## Terminology
 
@@ -53,11 +53,23 @@ The design keeps three concerns distinct:
 
 ## System Overview
 
-The rendered diagram at [architecture/architecture.png](architecture/architecture.png) is built from [architecture/architecture.html](architecture/architecture.html). After changing the HyperText Markup Language (HTML), render the Portable Network Graphics (PNG) again with headless Chrome:
+The rendered diagram at [architecture/architecture.png](architecture/architecture.png) is built from [architecture/architecture.html](architecture/architecture.html).
 
-```zsh
-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars --window-size=1200,1180 --virtual-time-budget=5000 --screenshot=docs/architecture/architecture.png "file://$PWD/docs/architecture/architecture.html"
-```
+The unchanged diagram identifies its design revision as commit `8f7c07c`. Its synthetic-only footer does not describe the public BIDMC measurements' provenance. Patient identities and Synthea blood pressure are synthetic; heart rate, respiratory rate and oxygen saturation use public deidentified recordings. [Data](../README.md#data) records that source boundary. The Mermaid view and path descriptions below describe the implemented flows.
+
+Rendering prerequisites:
+
+- Google Chrome installed at the macOS path below.
+- The repository root as the working directory.
+- A reviewed change to the HyperText Markup Language (HTML) source.
+
+1. Render the Portable Network Graphics (PNG) with headless Chrome:
+
+   ```zsh
+   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars --window-size=1200,1180 --virtual-time-budget=5000 --screenshot=docs/architecture/architecture.png "file://$PWD/docs/architecture/architecture.html"
+   ```
+
+2. Open the generated PNG and verify that every label is readable, no content is clipped and the diagram matches the reviewed source.
 
 The Mermaid view below shows the same data flow in text form.
 
@@ -150,7 +162,7 @@ This design prefers controlled replay over blind redrive: an operator should ide
 
 ## Security Boundaries
 
-- HAPI FHIR runs behind an application load balancer that accepts HyperText Transfer Protocol (HTTP) only from the network address translation (NAT) gateway, used by the simulator and the one-off FHIR setup task ([FHIR setup tasks](fhir-setup-tasks.md)); the service and database remain in the project virtual private cloud (VPC).
+- HAPI FHIR runs behind an application load balancer that accepts HyperText Transfer Protocol (HTTP) only from the network address translation (NAT) gateway, as configured in [the Terraform root](../infra/main.tf). The simulator and one-off [FHIR setup task](fhir-setup-tasks.md) use that path without operator-machine access; the service and database remain in the project virtual private cloud (VPC). The [security reference](data-governance.md#security-and-access) describes this boundary.
 - The webhook secret resides in AWS Secrets Manager and is retrieved at runtime. It is not embedded in Terraform configuration or public artifacts.
 - REST and WebSocket clients authenticate with AWS IAM. Postman testing uses temporary authorization generated for the target environment.
 - The Marquez service and database are private. Only SigV4-authenticated requests can traverse API Gateway to its internal load balancer.
@@ -186,7 +198,7 @@ infra/bootstrap/deployment.auto.tfvars.json generated state-bootstrap inputs
 
 The tracked `.env.example` contains placeholders only. The renderer derives shared settings such as patient access policy and the Terraform state prefix. Generated MWAA workflow definitions, Terraform state, secrets, endpoint identifiers and deployment-specific values remain local to the target environment. Setup and deployment checks are documented in [operations-runbook.md](operations-runbook.md).
 
-## Trade-offs
+## Trade-Offs
 
 - The project prioritizes explainable, observable AWS-native services over minimizing component count.
 - The dashboards use synthetic data and are not regulated clinical systems; they do not replace certified monitoring or clinical decision-support tools.

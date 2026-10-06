@@ -1,22 +1,13 @@
 ---
 title: "Environments"
 description: "Select an environment file and preserve account and backend isolation."
-last_updated: 2026-10-02
+last_updated: 2026-10-06
 audience: [developer, operator]
 ---
 
 # Environments
 
 For developers and operators: select an environment file and preserve account and backend isolation.
-
-The project has two deployment environments, each in its own Amazon Web Services (AWS) account:
-
-| Environment | `DEPLOYMENT_ENVIRONMENT` | Environment file | Purpose |
-| --- | --- | --- | --- |
-| Development | `development` (default when unset) | `.env` | Demos, end-to-end (E2E) runs and changes under test; torn down after each demo |
-| Production | `production` | `.env.production` | The reviewed release deployment |
-
-Separate accounts keep the environments apart without renaming resources: the Terraform resource names are fixed per project, so two environments in one account would collide. Each account has its own Terraform state bucket, bootstrap state, webhook secret, Identity and Access Management (IAM) policies and GitHub environment.
 
 ## Terminology
 
@@ -35,6 +26,17 @@ Angle-bracket values are placeholders. Replace each with the approved value for 
 - Work from the repository root with the project virtual environment and the tools in the [prerequisite inventory](external-prerequisites.md).
 - Select the target environment with `PROJECT_ENV_FILE`; use the [environment safeguards](environments.md) before direct infrastructure or AWS commands.
 - Obtain owner approval for deployment, publication, secret changes or destructive operations; examples do not grant authorization.
+
+## Scope
+
+The project defines two deployment environments, each assigned to its own Amazon Web Services (AWS) account:
+
+| Environment | `DEPLOYMENT_ENVIRONMENT` | Environment file | Purpose |
+| --- | --- | --- | --- |
+| Development | `development` (default when unset) | `.env` | Demos, end-to-end (E2E) runs and changes under test; torn down after each demo |
+| Production | `production` | `.env.production` | The reviewed release deployment |
+
+Separate accounts keep the environments apart without renaming resources: the Terraform resource names are fixed per project, so two environments in one account would collide. Each account has its own Terraform state bucket, bootstrap state, webhook secret, Identity and Access Management (IAM) policies and GitHub environment. Defining production configuration does not prove a production deployment exists.
 
 ## Select an Environment
 
@@ -72,6 +74,15 @@ Every script reads the environment file named by `PROJECT_ENV_FILE` or `.env` wh
 
 ## Create Production
 
-Follow the [first-deployment quickstart](quickstart.md) in the production account with `PROJECT_ENV_FILE=.env.production` exported for the whole session. Then configure a protected GitHub environment named by `GITHUB_DEPLOYMENT_ENVIRONMENT` in the production file, with its own `AWS_REGION` variable and `AWS_DEPLOY_ROLE_ARN`, `TF_STATE_BUCKET` and `TF_STATE_PREFIX` secrets, as described in the [deployment guide](deployment.md). The Deploy workflow's environment input selects the account through those secrets.
+1. Export `PROJECT_ENV_FILE=.env.production` for the whole session:
+
+   ```zsh
+   export PROJECT_ENV_FILE=.env.production
+   ```
+
+2. Complete the [first-deployment quickstart](quickstart.md) in the production account.
+3. Configure the protected GitHub environment named by `GITHUB_DEPLOYMENT_ENVIRONMENT`, following the [deployment guide](deployment.md#protected-github-environment). Use its own `AWS_REGION` variable and protected `AWS_DEPLOY_ROLE_ARN`, `TF_STATE_BUCKET` and `TF_STATE_PREFIX` secrets.
+
+Verify success with the quickstart's convergence check and the deployment guide's environment checks. The Deploy workflow's environment input selects the account through the protected secrets.
 
 Resources named with the environment, such as queues, alarms and dashboards, use `production` in the production account; other names are identical in both accounts.

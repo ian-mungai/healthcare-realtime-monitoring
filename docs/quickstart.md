@@ -39,6 +39,7 @@ For developers and operators: prepare a clone and create a synthetic development
 - **REST**: Representational State Transfer.
 - **SNS**: Simple Notification Service.
 - **SSO**: single sign-on.
+- **URL**: uniform resource locator.
 - **VPC**: virtual private cloud.
 
 ## Example Placeholders
@@ -326,8 +327,35 @@ Start one simulator task:
     ./scripts/demo/start_model_analytics_dashboard.sh
     ```
 
-    After the first successful MWAA Serverless run creates the processed Iceberg table, set `ENABLE_ICEBERG_TABLE_OPTIMIZERS=true` in the selected `${PROJECT_ENV_FILE:-.env}` file, render the Terraform inputs and apply a reviewed plan to turn on managed compaction, snapshot retention and orphan-file deletion.
+    Confirm the analytics dashboard shows the approved model version and its synthetic, nonclinical scope. Realtime monitoring remains available without an approved model.
 
-    For the complete analytical and data-science path, first run the simulator for at least 30 minutes so its fresh encounters complete both analytical windows. Stop the simulator, run dbt, follow the [model training guide](model-training.md), apply the approved model version and run MWAA. Allow another 30 minutes for that workflow.
+### Complete the Analytical Path
 
-    Each simulator task creates a fresh encounter for every patient and randomly selects a normal or deterioration-proxy scenario. One run may still leave a patient-grouped partition with one class. In that state, model training stops by design. Keep `ML_APPROVED_MODEL_VERSION` empty and MWAA in manual-only mode until repeated complete runs produce both classes in both partitions and a reviewed immutable model artifact has been published. Do not bypass the class-readiness gate to complete a first deployment.
+Prerequisites:
+
+- A deployed cohort, no competing simulator task and an approved analytical demo session.
+- A private environment file and approval for any exact model or optimizer deployment plan.
+
+1. Run the simulator for at least 30 minutes so its fresh encounters complete both analytical windows. Follow [Analytics and Recovery Evidence](demo-guide.md#analytics-and-recovery-evidence) for the start, stop and workflow procedure.
+2. Stop the simulator and build the analytical tables with dbt using the same demo procedure.
+3. Follow [Model Training](model-training.md#train-locally-from-athena) and [Activate a Reviewed Model](model-training.md#activate-a-reviewed-model). Keep MWAA manual-only until the published immutable model is reviewed and the exact activation plan is approved.
+4. Run MWAA and verify the workflow succeeds, the serving predictions use the approved model and dbt and Soda checks pass. Allow another 30 minutes for the workflow.
+5. Confirm the processed Iceberg table exists after that successful workflow. Set `ENABLE_ICEBERG_TABLE_OPTIMIZERS=true` in the selected `${PROJECT_ENV_FILE:-.env}` file, then render and inspect a saved optimizer plan:
+
+   ```zsh
+   ./scripts/infrastructure/render_project_config.sh
+   terraform -chdir=infra plan -var-file=deployment.auto.tfvars.json -out=tfplan-optimizers
+   terraform -chdir=infra show -no-color tfplan-optimizers
+   ```
+
+6. Obtain approval for its exact changes and apply that plan:
+
+   ```zsh
+   terraform -chdir=infra apply tfplan-optimizers
+   ```
+
+7. Verify the selected processed table has managed compaction, snapshot retention and orphan-file deletion enabled.
+
+Each simulator task creates a fresh encounter for every patient. Runs planned to cover the full 30-minute window favor each patient's less frequent scenario among tagged encounters in HAPI FHIR. Ties use `SIMULATOR_SCENARIO_SEED` and the patient identifier or a random choice; shorter planned runs use the seed or random choice without counting or tagging history. The [star-schema reference](analytics-star-schema.md#feature-and-label-construction) defines planned duration and the startup-tag boundary.
+
+Start with two complete runs and inspect analytical readiness. Interrupted runs and retained tagged history mean two runs do not guarantee actual class coverage. Keep `ML_APPROVED_MODEL_VERSION` empty and MWAA in manual-only mode until eligible observations produce both classes in both patient-grouped partitions without patient leakage and a reviewed immutable model artifact has been published. Do not bypass the class-readiness gate to complete a first deployment.

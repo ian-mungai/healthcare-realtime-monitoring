@@ -104,9 +104,30 @@ def test_run_load_test_counts_failed_batch(monkeypatch, capsys) -> None:
         realtime_load_test.run_load_test(2, 1, 1, "test-stream", "example-region-1")
 
     output = capsys.readouterr().out
-    expect.is_in("Batch 0 failed: throttled", output)
+    expect.is_in("Batch 0 failed: producer request failed", output)
+    expect.not_in("throttled", output)
     expect.is_in("Failed writes: 2", output)
     expect.is_in("Success rate: 0.00%", output)
+
+
+def test_websocket_cleanup_failure_does_not_replace_the_run_failure(monkeypatch) -> None:
+    observer = Mock()
+    observer.wait_for.return_value = {}
+    observer.stop.side_effect = realtime_load_test.LoadTestCheckError("cleanup", "not all load-test WebSocket connections were closed")
+    monkeypatch.setattr(realtime_load_test, "WebSocketObserver", Mock(return_value=observer))
+    monkeypatch.setattr(realtime_load_test.boto3, "client", Mock())
+    monkeypatch.setattr(realtime_load_test, "put_batch", Mock(side_effect=RuntimeError("throttled")))
+    clock = iter([0.0, 0.0, 1.0])
+    monkeypatch.setattr(realtime_load_test.time, "perf_counter", lambda: next(clock))
+    summary: dict = {}
+
+    with pytest.raises(realtime_load_test.LoadTestCheckError, match="2 producer writes failed") as raised:
+        realtime_load_test.run_load_test(
+            2, 1, 1, "test-stream", "example-region-1", websocket_url="wss://websocket.example.com/test", summary=summary, patient_ids=["p1", "p2"]
+        )
+
+    expect.equal(raised.value.category, "producer")
+    expect.equal(summary["websocket_cleanup"], "incomplete")
 
 
 def test_wait_for_results_polls_until_observations_arrive(monkeypatch) -> None:

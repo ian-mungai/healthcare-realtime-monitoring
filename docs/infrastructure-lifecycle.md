@@ -1,7 +1,7 @@
 ---
 title: "Infrastructure Lifecycle"
 description: "Create state, tear down application resources and preserve or retire protected backups."
-last_updated: 2026-10-02
+last_updated: 2026-10-06
 audience: [developer, operator]
 ---
 
@@ -58,24 +58,31 @@ The bootstrap stack intentionally uses local state and protects its bucket with 
 
 The main state object uses `s3://<TERRAFORM_STATE_BUCKET>/<PROJECT_NAME>/terraform/terraform.tfstate`, keeping this project's state below a project-specific folder and Terraform subfolder.
 
-To move an existing main stack from another backend, run `main-migrate` instead of `main-init` and approve Terraform's state migration:
+Migration prerequisites:
 
-1. Obtain authorization to migrate the existing state. Verify the source backend, destination state bucket and protected backup before starting. Review Terraform's interactive migration prompt and accept it only when it names the intended state transfer:
+- Authorization for the exact state transfer.
+- A verified source backend, destination state bucket and protected backup.
+
+1. Migrate the existing main stack with `main-migrate` instead of `main-init`. Review Terraform's interactive prompt and accept only the intended state transfer:
 
    ```zsh
    CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
      ./scripts/infrastructure/bootstrap.sh main-migrate
    ```
 
+2. Verify the destination main-state object exists and Terraform lists the expected resources. Keep the protected backup until recovery is independently verified.
+
 ## Controlled Application Teardown
 
-Stop demo tasks and any end-to-end run. If a replay scenario run was killed before its cleanup, remove its leftover `healthcare_realtime_e2e_replay_*` policy from the realtime processor role first, using the commands in the [operations runbook](operations-runbook.md#end-to-end-scenarios); Terraform does not manage that policy. Allow every Managed Workflows for Apache Airflow (MWAA) workflow run to finish or stop it from the AWS console, then wait until its worker tasks have exited. An active workflow can prevent Terraform from deleting the workflow and can leave a metered Elastic Container Service (ECS) task running after an interrupted destroy.
+Prerequisites:
 
-Export only approved synthetic evidence and decide whether database snapshots must be retained.
+- Stopped demo tasks and end-to-end runs.
+- No leftover `healthcare_realtime_e2e_replay_*` policy. Remove an owned leftover through the [operations runbook](operations-runbook.md#end-to-end-scenarios) after exact approval. Terraform does not manage that policy.
+- Finished or explicitly stopped Managed Workflows for Apache Airflow (MWAA) runs with all worker tasks exited. An active workflow can block deletion and leave a metered Elastic Container Service (ECS) task after an interrupted destroy.
+- An approved evidence-export scope and an explicit database-snapshot retention decision.
+- Separate approval for each exact protection-removal apply, storage cleanup and destroy apply.
 
-Load the AWS context and persistent state bucket from the ignored environment file:
-
-1. Run the following command block:
+1. Load the AWS context and persistent state bucket from the ignored environment file:
 
    ```zsh
    set -a
@@ -164,9 +171,14 @@ Routine teardown keeps the versioned state bucket so the deployment remains audi
 
 The tracked deployment policy intentionally excludes `s3:DeleteObjectVersion` and `s3:DeleteBucket` for the state bucket. An account owner must grant those two actions temporarily on the exact state bucket and its objects, then revoke them immediately after retirement. Do not broaden the routine project policy merely to make this one-time action convenient.
 
-Preview every retained version and delete marker before approving deletion:
+Prerequisites:
 
-1. Run the following command block:
+- Destroyed environments with verified empty application state.
+- An approved private state archive retained or explicitly declined.
+- Account-owner approval for the exact version inventory, bucket deletion and local bootstrap-state removal.
+- Temporary deletion permissions restricted to that bucket and its objects, with revocation included in the approved scope.
+
+1. Preview every retained version and delete marker:
 
    ```zsh
    (
@@ -178,9 +190,9 @@ Preview every retained version and delete marker before approving deletion:
    )
    ```
 
-   After account-owner approval, delete versioned objects in bounded batches. The subshell stops if listing, parsing or deletion fails and retains its private request/response files for inspection. It deletes the bucket only after an empty version inventory:
+   Review that exact inventory with the account owner before deletion.
 
-2. Run the following command block:
+2. Delete only the approved versioned objects and bucket. Stop if the reviewed inventory changes. The subshell uses bounded batches, stops on listing, parsing or deletion failure and retains private request/response files on failure. Successful deletion removes those temporary files. The bucket is deleted only after an empty version inventory:
 
    ```zsh
    (
@@ -211,7 +223,7 @@ Preview every retained version and delete marker before approving deletion:
 
    Remove the retired bucket resources from the ignored local bootstrap state so a later fresh deployment plans a new bucket instead of refreshing a deleted one:
 
-3. Run the following command block:
+3. Remove only the approved retired-bucket addresses from local bootstrap state. Verify the listed addresses belong to the retired bucket before running this command:
 
    ```zsh
    while IFS= read -r address; do
@@ -219,7 +231,7 @@ Preview every retained version and delete marker before approving deletion:
    done < <(terraform -chdir=infra/bootstrap state list)
    ```
 
-   Confirm the bucket returns `NoSuchBucket`, revoke the temporary deletion permission and retain the webhook secret only when that is the approved retirement scope. A new account or region must start with the [first-deployment quickstart](quickstart.md) and an empty backend.
+4. Confirm the bucket returns `NoSuchBucket` and local bootstrap state no longer lists its retired resources. Revoke the temporary deletion permission and verify its absence. Retain the webhook secret only when that is the approved retirement scope. A new account or region starts with the [first-deployment quickstart](quickstart.md) and an empty backend.
 
 ## Recreation
 

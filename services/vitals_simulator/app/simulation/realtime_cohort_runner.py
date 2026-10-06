@@ -11,12 +11,12 @@ from threading import Event
 
 from services.vitals_simulator.app.bidmc.source import VitalReading, fetch_remote_bidmc_record
 from services.vitals_simulator.app.fhir.client import FHIRRetryableError, HAPIFHIRClient
-from services.vitals_simulator.app.fhir.encounter import build_simulator_encounter
+from services.vitals_simulator.app.fhir.encounter import SIMULATOR_SCENARIO_TAG_SYSTEM, build_simulator_encounter
 from services.vitals_simulator.app.fhir.mapping import FHIRPatientContext, get_patient_cohort
 from services.vitals_simulator.app.fhir.observation import utc_now
 from services.vitals_simulator.app.fhir.publisher import PublishedSimulatorEvent, publish_simulator_event
 from services.vitals_simulator.app.simulation.cycle import build_simulator_event
-from services.vitals_simulator.app.simulation.scenario import NORMAL_SCENARIO, apply_vital_scenario, choose_patient_scenarios
+from services.vitals_simulator.app.simulation.scenario import LABEL_WINDOW_SECONDS, NORMAL_SCENARIO, SCENARIOS, apply_vital_scenario, choose_patient_scenarios
 from services.vitals_simulator.app.synthea.blood_pressure import load_synthea_blood_pressure_readings, readings_for_patient
 from services.vitals_simulator.app.synthea.blood_pressure_cadence import BloodPressureCadence
 
@@ -195,16 +195,44 @@ def get_cycle_simulation_start(cycle_timestamp: datetime, reading: VitalReading)
     return cycle_timestamp - timedelta(seconds=reading.offset_seconds)
 
 
+def is_label_eligible(settings: SimulatorSettings, available_cycles: int) -> bool:
+    """Whether the run lasts a full feature and outcome window, so its encounters can produce outcome labels."""
+    planned_cycles = settings.max_cycles if settings.max_cycles is not None else float("inf")
+    if not settings.replay:
+        planned_cycles = min(planned_cycles, available_cycles)
+    return planned_cycles * settings.interval_seconds >= LABEL_WINDOW_SECONDS
+
+
+def count_labelled_runs(client: HAPIFHIRClient, patient_ids: list[str]) -> dict[str, dict[str, int]]:
+    """Count each patient's earlier labelled simulator encounters per scenario, from their HAPI scenario tags."""
+    return {
+        patient_id: {
+            scenario: client.count_resources("Encounter", {"subject": f"Patient/{patient_id}", "_tag": f"{SIMULATOR_SCENARIO_TAG_SYSTEM}|{scenario}"})
+            for scenario in SCENARIOS
+        }
+        for patient_id in patient_ids
+    }
+
+
 def initialize_simulation_run(
-    simulations: list[PatientSimulation], started_at: datetime, seed: str | int | None = None, client: HAPIFHIRClient | None = None, run_id: str | None = None
+    simulations: list[PatientSimulation],
+    started_at: datetime,
+    seed: str | int | None = None,
+    client: HAPIFHIRClient | None = None,
+    run_id: str | None = None,
+    label_eligible: bool = False,
 ) -> tuple[str, list[PatientSimulation]]:
     run_id = run_id or uuid.uuid4().hex
     client = client or HAPIFHIRClient()
-    scenarios = choose_patient_scenarios([simulation.context.hapi_patient_id for simulation in simulations], seed)
+    patient_ids = [simulation.context.hapi_patient_id for simulation in simulations]
+    # Only runs long enough to produce labels count and are tagged; short check runs would otherwise skew the balance.
+    prior_counts = count_labelled_runs(client, patient_ids) if label_eligible else None
+    scenarios = choose_patient_scenarios(patient_ids, seed, prior_counts)
     initialized = []
     for simulation in simulations:
         patient_id = simulation.context.hapi_patient_id
-        created = client.post_resource(build_simulator_encounter(patient_id, run_id, started_at))
+        tag = scenarios[patient_id] if label_eligible else None
+        created = client.post_resource(build_simulator_encounter(patient_id, run_id, started_at, scenario=tag))
         context = replace(simulation.context, hapi_encounter_id=created.resource_id)
         initialized.append(replace(simulation, context=context, scenario=scenarios[patient_id]))
     return run_id, initialized
@@ -310,13 +338,15 @@ def run_realtime_cohort(settings: SimulatorSettings | None = None) -> int:
     shutdown_event.clear()
     simulations = load_patient_simulations(settings.bp_interval_seconds)
     run_started_at = utc_now()
+    available_cycles = get_available_cycle_count(simulations)
+    label_eligible = is_label_eligible(settings, available_cycles)
     run_id, simulations = initialize_simulation_run(
         simulations,
         started_at=run_started_at,
         seed=settings.scenario_seed,
         client=HAPIFHIRClient(max_retries=settings.fhir_max_attempts, retry_delay_seconds=settings.fhir_retry_backoff_seconds),
+        label_eligible=label_eligible,
     )
-    available_cycles = get_available_cycle_count(simulations)
     total_published_events = 0
     completed_cycles = 0
     consecutive_failed_cycles = 0
@@ -334,6 +364,7 @@ def run_realtime_cohort(settings: SimulatorSettings | None = None) -> int:
     LOGGER.warning(f"Retryable failure ratio threshold: {settings.failure_ratio_threshold:g}")
     LOGGER.info(f"Simulation run ID: {run_id}")
     LOGGER.info(f"Scenario seed: {settings.scenario_seed or 'random'}")
+    LOGGER.info(f"Label-eligible run (scenarios balanced per patient): {label_eligible}")
     for simulation in simulations:
         LOGGER.info(
             "scenario_assigned "
