@@ -32,7 +32,14 @@ ECS_CLUSTER_NAME="$(tf_output hapi_ecs_cluster_name)"
 TASK_FAMILY="$(tf_output fhir_setup_task_definition_family)"
 SECURITY_GROUP_ID="$(tf_output fhir_setup_security_group_id)"
 LOG_GROUP="$(tf_output fhir_setup_log_group_name)"
-SEED_PREFIX="$(tf_output fhir_setup_seed_bundles_s3_prefix)"
+# The foundation stage is a targeted apply, which does not record outputs that depend on no resource, so the prefix
+# is read from the task definition the setup task actually runs with.
+SEED_PREFIX="$(aws ecs describe-task-definition --task-definition "$TASK_FAMILY" --region "$AWS_REGION" \
+  --query "taskDefinition.containerDefinitions[0].environment[?name=='SEED_BUNDLES_S3_PREFIX'].value | [0]" --output text)"
+if [ -z "$SEED_PREFIX" ] || [ "$SEED_PREFIX" = "None" ]; then
+  echo "The FHIR setup task definition has no SEED_BUNDLES_S3_PREFIX; apply the foundation stage first." >&2
+  exit 2
+fi
 SUBNET_CSV="$(terraform -chdir="$REPO_ROOT/infra" output -json private_subnet_ids | jq -r 'join(",")')"
 
 RUN_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"

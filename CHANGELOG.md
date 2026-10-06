@@ -6,6 +6,7 @@ Notable changes to the synthetic portfolio system are recorded here. Releases us
 
 ### Changed
 
+- Deployment fixes from the Oct 6 2026 first deployment. The deploy user's Glue template allows tagging the Glue job; the EC2 template allows reading security group rules. `run_fhir_setup.sh` reads the seed bundle prefix from the setup task definition, because the targeted foundation apply does not record that output. The simulator's blood-pressure readings are exported from the current Synthea cohort; the quickstart says to export them before pushing images.
 - Prepare document metadata, APA Title Case headings, contents lists and a documentation index for review.
 - Correct selected-environment loading, model-command configuration, per-vital ordering, blood-pressure freshness and teardown guidance.
 - Keep end-to-end reports local and ignored rather than committing them.

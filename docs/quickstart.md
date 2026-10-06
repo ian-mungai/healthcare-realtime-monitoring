@@ -1,7 +1,7 @@
 ---
 title: "First Deployment Quickstart"
 description: "Prepare a clone and create a synthetic development stack from an empty backend."
-last_updated: 2026-10-02
+last_updated: 2026-10-06
 audience: [developer, operator]
 ---
 
@@ -210,6 +210,8 @@ Create the protected state bucket and initialize a new empty main backend:
     ```
 
     Review the preceding plan or cleanup preview. Obtain approval for its exact changes before running the next action. Stop on unexpected deletion, replacement or permission changes.
+
+    The simulator image packages `services/vitals_simulator/data/blood_pressure_readings.json`, which must cover every cohort patient. Before pushing images, generate the cohort with the two Synthea commands from step 4 and export the readings with `PYTHONPATH=. .venv/bin/python scripts/export_vitals_simulator_bp.py`. If the file changes, commit it first, because the image tag names the commit. Otherwise the simulator stops with "No blood pressure readings found for Synthea patient".
 
 7. Apply only the reviewed and approved action:
 

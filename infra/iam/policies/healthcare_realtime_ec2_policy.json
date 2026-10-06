@@ -16,6 +16,7 @@
         "ec2:DescribeAddressesAttribute",
         "ec2:DescribeAccountAttributes",
         "ec2:DescribeSecurityGroups",
+        "ec2:DescribeSecurityGroupRules",
         "ec2:DescribeNetworkInterfaces",
         "ec2:DescribeVpcEndpoints",
         "ec2:DescribeVpcEndpointServices"

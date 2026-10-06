@@ -36,7 +36,10 @@
         "glue:CreateJob",
         "glue:UpdateJob",
         "glue:DeleteJob",
-        "glue:StartJobRun"
+        "glue:StartJobRun",
+        "glue:TagResource",
+        "glue:UntagResource",
+        "glue:GetTags"
       ],
       "Resource": "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:job/${GLUE_JOB_NAME}"
     },
