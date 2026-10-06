@@ -20,6 +20,7 @@ CLOUDFORMATION_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime
 COST_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_cost_management_policy.json"
 KMS_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_kms_policy.json"
 SECRETSMANAGER_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_secretsmanager_policy.json"
+EC2_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_ec2_policy.json"
 RENDERER_PATH = REPO_ROOT / "infra/iam/scripts/render_policy.py"
 EXPORTER_PATH = REPO_ROOT / "infra/iam/scripts/export_policies.py"
 MANAGER_PATH = REPO_ROOT / "infra/iam/scripts/manage_policies.py"
@@ -51,6 +52,16 @@ def test_ecr_policy_can_read_image_scan_findings() -> None:
     actions = statements["ManageHealthcareRealtimeRepositories"]["Action"]
     expect.is_in("ecr:DescribeImageScanFindings", actions)
     expect.is_in("ecr:StartImageScan", actions)
+
+
+def test_ec2_policy_can_destroy_an_associated_nat_address() -> None:
+    # Terraform disassociates the NAT Elastic IP before it releases the address during destroy.
+    policy = json.loads(EC2_POLICY_PATH.read_text(encoding="utf-8"))
+    statements = {statement["Sid"]: statement for statement in policy["Statement"]}
+
+    actions = statements["ManageHealthcareRealtimeNetwork"]["Action"]
+    expect.is_in("ec2:DisassociateAddress", actions)
+    expect.is_in("ec2:ReleaseAddress", actions)
 
 
 def test_region_readiness_permissions_are_tracked() -> None:

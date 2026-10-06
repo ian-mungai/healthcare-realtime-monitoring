@@ -112,6 +112,8 @@ The default run attempts about 600 events: ten patients, one event per second pe
 
 Every run, passed or failed, writes `report.json` and `report.md` to `artifacts/e2e/load_test/<UTC_TIME>_<RUN_ID>/`. They record the code revision (and whether tracked files had uncommitted changes), the parameters, cohort-map hash, producer, DynamoDB and WebSocket results with latency percentiles, the pass or fail status and sanitized error and the run's limits. Patient identifiers, deployment names, the WebSocket URL and signed headers are never written. Use `--artifact-dir` to choose another folder. Review a report before using it as local release evidence. Keep reports ignored and outside Git and release archives.
 
+The WebSocket section also records `closed_early` and `early_close_codes`: the number of subscriptions that closed before the run ended and their close codes. A subscription that closes mid-run stops receiving events, so its missing observations appear with the close code that explains them.
+
 WebSocket delivery is labeled verified only when the run passes and the observed count matches every accepted producer write with none missing. A failed connection or absent metrics is not verified; an explicitly skipped check is labeled skipped. The CLI exits nonzero on failure. Preserve previous failed reports when preparing or rerunning fixes.
 
 A failed run records `error_category` and an `error` that starts with the same category:

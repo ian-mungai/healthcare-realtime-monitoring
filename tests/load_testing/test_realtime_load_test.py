@@ -113,6 +113,7 @@ def test_run_load_test_counts_failed_batch(monkeypatch, capsys) -> None:
 def test_websocket_cleanup_failure_does_not_replace_the_run_failure(monkeypatch) -> None:
     observer = Mock()
     observer.wait_for.return_value = {}
+    observer.early_closes.return_value = []
     observer.stop.side_effect = realtime_load_test.LoadTestCheckError("cleanup", "not all load-test WebSocket connections were closed")
     monkeypatch.setattr(realtime_load_test, "WebSocketObserver", Mock(return_value=observer))
     monkeypatch.setattr(realtime_load_test.boto3, "client", Mock())
@@ -169,6 +170,33 @@ def test_websocket_observer_builds_patient_subscription_and_filters_results(monk
         expect.fail('expected: observer._subscription_url("load_test_patient_01").endswith("mode=test&patient_id=load_test_patient_01")')
     expect.equal(observer.wait_for({"expected"}, 1), {"expected": datetime(2026, 9, 9, tzinfo=UTC)})
     observer.stop()
+
+
+def test_websocket_observer_records_subscriptions_closed_before_stop(monkeypatch) -> None:
+    # In the 2026-10-06 proof session one subscription stopped receiving mid-run and left no trace in the report.
+    apps = []
+
+    class FakeApp:
+        def __init__(self, url, header, on_open, on_message, on_error, on_close) -> None:
+            self.on_open, self.on_close = on_open, on_close
+            apps.append(self)
+
+        def run_forever(self) -> None:
+            self.on_open(self)
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(realtime_load_test.websocket, "WebSocketApp", FakeApp)
+    observer = realtime_load_test.WebSocketObserver("wss://websocket.example.com/test", ["p1", "p2"], "example-region-1")
+    monkeypatch.setattr(observer, "_headers", lambda url: {})
+    observer.start(timeout_seconds=1)
+
+    apps[1].on_close(apps[1], 1001, "Going away")
+    observer.stop()
+    apps[0].on_close(apps[0], 1000, "")
+
+    expect.equal(observer.early_closes(), ["1001"])
 
 
 def test_report_latencies_prints_end_to_end_percentiles(capsys) -> None:

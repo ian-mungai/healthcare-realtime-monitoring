@@ -58,7 +58,7 @@ data "aws_iam_policy_document" "lambda" {
   }
 
   statement {
-    sid    = "PublishLivePipelineMetrics"
+    sid    = "PublishPipelineMetrics"
     effect = "Allow"
 
     actions = [
@@ -72,7 +72,8 @@ data "aws_iam_policy_document" "lambda" {
       variable = "cloudwatch:namespace"
 
       values = [
-        "HealthcareRealtime/Live"
+        "HealthcareRealtime/Live",
+        "HealthcareRealtime/LoadTest"
       ]
     }
   }

@@ -36,6 +36,7 @@
         "ec2:AttachInternetGateway",
         "ec2:DetachInternetGateway",
         "ec2:AllocateAddress",
+        "ec2:DisassociateAddress",
         "ec2:ReleaseAddress",
         "ec2:CreateNatGateway",
         "ec2:DeleteNatGateway",

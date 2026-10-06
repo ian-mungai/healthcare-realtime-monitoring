@@ -51,7 +51,7 @@ The `healthcare_realtime_fhir_setup` task definition is created in the foundatio
    ./scripts/infrastructure/run_fhir_setup.sh register
    ```
 
-   1. `load` uploads the generated Synthea bundles from `scripts/synthea_loader/synthea/output/fhir/` to `seed/synthea/fhir/` in the data bucket, runs the task with the `load` command and waits for it to stop. The task selects the pinned ten-patient cohort, creates or reuses each Patient and Encounter in HAPI by Synthea identifier and writes the HAPI resource map to `FHIR_RESOURCE_MAP_S3_KEY`. The script then downloads the map to the local `FHIR_RESOURCE_MAP_FILE` path and renders the ten patient IDs into the ignored Terraform inputs.
+   1. `load` uploads the generated Synthea bundles from `scripts/synthea_loader/synthea/output/fhir/` to `seed/synthea/fhir/` in the data bucket, runs the task with the `load` command and waits for it to stop. The task first waits up to 4 minutes for the HAPI capability statement, because a new HAPI target answers 502 or 503 until it passes the load balancer health check. It then selects the pinned ten-patient cohort, creates or reuses each Patient and Encounter in HAPI by Synthea identifier and writes the HAPI resource map to `FHIR_RESOURCE_MAP_S3_KEY`. The script then downloads the map to the local `FHIR_RESOURCE_MAP_FILE` path and renders the ten patient IDs into the ignored Terraform inputs.
    2. `register` runs the task with the `register` command after the application stage has created the webhook. The task reads the webhook secret from Secrets Manager itself, looks for an existing Subscription with the same endpoint and criteria and creates one only when none exists. The secret never leaves AWS.
 
    Both commands are safe to repeat: the loader reuses existing resources and the registration reuses an existing subscription.
@@ -75,7 +75,8 @@ Every run, passed or failed, writes `report.json` and `report.md` to `artifacts/
 | --- | --- | --- |
 | No generated bundles locally | `run_fhir_setup.sh load` before upload | Stops with a message to run `generate.sh`; no task starts |
 | Fewer than ten usable bundles | Loader cohort selection in the task | Task exits non-zero; report status `failed` |
-| HAPI not reachable (service starting, load balancer rule missing) | Loader or registration HyperText Transfer Protocol (HTTP) call | Task exits non-zero with a transport error; nothing written to the map |
+| HAPI still starting (target not yet healthy) | `load` readiness wait on `/metadata` | Retries HyperText Transfer Protocol (HTTP) 502, 503, 504 and connection errors every 10 seconds; exits non-zero after 4 minutes; nothing written to HAPI or the map |
+| HAPI not reachable (service starting, load balancer rule missing) | Loader or registration HTTP call | Task exits non-zero with a transport error; nothing written to the map |
 | HAPI returns an error for a resource | Loader | Task exits non-zero; resources created before the error are reused on the next run |
 | Map upload denied | Task role S3 permission | Task exits non-zero; the local map is not replaced |
 | Webhook secret missing or malformed | Registration reads Secrets Manager | Task exits non-zero naming the secret ID, never its value |
@@ -86,7 +87,7 @@ Every run, passed or failed, writes `report.json` and `report.md` to `artifacts/
 
 ## Limits
 
-`tests/fhir_setup/` runs the task's `load` and `register` commands against a fake HAPI server and a fake S3 bucket, covering the first and repeated load, missing or too few bundles, a HAPI error, the first and repeated registration, a missing secret and a missing setting. It does not reach AWS: the ECS run, the NAT path to HAPI, the Identity and Access Management (IAM) permissions and the runner script are verified only by a run against a deployed stack and its report.
+`tests/fhir_setup/` runs the task's `load` and `register` commands against a fake HAPI server and a fake S3 bucket, covering the first and repeated load, missing or too few bundles, a HAPI that becomes ready late or never, a HAPI error, the first and repeated registration, a missing secret and a missing setting. It does not reach AWS: the ECS run, the NAT path to HAPI, the Identity and Access Management (IAM) permissions and the runner script are verified only by a run against a deployed stack and its report.
 
 ## Artifact Path Placeholders
 

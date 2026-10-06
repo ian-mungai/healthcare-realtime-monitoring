@@ -64,6 +64,8 @@ class WebSocketObserver:
         self.region = region
         self.received_at: dict[str, datetime] = {}
         self.errors: list[str] = []
+        # Close codes of subscriptions that ended before stop(); the report keeps codes and counts, never patient IDs.
+        self.early_close_codes: list[str] = []
         self._apps: list[websocket.WebSocketApp] = []
         self._threads: list[threading.Thread] = []
         self._opened = [threading.Event() for _ in patient_ids]
@@ -109,7 +111,12 @@ class WebSocketObserver:
                     with self._lock:
                         self.errors.append(f"HTTP {status}" if isinstance(status, int) else type(error).__name__)
 
-            app = websocket.WebSocketApp(url, header=self._headers(url), on_open=on_open, on_message=on_message, on_error=on_error)
+            def on_close(_app: websocket.WebSocketApp, status_code: int | None, _reason: str | None) -> None:
+                if not self._stopping:
+                    with self._lock:
+                        self.early_close_codes.append(str(status_code) if status_code is not None else "none")
+
+            app = websocket.WebSocketApp(url, header=self._headers(url), on_open=on_open, on_message=on_message, on_error=on_error, on_close=on_close)
             thread = threading.Thread(target=app.run_forever, daemon=True)
             self._apps.append(app)
             self._threads.append(thread)
@@ -139,6 +146,10 @@ class WebSocketObserver:
 
         with self._lock:
             return {key: value for key, value in self.received_at.items() if key in observation_ids}
+
+    def early_closes(self) -> list[str]:
+        with self._lock:
+            return sorted(self.early_close_codes)
 
     def stop(self) -> None:
         self._stopping = True
@@ -447,7 +458,15 @@ def run_load_test(
             sys.stdout.write("\n")
             report_latencies("Kinesis-to-WebSocket delivery latency", delivery_latencies)
             sys.stdout.write(f"  missing: {len(missing_websocket)}\n")
-            results["websocket"] = {**latency_summary(delivery_latencies), "missing": len(missing_websocket)}
+            early_close_codes = websocket_observer.early_closes()
+            if early_close_codes:
+                sys.stdout.write(f"  subscriptions closed before the end: {len(early_close_codes)} (codes: {', '.join(early_close_codes)})\n")
+            results["websocket"] = {
+                **latency_summary(delivery_latencies),
+                "missing": len(missing_websocket),
+                "closed_early": len(early_close_codes),
+                "early_close_codes": early_close_codes,
+            }
 
         if not successful_writes or failed_writes or missing_results or missing_websocket:
             raise LoadTestCheckError(

@@ -53,14 +53,22 @@ class FakeS3:
 class FakeHapi:
     """Stores created Patients, Encounters and Subscriptions and answers identifier and endpoint searches."""
 
-    def __init__(self, fail_on: str | None = None) -> None:
+    def __init__(self, fail_on: str | None = None, unready_responses: int = 0) -> None:
         self.resources: dict[str, dict[str, dict]] = {"Patient": {}, "Encounter": {}, "Subscription": {}}
         self.creates = 0
         self.fail_on = fail_on
+        # A new HAPI task answers 502 through the load balancer until its target passes the health check.
+        self.unready_responses = unready_responses
+        self.metadata_requests = 0
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         path = request.url.path.removeprefix("/fhir/").split("/")
         kind = path[0]
+        if kind == "metadata":
+            self.metadata_requests += 1
+            if self.metadata_requests <= self.unready_responses:
+                return httpx.Response(502)
+            return httpx.Response(200, json={"resourceType": "CapabilityStatement"})
         if request.method == "POST":
             if kind == self.fail_on:
                 return httpx.Response(500, json={"resourceType": "OperationOutcome"})
@@ -110,7 +118,25 @@ def settings(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(name, value)
 
 
-def run_load(monkeypatch: pytest.MonkeyPatch, s3: FakeS3, hapi: FakeHapi) -> int:
+class FakeClock:
+    """Advances only when the task sleeps, so readiness waits finish instantly."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+        self.sleeps: list[float] = []
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.sleeps.append(seconds)
+        self.now += seconds
+
+
+def run_load(monkeypatch: pytest.MonkeyPatch, s3: FakeS3, hapi: FakeHapi, clock: FakeClock | None = None) -> int:
+    clock = clock or FakeClock()
+    monkeypatch.setattr(task.time, "monotonic", clock.monotonic)
+    monkeypatch.setattr(task.time, "sleep", clock.sleep)
     monkeypatch.setattr(task.boto3, "client", lambda service: s3)
     with respx.mock(assert_all_called=False) as router:
         router.route(url__regex=re.escape(HAPI) + r"/.*").mock(side_effect=hapi.handle)
@@ -160,6 +186,26 @@ def test_hapi_error_fails_the_load_without_a_map(settings: None, monkeypatch: py
     expect.equal(run_load(monkeypatch, s3, hapi), 1)
 
     expect.equal(s3.uploads, [])
+
+
+def test_load_waits_for_hapi_to_pass_its_health_check(settings: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    s3, hapi, clock = FakeS3(bundles(10)), FakeHapi(unready_responses=2), FakeClock()
+
+    expect.equal(run_load(monkeypatch, s3, hapi, clock), 0)
+
+    expect.equal(hapi.metadata_requests, 3)
+    expect.equal(len(clock.sleeps), 2)
+    expect.equal(s3.uploads, [MAP_KEY])
+
+
+def test_load_stops_when_hapi_never_becomes_ready(settings: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    s3, hapi, clock = FakeS3(bundles(10)), FakeHapi(unready_responses=10_000), FakeClock()
+
+    expect.equal(run_load(monkeypatch, s3, hapi, clock), 1)
+
+    if clock.now > task.HAPI_READY_TIMEOUT_SECONDS + task.HAPI_READY_POLL_SECONDS:
+        expect.fail("expected: the wait stops at the readiness limit")
+    expect.equal((hapi.creates, s3.uploads), (0, []))
 
 
 def run_register(monkeypatch: pytest.MonkeyPatch, hapi: FakeHapi, credential: str | None = SAMPLE_CREDENTIAL) -> int:

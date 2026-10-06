@@ -17,6 +17,9 @@ Notable changes to the synthetic portfolio system are recorded here. Releases us
 ### Fixed
 
 - Handle the GitHub OpenID Connect (OIDC) provider and deployment-role outputs when a refresh-only plan sees no application-stage resources. Remove the unused Fast Healthcare Interoperability Resources (FHIR) seed-prefix outputs; the setup runner reads the task definition.
+- Allow the realtime processor to publish metrics to the `HealthcareRealtime/LoadTest` namespace; load-test metrics were denied. Allow the deploy user's EC2 template to disassociate Elastic IP addresses, so the destroy no longer stops on the NAT address.
+- Wait for HAPI FHIR to pass its health check before the setup task loads the cohort, instead of failing on HTTP 502 from a new target.
+- Record load-test WebSocket subscriptions that close before the run ends, with their close codes, so missing deliveries show their cause.
 - Verify processor write health and actual write denial before replay submission. Remove the run's temporary Deny policy and verify processor writes during cleanup, then remove only owned terminal messages after a bounded quiet interval. The original deployed replay and load failures still require fresh live verification.
 
 ### Added
