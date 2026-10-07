@@ -292,7 +292,7 @@ jobs:
           assert definition["schedule"] == "0 2 * * *"
           assert definition["start_date"] == "2099-01-01T00:00:00+00:00"
           assert definition["max_active_runs"] == 1
-          assert len(tasks) == 9
+          assert len(tasks) == 10
           assert tasks["validate_processed_data"]["operator"] == "airflow.providers.standard.operators.python.PythonOperator"
           assert tasks["validate_processed_data"]["python_callable"] == "lib.athena_lineage.run_athena_validation"
           assert tasks["run_dbt_build"]["task_definition"] == "healthcare_realtime_dbt"
@@ -309,7 +309,16 @@ jobs:
               "ml_predictions_serving",
               "ml_predictions_latest",
           ]
-          assert tasks["run_dbt_build"]["dependencies"] == ["run_great_expectations"]
+          assert tasks["extract_cohort_reference"]["dependencies"] == ["run_great_expectations"]
+          assert tasks["extract_cohort_reference"]["task_definition"] == "healthcare_realtime_fhir_setup"
+          assert tasks["extract_cohort_reference"]["overrides"]["containerOverrides"][0]["command"] == [
+              "python",
+              "-m",
+              "jobs.fhir_setup.task",
+              "reference",
+          ]
+          assert "{cohort_reference_enabled: true}" in tasks["run_dbt_build"]["overrides"]["containerOverrides"][0]["command"]
+          assert tasks["run_dbt_build"]["dependencies"] == ["extract_cohort_reference"]
           assert tasks["refresh_prediction_models"]["dependencies"] == ["run_ml_scoring"]
           assert tasks["validate_processed_data"]["op_kwargs"]["openlineage_url"] == "https://lineage.example.com"
 
@@ -318,6 +327,7 @@ jobs:
           assert "task-definition/" not in content
           assert "healthcare_realtime_dbt:42" not in content
           assert "healthcare_realtime_soda:17" not in content
+          assert "healthcare_realtime_fhir_setup:3" not in content
 
           print("MWAA Serverless workflow validation passed.")
           PY
