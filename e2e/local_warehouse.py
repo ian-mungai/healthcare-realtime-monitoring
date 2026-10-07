@@ -17,7 +17,9 @@ import contextlib
 import hashlib
 import io
 import json
+import statistics
 import sys
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from string import Template
@@ -28,6 +30,7 @@ from jobs.cohort_reference import extract
 from jobs.local_warehouse import dbt, load
 from services.vitals_simulator.app.fhir.admission import ADMITTING_DIAGNOSES
 from services.vitals_simulator.app.fhir.attending import UNIT_SPECIALTIES
+from services.vitals_simulator.app.simulation.scenario import FEATURE_WINDOW_SECONDS
 from tools.process import run_command
 
 PURPOSE = "The local warehouse loads the batch and the cohort reference tables repeatably and dbt builds the step 3 models with every test passing."
@@ -72,6 +75,9 @@ BATCH_VALUE_SUMS_SQL = (
     "select loinc_code, round(cast(sum(value) as numeric), 3) from $raw.processed_fhir_observations "
     "where encounter_id in (select encounter_id from $raw.admissions) group by loinc_code order by loinc_code"
 )
+NEWS2_SQL = "select encounter_key, coalesce(cast(news2_total as varchar), '') from $analytics.fact_encounter_news2 order by encounter_key"
+TREND_FIELDS = ("heart_rate", "respiratory_rate", "spo2", "systolic_bp", "temperature")
+TRENDS_SQL = Template("select encounter_key, $columns from $$analytics.fact_encounter_trend_features order by encounter_key")
 CALIBRATION_FEATURES_SQL = Template("select encounter_key, $columns from $$analytics.ml_training_dataset order by encounter_key")
 BATCH_ROWS_SQL = "select count(*) from $raw.processed_fhir_observations where encounter_id in (select encounter_id from $raw.admissions)"
 CHECKS_SQL = {
@@ -217,11 +223,7 @@ def check_calibration_features(report: Report, folder: Path) -> None:
 
     Only feature columns are compared; labels and model scores are not read.
     """
-    by_encounter: dict[str, list[dict]] = {}
-    for path in sorted(folder.glob("*.ndjson")):
-        for line in path.read_text(encoding="utf-8").splitlines():
-            record = json.loads(line)
-            by_encounter.setdefault(hashlib.md5(record["encounter_id"].encode(), usedforsecurity=False).hexdigest(), []).append(record)
+    by_encounter = batch_records(folder)
     rows = query(CALIBRATION_FEATURES_SQL.safe_substitute(columns=", ".join(FEATURE_COLUMNS)))
     differing = 0
     for row in rows:
@@ -238,6 +240,71 @@ def check_calibration_features(report: Report, folder: Path) -> None:
         f"{differing} of {len(rows)} encounters differ",
         differing == 0 and len(rows) > 0,
     )
+
+
+def minute_slopes(records: list[dict]) -> dict[str, float | None]:
+    """Per vital, the least-squares slope of the feature window's minute means over the minute index, from batch records."""
+    timed = sorted(((datetime.fromisoformat(record["event_timestamp"]), record) for record in records), key=lambda pair: pair[0])
+    if not timed:
+        return dict.fromkeys(TREND_FIELDS)
+    start = timed[0][0]
+    minutes: dict[str, dict[int, list[float]]] = {field: {} for field in TREND_FIELDS}
+    for when, record in timed:
+        elapsed = (when - start).total_seconds()
+        if elapsed >= FEATURE_WINDOW_SECONDS:
+            continue
+        for field in TREND_FIELDS:
+            if record.get(field) is not None:
+                minutes[field].setdefault(int(elapsed // 60), []).append(float(record[field]))
+    slopes: dict[str, float | None] = {}
+    for field, by_minute in minutes.items():
+        points = sorted((minute, sum(values) / len(values)) for minute, values in by_minute.items())
+        slopes[field] = statistics.linear_regression([x for x, _ in points], [y for _, y in points]).slope if len(points) > 1 else None
+    return slopes
+
+
+def check_news2_and_trends(report: Report, folder: Path) -> None:
+    """The warehouse's feature-window NEWS2 and trend slopes equal an independent Python computation from the batch records."""
+    by_encounter = batch_records(folder)
+    news2_rows = query(NEWS2_SQL)
+    news2_differ = 0
+    for row in news2_rows:
+        key, total = row.split(",")
+        wanted = encounter_features(by_encounter.get(key, []))["news2"]
+        news2_differ += int((total == "") != (wanted is None) or (wanted is not None and int(total) != wanted))
+    report.check(
+        "Warehouse NEWS2 matches services/news2.py",
+        "every encounter's feature-window NEWS2 equal, missing where a parameter is missing",
+        f"{news2_differ} of {len(news2_rows)} encounters differ",
+        news2_differ == 0 and len(news2_rows) > 0,
+    )
+    report.evidence["news2_missing"] = sum(1 for row in news2_rows if row.endswith(","))
+    trend_rows = query(TRENDS_SQL.safe_substitute(columns=", ".join(f"coalesce(cast({field}_slope as varchar), '')" for field in TREND_FIELDS)))
+    trend_differ = 0
+    for row in trend_rows:
+        key, *stored = row.split(",")
+        wanted = minute_slopes(by_encounter.get(key, []))
+        for field, value in zip(TREND_FIELDS, stored, strict=True):
+            expected = wanted[field]
+            if (value == "") != (expected is None) or (expected is not None and abs(float(value) - expected) > 1e-6):
+                trend_differ += 1
+                break
+    report.check(
+        "Warehouse trend slopes match the minute means",
+        f"all {len(TREND_FIELDS)} slopes of every training encounter",
+        f"{trend_differ} of {len(trend_rows)} encounters differ",
+        trend_differ == 0 and len(trend_rows) > 0,
+    )
+
+
+def batch_records(folder: Path) -> dict[str, list[dict]]:
+    """The batch's records by encounter key (the warehouse's MD5 of the encounter ID)."""
+    by_encounter: dict[str, list[dict]] = {}
+    for path in sorted(folder.glob("*.ndjson")):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            record = json.loads(line)
+            by_encounter.setdefault(hashlib.md5(record["encounter_id"].encode(), usedforsecurity=False).hexdigest(), []).append(record)
+    return by_encounter
 
 
 def check_models(report: Report, folder: Path) -> None:
@@ -351,6 +418,7 @@ def main(argv: list[str] | None = None) -> int:
         check_dbt(report)
         check_models(report, args.batch)
         check_calibration_features(report, args.batch)
+        check_news2_and_trends(report, args.batch)
     except Exception as failure:
         error = failure
     report.finish(error)

@@ -79,6 +79,7 @@ With the dbt variable `cohort_reference_enabled` set to true, dbt also builds mo
 | `dim_unit` | `facility_id` plus `unit_name` | `unit_key` | Each facility's inpatient units with their care level (`critical`, `intermediate` or `acute`) from the `hospital_units` seed |
 | `fact_admissions` | `encounter_id` | `admission_key` | One synthetic admission per encounter: facility, unit, admit and discharge times, length of stay, the SNOMED CT admitting diagnosis with its source (`synthea_history` or `simulator_fallback`), the `unit_key` of the admitting unit, the patient version valid on the admission date, age at admission and the attending provider's NPI, specialty and `provider_version_key` valid on the admission date |
 | `fact_encounter_minute_features` | `encounter_key` plus `minute_index` | `encounter_minute_key` | Mean vitals for each of the 15 feature-window minutes of each training encounter |
+| `fact_encounter_trend_features` | `encounter_key` | `encounter_key` | Each vital's least-squares slope per minute over the 15 feature-window minute means of each training encounter |
 
 The existing `DBT_DIM_PATIENT_TABLE` keeps its grain and columns. `fact_admissions` shares `encounter_key` and `patient_key` with the other facts.
 
@@ -142,6 +143,8 @@ At `5765c1e`, scenario selection used only random choice or the stable seed and 
 </details>
 
 This label is a synthetic engineering proxy derived from NEWS2 extreme thresholds. It is not a diagnosis, a validated clinical outcome or suitable for patient care or clinical model training.
+
+`fact_encounter_news2` scores NEWS2 (Royal College of Physicians 2017, SpO2 scale 1) at the end of each encounter's feature window, from the last value of each of its seven parameters, with each parameter's points. `news2_total` stays missing when any parameter has no value in the window, so a missing parameter never scores as normal. It is the analysis's NEWS2 benchmark and is built on every run. `e2e.local_warehouse` checks it against `services/news2.py` for every batch encounter.
 
 ## Training Dataset
 

@@ -5,7 +5,7 @@ Usage: python -m jobs.calibration.calibrate [--write]
 The study needs a known, moderate signal: a logistic regression on the warehouse's vital-features-v3 should reach an
 area under the ROC curve (AUC) of about 0.80, and NEWS2 from the end of the feature window about 0.70, while the null
 control stays near 0.50. This job generates the batch in memory for CALIBRATION_SEED, never the study seed, without
-writing to HAPI or disk, so the study's results stay unseen until the analysis plan is committed (step 5). It scales
+writing to HAPI or disk, so the study's results stay unseen until the analysis plan is frozen. It scales
 the configured effect sizes (trend scale) and the supplemental-oxygen and new-confusion probabilities (event scale)
 over a grid, scores each point, picks the one closest to both targets and checks the null control there. For RQ3 it
 estimates the age 65+ x deterioration interaction on the heart-rate rise and its power over ten more calibration seeds. The model's

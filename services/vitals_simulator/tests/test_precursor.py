@@ -12,6 +12,9 @@ This is the known truth of the simulation study (config/planted_signal.json). Fa
    configured fraction of the others'; the other vitals are unchanged.
 5. A rerun must repeat the study: the same seed, patient and run give the same precursor; another run differs.
 6. A drift pushes a value outside the processor's ranges (SpO2 above 100): values are clamped to the catalog ranges.
+7. A waveform dropout the processor rejects (SpO2 0, respiratory rate 0) drifts during the ramp: it must stay outside
+   the ranges, so the processor still rejects it. Clamping it to the lowest valid value would add readings that only
+   deterioration encounters have, a marker of the label.
 """
 
 from dataclasses import replace
@@ -89,3 +92,12 @@ def test_drifted_values_stay_inside_the_processor_ranges() -> None:
 
     if vitals.spo2 is None or vitals.spo2 > 100 or bedside.temperature is None or bedside.temperature > 45:
         expect.fail(f"expected: values clamped to the catalog ranges, got {vitals} and {bedside}")
+
+
+def test_a_dropout_the_processor_rejects_stays_rejected() -> None:
+    precursor = next(p for p in precursors(STUDY, DETERIORATION_SCENARIO) if p != NO_PRECURSOR)
+    dropout = VitalReading("bidmc19n", 0, 80.0, 0.0, 0.0)
+
+    vitals = apply_precursor_to_vitals(dropout, precursor, FEATURE_WINDOW_SECONDS - 1)
+
+    expect.equal((vitals.respiratory_rate, vitals.spo2), (0.0, 0.0))

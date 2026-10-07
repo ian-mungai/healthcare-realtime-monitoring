@@ -101,9 +101,13 @@ def ramp(precursor: Precursor, elapsed_seconds: float) -> float:
 
 
 def _shift(field: str, value: float | None, offset: float) -> float | None:
+    """The drifted value, kept in the processor's range; a value already outside it (a dropout) stays as it is."""
     if value is None or not offset:
         return value
     minimum, maximum = REALTIME_VITAL_RANGES[field]
+    if not minimum <= value <= maximum:
+        # The processor rejects it either way; clamping would turn a dropout into a valid reading only drifting encounters have.
+        return value
     return min(max(value + offset, minimum), maximum)
 
 

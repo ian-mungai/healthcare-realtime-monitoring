@@ -100,8 +100,8 @@
     "trend_scale": 1.0,
     "event_scale": 1.0,
     "achieved": {
-      "model": 0.7984,
-      "news2": 0.7049
+      "model": 0.8019,
+      "news2": 0.6905
     },
     "null_control": {
       "model": 0.5007,
@@ -123,6 +123,6 @@
       "null_mean_estimate": -0.0658,
       "seeds": 10
     },
-    "report": "artifacts/e2e/calibration/20261007T170753Z_35b61fbff4ac"
+    "report": "artifacts/e2e/calibration/20261007T220808Z_be98e5c2695e"
   }
 }

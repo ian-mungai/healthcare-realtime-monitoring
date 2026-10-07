@@ -91,6 +91,7 @@ BIDMC measurements -> FHIR Observation -> Kinesis -> realtime serving
 | `${ATHENA_DBT_DATABASE}.${DBT_DIM_OBSERVATION_TYPE_TABLE}` | Athena / dbt | Conformed Logical Observation Identifiers Names and Codes (LOINC) observation-type dimension |
 | `${ATHENA_DBT_DATABASE}.${DBT_DIM_DATE_TABLE}` | Athena / dbt | Observation calendar dimension |
 | `${ATHENA_DBT_DATABASE}.${DBT_ENCOUNTER_FEATURES_TABLE}` | Athena / dbt | Encounter features and synthetic deterioration proxy label |
+| `fact_encounter_news2` | Athena / dbt and the local Postgres warehouse | NEWS2 at the end of each encounter's feature window, the analysis benchmark |
 | `${ATHENA_DBT_DATABASE}.${DBT_ML_TRAINING_TABLE}` | Athena / dbt | Versioned model features, proxy label and patient-grouped split |
 | `${ATHENA_DBT_DATABASE}.${DBT_ML_SCORING_TABLE}` | Athena / dbt | Inference-safe features for completed fixed feature windows |
 | `ml/model_artifacts/` | Amazon S3 | Checksummed immutable model, manifest and evaluation artifacts |
@@ -102,7 +103,7 @@ BIDMC measurements -> FHIR Observation -> Kinesis -> realtime serving
 | `quarantine/fhir_observations/` | Amazon S3 | Rejected analytical records with reasons |
 | `raw.fhir_patients`, `raw.patient_payer_history`, `raw.facilities` and `raw.admissions` | Local Postgres warehouse | Cohort reference rows: synthetic demographics (birth date, gender, race, ethnicity, marital status and state; no names or address lines), payer periods, Synthea hospitals and simulated admissions with the synthetic attending's NPI (Local Stack) |
 | `reference/cohort/` (`fhir_patients`, `patient_payer_history`, `facilities`, `admissions`, `patient_split_groups`) | Amazon S3 / Glue Catalog | Cohort reference rows written daily by the FHIR setup task as JSON lines, read through Glue tables in the source database |
-| `dim_patient_version`, `dim_facility`, `dim_unit`, `fact_admissions` and `fact_encounter_minute_features` | Athena / dbt and the local Postgres warehouse | Cohort reference models, built when `cohort_reference_enabled` is true: daily on AWS and in the local warehouse |
+| `dim_patient_version`, `dim_facility`, `dim_unit`, `fact_admissions`, `fact_encounter_minute_features` and `fact_encounter_trend_features` | Athena / dbt and the local Postgres warehouse | Cohort reference models, built when `cohort_reference_enabled` is true: daily on AWS and in the local warehouse |
 | `${ATHENA_SOURCE_DATABASE}.${ATHENA_QUARANTINE_TABLE}` | Glue Catalog / Athena | Queryable view of quarantined records |
 | `metrics/glue/` | Amazon S3 | Per-run candidate, valid and rejected counts |
 | `glue/temp/` and `glue/spark-ui/` | Amazon S3 | Glue job temporary files and Spark UI event logs, kept in the project bucket so the job role needs no other bucket |

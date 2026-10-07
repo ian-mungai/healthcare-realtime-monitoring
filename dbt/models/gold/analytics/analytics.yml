@@ -168,6 +168,97 @@ models:
         tests:
           - not_null
 
+  - name: fact_encounter_news2
+    description: >-
+      NEWS2 (Royal College of Physicians 2017, SpO2 scale 1) at the end of each encounter's feature window, from the
+      last value of each of its seven parameters; the NEWS2 benchmark of the analysis. news2_total is missing when any
+      parameter has no value in the window. e2e.local_warehouse checks it against services/news2.py.
+
+    columns:
+      - name: encounter_key
+        tests:
+          - not_null
+          - unique
+          - relationships:
+              arguments:
+                to: ref('fact_encounter_vital_features')
+                field: encounter_key
+
+      - name: respiratory_rate_score
+        tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1, 2, 3]
+                quote: false
+
+      - name: spo2_score
+        tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1, 2, 3]
+                quote: false
+
+      - name: inhaled_oxygen_score
+        tests:
+          - accepted_values:
+              arguments:
+                values: [0, 2]
+                quote: false
+
+      - name: systolic_bp_score
+        tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1, 2, 3]
+                quote: false
+
+      - name: heart_rate_score
+        tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1, 2, 3]
+                quote: false
+
+      - name: consciousness_score
+        tests:
+          - accepted_values:
+              arguments:
+                values: [0, 3]
+                quote: false
+
+      - name: temperature_score
+        tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1, 2, 3]
+                quote: false
+
+      - name: news2_total
+        tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+                quote: false
+
+  - name: fact_encounter_trend_features
+    description: >-
+      One row per training-eligible encounter: each vital's least-squares slope per minute over its feature-window
+      minute means. Built when cohort_reference_enabled is true.
+
+    columns:
+      - name: encounter_key
+        tests:
+          - not_null
+          - unique
+          - relationships:
+              arguments:
+                to: ref('fact_encounter_vital_features')
+                field: encounter_key
+
+      - name: deterioration_proxy_label
+        tests:
+          - not_null
+
   - name: ml_predictions_serving
     description: Versioned encounter-level deterioration proxy predictions for analytical presentation.
 
