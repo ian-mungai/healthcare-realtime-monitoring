@@ -101,7 +101,8 @@ BIDMC measurements -> FHIR Observation -> Kinesis -> realtime serving
 | `${LATEST_VITALS_TABLE}` | DynamoDB | Latest accepted realtime state by patient |
 | `quarantine/fhir_observations/` | Amazon S3 | Rejected analytical records with reasons |
 | `raw.fhir_patients`, `raw.patient_payer_history`, `raw.facilities` and `raw.admissions` | Local Postgres warehouse | Cohort reference rows: synthetic demographics (birth date, gender, race, ethnicity, marital status and state; no names or address lines), payer periods, Synthea hospitals and simulated admissions (Local Stack) |
-| `dim_patient_version`, `dim_facility`, `dim_unit`, `fact_admissions` and `fact_encounter_minute_features` | Local Postgres warehouse / dbt | Cohort reference models, built when `cohort_reference_enabled` is true; not yet built on AWS |
+| `reference/cohort/` (`fhir_patients`, `patient_payer_history`, `facilities`, `admissions`, `patient_split_groups`) | Amazon S3 / Glue Catalog | Cohort reference rows written daily by the FHIR setup task as JSON lines, read through Glue tables in the source database |
+| `dim_patient_version`, `dim_facility`, `dim_unit`, `fact_admissions` and `fact_encounter_minute_features` | Athena / dbt and the local Postgres warehouse | Cohort reference models, built when `cohort_reference_enabled` is true: daily on AWS and in the local warehouse |
 | `${ATHENA_SOURCE_DATABASE}.${ATHENA_QUARANTINE_TABLE}` | Glue Catalog / Athena | Queryable view of quarantined records |
 | `metrics/glue/` | Amazon S3 | Per-run candidate, valid and rejected counts |
 | `glue/temp/` and `glue/spark-ui/` | Amazon S3 | Glue job temporary files and Spark UI event logs, kept in the project bucket so the job role needs no other bucket |

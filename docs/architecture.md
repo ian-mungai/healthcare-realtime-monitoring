@@ -1,7 +1,7 @@
 ---
 title: "Architecture"
 description: "Trace realtime delivery, analytical processing, recovery and security boundaries."
-last_updated: 2026-10-06
+last_updated: 2026-10-07
 audience: [developer, operator]
 ---
 
@@ -96,6 +96,7 @@ flowchart LR
         GLUE["Glue + Iceberg\nprocessed observations"]
         ATHENA["Athena quality validation"]
         GX["Great Expectations\nprocessed-table validation"]
+        REF["FHIR setup task\ncohort reference extract"]
         DBT["dbt ECS task\nsilver and gold models"]
         ML["Approved logistic model\nautomated scoring"]
         PREDICT["Athena prediction\nserving views"]
@@ -117,7 +118,8 @@ flowchart LR
     LATEST --> REST --> CLIENT
     PROCESSOR --> WS --> CLIENT
 
-    KINESIS --> FIREHOSE --> RAW --> GLUE --> ATHENA --> GX --> DBT --> ML --> PREDICT --> SODA
+    KINESIS --> FIREHOSE --> RAW --> GLUE --> ATHENA --> GX --> REF --> DBT --> ML --> PREDICT --> SODA
+    HAPI --> REF
     PREDICT --> MODELCLIENT
     PREDICT --> POWERBI
     GLUE --> LINEAGE
@@ -146,10 +148,10 @@ The realtime serving model is deliberately cohort-first: the live dashboard keep
 
 ## Analytical Path
 
-Kinesis Data Firehose writes immutable normalized vital events to the data bucket. These rows preserve FHIR identifiers and coding but are not complete FHIR resources. Glue reads that current event contract, classifies each measurement, exposes rejected rows through an Athena-readable quarantine table and deduplicates and merges accepted measurements into an Iceberg table. Reviewed quarantine rows can be corrected and republished through the controlled replay utility. The native Airflow directed acyclic graph (DAG) and Managed Workflows for Apache Airflow (MWAA) Serverless workflow coordinate Glue, Athena validation, Great Expectations, dbt, approved-model scoring, prediction refresh and Soda in sequence:
+Kinesis Data Firehose writes immutable normalized vital events to the data bucket. These rows preserve FHIR identifiers and coding but are not complete FHIR resources. Glue reads that current event contract, classifies each measurement, exposes rejected rows through an Athena-readable quarantine table and deduplicates and merges accepted measurements into an Iceberg table. Reviewed quarantine rows can be corrected and republished through the controlled replay utility. The native Airflow directed acyclic graph (DAG) and Managed Workflows for Apache Airflow (MWAA) Serverless workflow coordinate Glue, Athena validation, Great Expectations, the cohort reference extract, dbt, approved-model scoring, prediction refresh and Soda in sequence:
 
 ```text
-raw event arrival -> Glue -> Athena -> Great Expectations -> dbt -> approved-model scoring -> prediction refresh -> Soda
+raw event arrival -> Glue -> Athena -> Great Expectations -> cohort reference extract -> dbt -> approved-model scoring -> prediction refresh -> Soda
 ```
 
 dbt produces a keyed observation fact, conformed dimensions, fixed-window encounter features and separate training and prospective-scoring datasets. The daily workflow scores the latter with one explicitly approved immutable model, publishes predictions to the Terraform-owned catalog named by `ATHENA_ML_DATABASE`, rebuilds the serving views and then runs freshness-aware Soda contracts. The separate model analytics dashboard joins the latest approved score to patient, encounter and feature-window context. It displays ranked proxy probability, model controls, scoring freshness and explicit synthetic and nonclinical labels without affecting live monitoring priorities. The [analytics star schema](analytics-star-schema.md) defines the analytical grain, keys, join paths and bus matrix. Each executed analytical validation emits OpenLineage lifecycle events with a shared run identity. The managed collector runs Marquez on private Elastic Container Service (ECS) and Relational Database Service (RDS) resources behind explicit IAM-authorized API Gateway routes. Emitters sign remote requests using temporary workload credentials; S3 remains the durable fallback when the collector is disabled.

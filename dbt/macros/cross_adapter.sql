@@ -82,3 +82,16 @@ date_diff('second', {{ start_expression }}, {{ end_expression }})
 {% macro postgres__seconds_between(start_expression, end_expression) -%}
 cast(extract(epoch from ({{ end_expression }} - {{ start_expression }})) as bigint)
 {%- endmacro %}
+
+{#- An ISO-8601 timestamp text with an offset, such as 2026-06-01T08:00:00+00:00, as a UTC timestamp without a zone. -#}
+{% macro parse_timestamp(expression) -%}
+    {{ return(adapter.dispatch('parse_timestamp', 'healthcare_realtime')(expression)) }}
+{%- endmacro %}
+
+{% macro default__parse_timestamp(expression) -%}
+cast(from_iso8601_timestamp({{ expression }}) at time zone 'UTC' as timestamp)
+{%- endmacro %}
+
+{% macro postgres__parse_timestamp(expression) -%}
+(cast({{ expression }} as timestamptz) at time zone 'UTC')
+{%- endmacro %}

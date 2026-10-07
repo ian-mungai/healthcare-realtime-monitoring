@@ -22,7 +22,14 @@ EXPECTED_CONTRACT_FILES = {
     "ml_predictions_latest.yml",
     "ml_training_dataset.yml",
     "stg_fhir_observations.yml",
+    # Cohort reference models, built on AWS since step 3b.4.
+    "dim_patient_version.yml",
+    "dim_facility.yml",
+    "dim_unit.yml",
+    "fact_admissions.yml",
+    "fact_encounter_minute_features.yml",
 }
+REFERENCE_MODELS = ("dim_patient_version", "dim_facility", "dim_unit", "fact_admissions", "fact_encounter_minute_features")
 
 
 def test_soda_contract_files_exist() -> None:
@@ -68,3 +75,14 @@ def test_soda_configurations_use_environment_namespace() -> None:
         expect.equal(connection["region_name"], "${env.AWS_REGION}")
         expect.equal(connection["staging_dir"], "s3://${env.DATA_BUCKET_NAME}/athena_results/soda/")
         expect.equal(connection["catalog"], "${env.ATHENA_CATALOG}")
+
+
+def test_reference_model_contracts_name_the_model_and_its_documented_columns() -> None:
+    models: dict[str, set[str]] = {}
+    for path in (ROOT / "dbt/models/gold/core/core.yml", ROOT / "dbt/models/gold/analytics/analytics.yml"):
+        models |= {model["name"]: {column["name"] for column in model.get("columns", [])} for model in yaml.safe_load(path.read_text())["models"]}
+
+    for model in REFERENCE_MODELS:
+        contract = yaml.safe_load((CONTRACTS_DIR / f"{model}.yml").read_text(encoding="utf-8"))
+        expect.equal(contract["dataset"], f"${{env.SODA_DATA_SOURCE_NAME}}/${{env.ATHENA_CATALOG}}/${{env.ATHENA_DBT_DATABASE}}/{model}")
+        expect.equal({column["name"] for column in contract["columns"]} - models[model], set())

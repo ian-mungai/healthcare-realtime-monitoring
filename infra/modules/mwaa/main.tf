@@ -204,7 +204,8 @@ data "aws_iam_policy_document" "mwaa_ecs_access" {
 
     resources = [
       "arn:aws:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:task-definition/${var.dbt_ecs_task_definition_family}:*",
-      "arn:aws:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:task-definition/${var.soda_ecs_task_definition_family}:*"
+      "arn:aws:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:task-definition/${var.soda_ecs_task_definition_family}:*",
+      "arn:aws:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:task-definition/${var.fhir_setup_ecs_task_definition_family}:*"
     ]
   }
 
@@ -233,7 +234,9 @@ data "aws_iam_policy_document" "mwaa_ecs_access" {
       var.dbt_ecs_task_role_arn,
       var.dbt_ecs_task_execution_role_arn,
       var.soda_ecs_task_role_arn,
-      var.soda_ecs_task_execution_role_arn
+      var.soda_ecs_task_execution_role_arn,
+      var.fhir_setup_ecs_task_role_arn,
+      var.fhir_setup_ecs_task_execution_role_arn
     ]
 
     condition {

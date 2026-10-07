@@ -9,6 +9,12 @@ if TYPE_CHECKING:
 SIMULATOR_ENCOUNTER_IDENTIFIER_SYSTEM = "https://example.org/fhir/identifier/vitals-simulator-encounter"
 # Tags the scenario of a run long enough to produce an outcome label, so later runs can balance each patient.
 SIMULATOR_SCENARIO_TAG_SYSTEM = "https://example.org/fhir/CodeSystem/vitals-simulator-scenario"
+# Marks the batch null control's run identifiers (batch-<seed>-null-<run>), so its encounters stay apart from the study's.
+NULL_CONTROL_RUN_MARKER = "-null-"
+
+
+def is_null_control_run(run_id: str) -> bool:
+    return run_id.startswith("batch-") and NULL_CONTROL_RUN_MARKER in run_id
 
 
 def build_simulator_encounter(

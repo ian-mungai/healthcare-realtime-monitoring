@@ -22,6 +22,8 @@ DBT_TASK_DEFINITION="$(terraform -chdir=infra output -raw dbt_ecs_task_definitio
 DBT_SECURITY_GROUP="$(terraform -chdir=infra output -raw dbt_ecs_security_group_id)"
 SODA_TASK_DEFINITION="$(terraform -chdir=infra output -raw soda_ecs_task_definition_family)"
 SODA_SECURITY_GROUP="$(terraform -chdir=infra output -raw soda_ecs_security_group_id)"
+FHIR_SETUP_TASK_DEFINITION="$(terraform -chdir=infra output -raw fhir_setup_task_definition_family)"
+FHIR_SETUP_SECURITY_GROUP="$(terraform -chdir=infra output -raw fhir_setup_security_group_id)"
 DATA_JOBS_CLUSTER="$(terraform -chdir=infra output -raw dbt_ecs_cluster_name)"
 RAW_BUCKET="$(terraform -chdir=infra output -raw raw_s3_bucket_name)"
 GLUE_JOB_NAME="$(terraform -chdir=infra output -raw glue_job_name)"
@@ -35,6 +37,9 @@ export AIRFLOW__SODA__ECS_SECURITY_GROUP="$SODA_SECURITY_GROUP"
 export AIRFLOW__SODA__ECS_SUBNETS="$PRIVATE_SUBNETS"
 export DBT_ECS_TASK_DEFINITION="$DBT_TASK_DEFINITION"
 export SODA_ECS_TASK_DEFINITION="$SODA_TASK_DEFINITION"
+export AIRFLOW__FHIR_SETUP__ECS_SECURITY_GROUP="$FHIR_SETUP_SECURITY_GROUP"
+export AIRFLOW__FHIR_SETUP__ECS_SUBNETS="$PRIVATE_SUBNETS"
+export FHIR_SETUP_ECS_TASK_DEFINITION="$FHIR_SETUP_TASK_DEFINITION"
 export DATA_JOBS_ECS_CLUSTER="$DATA_JOBS_CLUSTER"
 export GLUE_JOB_NAME
 export MWAA_SERVERLESS_START_DATE

@@ -159,6 +159,50 @@ resource "aws_glue_catalog_database" "healthcare_realtime" {
   tags = merge(var.tags, { DataClassification = var.data_classification })
 }
 
+locals {
+  # Columns of the cohort reference tables, in the order jobs/cohort_reference/extract.py writes them; all are text and
+  # dbt casts them. A contract test keeps the two lists equal.
+  cohort_reference_tables = {
+    fhir_patients         = ["patient_id", "birth_date", "gender", "race", "ethnicity", "marital_status", "state"]
+    patient_payer_history = ["patient_id", "payer_name", "valid_from", "valid_to"]
+    facilities            = ["facility_id", "facility_name", "city", "state"]
+    admissions            = ["encounter_id", "patient_id", "run_id", "scenario", "admitted_at", "discharged_at", "facility_id", "facility_name", "unit", "diagnosis_code", "diagnosis_display", "diagnosis_source"]
+    patient_split_groups  = ["patient_id", "split_group"]
+  }
+}
+
+resource "aws_glue_catalog_table" "cohort_reference" {
+  for_each = local.cohort_reference_tables
+
+  name          = each.key
+  database_name = aws_glue_catalog_database.healthcare_realtime.name
+  table_type    = "EXTERNAL_TABLE"
+
+  parameters = {
+    classification = "json"
+    EXTERNAL       = "TRUE"
+  }
+
+  storage_descriptor {
+    location      = "${var.cohort_reference_path}/${each.key}/"
+    input_format  = "org.apache.hadoop.mapred.TextInputFormat"
+    output_format = "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+
+    ser_de_info {
+      serialization_library = "org.openx.data.jsonserde.JsonSerDe"
+    }
+
+    dynamic "columns" {
+      for_each = each.value
+
+      content {
+        name = columns.value
+        type = "string"
+      }
+    }
+  }
+}
+
 resource "aws_glue_catalog_table" "quarantined_fhir_observations" {
   name          = var.quarantine_table_name
   database_name = aws_glue_catalog_database.healthcare_realtime.name

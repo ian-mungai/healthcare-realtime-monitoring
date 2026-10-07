@@ -54,3 +54,8 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "cohort_reference_s3_prefix" {
+  description = "Data bucket prefix the daily reference extract writes the cohort reference tables under, without slashes at the ends."
+  type        = string
+}

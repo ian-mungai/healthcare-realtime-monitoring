@@ -12,8 +12,8 @@ with admissions as (
         diagnosis_code,
         diagnosis_display,
         diagnosis_source,
-        cast(admitted_at as timestamp) as admitted_at,
-        cast(discharged_at as timestamp) as discharged_at
+        {{ parse_timestamp('admitted_at') }} as admitted_at,
+        {{ parse_timestamp('discharged_at') }} as discharged_at
     from {{ source('cohort_reference', 'admissions') }}
 )
 
@@ -36,7 +36,7 @@ select
     admissions.diagnosis_display,
     admissions.diagnosis_source,
     versions.birth_date,
-    {{ seconds_between('versions.birth_date', 'admissions.admitted_at') }} / 31557600 as age_at_admission_years
+    {{ seconds_between('cast(versions.birth_date as timestamp)', 'admissions.admitted_at') }} / 31557600 as age_at_admission_years
 from admissions
 left join {{ ref('dim_patient_version') }} as versions
     on

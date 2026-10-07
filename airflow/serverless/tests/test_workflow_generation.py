@@ -29,6 +29,9 @@ class WorkflowGenerationTests(unittest.TestCase):
                 "AIRFLOW__SODA__ECS_SUBNETS": "subnet-ci-a,subnet-ci-b",
                 "DBT_ECS_TASK_DEFINITION": ("arn:aws:ecs:example-region-1:111111111111:task-definition/healthcare_realtime_dbt:42"),
                 "SODA_ECS_TASK_DEFINITION": "healthcare_realtime_soda:17",
+                "FHIR_SETUP_ECS_TASK_DEFINITION": "healthcare_realtime_fhir_setup:3",
+                "AIRFLOW__FHIR_SETUP__ECS_SECURITY_GROUP": "sg-ci-placeholder",
+                "AIRFLOW__FHIR_SETUP__ECS_SUBNETS": "subnet-ci-a,subnet-ci-b",
                 "DATA_JOBS_ECS_CLUSTER": "healthcare-realtime-data-jobs",
                 "MWAA_SERVERLESS_START_DATE": "2099-01-01T00:00:00+00:00",
                 "OPENLINEAGE_URL": "https://lineage.example.com",
@@ -44,9 +47,10 @@ class WorkflowGenerationTests(unittest.TestCase):
         self.assertEqual(dag.schedule, "0 2 * * *")
         self.assertFalse(dag.catchup)
         self.assertEqual(dag.max_active_runs, 1)
-        self.assertEqual(len(dag.tasks), 9)
+        self.assertEqual(len(dag.tasks), 10)
         self.assertEqual(dag.task_dict["run_great_expectations"].upstream_task_ids, {"validate_processed_data"})
-        self.assertEqual(dag.task_dict["run_dbt_build"].upstream_task_ids, {"run_great_expectations"})
+        self.assertEqual(dag.task_dict["extract_cohort_reference"].upstream_task_ids, {"run_great_expectations"})
+        self.assertEqual(dag.task_dict["run_dbt_build"].upstream_task_ids, {"extract_cohort_reference"})
         self.assertEqual(dag.task_dict["run_ml_scoring"].upstream_task_ids, {"run_dbt_build"})
         self.assertEqual(dag.task_dict["refresh_prediction_models"].upstream_task_ids, {"run_ml_scoring"})
         self.assertEqual(dag.task_dict["run_soda_checks"].upstream_task_ids, {"refresh_prediction_models"})
@@ -70,7 +74,14 @@ class WorkflowGenerationTests(unittest.TestCase):
             tasks["run_great_expectations"]["overrides"],
             {"containerOverrides": [{"name": "soda", "command": ["python", "/app/validate_processed_observations.py"]}]},
         )
-        self.assertEqual(tasks["run_dbt_build"]["dependencies"], ["run_great_expectations"])
+        self.assertEqual(tasks["run_dbt_build"]["dependencies"], ["extract_cohort_reference"])
+        self.assertEqual(tasks["extract_cohort_reference"]["task_definition"], "healthcare_realtime_fhir_setup")
+        self.assertEqual(
+            tasks["extract_cohort_reference"]["overrides"],
+            {"containerOverrides": [{"name": "fhir_setup", "command": ["python", "-m", "jobs.fhir_setup.task", "reference"]}]},
+        )
+        dbt_command = tasks["run_dbt_build"]["overrides"]["containerOverrides"][0]["command"]
+        self.assertEqual(dbt_command[dbt_command.index("--vars") + 1], "{cohort_reference_enabled: true}")
         self.assertEqual(tasks["refresh_prediction_models"]["dependencies"], ["run_ml_scoring"])
         self.assertEqual(tasks["run_soda_checks"]["dependencies"], ["refresh_prediction_models"])
         self.assertEqual(tasks["validate_processed_data"]["op_kwargs"]["openlineage_url"], "https://lineage.example.com")

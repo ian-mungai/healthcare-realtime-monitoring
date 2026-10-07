@@ -85,3 +85,8 @@ variable "athena_catalog_name" {
   description = "Athena data catalog the task reads metadata from."
   type        = string
 }
+
+variable "cohort_reference_s3_prefix" {
+  description = "Data bucket prefix of the cohort reference tables Athena reads for dbt, without slashes at the ends."
+  type        = string
+}

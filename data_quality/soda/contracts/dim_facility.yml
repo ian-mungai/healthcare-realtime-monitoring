@@ -1,0 +1,16 @@
+dataset: ${env.SODA_DATA_SOURCE_NAME}/${env.ATHENA_CATALOG}/${env.ATHENA_DBT_DATABASE}/dim_facility
+
+checks:
+  - row_count:
+      threshold:
+        must_be_greater_than: 0
+
+columns:
+  - name: facility_key
+    checks:
+      - missing:
+      - duplicate:
+
+  - name: facility_name
+    checks:
+      - missing:

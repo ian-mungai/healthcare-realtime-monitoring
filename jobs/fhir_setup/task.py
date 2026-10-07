@@ -1,23 +1,27 @@
 """One-off FHIR setup task: load the synthetic cohort into HAPI FHIR or register the webhook subscription.
 
-Usage: python -m jobs.fhir_setup.task load | register
+Usage: python -m jobs.fhir_setup.task load | register | reference
 
 Runs as an ECS task in the project's private subnets, so it reaches the HAPI load balancer through the NAT gateway and
 no operator machine needs network access to HAPI. ``load`` downloads the Synthea bundles uploaded by
 scripts/infrastructure/run_fhir_setup.sh, seeds the cohort with the existing loader and publishes the HAPI resource map.
-``register`` reads the webhook secret from Secrets Manager inside AWS and registers the subscription once. Both are safe
-to repeat. See docs/fhir-setup-tasks.md.
+``register`` reads the webhook secret from Secrets Manager inside AWS and registers the subscription once. ``reference``
+runs daily before dbt: it writes the cohort reference tables (demographics, payer history, facilities, the simulator's
+admissions and the waveform split groups) as JSON lines under COHORT_REFERENCE_S3_PREFIX, one object per table. All
+three are safe to repeat. See docs/fhir-setup-tasks.md.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import sys
 import tempfile
 import time
 from pathlib import Path
+from typing import Any
 
 import boto3
 import httpx
@@ -60,6 +64,23 @@ def wait_for_hapi(base_url: str) -> None:
         time.sleep(HAPI_READY_POLL_SECONDS)
 
 
+def download_bundles(s3: Any, bucket: str, prefix: str, scratch: Path) -> Path:
+    """Download the uploaded Synthea bundles into scratch/fhir and return that folder."""
+    bundles = scratch / "fhir"
+    bundles.mkdir()
+    count = 0
+    for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix):
+        for item in page.get("Contents", []):
+            name = item["Key"][len(prefix) :]
+            if name.endswith(".json") and "/" not in name:
+                s3.download_file(bucket, item["Key"], str(bundles / name))
+                count += 1
+    if not count:
+        raise RuntimeError(f"no Synthea bundles under {prefix} in the data bucket; run run_fhir_setup.sh load")
+    LOGGER.info("Downloaded %d Synthea bundles", count)
+    return bundles
+
+
 def load() -> None:
     """Download the uploaded bundles, seed the cohort into HAPI and publish the resource map to S3."""
     bucket = required("FHIR_RESOURCE_MAP_S3_BUCKET")
@@ -67,18 +88,7 @@ def load() -> None:
     prefix = required("SEED_BUNDLES_S3_PREFIX").rstrip("/") + "/"
     s3 = boto3.client("s3")
     with tempfile.TemporaryDirectory(prefix="fhir_setup_") as scratch:
-        bundles = Path(scratch) / "fhir"
-        bundles.mkdir()
-        count = 0
-        for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix):
-            for item in page.get("Contents", []):
-                name = item["Key"][len(prefix) :]
-                if name.endswith(".json") and "/" not in name:
-                    s3.download_file(bucket, item["Key"], str(bundles / name))
-                    count += 1
-        if not count:
-            raise RuntimeError(f"no Synthea bundles under {prefix} in the data bucket; run run_fhir_setup.sh load")
-        LOGGER.info("Downloaded %d Synthea bundles", count)
+        bundles = download_bundles(s3, bucket, prefix, Path(scratch))
         base_url = required("FHIR_BASE_URL").rstrip("/")
         wait_for_hapi(base_url)
         resource_map = Path(scratch) / "fhir_resource_map.json"
@@ -105,14 +115,36 @@ def register() -> None:
     LOGGER.info("FHIR Subscription %s %s (status %s)", receipt["id"], "registered" if created else "already registered", receipt["status"])
 
 
+def reference() -> None:
+    """Write the cohort reference tables for the study's encounters to S3, replacing the previous run's objects."""
+    bucket = required("FHIR_RESOURCE_MAP_S3_BUCKET")
+    map_key = required("FHIR_RESOURCE_MAP_S3_KEY")
+    prefix = required("SEED_BUNDLES_S3_PREFIX").rstrip("/") + "/"
+    output_prefix = required("COHORT_REFERENCE_S3_PREFIX")
+    s3 = boto3.client("s3")
+    with tempfile.TemporaryDirectory(prefix="fhir_setup_") as scratch:
+        # A missing map stops the run here, before anything is written.
+        map_file = Path(scratch) / "fhir_resource_map.json"
+        s3.download_file(bucket, map_key, str(map_file))
+        resource_map = json.loads(map_file.read_text(encoding="utf-8"))
+        from jobs.cohort_reference import extract
+
+        bundles, hospital = extract.read_bundles(download_bundles(s3, bucket, prefix, Path(scratch)))
+        base_url = required("FHIR_BASE_URL").rstrip("/")
+        wait_for_hapi(base_url)
+        tables, skipped = extract.build_tables(resource_map, bundles, hospital, base_url, "study")
+        extract.write_s3(tables, s3, bucket, output_prefix)
+    LOGGER.info("Wrote the cohort reference tables: %s", {table: len(rows) for table, rows in tables.items()} | {f"skipped_{k}": v for k, v in skipped.items()})
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run one setup command and exit non-zero with a value-free message on failure."""
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
-    parser.add_argument("command", choices=["load", "register"])
+    parser.add_argument("command", choices=["load", "register", "reference"])
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
     try:
-        {"load": load, "register": register}[args.command]()
+        {"load": load, "register": register, "reference": reference}[args.command]()
     except (RuntimeError, httpx.HTTPError, BotoCoreError, ClientError) as error:
         LOGGER.error("FHIR setup %s failed: %s", args.command, error)
         return 1

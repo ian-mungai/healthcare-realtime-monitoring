@@ -48,7 +48,7 @@ from services.vitals_simulator.app.bidmc.source import (
 )
 from services.vitals_simulator.app.fhir.admission import Admission, plan_admission
 from services.vitals_simulator.app.fhir.client import CreatedFHIRResource, HAPIFHIRClient
-from services.vitals_simulator.app.fhir.encounter import build_simulator_encounter
+from services.vitals_simulator.app.fhir.encounter import NULL_CONTROL_RUN_MARKER, build_simulator_encounter
 from services.vitals_simulator.app.fhir.mapping import FHIRPatientContext, get_patient_cohort
 from services.vitals_simulator.app.simulation.bedside import BedsideCadence, baseline_temperature
 from services.vitals_simulator.app.simulation.cycle import build_simulator_event
@@ -119,16 +119,9 @@ class PlannedEncounter:
     precursor: Precursor
 
 
-# Marks the null control's run identifiers; it gets its own HAPI encounters, so generating it never changes the study's.
-NULL_CONTROL_RUN_MARKER = "-null-"
-
-
 def run_identifier(settings: BatchSettings, run: int) -> str:
+    # The null control gets its own HAPI encounters, so generating it never changes the study's.
     return f"batch-{settings.seed}-{run}" if settings.signal == "study" else f"batch-{settings.seed}{NULL_CONTROL_RUN_MARKER}{run}"
-
-
-def is_null_control_run(run_id: str) -> bool:
-    return run_id.startswith("batch-") and NULL_CONTROL_RUN_MARKER in run_id
 
 
 def batch_name(settings: BatchSettings, size: int) -> str:

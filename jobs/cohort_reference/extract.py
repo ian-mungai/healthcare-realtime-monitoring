@@ -19,12 +19,11 @@ from typing import Any
 
 import httpx
 
-from jobs.batch_vitals.generate import is_null_control_run
-from jobs.local_warehouse import load
 from scripts.synthea_loader.src.cohort import cohort_size
-from scripts.synthea_loader.src.load_fhir import FHIR_OUTPUT_DIR, find_patient_bundles, load_bundle
+from scripts.synthea_loader.src.load_fhir import FHIR_OUTPUT_DIR, load_bundle
+from services.vitals_simulator.app.bidmc.source import bidmc_source_for_position
 from services.vitals_simulator.app.fhir.admission import FALLBACK_FACILITY
-from services.vitals_simulator.app.fhir.encounter import SIMULATOR_ENCOUNTER_IDENTIFIER_SYSTEM, SIMULATOR_SCENARIO_TAG_SYSTEM
+from services.vitals_simulator.app.fhir.encounter import SIMULATOR_ENCOUNTER_IDENTIFIER_SYSTEM, SIMULATOR_SCENARIO_TAG_SYSTEM, is_null_control_run
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MAP = REPO_ROOT / "build" / "local" / "fhir_resource_map.json"
@@ -60,6 +59,8 @@ TABLES = {
         "discharged_at timestamptz not null, facility_id text not null, facility_name text not null, unit text not null, "
         "diagnosis_code text not null, diagnosis_display text not null, diagnosis_source text",
     ),
+    # Written to S3 for AWS only; locally the batch's split_groups.json fills it (jobs.local_warehouse.load).
+    "patient_split_groups": (("patient_id", "split_group"), "patient_id text primary key, split_group text not null"),
 }
 
 
@@ -193,8 +194,67 @@ def admission_row(encounter: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
+def split_group_rows(cohort: dict[str, str]) -> list[dict[str, str]]:
+    """Each patient's waveform split group, from their cohort position as the simulator assigns records."""
+    rows = []
+    for position, hapi_id in enumerate(cohort.values(), start=1):
+        record_number, _epoch = bidmc_source_for_position(position)
+        rows.append({"patient_id": hapi_id, "split_group": f"bidmc{record_number:02d}"})
+    return rows
+
+
+def read_bundles(directory: Path) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
+    """The Synthea patient bundles by Synthea patient ID, and the hospital bundle, from one output folder."""
+    bundles = {}
+    hospital: dict[str, Any] | None = None
+    for path in sorted(directory.glob("*.json")):
+        bundle = load_bundle(path)
+        if path.name.startswith("hospitalInformation"):
+            hospital = bundle
+        elif resources(bundle, "Patient"):
+            bundles[resources(bundle, "Patient")[0]["id"]] = bundle
+    if hospital is None:
+        raise ExtractError("no Synthea hospitalInformation file; regenerate the cohort")
+    return bundles, hospital
+
+
+def build_tables(
+    resource_map: dict[str, Any], bundles: dict[str, dict[str, Any]], hospital: dict[str, Any], base_url: str, signal: str
+) -> tuple[dict[str, list[dict[str, Any]]], dict[str, int]]:
+    """The reference tables for one signal's encounters, and the encounters skipped by reason."""
+    entries = resource_map["cohort"]
+    if len(entries) != cohort_size():
+        raise ExtractError(f"the resource map holds {len(entries)} patients but COHORT_SIZE is {cohort_size()}")
+    cohort = {synthea_id: entry["hapi_patient_id"] for synthea_id, entry in sorted(entries.items())}
+    facility_ids = {facility["id"] for entry in entries.values() for facility in (entry.get("admission_profile") or {}).get("facilities", [])}
+    admissions, skipped = admission_rows(base_url, set(cohort.values()), signal)
+    facility_ids |= {row["facility_id"] for row in admissions}
+    tables = {
+        "fhir_patients": patient_rows(cohort, bundles),
+        "patient_payer_history": payer_history_rows(cohort, bundles),
+        "facilities": facility_rows(hospital, facility_ids),
+        "admissions": admissions,
+        "patient_split_groups": split_group_rows(cohort),
+    }
+    return tables, skipped
+
+
+def json_lines(rows: list[dict[str, Any]]) -> bytes:
+    """One JSON object per line with sorted keys, the format the Glue reference tables read."""
+    return "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows).encode("utf-8")
+
+
+def write_s3(tables: dict[str, list[dict[str, Any]]], s3: Any, bucket: str, prefix: str) -> None:
+    """Replace each reference table on AWS: one object per table at a fixed key, so a rerun leaves no earlier rows."""
+    for table, rows in tables.items():
+        key = f"{prefix.rstrip('/')}/{table}/{table}.json"
+        s3.put_object(Bucket=bucket, Key=key, Body=json_lines(rows), ServerSideEncryption="AES256", ContentType="application/x-ndjson")
+
+
 def write_local(tables: dict[str, list[dict[str, Any]]], schema: str) -> None:
     """Replace each raw reference table in the selected signal's raw schema, one transaction per table."""
+    from jobs.local_warehouse import load
+
     for table, rows in tables.items():
         columns, column_sql = TABLES[table]
         ddl = Template("create table if not exists $schema.$table (" + column_sql + ")")
@@ -204,27 +264,15 @@ def write_local(tables: dict[str, list[dict[str, Any]]], schema: str) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     del argv
+    from jobs.local_warehouse import load
+
     map_file = Path(os.getenv("FHIR_RESOURCE_MAP_FILE") or DEFAULT_MAP)
     resource_map = json.loads(map_file.read_text(encoding="utf-8"))
-    entries = resource_map["cohort"]
-    if len(entries) != cohort_size():
-        raise ExtractError(f"the resource map holds {len(entries)} patients but COHORT_SIZE is {cohort_size()}")
-    cohort = {synthea_id: entry["hapi_patient_id"] for synthea_id, entry in sorted(entries.items())}
-    bundles = {}
-    for path in find_patient_bundles():
-        bundle = load_bundle(path)
-        bundles[resources(bundle, "Patient")[0]["id"]] = bundle
-    facility_ids = {facility["id"] for entry in entries.values() for facility in (entry.get("admission_profile") or {}).get("facilities", [])}
+    bundles, hospital = read_bundles(FHIR_OUTPUT_DIR)
     schemas = load.warehouse_schemas()
-    admissions, skipped = admission_rows(os.getenv("FHIR_BASE_URL") or "http://127.0.0.1:8080/fhir", set(cohort.values()), schemas.signal)
-    facility_ids |= {row["facility_id"] for row in admissions}
-    hospital_file = next(FHIR_OUTPUT_DIR.glob("hospitalInformation*.json"))
-    tables = {
-        "fhir_patients": patient_rows(cohort, bundles),
-        "patient_payer_history": payer_history_rows(cohort, bundles),
-        "facilities": facility_rows(load_bundle(hospital_file), facility_ids),
-        "admissions": admissions,
-    }
+    tables, skipped = build_tables(resource_map, bundles, hospital, os.getenv("FHIR_BASE_URL") or "http://127.0.0.1:8080/fhir", schemas.signal)
+    # Locally the split groups come from the batch (jobs.local_warehouse.load), so they are not written here.
+    tables.pop("patient_split_groups")
     write_local(tables, schemas.raw)
     counts = {table: len(rows) for table, rows in tables.items()} | {f"encounters_{reason}": count for reason, count in skipped.items()}
     sys.stdout.write(json.dumps(counts, sort_keys=True) + "\n")

@@ -1,0 +1,24 @@
+dataset: ${env.SODA_DATA_SOURCE_NAME}/${env.ATHENA_CATALOG}/${env.ATHENA_DBT_DATABASE}/fact_encounter_minute_features
+
+checks:
+  - row_count:
+      threshold:
+        must_be_greater_than: 0
+
+columns:
+  - name: encounter_minute_key
+    checks:
+      - missing:
+      - duplicate:
+
+  - name: encounter_key
+    checks:
+      - missing:
+
+  - name: minute_index
+    checks:
+      - missing:
+
+  - name: deterioration_proxy_label
+    checks:
+      - missing:

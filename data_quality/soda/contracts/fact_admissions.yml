@@ -1,0 +1,40 @@
+dataset: ${env.SODA_DATA_SOURCE_NAME}/${env.ATHENA_CATALOG}/${env.ATHENA_DBT_DATABASE}/fact_admissions
+
+checks:
+  - row_count:
+      threshold:
+        must_be_greater_than: 0
+
+columns:
+  - name: admission_key
+    checks:
+      - missing:
+      - duplicate:
+
+  - name: patient_version_key
+    checks:
+      - missing:
+
+  - name: facility_key
+    checks:
+      - missing:
+
+  - name: unit_key
+    checks:
+      - missing:
+
+  - name: length_of_stay_hours
+    checks:
+      - missing:
+
+  - name: diagnosis_code
+    checks:
+      - missing:
+
+  - name: diagnosis_source
+    checks:
+      - missing:
+      - invalid:
+          valid_values:
+            - synthea_history
+            - simulator_fallback

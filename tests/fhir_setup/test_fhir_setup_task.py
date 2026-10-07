@@ -1,7 +1,16 @@
 """The FHIR setup task against a fake HAPI server and a fake S3 bucket.
 
 Covers the scenarios in docs/fhir-setup-tasks.md that can run without AWS: a first and repeated load, missing or too few
-bundles, a HAPI error, a first and repeated registration, a missing secret and a missing setting. The deployed run and
+bundles, a HAPI error, a first and repeated registration, a missing secret and a missing setting, and the daily
+reference extract.
+
+Failure modes of the reference extract (written before the code):
+
+1. The extract runs before the cohort is loaded (no resource map in S3): stop before writing anything.
+2. A rerun must not leave earlier rows behind: each table is one object at a fixed key, replaced whole.
+3. The null control's or a former cohort's encounters must not reach AWS admissions: they are skipped and counted.
+4. The split groups must match the waveform record each patient gets from the simulator (cohort position order).
+5. The reference files must not land under the raw prefix the Glue job reads recursively: they use their own prefix. The deployed run and
 its report under artifacts/e2e/fhir_setup/ remain the end-to-end proof.
 """
 
@@ -14,6 +23,7 @@ from pathlib import Path
 import httpx
 import pytest
 import respx
+from botocore.exceptions import ClientError
 
 from jobs.fhir_setup import task
 from testkit import expect
@@ -42,7 +52,15 @@ class FakeS3:
         return [{"Contents": [{"Key": key} for key in sorted(self.objects) if key.startswith(Prefix)]}]
 
     def download_file(self, bucket: str, key: str, filename: str) -> None:
+        if key not in self.objects:
+            # boto3 raises ClientError with a 404 for a missing object.
+            raise ClientError({"Error": {"Code": "404", "Message": "Not Found"}}, "HeadObject")
         Path(filename).write_bytes(self.objects[key])
+
+    def put_object(self, Bucket: str, Key: str, Body: bytes, ServerSideEncryption: str, ContentType: str) -> None:
+        expect.equal(ServerSideEncryption, "AES256")
+        self.objects[Key] = Body
+        self.uploads.append(Key)
 
     def upload_file(self, filename: str, bucket: str, key: str, ExtraArgs: dict[str, str]) -> None:
         expect.equal(ExtraArgs, {"ServerSideEncryption": "AES256"})
@@ -83,7 +101,10 @@ class FakeHapi:
 
     def search(self, kind: str, params: httpx.QueryParams) -> list[dict]:
         if "identifier" in params:
-            value = params["identifier"].split("|", 1)[1]
+            system, value = params["identifier"].split("|", 1)
+            if not value:
+                # identifier=system| matches every resource with an identifier of that system, as on HAPI.
+                return [r for r in self.resources[kind].values() if any(i.get("system") == system for i in r.get("identifier", []))]
             return [r for r in self.resources[kind].values() if any(i.get("value") == value for i in r.get("identifier", []))]
         return [r for r in self.resources[kind].values() if r.get("channel", {}).get("endpoint") == params.get("url")]
 
@@ -253,3 +274,69 @@ def test_missing_setting_is_named_and_fails(settings: None, monkeypatch: pytest.
     expect.equal(task.main(["load"]), 1)
 
     expect.is_in("FHIR_RESOURCE_MAP_S3_BUCKET is not configured", caplog.text)
+
+
+REFERENCE_PREFIX = "reference/cohort"
+RUN_SYSTEM = "https://example.org/fhir/identifier/vitals-simulator-encounter"
+
+
+def admitted_encounter(patient_id: str, run_id: str) -> dict:
+    return {
+        "resourceType": "Encounter",
+        "identifier": [{"system": RUN_SYSTEM, "value": f"{run_id}:{patient_id}"}],
+        "subject": {"reference": f"Patient/{patient_id}"},
+        "period": {"start": "2026-06-01T08:00:00+00:00", "end": "2026-06-03T08:00:00+00:00"},
+        "reasonCode": [
+            {"coding": [{"system": "http://snomed.info/sct", "code": "233604007", "display": "Pneumonia (disorder)"}], "text": "simulator_fallback"}
+        ],
+        "serviceProvider": {"identifier": {"value": "hospital-1"}, "display": "General Hospital"},
+        "location": [{"location": {"display": "Step-down unit"}}],
+    }
+
+
+def run_reference(monkeypatch: pytest.MonkeyPatch, s3: FakeS3, hapi: FakeHapi) -> int:
+    monkeypatch.setenv("COHORT_REFERENCE_S3_PREFIX", REFERENCE_PREFIX)
+    monkeypatch.setattr(task.boto3, "client", lambda service: s3)
+    with respx.mock(assert_all_called=False) as router:
+        router.route(url__regex=re.escape(HAPI) + r"/.*").mock(side_effect=hapi.handle)
+        return task.main(["reference"])
+
+
+def table_rows(s3: FakeS3, table: str) -> list[dict]:
+    return [json.loads(line) for line in s3.objects[f"{REFERENCE_PREFIX}/{table}/{table}.json"].decode().splitlines()]
+
+
+def test_reference_writes_each_table_once_and_keeps_only_the_cohorts_study_encounters(settings: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    s3, hapi = FakeS3({**bundles(10), f"{PREFIX}/hospitalInformation1.json": b'{"resourceType": "Bundle", "entry": []}'}), FakeHapi()
+    run_load(monkeypatch, s3, hapi)
+    patients = sorted(hapi.resources["Patient"])
+    for index, encounter in enumerate(
+        [admitted_encounter(patient, "live-run-1") for patient in patients]
+        + [admitted_encounter(patients[0], "batch-4817263-null-1"), admitted_encounter("former-patient", "live-run-1")]
+    ):
+        hapi.resources["Encounter"][f"simulated-{index}"] = {**encounter, "id": f"simulated-{index}"}
+
+    expect.equal(run_reference(monkeypatch, s3, hapi), 0)
+    first = {key: value for key, value in s3.objects.items() if key.startswith(REFERENCE_PREFIX)}
+    expect.equal(run_reference(monkeypatch, s3, hapi), 0)
+
+    expect.equal({key: value for key, value in s3.objects.items() if key.startswith(REFERENCE_PREFIX)}, first)
+    expect.equal(
+        sorted(first),
+        sorted(
+            f"{REFERENCE_PREFIX}/{table}/{table}.json"
+            for table in ("fhir_patients", "patient_payer_history", "facilities", "admissions", "patient_split_groups")
+        ),
+    )
+    expect.equal(len(table_rows(s3, "admissions")), 10)
+    expect.equal(len(table_rows(s3, "fhir_patients")), 10)
+    groups = table_rows(s3, "patient_split_groups")
+    expect.equal([row["split_group"] for row in groups], [f"bidmc{number:02d}" for number in range(1, 11)])
+
+
+def test_reference_without_a_resource_map_writes_nothing(settings: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    s3, hapi = FakeS3(bundles(10)), FakeHapi()
+
+    expect.equal(run_reference(monkeypatch, s3, hapi), 1)
+
+    expect.equal(s3.uploads, [])

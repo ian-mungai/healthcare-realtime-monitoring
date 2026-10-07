@@ -105,3 +105,8 @@ variable "orphan_file_retention_days" {
     error_message = "orphan_file_retention_days must be at least 1."
   }
 }
+
+variable "cohort_reference_path" {
+  description = "S3 path, without a trailing slash, under which the daily reference extract writes one folder per cohort reference table."
+  type        = string
+}

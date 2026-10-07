@@ -20,6 +20,7 @@ ENVIRONMENT = {
     "AIRFLOW_PIPELINE_SCHEDULE": "0 2 * * *",
     "DBT_ECS_TASK_DEFINITION": "healthcare_realtime_dbt",
     "SODA_ECS_TASK_DEFINITION": "healthcare_realtime_soda",
+    "FHIR_SETUP_ECS_TASK_DEFINITION": "healthcare_realtime_fhir_setup",
     "DATA_JOBS_ECS_CLUSTER": "healthcare-realtime-data-jobs",
     "AWS_REGION": "example-region-1",
     "PROJECT_NAME": "example-project",

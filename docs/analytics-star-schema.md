@@ -70,7 +70,7 @@ The table named by `DBT_DIM_PROVIDER_TABLE` uses a type 2 slowly changing dimens
 
 ### Cohort Reference Models
 
-With the dbt variable `cohort_reference_enabled` set to true, dbt also builds models from the cohort reference tables (`dbt/models/sources.yml`, source `cohort_reference`). The local warehouse turns it on (Local Stack). On AWS it stays off until the reference extract runs there. The existing models compile to the same Athena SQL.
+With the dbt variable `cohort_reference_enabled` set to true, dbt also builds models from the cohort reference tables (`dbt/models/sources.yml`, source `cohort_reference`). The local warehouse turns it on (Local Stack). The daily AWS workflow also turns it on after its `extract_cohort_reference` task refreshes the tables ([FHIR Setup Tasks](fhir-setup-tasks.md#how-it-runs)). The `parse_timestamp` macro reads the extract's ISO-8601 timestamps on both Athena and Postgres. The existing models compile to the same Athena SQL.
 
 | Model | Business key | Surrogate key | Purpose |
 | --- | --- | --- | --- |

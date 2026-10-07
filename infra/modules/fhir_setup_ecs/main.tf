@@ -102,6 +102,21 @@ data "aws_iam_policy_document" "task" {
     resources = ["arn:${data.aws_partition.current.partition}:s3:::${var.data_bucket_name}/${var.resource_map_s3_key}"]
   }
 
+  # The daily reference extract reads the published map and replaces one object per reference table.
+  statement {
+    sid       = "ReadResourceMap"
+    effect    = "Allow"
+    actions   = ["s3:GetObject"]
+    resources = ["arn:${data.aws_partition.current.partition}:s3:::${var.data_bucket_name}/${var.resource_map_s3_key}"]
+  }
+
+  statement {
+    sid       = "WriteCohortReference"
+    effect    = "Allow"
+    actions   = ["s3:PutObject"]
+    resources = ["arn:${data.aws_partition.current.partition}:s3:::${var.data_bucket_name}/${var.cohort_reference_s3_prefix}/*"]
+  }
+
   statement {
     sid       = "ReadWebhookSecret"
     effect    = "Allow"
@@ -160,6 +175,7 @@ resource "aws_ecs_task_definition" "fhir_setup" {
         { name = "FHIR_RESOURCE_MAP_S3_BUCKET", value = var.data_bucket_name },
         { name = "FHIR_RESOURCE_MAP_S3_KEY", value = var.resource_map_s3_key },
         { name = "SEED_BUNDLES_S3_PREFIX", value = var.seed_bundles_s3_prefix },
+        { name = "COHORT_REFERENCE_S3_PREFIX", value = var.cohort_reference_s3_prefix },
         { name = "FHIR_WEBHOOK_SECRET_ID", value = var.webhook_secret_id },
         { name = "AWS_DEFAULT_REGION", value = var.aws_region },
       ]

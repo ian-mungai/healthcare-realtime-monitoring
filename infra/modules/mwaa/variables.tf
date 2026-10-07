@@ -95,3 +95,18 @@ variable "data_jobs_ecs_cluster_name" {
   description = "ECS cluster that runs the dbt and Soda tasks."
   type        = string
 }
+
+variable "fhir_setup_ecs_task_definition_family" {
+  description = "FHIR setup task family; the daily workflow runs its reference command before dbt."
+  type        = string
+}
+
+variable "fhir_setup_ecs_task_role_arn" {
+  description = "Task role of the FHIR setup task."
+  type        = string
+}
+
+variable "fhir_setup_ecs_task_execution_role_arn" {
+  description = "Execution role of the FHIR setup task."
+  type        = string
+}

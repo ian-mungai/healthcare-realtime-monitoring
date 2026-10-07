@@ -2,6 +2,7 @@
 # Run the one-off FHIR setup task inside the project VPC and record the run (docs/fhir-setup-tasks.md).
 #   load      upload the generated Synthea bundles, seed the cohort into HAPI, then render the ten patient IDs
 #   register  register the webhook subscription after the application stage (reuses an existing one)
+#   reference write the cohort reference tables to S3 now; the daily workflow also runs it before dbt
 # Every run, passed or failed, writes report.json and report.md under artifacts/e2e/fhir_setup/.
 
 set -euo pipefail
@@ -13,8 +14,8 @@ load_project_env "$ENV_FILE"
 require_selected_backend "$REPO_ROOT/infra"
 
 COMMAND="${1:-}"
-if [[ "$COMMAND" != "load" && "$COMMAND" != "register" ]]; then
-  echo "Usage: $0 load|register" >&2
+if [[ "$COMMAND" != "load" && "$COMMAND" != "register" && "$COMMAND" != "reference" ]]; then
+  echo "Usage: $0 load|register|reference" >&2
   exit 2
 fi
 
@@ -104,7 +105,7 @@ if [[ "$COMMAND" == "load" ]]; then
   echo "Uploading the generated Synthea bundles..."
   aws s3 sync "$BUNDLE_DIR" "s3://$DATA_BUCKET_NAME/$SEED_PREFIX/" \
     --exclude "*" --include "*.json" --delete --sse AES256 --only-show-errors --region "$AWS_REGION"
-else
+elif [[ "$COMMAND" == "register" ]]; then
   WEBHOOK_URL="$(tf_output fhir_webhook_url)"
   if [[ "$WEBHOOK_URL" != https://* ]]; then
     fail "The webhook URL output is missing or not HTTPS; apply the application stage first."

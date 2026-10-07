@@ -59,6 +59,8 @@ locals {
   }
   effective_openlineage_collector_url = var.enable_openlineage_collector ? module.openlineage_collector.collector_url : var.external_openlineage_collector_url
   openlineage_collector_invoke_arn    = var.enable_openlineage_collector ? module.openlineage_collector.invoke_arn : ""
+  # Cohort reference tables from the daily extract; outside raw/, which the Glue job reads recursively.
+  cohort_reference_s3_prefix = "reference/cohort"
 }
 
 module "firehose" {
@@ -84,6 +86,7 @@ module "glue" {
   job_name                         = var.glue_job_name
   script_key                       = "scripts/glue/fhir_observations_raw_to_processed.py"
   quarantine_path                  = "s3://${module.raw_s3.bucket_name}/quarantine/fhir_observations/"
+  cohort_reference_path            = "s3://${module.raw_s3.bucket_name}/${local.cohort_reference_s3_prefix}"
   metrics_path                     = "s3://${module.raw_s3.bucket_name}/metrics/glue/"
   openlineage_collector_url        = local.effective_openlineage_collector_url
   openlineage_collector_invoke_arn = local.openlineage_collector_invoke_arn
@@ -114,6 +117,10 @@ module "mwaa" {
   soda_ecs_task_definition_family  = module.soda_ecs.task_definition_family
   soda_ecs_task_role_arn           = module.soda_ecs.task_role_arn
   soda_ecs_task_execution_role_arn = module.soda_ecs.task_execution_role_arn
+
+  fhir_setup_ecs_task_definition_family  = module.fhir_setup_ecs.task_definition_family
+  fhir_setup_ecs_task_role_arn           = module.fhir_setup_ecs.task_role_arn
+  fhir_setup_ecs_task_execution_role_arn = module.fhir_setup_ecs.task_execution_role_arn
 
   glue_job_name      = module.glue.job_name
   glue_database_name = module.glue.database_name
@@ -157,6 +164,7 @@ module "dbt_ecs" {
 
   vpc_id                           = module.network.vpc_id
   data_bucket_name                 = module.raw_s3.bucket_name
+  cohort_reference_s3_prefix       = local.cohort_reference_s3_prefix
   image_tag                        = var.dbt_image_tag
   force_delete_repository          = var.allow_destructive_teardown
   approved_model_version           = var.ml_approved_model_version
@@ -252,15 +260,17 @@ module "vitals_simulator_ecs" {
 module "fhir_setup_ecs" {
   source = "./modules/fhir_setup_ecs"
 
-  aws_region           = var.aws_region
-  vpc_id               = module.network.vpc_id
-  fhir_base_url        = module.hapi_ecs.fhir_base_url
-  data_bucket_name     = module.raw_s3.bucket_name
-  resource_map_s3_key  = var.fhir_resource_map_s3_key
-  webhook_secret_id    = var.fhir_webhook_secret_id
-  image_repository_url = module.vitals_simulator_ecs.ecr_repository_url
-  image_repository_arn = module.vitals_simulator_ecs.ecr_repository_arn
-  image_tag            = var.vitals_simulator_image_tag
+  aws_region          = var.aws_region
+  vpc_id              = module.network.vpc_id
+  fhir_base_url       = module.hapi_ecs.fhir_base_url
+  data_bucket_name    = module.raw_s3.bucket_name
+  resource_map_s3_key = var.fhir_resource_map_s3_key
+  webhook_secret_id   = var.fhir_webhook_secret_id
+
+  cohort_reference_s3_prefix = local.cohort_reference_s3_prefix
+  image_repository_url       = module.vitals_simulator_ecs.ecr_repository_url
+  image_repository_arn       = module.vitals_simulator_ecs.ecr_repository_arn
+  image_tag                  = var.vitals_simulator_image_tag
 }
 
 module "realtime_vitals" {

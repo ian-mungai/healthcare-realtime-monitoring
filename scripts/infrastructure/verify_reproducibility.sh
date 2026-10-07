@@ -33,6 +33,9 @@ build_artifacts() {
     AIRFLOW__DBT__ECS_SUBNETS=subnet-reproducibility-a,subnet-reproducibility-b \
     AIRFLOW__SODA__ECS_SECURITY_GROUP=sg-reproducibility \
     AIRFLOW__SODA__ECS_SUBNETS=subnet-reproducibility-a,subnet-reproducibility-b \
+    AIRFLOW__FHIR_SETUP__ECS_SECURITY_GROUP=sg-reproducibility \
+    AIRFLOW__FHIR_SETUP__ECS_SUBNETS=subnet-reproducibility-a,subnet-reproducibility-b \
+    FHIR_SETUP_ECS_TASK_DEFINITION=healthcare_realtime_fhir_setup \
     AIRFLOW_PIPELINE_SCHEDULE='0 5 * * *' \
     ATHENA_PROCESSED_TABLE=processed_observations \
     ATHENA_RESULTS_S3_URI=s3://reproducibility-bucket/athena-results/ \

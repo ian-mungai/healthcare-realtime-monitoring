@@ -24,5 +24,7 @@ COPY services/fhir_webhook/__init__.py ./services/fhir_webhook/__init__.py
 COPY services/fhir_webhook/app/__init__.py services/fhir_webhook/app/config.py services/fhir_webhook/app/security.py ./services/fhir_webhook/app/
 COPY services/fhir_webhook/app/subscription.py services/fhir_webhook/app/register_subscription.py ./services/fhir_webhook/app/
 COPY jobs/fhir_setup ./jobs/fhir_setup
+# The daily reference extract (python -m jobs.fhir_setup.task reference) builds its tables with this module.
+COPY jobs/cohort_reference ./jobs/cohort_reference
 
 CMD ["python", "-m", "services.vitals_simulator.app.simulation.realtime_cohort_runner"]

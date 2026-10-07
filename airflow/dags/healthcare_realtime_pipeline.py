@@ -20,6 +20,9 @@ DBT_ECS_SUBNETS = [subnet.strip() for subnet in os.getenv("AIRFLOW__DBT__ECS_SUB
 SODA_ECS_TASK_DEFINITION = os.environ["SODA_ECS_TASK_DEFINITION"]
 SODA_ECS_SECURITY_GROUP = os.getenv("AIRFLOW__SODA__ECS_SECURITY_GROUP", "")
 SODA_ECS_SUBNETS = [subnet.strip() for subnet in os.getenv("AIRFLOW__SODA__ECS_SUBNETS", "").split(",") if subnet.strip()]
+FHIR_SETUP_ECS_TASK_DEFINITION = os.environ["FHIR_SETUP_ECS_TASK_DEFINITION"]
+FHIR_SETUP_ECS_SECURITY_GROUP = os.getenv("AIRFLOW__FHIR_SETUP__ECS_SECURITY_GROUP", "")
+FHIR_SETUP_ECS_SUBNETS = [subnet.strip() for subnet in os.getenv("AIRFLOW__FHIR_SETUP__ECS_SUBNETS", "").split(",") if subnet.strip()]
 AIRFLOW_PIPELINE_SCHEDULE = os.environ["AIRFLOW_PIPELINE_SCHEDULE"]
 OPENLINEAGE_URL = os.getenv("OPENLINEAGE_URL", "")
 DEFAULT_ARGS = {"owner": "healthcare_realtime", "depends_on_past": False, "retries": 2, "retry_delay": timedelta(minutes=1)}
@@ -69,6 +72,20 @@ with DAG(
         network_configuration={"awsvpcConfiguration": {"subnets": SODA_ECS_SUBNETS, "securityGroups": [SODA_ECS_SECURITY_GROUP], "assignPublicIp": "DISABLED"}},
     )
 
+    # Refreshes the cohort reference tables (demographics, payer history, facilities, admissions, split groups) from HAPI
+    # FHIR and the Synthea bundles, so dbt's reference models see every simulator run.
+    extract_cohort_reference = EcsRunTaskOperator(
+        task_id="extract_cohort_reference",
+        cluster=DATA_JOBS_ECS_CLUSTER,
+        task_definition=FHIR_SETUP_ECS_TASK_DEFINITION,
+        launch_type="FARGATE",
+        overrides={"containerOverrides": [{"name": "fhir_setup", "command": ["python", "-m", "jobs.fhir_setup.task", "reference"]}]},
+        wait_for_completion=True,
+        network_configuration={
+            "awsvpcConfiguration": {"subnets": FHIR_SETUP_ECS_SUBNETS, "securityGroups": [FHIR_SETUP_ECS_SECURITY_GROUP], "assignPublicIp": "DISABLED"}
+        },
+    )
+
     run_dbt_build = EcsRunTaskOperator(
         task_id="run_dbt_build",
         cluster=DATA_JOBS_ECS_CLUSTER,
@@ -78,7 +95,18 @@ with DAG(
             "containerOverrides": [
                 {
                     "name": "dbt",
-                    "command": ["build", "--project-dir", "/app/dbt", "--profiles-dir", "/app", "--exclude", "ml_predictions_serving", "ml_predictions_latest"],
+                    "command": [
+                        "build",
+                        "--project-dir",
+                        "/app/dbt",
+                        "--profiles-dir",
+                        "/app",
+                        "--vars",
+                        "{cohort_reference_enabled: true}",
+                        "--exclude",
+                        "ml_predictions_serving",
+                        "ml_predictions_latest",
+                    ],
                 }
             ]
         },
@@ -123,5 +151,6 @@ with DAG(
         network_configuration={"awsvpcConfiguration": {"subnets": SODA_ECS_SUBNETS, "securityGroups": [SODA_ECS_SECURITY_GROUP], "assignPublicIp": "DISABLED"}},
     )
 
-    check_raw_data >> run_glue_job >> wait_for_glue_job >> validate_processed_data >> run_great_expectations >> run_dbt_build
+    check_raw_data >> run_glue_job >> wait_for_glue_job >> validate_processed_data >> run_great_expectations >> extract_cohort_reference
+    extract_cohort_reference >> run_dbt_build
     run_dbt_build >> run_ml_scoring >> refresh_prediction_models >> run_soda_checks

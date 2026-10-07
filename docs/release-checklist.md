@@ -1,7 +1,7 @@
 ---
 title: "Release Checklist"
 description: "Evaluate the release gate while retaining the checked historical acceptance record."
-last_updated: 2026-10-02
+last_updated: 2026-10-07
 audience: [developer, operator]
 ---
 
@@ -135,6 +135,7 @@ These checks cover the Fast Healthcare Interoperability Resources (FHIR) setup t
 
 - [ ] The changed IAM templates are planned, reviewed and applied using `infra/iam/scripts/manage_policies.py`.
 - [ ] FHIR setup `load` and `register` pass with both reports retained under `artifacts/e2e/fhir_setup/`.
+- [ ] FHIR setup `reference` passes. The workflow's dbt build and Soda checks pass with the cohort reference models.
 - [ ] The E2E session starts with no simulator running and every scenario passes, with reports retained under `artifacts/e2e/`.
 - [ ] The [load test](load-testing.md) passes with its report retained.
 - [ ] The MWAA workflow runs Glue under its scoped role before `ENABLE_ICEBERG_TABLE_OPTIMIZERS=true` is applied through a reviewed plan.
