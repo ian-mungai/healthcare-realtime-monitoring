@@ -9,7 +9,8 @@ webhook's transform, so each record is the same event the stream processor recei
 checked against the processor schema: records it would reject are counted, not written. The rest are written as one
 NDJSON file per encounter, plus a manifest, under build/batch_vitals/seed-<SEED>_cohort-<SIZE>/. Settings come from
 the environment: COHORT_SIZE, FHIR_BASE_URL and FHIR_RESOURCE_MAP_FILE. A rerun with the same settings reuses the
-encounters and writes identical files.
+encounters and writes identical files. split_groups.json maps each patient to its waveform record, so a model split by
+record keeps the two patients that share a record in one partition.
 """
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ from typing import Any, Protocol
 from scripts.synthea_loader.src.cohort import cohort_size
 from services.fhir_webhook.app.models import FHIRWebhookEvent
 from services.fhir_webhook.app.vitals import transform_fhir_vitals
-from services.vitals_simulator.app.bidmc.source import VitalReading, bidmc_source_for_position, fetch_remote_bidmc_record, rotate_readings
+from services.vitals_simulator.app.bidmc.source import VitalReading, bidmc_source_for_position, fetch_remote_bidmc_record, rotate_readings, vary_reused_readings
 from services.vitals_simulator.app.fhir.client import CreatedFHIRResource, HAPIFHIRClient
 from services.vitals_simulator.app.fhir.encounter import build_simulator_encounter
 from services.vitals_simulator.app.fhir.mapping import FHIRPatientContext, get_patient_cohort
@@ -83,6 +84,8 @@ class PlannedEncounter:
     context: FHIRPatientContext
     readings: list[VitalReading]
     bp_readings: list[BloodPressureReading]
+    # Patients that share a waveform record share a group, so a split by group keeps them in one partition.
+    split_group: str
 
 
 def plan_scenarios(patient_ids: list[str], seed: str) -> dict[str, tuple[str, str]]:
@@ -121,8 +124,9 @@ def plan_encounters(
                     scenario=scenario,
                     started_at=settings.start + timedelta(days=run - 1),
                     context=context,
-                    readings=rotate_readings(records[record_number], epoch),
+                    readings=vary_reused_readings(rotate_readings(records[record_number], epoch), record_number, epoch),
                     bp_readings=readings_by_patient[context.synthea_patient_id],
+                    split_group=f"bidmc{record_number:02d}",
                 )
             )
     return planned
@@ -200,6 +204,7 @@ def generate_batch(
                     "position": encounter.position,
                     "run": encounter.run,
                     "scenario": encounter.scenario,
+                    "split_group": encounter.split_group,
                     "started_at": encounter.started_at.isoformat(),
                     "records": len(lines),
                     "sha256": hashlib.sha256(content).hexdigest(),
@@ -219,6 +224,8 @@ def generate_batch(
             "source": BATCH_SOURCE,
             "files": files,
         }
+        groups = {encounter.context.hapi_patient_id: encounter.split_group for encounter in planned}
+        (staging / "split_groups.json").write_text(json.dumps(groups, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         (staging / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         shutil.rmtree(final, ignore_errors=True)
         staging.rename(final)

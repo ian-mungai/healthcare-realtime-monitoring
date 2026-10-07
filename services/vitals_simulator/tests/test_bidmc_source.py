@@ -134,3 +134,49 @@ def test_find_channel_index_reads_the_signal_name_after_stray_header_fields():
     signal_names = ["HR,", "PULSE,", "RESP,", "(-32767)/% 0 0 -32768 0 0 SpO2,"]
 
     expect.equal(find_channel_index(signal_names, {"SPO2", "SPO2%", "O2 SAT"}), 3)
+
+
+def steady_record(record_name: str = "bidmc01n", length: int = 240) -> list[source.VitalReading]:
+    return [source.VitalReading(record_name, offset, 80.0, 16.0, 96.0) for offset in range(length)]
+
+
+def mean(values):
+    present = [value for value in values if value is not None]
+    return sum(present) / len(present)
+
+
+def test_records_in_their_first_use_keep_the_source_values():
+    readings = steady_record()
+
+    expect.equal(source.vary_reused_readings(readings, 1, 0), readings)
+
+
+def test_a_reused_record_gets_a_distinct_seeded_offset_and_noise():
+    # Patients 54 to 100 would otherwise share their feature-window vitals with patients 1 to 47.
+    readings = steady_record()
+    varied = source.vary_reused_readings(readings, 1, 1)
+
+    expect.equal(source.vary_reused_readings(readings, 1, 1), varied)
+    expect.equal([reading.offset_seconds for reading in varied], [reading.offset_seconds for reading in readings])
+    if abs(mean(r.heart_rate for r in varied) - 80.0) < 2.0:
+        expect.fail("expected: the reused heart rate shifts by at least 2 bpm on average")
+    if abs(mean(r.respiratory_rate for r in varied) - 16.0) < 1.0:
+        expect.fail("expected: the reused respiratory rate shifts by at least 1 breath/min on average")
+    if len({r.heart_rate for r in varied}) < 10:
+        expect.fail("expected: per-reading noise, not one constant value")
+    if varied == source.vary_reused_readings(steady_record("bidmc02n"), 2, 1):
+        expect.fail("expected: each reused record varies differently")
+
+
+def test_variation_keeps_values_inside_the_processor_ranges_and_leaves_dropouts_alone():
+    readings = [source.VitalReading("bidmc01n", 0, None, 0.0, 100.0), source.VitalReading("bidmc01n", 1, 249.5, 79.5, 99.9)]
+
+    varied = source.vary_reused_readings(readings, 1, 1)
+
+    expect.equal(varied[0].heart_rate, None)
+    expect.equal(varied[0].respiratory_rate, 0.0)
+    for reading in varied[1:]:
+        if not (20 <= reading.heart_rate <= 250 and 4 <= reading.respiratory_rate <= 80 and 50 <= reading.spo2 <= 100):
+            expect.fail(f"expected: varied values inside the processor ranges, got {reading}")
+    if varied[0].spo2 > 100:
+        expect.fail("expected: SpO2 never above 100")

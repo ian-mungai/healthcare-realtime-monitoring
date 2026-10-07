@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from services.vitals_simulator.app.bidmc.source import VitalReading
+from services.vitals_simulator.app.bidmc.source import VitalReading, rotate_readings, vary_reused_readings
 from services.vitals_simulator.app.fhir.client import CreatedFHIRResource, FHIRPermanentError, FHIRRetryableError
 from services.vitals_simulator.app.fhir.mapping import FHIRPatientContext
 from services.vitals_simulator.app.fhir.publisher import PublishedSimulatorEvent
@@ -373,6 +373,9 @@ def test_load_patient_simulations_reuses_records_for_a_one_hundred_patient_cohor
 
     expect.equal(len(simulations), 100)
     expect.equal(simulations[53].bidmc_record_number, 1)
-    expect.equal(simulations[53].readings[0].heart_rate, 72.0)
+    reused_source = rotate_readings(fetch(1), 1)
+    expect.equal(simulations[53].readings, vary_reused_readings(reused_source, 1, 1))
+    if simulations[53].readings == reused_source:
+        expect.fail("expected: a reused record gets its own seeded variation")
     expect.equal(simulations[0].readings[0].heart_rate, 70.0)
     expect.equal(max(fetched), 53)

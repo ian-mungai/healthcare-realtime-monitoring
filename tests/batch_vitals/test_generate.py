@@ -193,3 +193,13 @@ def test_records_the_processor_would_reject_are_left_out_and_counted(tmp_path: P
     expect.equal(manifest["rejected_records"], {"respiratory_rate": manifest["rejected_records"]["respiratory_rate"]})
     if manifest["rejected_records"]["respiratory_rate"] < 1:
         expect.fail("expected: at least one rejected respiratory_rate record")
+
+
+def test_split_groups_keep_patients_that_share_a_waveform_record_together(tmp_path: Path) -> None:
+    # A model split by these groups keeps a reused record's two patients in the same partition.
+    folder = run(tmp_path)
+
+    manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
+    expect.equal({(entry["position"], entry["split_group"]) for entry in manifest["files"]}, {(1, "bidmc01"), (2, "bidmc02")})
+    groups = json.loads((folder / "split_groups.json").read_text(encoding="utf-8"))
+    expect.equal(groups, {"hapi-patient-0": "bidmc01", "hapi-patient-1": "bidmc02"})

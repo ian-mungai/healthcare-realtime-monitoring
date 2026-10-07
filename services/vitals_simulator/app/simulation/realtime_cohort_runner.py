@@ -9,7 +9,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from threading import Event
 
-from services.vitals_simulator.app.bidmc.source import VitalReading, bidmc_source_for_position, fetch_remote_bidmc_record, rotate_readings
+from services.vitals_simulator.app.bidmc.source import VitalReading, bidmc_source_for_position, fetch_remote_bidmc_record, rotate_readings, vary_reused_readings
 from services.vitals_simulator.app.fhir.client import FHIRRetryableError, HAPIFHIRClient
 from services.vitals_simulator.app.fhir.encounter import SIMULATOR_SCENARIO_TAG_SYSTEM, build_simulator_encounter
 from services.vitals_simulator.app.fhir.mapping import FHIRPatientContext, get_patient_cohort
@@ -170,7 +170,7 @@ def load_patient_simulations(bp_interval_seconds: int) -> list[PatientSimulation
             records[bidmc_record_number] = fetch_remote_bidmc_record(bidmc_record_number)
         if not records[bidmc_record_number]:
             raise RuntimeError(f"BIDMC record {bidmc_record_number} contains no readings")
-        readings = rotate_readings(records[bidmc_record_number], epoch)
+        readings = vary_reused_readings(rotate_readings(records[bidmc_record_number], epoch), bidmc_record_number, epoch)
         patient_bp_readings = readings_for_patient(bp_readings, context.synthea_patient_id)
         simulations.append(
             PatientSimulation(

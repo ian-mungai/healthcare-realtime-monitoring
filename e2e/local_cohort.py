@@ -33,11 +33,15 @@ DEFAULT_MAP = ROOT / "build" / "local" / "fhir_resource_map.json"
 PURPOSE = "Every local cohort patient has a normal and a deterioration batch encounter whose records the stream processor accepts."
 LIMITS = (
     "Checks the local HAPI server and the batch files only; it does not stream the batch, run dbt or train a model. Patients past "
-    "the 53 waveform records reuse a record from another start point, so the 100 patients are not fully independent."
+    "the 53 waveform records reuse a record from its midpoint with seeded variation, so the 100 patients are not fully independent."
 )
 REPRODUCE = "Start the stack, load the cohort, generate the batch, then `.venv/bin/python -m e2e.local_cohort`."
 # Outcome-window values set by services/vitals_simulator/app/simulation/scenario.py.
 DETERIORATION_VALUES = {"heart_rate": 135.0, "respiratory_rate": 28.0, "spo2": 89.0}
+# Positions past the 53 BIDMC records reuse record position - 53 (services/vitals_simulator/app/bidmc/source.py).
+REUSED_FROM = 53
+# The smallest seeded offset per vital (REUSE_VARIATION in services/vitals_simulator/app/bidmc/source.py).
+MIN_REUSED_DIFFERENCE = {"heart_rate": 2.0, "respiratory_rate": 1.0, "spo2": 0.5}
 NORMAL_RANGES = {"heart_rate": (50.0, 100.0), "respiratory_rate": (12.0, 20.0), "spo2": (95.0, 100.0)}
 
 
@@ -135,6 +139,50 @@ def follows_scenario(record: dict, scenario: str) -> bool:
     return True
 
 
+def check_reuse(report: Report, folder: Path, patient_ids: tuple[str, ...]) -> None:
+    """Patients that share a waveform record share a split group, and their feature-window vitals still differ."""
+    groups = json.loads((folder / "split_groups.json").read_text(encoding="utf-8"))
+    members = Counter(groups.values())
+    report.check(
+        "Split groups cover the cohort",
+        f"{len(patient_ids)} patients, at most 2 per group",
+        f"{len(groups)} patients in {len(members)} groups, largest {max(members.values(), default=0)}",
+        set(groups) == set(patient_ids) and max(members.values(), default=0) <= 2,
+    )
+    manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
+    feature_means: dict[int, dict[str, float | None]] = {}
+    for entry in manifest["files"]:
+        if entry["run"] != 1:
+            continue
+        started = datetime.fromisoformat(entry["started_at"])
+        values: dict[str, list[float]] = {name: [] for name in MIN_REUSED_DIFFERENCE}
+        for record in map(json.loads, (folder / entry["name"]).read_text(encoding="utf-8").splitlines()):
+            if (datetime.fromisoformat(record["event_timestamp"]) - started).total_seconds() < FEATURE_WINDOW_SECONDS:
+                for name in values:
+                    if name in record:
+                        values[name].append(record[name])
+        feature_means[entry["position"]] = {name: sum(found) / len(found) if found else None for name, found in values.items()}
+    reused = [(position - REUSED_FROM, position) for position in feature_means if position > REUSED_FROM]
+    close = [pair for pair in reused if not differs(feature_means[pair[0]], feature_means[pair[1]])]
+    report.check(
+        "Reused records give distinct feature-window vitals",
+        f"for all {len(reused)} reused pairs, a vital mean differs by at least its minimum offset",
+        f"{len(close)} pairs closer",
+        not close,
+    )
+    missing = sorted(position for position, means in feature_means.items() if None in means.values())
+    report.evidence["feature_window_vital_missing_positions"] = missing
+
+
+def differs(first: dict[str, float | None], second: dict[str, float | None]) -> bool:
+    """Whether any vital's feature-window mean differs by at least the minimum reuse offset for that vital."""
+    for name, minimum in MIN_REUSED_DIFFERENCE.items():
+        left, right = first[name], second[name]
+        if left is not None and right is not None and abs(left - right) >= minimum:
+            return True
+    return False
+
+
 def check_rerun(report: Report, folder: Path, before: bytes, base_url: str, patient_ids: tuple[str, ...], seed: str) -> None:
     status = generate.main(["--seed", seed, "--output", str(folder.parent)])
     after = (folder / "manifest.json").read_bytes()
@@ -165,6 +213,7 @@ def main(argv: list[str] | None = None) -> int:
         report.parameters = {"cohort_size": cohort_size(), "seed": args.seed}
         scenarios = check_hapi(report, base_url, patient_ids, args.seed)
         before = check_files(report, folder, patient_ids, scenarios)
+        check_reuse(report, folder, patient_ids)
         check_rerun(report, folder, before, base_url, patient_ids, args.seed)
     except Exception as failure:
         error = failure

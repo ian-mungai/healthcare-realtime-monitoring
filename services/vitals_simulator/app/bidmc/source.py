@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import os
@@ -10,6 +11,8 @@ import boto3
 import numpy as np
 import wfdb
 from botocore.exceptions import ClientError
+
+from services.vital_signs import REALTIME_VITAL_RANGES
 
 
 class _CurrentStdoutHandler(logging.Handler):
@@ -86,6 +89,37 @@ def rotate_readings(readings: list[VitalReading], epoch: int) -> list[VitalReadi
     shift = (len(readings) * epoch // MAX_REUSE_EPOCHS) % len(readings)
     values = readings[shift:] + readings[:shift]
     return [replace(value, offset_seconds=original.offset_seconds) for original, value in zip(readings, values, strict=True)]
+
+
+# Seeded variation for a reused record: a fixed per-record offset of at least the minimum, plus per-reading noise.
+# (minimum offset, maximum offset, noise standard deviation) per vital.
+REUSE_VARIATION = {"heart_rate": (2.0, 8.0, 1.0), "respiratory_rate": (1.0, 3.0, 0.5), "spo2": (0.5, 2.0, 0.3)}
+
+
+def vary_reused_readings(readings: list[VitalReading], record_number: int, epoch: int) -> list[VitalReading]:
+    """Give a reused record its own vitals, so reused patients do not share feature-window values with the first use.
+
+    Epoch 0 keeps the source values. Later epochs add a seeded offset per vital and small noise per reading. The same
+    record and epoch always give the same values. Values outside the processor's range, such as dropouts, stay as they
+    are so the processor still rejects them; varied values are kept inside the range.
+    """
+    if epoch == 0:
+        return list(readings)
+    digest = hashlib.sha256(f"bidmc-reuse:{record_number}:{epoch}".encode()).digest()
+    rng = np.random.default_rng(int.from_bytes(digest[:8], "big"))
+    offsets = {name: rng.choice((-1.0, 1.0)) * rng.uniform(low, high) for name, (low, high, _noise) in REUSE_VARIATION.items()}
+    varied = []
+    for reading in readings:
+        values = {}
+        for name, (_low, _high, noise) in REUSE_VARIATION.items():
+            value = getattr(reading, name)
+            minimum, maximum = REALTIME_VITAL_RANGES[name]
+            if value is None or not minimum <= value <= maximum:
+                values[name] = value
+                continue
+            values[name] = round(min(max(value + offsets[name] + rng.normal(0.0, noise), minimum), maximum), 1)
+        varied.append(replace(reading, **values))
+    return varied
 
 
 def build_record_name(record_number: int) -> str:
