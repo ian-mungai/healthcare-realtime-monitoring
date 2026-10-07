@@ -5,6 +5,8 @@ from pathlib import Path
 
 import boto3
 
+from scripts.synthea_loader.src.cohort import cohort_size
+
 DEFAULT_RESOURCE_MAP_FILE = Path(__file__).resolve().parents[4] / "scripts" / "synthea_loader" / "state" / "fhir_resource_map.json"
 RESOURCE_MAP_FILE_ENV = "FHIR_RESOURCE_MAP_FILE"
 RESOURCE_MAP_S3_BUCKET_ENV = "FHIR_RESOURCE_MAP_S3_BUCKET"
@@ -68,12 +70,13 @@ def load_fhir_resource_map() -> dict:
     return validate_fhir_resource_map(load_local_fhir_resource_map())
 
 
-def get_patient_cohort(expected_count: int = 10) -> list[FHIRPatientContext]:
+def get_patient_cohort(expected_count: int | None = None) -> list[FHIRPatientContext]:
     """
     Return the final Synthea/HAPI patient cohort.
 
     Every patient must have an explicit matching encounter.
     """
+    expected_count = expected_count or cohort_size()
     mapping = load_fhir_resource_map()
     cohort = mapping.get("cohort")
     if not cohort:

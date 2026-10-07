@@ -6,8 +6,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOADER_DIR="$(dirname "$SCRIPT_DIR")"
 SYNTHEA_DIR="$LOADER_DIR/synthea"
 
-POPULATION="${POPULATION:-10}"
-SEED="${SEED:-12345}"
+POPULATION="${POPULATION:-100}"
+SEED="${SEED:-4817263}"
 STATE="${STATE:-Washington}"
 
 if [ ! -d "$SYNTHEA_DIR" ]; then

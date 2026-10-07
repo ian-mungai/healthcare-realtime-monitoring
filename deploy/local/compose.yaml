@@ -1,0 +1,77 @@
+# Local development stack: one Postgres for HAPI FHIR, the analytics warehouse and Grafana's own state.
+# Start, check and stop it with scripts/local/local_stack.sh. Every port listens on
+# 127.0.0.1 only. Passwords come from the ignored deploy/local/.env, which the start script generates once.
+# Images are pinned by tag and digest; HAPI matches the version deployed on AWS (infra/modules/hapi_ecs/main.tf).
+name: healthcare-realtime-local
+
+services:
+  postgres:
+    image: postgres:16.15-bookworm@sha256:0ea6700a3b4f0ae6ce746519073558aed4d88a79d8d07622a9a644946c7319c4
+    environment:
+      POSTGRES_PASSWORD: ${LOCAL_POSTGRES_PASSWORD:?run scripts/local/local_stack.sh start}
+      LOCAL_HAPI_DB_PASSWORD: ${LOCAL_HAPI_DB_PASSWORD:?run scripts/local/local_stack.sh start}
+      LOCAL_WAREHOUSE_DB_PASSWORD: ${LOCAL_WAREHOUSE_DB_PASSWORD:?run scripts/local/local_stack.sh start}
+      LOCAL_GRAFANA_DB_PASSWORD: ${LOCAL_GRAFANA_DB_PASSWORD:?run scripts/local/local_stack.sh start}
+      LOCAL_GRAFANA_READER_PASSWORD: ${LOCAL_GRAFANA_READER_PASSWORD:?run scripts/local/local_stack.sh start}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:${LOCAL_POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      # TCP, not the socket: the first-start init server listens on the socket only, so this passes after init.
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "hapi"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  hapi:
+    image: hapiproject/hapi:v8.10.0-3@sha256:55213612779ab3eeec919226b7bad378f0061ade823393a61d7dd46dd5087a3d
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hapi
+      SPRING_DATASOURCE_USERNAME: hapi
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_HAPI_DB_PASSWORD:?run scripts/local/local_stack.sh start}
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      HIBERNATE_DIALECT: ca.uhn.fhir.jpa.model.dialect.HapiFhirPostgresDialect
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: ca.uhn.fhir.jpa.model.dialect.HapiFhirPostgresDialect
+      SPRING_JPA_PROPERTIES_HIBERNATE_SEARCH_ENABLED: "false"
+      HAPI_FHIR_FHIR_VERSION: R4
+      # Server-assigned resource IDs are UUIDs locally, not the sequential numbers HAPI uses by default.
+      HAPI_FHIR_SERVER_ID_STRATEGY: UUID
+      HAPI_FHIR_SUBSCRIPTION_RESTHOOK_ENABLED: "true"
+      HAPI_FHIR_SUBSCRIPTION_POLLING_INTERVAL_MS: "1000"
+      HAPI_FHIR_SUBSCRIPTION_IMMEDIATELY_QUEUED: "true"
+    ports:
+      - "127.0.0.1:${LOCAL_HAPI_PORT:-8080}:8080"
+
+  grafana:
+    image: grafana/grafana:13.2.3@sha256:b28bae15e219c998fb0e0424ed724930cc61b1f61fb404d47c862f9a23f9e572
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      GF_DATABASE_TYPE: postgres
+      GF_DATABASE_HOST: postgres:5432
+      GF_DATABASE_NAME: grafana
+      GF_DATABASE_USER: grafana
+      GF_DATABASE_PASSWORD: ${LOCAL_GRAFANA_DB_PASSWORD:?run scripts/local/local_stack.sh start}
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${LOCAL_GRAFANA_ADMIN_PASSWORD:?run scripts/local/local_stack.sh start}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_PLUGINS_PLUGIN_ADMIN_ENABLED: "false"
+      # Read by the provisioned warehouse data source.
+      LOCAL_GRAFANA_READER_PASSWORD: ${LOCAL_GRAFANA_READER_PASSWORD:?run scripts/local/local_stack.sh start}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "127.0.0.1:${LOCAL_GRAFANA_PORT:-3000}:3000"
+
+volumes:
+  postgres-data:
+  grafana-data:

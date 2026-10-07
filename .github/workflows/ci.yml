@@ -413,7 +413,7 @@ jobs:
 
       - name: Generate test patient
         run: |
-          POPULATION=1 SEED=12345 ./scripts/synthea_loader/scripts/generate.sh
+          POPULATION=1 SEED=4817263 ./scripts/synthea_loader/scripts/generate.sh
 
       - name: Inspect generated FHIR
         run: |

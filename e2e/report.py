@@ -50,6 +50,7 @@ class Report:
     evidence: dict[str, object] = field(default_factory=dict)
     status: str = ""
     error: str = ""
+    reproduce: str = ""
 
     def check(self, name: str, expected: str, observed: str, passed: bool) -> bool:
         """Record a check and return whether it passed."""
@@ -98,7 +99,8 @@ class Report:
         lines += [f"| {c.name} | {c.expected} | {c.observed} | {c.status} |" for c in self.checks]
         if self.evidence:
             lines += ["", "## Evidence", "", "```json", json.dumps(self.evidence, indent=2, sort_keys=True), "```"]
-        lines += ["", "## Reproduce", "", f"`.venv/bin/python -m e2e.run {self.scenario}` against a deployed stack.", ""]
+        reproduce = self.reproduce or f"`.venv/bin/python -m e2e.run {self.scenario}` against a deployed stack."
+        lines += ["", "## Reproduce", "", reproduce, ""]
         lines += ["## Limits", "", self.limits]
         (folder / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
         return folder

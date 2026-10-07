@@ -104,3 +104,33 @@ def test_fetch_physionet_record_fails_after_bounded_retries(monkeypatch):
 
     with pytest.raises(RuntimeError, match="after 2 attempts"):
         source.fetch_physionet_record("bidmc01n")
+
+
+@pytest.mark.parametrize(("position", "expected"), [(1, (1, 0)), (53, (53, 0)), (54, (1, 1)), (100, (47, 1))])
+def test_cohort_positions_past_the_53_records_reuse_a_record_in_a_later_epoch(position, expected):
+    # BIDMC has 53 numerics records; a 100-patient cohort reuses records 1 to 47 for patients 54 to 100.
+    expect.equal(source.bidmc_source_for_position(position), expected)
+
+
+@pytest.mark.parametrize("position", [0, -1, 107])
+def test_cohort_position_outside_two_reuse_epochs_is_rejected(position):
+    with pytest.raises(ValueError, match="cohort position"):
+        source.bidmc_source_for_position(position)
+
+
+def test_reused_record_starts_halfway_through_and_keeps_its_offsets():
+    readings = [source.VitalReading("bidmc01n", offset, float(60 + offset), 16.0, 98.0) for offset in range(6)]
+
+    expect.equal(source.rotate_readings(readings, 0), readings)
+    rotated = source.rotate_readings(readings, 1)
+
+    expect.equal([reading.offset_seconds for reading in rotated], list(range(6)))
+    expect.equal([reading.heart_rate for reading in rotated], [63.0, 64.0, 65.0, 60.0, 61.0, 62.0])
+    expect.equal({reading.source_record_id for reading in rotated}, {"bidmc01n"})
+
+
+def test_find_channel_index_reads_the_signal_name_after_stray_header_fields():
+    # PhysioNet's bidmc19n header carries format fields before the SpO2 name.
+    signal_names = ["HR,", "PULSE,", "RESP,", "(-32767)/% 0 0 -32768 0 0 SpO2,"]
+
+    expect.equal(find_channel_index(signal_names, {"SPO2", "SPO2%", "O2 SAT"}), 3)

@@ -354,3 +354,25 @@ def test_realtime_cohort_disables_permanent_failure_and_continues(monkeypatch):
 
     expect.equal(realtime_cohort_runner.run_realtime_cohort(settings), 2)
     expect.equal(active_patient_sets, [{"1001", "1002"}, {"1002"}])
+
+
+def test_load_patient_simulations_reuses_records_for_a_one_hundred_patient_cohort(monkeypatch):
+    cohort = [build_context(f"patient-{index:03d}") for index in range(100)]
+    fetched = []
+
+    def fetch(record_number):
+        fetched.append(record_number)
+        return [VitalReading(f"bidmc{record_number:02d}n", offset, 70.0 + offset, 16.0, 98.0) for offset in range(4)]
+
+    monkeypatch.setattr(realtime_cohort_runner, "get_patient_cohort", lambda: cohort)
+    monkeypatch.setattr(realtime_cohort_runner, "fetch_remote_bidmc_record", fetch)
+    monkeypatch.setattr(realtime_cohort_runner, "load_synthea_blood_pressure_readings", lambda: [])
+    monkeypatch.setattr(realtime_cohort_runner, "readings_for_patient", lambda readings, patient_id: [object()])
+
+    simulations = realtime_cohort_runner.load_patient_simulations(300)
+
+    expect.equal(len(simulations), 100)
+    expect.equal(simulations[53].bidmc_record_number, 1)
+    expect.equal(simulations[53].readings[0].heart_rate, 72.0)
+    expect.equal(simulations[0].readings[0].heart_rate, 70.0)
+    expect.equal(max(fetched), 53)

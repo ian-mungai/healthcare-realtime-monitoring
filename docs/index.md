@@ -1,7 +1,7 @@
 ---
 title: Documentation Index
 description: Find deployment, operational, analytical and historical project documentation.
-last_updated: 2026-10-06
+last_updated: 2026-10-07
 audience: [developer, operator]
 ---
 
@@ -31,6 +31,7 @@ For developers and operators of the synthetic portfolio system: select the docum
 | [Externally Managed Prerequisites](external-prerequisites.md) | Resources managed outside application Terraform |
 | [Fast Healthcare Interoperability Resources (FHIR) Setup Tasks](fhir-setup-tasks.md) | Load the synthetic cohort and register the subscription |
 | [Infrastructure Lifecycle](infrastructure-lifecycle.md) | Bootstrap, converge and tear down infrastructure |
+| Local Stack | Run Postgres, HAPI FHIR and Grafana locally in Docker |
 | [Realtime Load Testing](load-testing.md) | Run isolated throughput and latency verification |
 | [Model Predictions](model-predictions.md) | Score with an approved immutable model |
 | [Model Training](model-training.md) | Train and evaluate the nonclinical proxy model |

@@ -18,6 +18,7 @@ from scripts.synthea_loader.src.load_fhir import (
     sanitize_encounter,
     sanitize_patient,
     search_resource_by_identifier,
+    select_production_cohort,
     select_seed_resources,
 )
 from testkit import expect
@@ -367,3 +368,13 @@ def test_ensure_encounter_exists_creates_when_missing(sample_encounter):
     submitted = json.loads(request.content.decode("utf-8"))
 
     expect.equal(submitted["subject"]["reference"], "Patient/137506799")
+
+
+def test_select_production_cohort_takes_the_configured_cohort_size(tmp_path, monkeypatch):
+    # One 100-patient Synthea generation serves both cohorts: AWS takes the first 10, local development all 100.
+    bundles = [tmp_path / f"patient_{index:03d}.json" for index in range(105)]
+
+    monkeypatch.setenv("COHORT_SIZE", "100")
+    expect.equal(select_production_cohort(bundles), bundles[:100])
+    monkeypatch.delenv("COHORT_SIZE")
+    expect.equal(select_production_cohort(bundles), bundles[:10])

@@ -7,11 +7,11 @@ from services.vitals_simulator.app.fhir import mapping
 from testkit import expect
 
 
-def build_resource_map() -> dict:
+def build_resource_map(size: int = 10) -> dict:
     cohort = {}
     patients = {}
     encounters = {}
-    for index in range(10):
+    for index in range(size):
         synthea_patient_id = f"synthea-patient-{index}"
         synthea_encounter_id = f"synthea-encounter-{index}"
         hapi_patient_id = f"patient-{index}"
@@ -59,3 +59,10 @@ def test_get_patient_cohort_from_s3(monkeypatch):
     expect.equal(len(cohort), 10)
     expect.equal(cohort[0].hapi_patient_id, "patient-0")
     expect.equal(cohort[0].hapi_encounter_id, "encounter-0")
+
+
+def test_get_patient_cohort_follows_the_cohort_size_setting(monkeypatch):
+    monkeypatch.setenv("COHORT_SIZE", "100")
+    monkeypatch.setattr(mapping, "load_fhir_resource_map", lambda: build_resource_map(100))
+
+    expect.equal(len(mapping.get_patient_cohort()), 100)

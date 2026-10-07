@@ -3,7 +3,7 @@ import logging
 import os
 import sys
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from typing import Any
 
 import boto3
@@ -37,6 +37,8 @@ SUPPORTED_RECORD_MAX = 53
 DEFAULT_FETCH_MAX_ATTEMPTS = 5
 DEFAULT_FETCH_BACKOFF_SECONDS = 2.0
 DEFAULT_CACHE_PREFIX = "cache/vitals_simulator/bidmc"
+# A cohort larger than the 53 records reuses them: each later epoch starts the record at a different point.
+MAX_REUSE_EPOCHS = 2
 
 
 @dataclass(frozen=True)
@@ -64,6 +66,26 @@ def normalize_record_number(record_number: int) -> int:
         raise ValueError(f"BIDMC record number must be between {SUPPORTED_RECORD_MIN} and {SUPPORTED_RECORD_MAX}")
 
     return record_number
+
+
+def bidmc_source_for_position(position: int) -> tuple[int, int]:
+    """Return the BIDMC record number and reuse epoch for a 1-based cohort position.
+
+    Positions 1 to 53 use records 1 to 53 in epoch 0; positions 54 to 106 reuse them in epoch 1.
+    """
+    if not 1 <= position <= SUPPORTED_RECORD_MAX * MAX_REUSE_EPOCHS:
+        raise ValueError(f"cohort position must be between 1 and {SUPPORTED_RECORD_MAX * MAX_REUSE_EPOCHS}")
+    epoch, index = divmod(position - 1, SUPPORTED_RECORD_MAX)
+    return index + 1, epoch
+
+
+def rotate_readings(readings: list[VitalReading], epoch: int) -> list[VitalReading]:
+    """Start a reused record partway through: epoch 1 starts halfway, keeping the original 1 Hz offsets."""
+    if epoch == 0 or not readings:
+        return list(readings)
+    shift = (len(readings) * epoch // MAX_REUSE_EPOCHS) % len(readings)
+    values = readings[shift:] + readings[:shift]
+    return [replace(value, offset_seconds=original.offset_seconds) for original, value in zip(readings, values, strict=True)]
 
 
 def build_record_name(record_number: int) -> str:
@@ -120,6 +142,12 @@ def find_channel_index(signal_names: list[str], candidates: set[str]) -> int:
 
     for index, signal_name in enumerate(normalized_names):
         if signal_name in normalized_candidates:
+            return index
+
+    # Some headers (bidmc19n) put stray format fields before the name; the name is then the last word.
+    for index, signal_name in enumerate(signal_names):
+        words = signal_name.split()
+        if len(words) > 1 and normalize_channel_name(words[-1]) in normalized_candidates:
             return index
 
     raise ValueError(f"Could not find any of these channels: {sorted(candidates)}. Available channels: {signal_names}")

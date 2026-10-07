@@ -268,11 +268,13 @@ Create the protected state bucket and initialize a new empty main backend:
 
 Generate the pinned synthetic cohort locally, load it into HAPI FHIR with the FHIR setup task and synchronize the HAPI-assigned IDs before planning the full application:
 
+Synthea generates 100 patients with the pinned seed; with `COHORT_SIZE` unset, the setup task loads the first ten. The other 90 serve local development (Local Stack).
+
 1. Run the following command block:
 
     ```zsh
     ./scripts/synthea_loader/scripts/install.sh
-    POPULATION=10 SEED=12345 ./scripts/synthea_loader/scripts/generate.sh
+    POPULATION=100 SEED=4817263 ./scripts/synthea_loader/scripts/generate.sh
     ./scripts/infrastructure/run_fhir_setup.sh load
 
     ./scripts/infrastructure/bootstrap.sh application-plan 2>&1 | tee /tmp/healthcare-application-plan.log

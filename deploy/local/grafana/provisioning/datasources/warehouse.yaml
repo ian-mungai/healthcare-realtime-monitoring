@@ -1,0 +1,18 @@
+# The analytics warehouse in the local Postgres, read through the read-only grafana_reader role.
+apiVersion: 1
+
+datasources:
+  - name: Warehouse
+    uid: warehouse
+    type: grafana-postgresql-datasource
+    access: proxy
+    url: postgres:5432
+    user: grafana_reader
+    isDefault: true
+    editable: false
+    jsonData:
+      database: warehouse
+      sslmode: disable
+      postgresVersion: 1600
+    secureJsonData:
+      password: $LOCAL_GRAFANA_READER_PASSWORD

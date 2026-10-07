@@ -6,6 +6,8 @@ from urllib.parse import urlparse
 
 import httpx
 
+from scripts.synthea_loader.src.cohort import cohort_size as configured_cohort_size
+
 DEFAULT_FHIR_BASE_URL = "http://127.0.0.1:8090/fhir"
 FHIR_BASE_URL = os.getenv("FHIR_BASE_URL", DEFAULT_FHIR_BASE_URL).rstrip("/")
 
@@ -15,7 +17,6 @@ FHIR_OUTPUT_DIR = Path(__file__).resolve().parents[1] / "synthea" / "output" / "
 
 STATE_DIR = Path(__file__).resolve().parents[1] / "state"
 
-PRODUCTION_COHORT_SIZE = 10
 
 # Each deployment environment keeps its own HAPI ID map; FHIR_RESOURCE_MAP_FILE selects it.
 RESOURCE_MAP_FILE = Path(os.getenv("FHIR_RESOURCE_MAP_FILE") or STATE_DIR / "fhir_resource_map.json")
@@ -55,14 +56,16 @@ def find_patient_bundles() -> list[Path]:
     return sorted(bundles)
 
 
-def select_production_cohort(bundles: list[Path], cohort_size: int = PRODUCTION_COHORT_SIZE) -> list[Path]:
+def select_production_cohort(bundles: list[Path], cohort_size: int | None = None) -> list[Path]:
     """
     Select the deterministic production patient cohort.
 
     Synthea may produce more patient Bundles than the requested
-    population depending on generation behavior. The final
-    portfolio cohort is explicitly limited to ten patients.
+    population depending on generation behavior. The cohort is the
+    first COHORT_SIZE sorted bundles: ten on AWS by default and 100
+    for local development, so the AWS cohort is a prefix of the local one.
     """
+    cohort_size = cohort_size or configured_cohort_size()
     if len(bundles) < cohort_size:
         raise RuntimeError(f"Expected at least {cohort_size} patient bundles but found {len(bundles)}")
 

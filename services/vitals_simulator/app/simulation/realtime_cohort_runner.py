@@ -9,7 +9,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from threading import Event
 
-from services.vitals_simulator.app.bidmc.source import VitalReading, fetch_remote_bidmc_record
+from services.vitals_simulator.app.bidmc.source import VitalReading, bidmc_source_for_position, fetch_remote_bidmc_record, rotate_readings
 from services.vitals_simulator.app.fhir.client import FHIRRetryableError, HAPIFHIRClient
 from services.vitals_simulator.app.fhir.encounter import SIMULATOR_SCENARIO_TAG_SYSTEM, build_simulator_encounter
 from services.vitals_simulator.app.fhir.mapping import FHIRPatientContext, get_patient_cohort
@@ -39,7 +39,6 @@ if not LOGGER.handlers:
     LOGGER.setLevel(logging.INFO)
     LOGGER.propagate = False
 
-COHORT_SIZE = 10
 DEFAULT_INTERVAL_SECONDS = 1.0
 DEFAULT_BP_INTERVAL_SECONDS = 300
 DEFAULT_MAX_CYCLES = 10
@@ -161,13 +160,17 @@ def register_signal_handlers() -> None:
 
 
 def load_patient_simulations(bp_interval_seconds: int) -> list[PatientSimulation]:
-    cohort = get_patient_cohort(expected_count=COHORT_SIZE)
+    cohort = get_patient_cohort()
     bp_readings = load_synthea_blood_pressure_readings()
     simulations = []
-    for bidmc_record_number, context in enumerate(cohort, start=1):
-        readings = fetch_remote_bidmc_record(bidmc_record_number)
-        if not readings:
+    records: dict[int, list[VitalReading]] = {}
+    for position, context in enumerate(cohort, start=1):
+        bidmc_record_number, epoch = bidmc_source_for_position(position)
+        if bidmc_record_number not in records:
+            records[bidmc_record_number] = fetch_remote_bidmc_record(bidmc_record_number)
+        if not records[bidmc_record_number]:
             raise RuntimeError(f"BIDMC record {bidmc_record_number} contains no readings")
+        readings = rotate_readings(records[bidmc_record_number], epoch)
         patient_bp_readings = readings_for_patient(bp_readings, context.synthea_patient_id)
         simulations.append(
             PatientSimulation(
@@ -373,7 +376,7 @@ def run_realtime_cohort(settings: SimulatorSettings | None = None) -> int:
             f"scenario={simulation.scenario}"
         )
     LOGGER.info("")
-    with ThreadPoolExecutor(max_workers=COHORT_SIZE) as executor:
+    with ThreadPoolExecutor(max_workers=len(simulations)) as executor:
         while not shutdown_event.is_set():
             if settings.max_cycles is not None and completed_cycles >= settings.max_cycles:
                 break
