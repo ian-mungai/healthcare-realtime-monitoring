@@ -15,6 +15,8 @@ COPY services/vital_signs.py ./services/vital_signs.py
 COPY services/vitals_simulator ./services/vitals_simulator
 COPY config/vital_signs.json ./config/vital_signs.json
 COPY config/planted_signal.json ./config/planted_signal.json
+# The attending of each simulated admission comes from the provider roster (services/vitals_simulator/app/fhir/attending.py).
+COPY dbt/seeds/provider_history.csv ./dbt/seeds/provider_history.csv
 
 # The one-off FHIR setup task (docs/fhir-setup-tasks.md) runs from this image with its own command.
 COPY scripts/__init__.py ./scripts/__init__.py

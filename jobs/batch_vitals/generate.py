@@ -47,6 +47,7 @@ from services.vitals_simulator.app.bidmc.source import (
     vary_run_readings,
 )
 from services.vitals_simulator.app.fhir.admission import Admission, plan_admission
+from services.vitals_simulator.app.fhir.attending import load_roster, with_attending
 from services.vitals_simulator.app.fhir.client import CreatedFHIRResource, HAPIFHIRClient
 from services.vitals_simulator.app.fhir.encounter import NULL_CONTROL_RUN_MARKER, build_simulator_encounter
 from services.vitals_simulator.app.fhir.mapping import FHIRPatientContext, get_patient_cohort
@@ -165,6 +166,7 @@ def plan_encounters(
     signal = signal or load_planted_signal(settings.signal)
     records: dict[int, list[VitalReading]] = {}
     scenarios = plan_scenarios([context.hapi_patient_id for context in cohort], settings.seed)
+    roster = load_roster()
     planned = []
     for position, context in enumerate(cohort, start=1):
         record_number, epoch = bidmc_source_for_position(position)
@@ -175,6 +177,7 @@ def plan_encounters(
         for run, scenario in enumerate(scenarios[context.hapi_patient_id], start=1):
             admission = plan_admission(context.admission_profile, settings.seed, context.hapi_patient_id, run_identifier(settings, run))
             started_at = settings.start + timedelta(days=(run - 1) * ENCOUNTER_SPACING_DAYS, hours=admission.admit_hour)
+            admission = with_attending(admission, roster, started_at, settings.seed, context.hapi_patient_id, run_identifier(settings, run))
             older = is_65_plus((context.admission_profile or {})["birth_date"], started_at)
             planned.append(
                 PlannedEncounter(

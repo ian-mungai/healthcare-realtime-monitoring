@@ -23,6 +23,7 @@ from scripts.synthea_loader.src.cohort import cohort_size
 from scripts.synthea_loader.src.load_fhir import FHIR_OUTPUT_DIR, load_bundle
 from services.vitals_simulator.app.bidmc.source import bidmc_source_for_position
 from services.vitals_simulator.app.fhir.admission import FALLBACK_FACILITY
+from services.vitals_simulator.app.fhir.attending import NPI_SYSTEM
 from services.vitals_simulator.app.fhir.encounter import SIMULATOR_ENCOUNTER_IDENTIFIER_SYSTEM, SIMULATOR_SCENARIO_TAG_SYSTEM, is_null_control_run
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -48,6 +49,7 @@ ADMISSION_COLUMNS = (
     "diagnosis_code",
     "diagnosis_display",
     "diagnosis_source",
+    "attending_npi",
 )
 TABLES = {
     "fhir_patients": (PATIENT_COLUMNS, "patient_id text primary key, birth_date date, gender text, race text, ethnicity text, marital_status text, state text"),
@@ -57,7 +59,7 @@ TABLES = {
         ADMISSION_COLUMNS,
         "encounter_id text primary key, patient_id text not null, run_id text not null, scenario text, admitted_at timestamptz not null, "
         "discharged_at timestamptz not null, facility_id text not null, facility_name text not null, unit text not null, "
-        "diagnosis_code text not null, diagnosis_display text not null, diagnosis_source text",
+        "diagnosis_code text not null, diagnosis_display text not null, diagnosis_source text, attending_npi text not null",
     ),
     # Written to S3 for AWS only; locally the batch's split_groups.json fills it (jobs.local_warehouse.load).
     "patient_split_groups": (("patient_id", "split_group"), "patient_id text primary key, split_group text not null"),
@@ -174,7 +176,8 @@ def admission_row(encounter: dict[str, Any]) -> dict[str, Any] | None:
     reason = (reason_code.get("coding") or [{}])[0]
     provider = encounter.get("serviceProvider") or {}
     unit = ((encounter.get("location") or [{}])[0].get("location") or {}).get("display")
-    if not (period.get("end") and reason.get("code") and provider.get("display") and unit):
+    attending_npi = attending(encounter)
+    if not (period.get("end") and reason.get("code") and provider.get("display") and unit and attending_npi):
         return None
     identifier = next(item["value"] for item in encounter.get("identifier", []) if item.get("system") == SIMULATOR_ENCOUNTER_IDENTIFIER_SYSTEM)
     scenario = next((tag["code"] for tag in encounter.get("meta", {}).get("tag", []) if tag.get("system") == SIMULATOR_SCENARIO_TAG_SYSTEM), None)
@@ -191,7 +194,18 @@ def admission_row(encounter: dict[str, Any]) -> dict[str, Any] | None:
         "diagnosis_code": reason["code"],
         "diagnosis_display": reason.get("display"),
         "diagnosis_source": reason_code.get("text"),
+        "attending_npi": attending_npi,
     }
+
+
+def attending(encounter: dict[str, Any]) -> str | None:
+    """The NPI of the encounter's attending participant; the display name stays in HAPI."""
+    for participant in encounter.get("participant", []):
+        codes = {coding.get("code") for kind in participant.get("type", []) for coding in kind.get("coding", [])}
+        identifier = (participant.get("individual") or {}).get("identifier") or {}
+        if "ATND" in codes and identifier.get("system") == NPI_SYSTEM:
+            return identifier.get("value")
+    return None
 
 
 def split_group_rows(cohort: dict[str, str]) -> list[dict[str, str]]:

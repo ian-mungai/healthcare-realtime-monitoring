@@ -38,13 +38,32 @@ provider_roster as (
     where is_current
 ),
 
+{# A simulated admission records its attending; other encounters get a round-robin placeholder from the roster. #}
+attendings as (
+    {% if var('cohort_reference_enabled', false) -%}
+        select
+            encounter_id,
+            attending_npi
+        from {{ source('cohort_reference', 'admissions') }}
+    {%- else -%}
+        select
+            cast(null as varchar) as encounter_id,
+            cast(null as varchar) as attending_npi
+        from (values (1)) as no_admissions (placeholder)
+        where placeholder = 0
+    {%- endif %}
+),
+
 assigned_encounters as (
     select
         encounters.*,
-        providers.provider_npi
+        coalesce(attendings.attending_npi, providers.provider_npi) as provider_npi,
+        attendings.attending_npi is null as is_synthetic_provider_assignment
     from numbered_encounters as encounters
     inner join provider_roster as providers
         on providers.provider_number = mod(encounters.encounter_number - 1, providers.provider_count) + 1
+    left join attendings
+        on encounters.encounter_id = attendings.encounter_id
 )
 
 select
@@ -57,7 +76,7 @@ select
     providers.provider_version_key,
     encounters.encounter_start_at,
     encounters.encounter_end_at,
-    true as is_synthetic_provider_assignment
+    encounters.is_synthetic_provider_assignment
 from assigned_encounters as encounters
 inner join {{ ref('dim_provider') }} as providers
     on

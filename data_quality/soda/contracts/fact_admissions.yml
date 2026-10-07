@@ -23,6 +23,14 @@ columns:
     checks:
       - missing:
 
+  - name: provider_version_key
+    checks:
+      - missing:
+
+  - name: attending_specialty
+    checks:
+      - missing:
+
   - name: length_of_stay_hours
     checks:
       - missing:

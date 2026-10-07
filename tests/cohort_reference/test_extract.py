@@ -6,7 +6,8 @@ Failure modes the extract must handle (written before the extract):
 2. A patient never changes payer: one open payer period, not zero.
 3. A payer repeats after a different one: three periods, not two (only consecutive repeats merge).
 4. HAPI pages its Encounter search: every page is read.
-5. An encounter has no admission fields (created before admissions existed): it is skipped and counted.
+5. An encounter has no admission fields (created before admissions existed) or no attending provider (created before
+   the provider roster): it is skipped and counted.
 6. Rows never carry a patient's name, address line or other identifying detail.
 7. HAPI still holds encounters of patients from an earlier cohort: they are skipped and counted, not extracted.
 8. HAPI holds the study's and the null control's encounters for the same patients: each warehouse keeps its own
@@ -93,7 +94,7 @@ def test_a_missing_bundle_stops_the_extract() -> None:
         extract.patient_rows({"synthea-1": "hapi-1"}, {})
 
 
-def encounter(number: int, admitted: bool = True) -> dict:
+def encounter(number: int, admitted: bool = True, attended: bool = True) -> dict:
     resource: dict[str, Any] = {
         "resourceType": "Encounter",
         "id": f"encounter-{number}",
@@ -109,6 +110,13 @@ def encounter(number: int, admitted: bool = True) -> dict:
         ]
         resource["serviceProvider"] = {"identifier": {"value": "hospital-1"}, "display": "General Hospital"}
         resource["location"] = [{"location": {"display": "Step-down unit"}}]
+    if admitted and attended:
+        resource["participant"] = [
+            {
+                "type": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType", "code": "ATND"}]}],
+                "individual": {"identifier": {"system": "http://hl7.org/fhir/sid/us-npi", "value": "1234567893"}, "display": "Example Attending"},
+            }
+        ]
     return resource
 
 
@@ -116,7 +124,7 @@ def encounter(number: int, admitted: bool = True) -> dict:
 def test_admissions_read_every_page_and_skip_encounters_without_admission_fields() -> None:
     first = {
         "resourceType": "Bundle",
-        "entry": [{"resource": encounter(1)}, {"resource": encounter(2, admitted=False)}],
+        "entry": [{"resource": encounter(1)}, {"resource": encounter(2, admitted=False)}, {"resource": encounter(4, attended=False)}],
         "link": [{"relation": "next", "url": f"{HAPI}/page-2"}],
     }
     second = {"resourceType": "Bundle", "entry": [{"resource": encounter(3)}], "link": []}
@@ -126,9 +134,12 @@ def test_admissions_read_every_page_and_skip_encounters_without_admission_fields
     rows, skipped = extract.admission_rows(HAPI, {"hapi-1"})
 
     expect.equal([row["encounter_id"] for row in rows], ["encounter-1", "encounter-3"])
-    expect.equal(skipped, {"without_admission": 1, "outside_cohort": 0, "other_signal": 0})
+    expect.equal(skipped, {"without_admission": 2, "outside_cohort": 0, "other_signal": 0})
     expect.equal(
-        {key: rows[0][key] for key in ("patient_id", "facility_id", "unit", "diagnosis_code", "diagnosis_source", "scenario", "admitted_at", "discharged_at")},
+        {
+            key: rows[0][key]
+            for key in ("patient_id", "facility_id", "unit", "diagnosis_code", "diagnosis_source", "scenario", "admitted_at", "discharged_at", "attending_npi")
+        },
         {
             "patient_id": "hapi-1",
             "facility_id": "hospital-1",
@@ -138,6 +149,7 @@ def test_admissions_read_every_page_and_skip_encounters_without_admission_fields
             "scenario": "normal",
             "admitted_at": "2026-09-01T08:00:00+00:00",
             "discharged_at": "2026-09-03T08:00:00+00:00",
+            "attending_npi": "1234567893",
         },
     )
 

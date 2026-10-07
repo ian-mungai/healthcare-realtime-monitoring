@@ -16,6 +16,8 @@ from typing import Any
 
 import numpy as np
 
+from services.vitals_simulator.app.fhir.attending import participant_fields
+
 SNOMED_SYSTEM = "http://snomed.info/sct"
 SYNTHEA_SYSTEM = "https://github.com/synthetichealth/synthea"
 UNITS = ("Medical intensive care unit", "Step-down unit", "Medical-surgical ward")
@@ -80,6 +82,9 @@ class Admission:
     diagnosis_source: str
     length_of_stay_hours: int
     admit_hour: int
+    # Set by attending.with_attending once the admission date is known.
+    attending_npi: str | None = None
+    attending_name: str | None = None
 
     def discharge_at(self, started_at: datetime) -> datetime:
         return started_at + timedelta(hours=self.length_of_stay_hours)
@@ -116,7 +121,7 @@ def admitting(listed: list[dict[str, str]] | None) -> list[tuple[str, str]]:
 
 def admission_fields(admission: Admission, started_at: datetime) -> dict[str, Any]:
     """The FHIR Encounter elements that carry the admission."""
-    return {
+    fields: dict[str, Any] = {
         "reasonCode": [
             {
                 "coding": [{"system": SNOMED_SYSTEM, "code": admission.diagnosis_code, "display": admission.diagnosis_display}],
@@ -127,3 +132,6 @@ def admission_fields(admission: Admission, started_at: datetime) -> dict[str, An
         "location": [{"location": {"display": admission.unit}}],
         "period": {"start": started_at.isoformat(), "end": admission.discharge_at(started_at).isoformat()},
     }
+    if participants := participant_fields(admission):
+        fields["participant"] = participants
+    return fields

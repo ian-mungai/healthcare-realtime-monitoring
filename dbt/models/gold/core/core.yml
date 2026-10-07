@@ -269,6 +269,21 @@ models:
                 to: ref('dim_patient_version')
                 field: patient_version_key
 
+      - name: provider_version_key
+        description: >-
+          The attending provider's version valid on the admission date, from the synthetic roster
+          (scripts/nppes/provider_roster.py). Its specialty is a negative control for the subgroup analysis.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_provider')
+                field: provider_version_key
+
+      - name: attending_specialty
+        tests:
+          - not_null
+
       - name: facility_key
         tests:
           - not_null

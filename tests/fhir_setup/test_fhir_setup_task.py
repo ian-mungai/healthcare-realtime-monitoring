@@ -291,6 +291,12 @@ def admitted_encounter(patient_id: str, run_id: str) -> dict:
         ],
         "serviceProvider": {"identifier": {"value": "hospital-1"}, "display": "General Hospital"},
         "location": [{"location": {"display": "Step-down unit"}}],
+        "participant": [
+            {
+                "type": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType", "code": "ATND"}]}],
+                "individual": {"identifier": {"system": "http://hl7.org/fhir/sid/us-npi", "value": "1234567893"}, "display": "Example Attending"},
+            }
+        ],
     }
 
 

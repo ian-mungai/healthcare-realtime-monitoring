@@ -27,6 +27,7 @@ from jobs.calibration.features import FEATURE_COLUMNS, encounter_features
 from jobs.cohort_reference import extract
 from jobs.local_warehouse import dbt, load
 from services.vitals_simulator.app.fhir.admission import ADMITTING_DIAGNOSES
+from services.vitals_simulator.app.fhir.attending import UNIT_SPECIALTIES
 from tools.process import run_command
 
 PURPOSE = "The local warehouse loads the batch and the cohort reference tables repeatably and dbt builds the step 3 models with every test passing."
@@ -76,6 +77,14 @@ BATCH_ROWS_SQL = "select count(*) from $raw.processed_fhir_observations where en
 CHECKS_SQL = {
     "admissions_without_version": "select count(*) from $analytics.fact_admissions where patient_version_key is null",
     "admissions_raw": "select count(*) from $raw.admissions",
+    "admissions_without_attending_version": "select count(*) from $analytics.fact_admissions where provider_version_key is null",
+    "attendings_outside_washington": (
+        "select count(*) from $analytics.fact_admissions as admissions inner join $analytics.dim_provider as providers "
+        "on admissions.provider_version_key = providers.provider_version_key where providers.provider_state <> 'WA'"
+    ),
+    "admitted_encounters_with_placeholder_provider": (
+        "select count(*) from $analytics.dim_encounter where is_synthetic_provider_assignment and encounter_id in (select encounter_id from $raw.admissions)"
+    ),
     "admissions_fact": "select count(*) from $analytics.fact_admissions",
     "patients_without_one_current_version": (
         "select count(*) from (select patient_id from $analytics.dim_patient_version group by patient_id "
@@ -284,6 +293,31 @@ def check_models(report: Report, folder: Path) -> None:
         f"{values['admissions_outside_adult_ages']}",
         values["admissions_outside_adult_ages"] == 0,
     )
+    report.check(
+        "Every admission has the attending version valid at admission",
+        "0 without",
+        f"{values['admissions_without_attending_version']}",
+        values["admissions_without_attending_version"] == 0,
+    )
+    report.check(
+        "Every attending practises in Washington on the admission date",
+        "0 outside",
+        f"{values['attendings_outside_washington']}",
+        values["attendings_outside_washington"] == 0,
+    )
+    pairs = {tuple(row.split(",")) for row in query("select distinct unit, attending_taxonomy_code from $analytics.fact_admissions")}
+    outside = sorted(f"{unit}: {code}" for unit, code in pairs if code not in UNIT_SPECIALTIES.get(unit, ()))
+    report.check("Every attending's specialty covers the unit", "0 unit and specialty pairs outside the rule", f"{len(outside)} {outside}", not outside)
+    report.check(
+        "Admitted encounters carry their attending, not a placeholder",
+        "0 placeholders",
+        f"{values['admitted_encounters_with_placeholder_provider']}",
+        values["admitted_encounters_with_placeholder_provider"] == 0,
+    )
+    report.evidence["attending_specialties_by_scenario"] = [
+        row.split(",") for row in query("select scenario, attending_specialty, count(*) from $analytics.fact_admissions group by 1, 2 order by 1, 2")
+    ]
+    report.evidence["attendings"] = int(query("select count(distinct provider_key) from $analytics.fact_admissions")[0])
     report.evidence["patients_65_and_over"] = values["patients_65_and_over"]
     codes = set(query("select distinct diagnosis_code from $analytics.fact_admissions"))
     report.check(

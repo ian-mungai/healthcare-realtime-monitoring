@@ -166,7 +166,7 @@ locals {
     fhir_patients         = ["patient_id", "birth_date", "gender", "race", "ethnicity", "marital_status", "state"]
     patient_payer_history = ["patient_id", "payer_name", "valid_from", "valid_to"]
     facilities            = ["facility_id", "facility_name", "city", "state"]
-    admissions            = ["encounter_id", "patient_id", "run_id", "scenario", "admitted_at", "discharged_at", "facility_id", "facility_name", "unit", "diagnosis_code", "diagnosis_display", "diagnosis_source"]
+    admissions            = ["encounter_id", "patient_id", "run_id", "scenario", "admitted_at", "discharged_at", "facility_id", "facility_name", "unit", "diagnosis_code", "diagnosis_display", "diagnosis_source", "attending_npi"]
     patient_split_groups  = ["patient_id", "split_group"]
   }
 }

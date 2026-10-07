@@ -18,6 +18,7 @@ from services.vitals_simulator.app.bidmc.source import (
     vary_run_readings,
 )
 from services.vitals_simulator.app.fhir.admission import plan_admission
+from services.vitals_simulator.app.fhir.attending import load_roster, with_attending
 from services.vitals_simulator.app.fhir.client import FHIRRetryableError, HAPIFHIRClient
 from services.vitals_simulator.app.fhir.encounter import SIMULATOR_SCENARIO_TAG_SYSTEM, build_simulator_encounter
 from services.vitals_simulator.app.fhir.mapping import FHIRPatientContext, get_patient_cohort
@@ -255,11 +256,12 @@ def initialize_simulation_run(
     scenarios = choose_patient_scenarios(patient_ids, seed, prior_counts)
     # The planted early-warning trend of the study (config/planted_signal.json); null_control plants nothing.
     planted_signal = load_planted_signal(os.getenv("SIMULATOR_PLANTED_SIGNAL") or "study")
+    roster = load_roster()
     initialized = []
     for simulation in simulations:
         patient_id = simulation.context.hapi_patient_id
         tag = scenarios[patient_id] if label_eligible else None
-        admission = plan_admission(simulation.context.admission_profile, seed, patient_id, run_id)
+        admission = with_attending(plan_admission(simulation.context.admission_profile, seed, patient_id, run_id), roster, started_at, seed, patient_id, run_id)
         created = client.post_resource(build_simulator_encounter(patient_id, run_id, started_at, scenario=tag, admission=admission))
         context = replace(simulation.context, hapi_encounter_id=created.resource_id)
         interval_seconds = simulation.bp_cadence.interval_seconds if simulation.bp_cadence is not None else DEFAULT_BP_INTERVAL_SECONDS
