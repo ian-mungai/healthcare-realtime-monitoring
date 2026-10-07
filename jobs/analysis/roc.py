@@ -63,6 +63,8 @@ def _components(labels: np.ndarray, scores: np.ndarray) -> tuple[float, np.ndarr
     """The AUC and the structural components V10 (per positive) and V01 (per negative)."""
     positives, negatives = _classes(labels)
     scores = np.asarray(scores, dtype=float)
+    if not np.isfinite(scores).all():
+        raise RocError(f"{int((~np.isfinite(scores)).sum())} scores are missing or not finite; the model did not fit")
     m, n = int(positives.sum()), int(negatives.sum())
     overall = _midranks(scores)
     within_positives = _midranks(scores[positives])

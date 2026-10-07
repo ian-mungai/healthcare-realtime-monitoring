@@ -56,7 +56,11 @@ def installed_version(binary: Path, *args: str) -> str:
     """Return the tool's version output, or an empty string when it is missing or does not run."""
     if not binary.exists():
         return ""
-    result = run_command(str(binary), list(args) or ["version"], timeout=60)
+    try:
+        result = run_command(str(binary), list(args) or ["version"], timeout=60)
+    except OSError:
+        # The script's interpreter is gone, as after a Homebrew Python upgrade; rebuild the environment.
+        return ""
     return result.stdout.strip() if result.returncode == 0 else ""
 
 

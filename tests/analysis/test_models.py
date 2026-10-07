@@ -14,6 +14,10 @@ Failure modes (written before the code):
 6. The minute models score an encounter from the wrong minute: the encounter score is the minute-14 prediction.
 7. The moderation test counts the wrong terms: it tests only the moderator's three-way terms (levels minus one), and
    Holm adjusts across the three moderators.
+8. A vital that only deteriorating encounters show (supplemental oxygen, new confusion) separates the labels and makes
+   a Wald covariance singular: the H1 test of the 14 vital terms must still give a p-value (plan deviation 2).
+9. The same separation makes the GEE prediction model diverge to missing scores: the minute models use the five
+   continuous vitals, so every out-of-fold score is finite (plan deviation 3).
 """
 
 from __future__ import annotations
@@ -158,3 +162,32 @@ def test_the_moderation_test_counts_only_three_way_terms_and_adjusts_with_holm()
     adjusted = sorted(result.holm_p_value for result in results.values() if result.holm_p_value is not None)
     expect.equal(len(adjusted), 3)
     expect.equal(round(adjusted[0], 12), round(min(1.0, raw[0] * 3), 12))
+
+
+def with_separating_events(minutes: pd.DataFrame) -> pd.DataFrame:
+    """As planted: oxygen in some deteriorating encounters and new confusion in fewer, both from mid-window."""
+    separating = minutes.copy()
+    number = separating["encounter_key"].str[1:].astype(int)
+    later = separating["minute_index"] >= 7
+    separating["inhaled_oxygen_concentration"] = np.where((separating["label"] == 1) & (number % 3 == 1) & later, 24.0, 21.0)
+    separating["consciousness_level"] = np.where((separating["label"] == 1) & (number % 5 == 1) & later, 1.0, 0.0)
+    return separating
+
+
+def test_the_vital_signal_test_survives_a_separating_vital() -> None:
+    _, minutes = synthetic()
+
+    result = models.vital_signal_test(with_separating_events(minutes))
+
+    expect.equal(result.degrees_of_freedom, 14)
+    if not 0.0 <= result.p_value <= 1.0:
+        expect.fail(f"expected: a p-value despite separation, got {result}")
+
+
+def test_minute_models_score_every_encounter_despite_separating_events() -> None:
+    encounters, minutes = synthetic()
+    folds = models.make_folds(encounters, seed=SEED)
+
+    scores = models.out_of_fold_scores(encounters, with_separating_events(minutes), folds, seed=SEED)
+
+    expect.equal(int(scores[["naive_logistic", "gee_logistic"]].isna().sum().sum()), 0)

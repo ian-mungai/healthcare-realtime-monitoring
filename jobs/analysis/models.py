@@ -1,15 +1,17 @@
 """The plan's four models, its folds and its GEE tests (plans/analysis-plan.md, Models, Validation and Tests).
 
 1. NEWS2: the warehouse's feature-window total, no fitting.
-2. Naive logistic regression and 3. the GEE logistic model share one mean model on the minute rows:
+2. Naive logistic regression and 3. the GEE logistic model share one mean model on the minute rows of the five
+   continuous vitals (plan deviation 3: oxygen and ACVPU separate the labels and the GEE fit diverged with them):
    logit P(label) = b0 + sum b_v z_v(t) + c t + sum g_v z_v(t) t, with z_v the vitals standardized and imputed on the
    training fold and t the minute index. The naive model treats minute rows as independent; the GEE model clusters
    them by encounter with an exchangeable working correlation. Each scores an encounter by its minute-14 prediction.
 4. Gradient-boosted trees on the encounter features (vital-features-v3 plus the five slopes), with fixed settings.
 
-Folds are StratifiedGroupKFold by split group. The H1 test refits the GEE mean model on the whole analysis set; the
-H3 tests fit one linear GEE per moderator on the heart-rate minute means. Both cluster by split group with the
-bias-reduced (Mancl and DeRouen) covariance unless a sensitivity analysis asks otherwise.
+Folds are StratifiedGroupKFold by split group. The H1 test is a generalized score test of the GEE mean model's vital
+terms on the whole analysis set (plan deviation 2); the H3 tests fit one linear GEE per moderator on the heart-rate
+minute means with the bias-reduced (Mancl and DeRouen) covariance. Both cluster by split group unless a sensitivity
+analysis asks otherwise.
 """
 
 from __future__ import annotations
@@ -27,6 +29,9 @@ from jobs.analysis.data import DIAGNOSIS_GROUPS, MODERATORS, SLOPE_COLUMNS, SPEC
 from jobs.calibration.features import FEATURE_COLUMNS
 
 MINUTE_VITALS = ("heart_rate", "respiratory_rate", "spo2", "systolic_bp", "temperature", "inhaled_oxygen_concentration", "consciousness_level")
+# Plan deviation 3: the minute prediction models leave out supplemental oxygen and ACVPU. Only deteriorating encounters
+# show them, so they separate the labels and the GEE fit diverges; NEWS2 and the trees keep all seven.
+PREDICTION_VITALS = MINUTE_VITALS[:5]
 ENCOUNTER_FEATURES = (*FEATURE_COLUMNS, *SLOPE_COLUMNS)
 SCORING_MINUTE = 14
 FOLDS = 5
@@ -35,12 +40,13 @@ MODERATOR_LEVELS = {"age_65_plus": (0, 1), "diagnosis_group": DIAGNOSIS_GROUPS, 
 
 
 @dataclass(frozen=True)
-class WaldTest:
+class JointTest:
     statistic: float
     degrees_of_freedom: int
     p_value: float
     holm_p_value: float | None = None
     estimates: tuple[float, ...] = ()
+    method: str = "wald"
 
 
 @dataclass(frozen=True)
@@ -59,8 +65,8 @@ def make_folds(encounters: pd.DataFrame, seed: int, n_splits: int = FOLDS) -> pd
     return pd.Series(folds, index=encounters.index, name="fold")
 
 
-def fit_scaling(minutes: pd.DataFrame) -> Scaling:
-    values = minutes[list(MINUTE_VITALS)]
+def fit_scaling(minutes: pd.DataFrame, vitals: tuple[str, ...] = MINUTE_VITALS) -> Scaling:
+    values = minutes[list(vitals)]
     medians = values.median()
     filled = values.fillna(medians)
     deviations = filled.std(ddof=0).replace(0.0, 1.0)
@@ -69,7 +75,8 @@ def fit_scaling(minutes: pd.DataFrame) -> Scaling:
 
 def minute_design(minutes: pd.DataFrame, scaling: Scaling) -> np.ndarray:
     """Intercept, standardized vitals, minute index and vital-by-minute interactions, in that order."""
-    z = ((minutes[list(MINUTE_VITALS)].fillna(scaling.medians) - scaling.means) / scaling.deviations).to_numpy()
+    vitals = list(scaling.means.index)
+    z = ((minutes[vitals].fillna(scaling.medians) - scaling.means) / scaling.deviations).to_numpy()
     t = minutes["minute_index"].to_numpy(dtype=float)[:, None]
     return np.hstack([np.ones((len(minutes), 1)), z, t, z * t])
 
@@ -80,7 +87,7 @@ def scoring_rows(minutes: pd.DataFrame) -> pd.DataFrame:
 
 
 def _minute_scores(train: pd.DataFrame, test: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
-    scaling = fit_scaling(train)
+    scaling = fit_scaling(train, PREDICTION_VITALS)
     exog = minute_design(train, scaling)
     naive = sm.GLM(train["label"].to_numpy(), exog, family=sm.families.Binomial()).fit()
     gee = sm.GEE(
@@ -109,12 +116,12 @@ def out_of_fold_scores(encounters: pd.DataFrame, minutes: pd.DataFrame, folds: p
     return base.join(scores, how="inner")
 
 
-def _wald(result: sm.regression.linear_model.RegressionResults, columns: list[int]) -> WaldTest:
+def _wald(result: sm.regression.linear_model.RegressionResults, columns: list[int]) -> JointTest:
     restriction = np.zeros((len(columns), len(result.params)))
     for row, column in enumerate(columns):
         restriction[row, column] = 1.0
     test = result.wald_test(restriction, scalar=True)
-    return WaldTest(
+    return JointTest(
         statistic=float(test.statistic),
         degrees_of_freedom=len(columns),
         p_value=float(test.pvalue),
@@ -122,14 +129,19 @@ def _wald(result: sm.regression.linear_model.RegressionResults, columns: list[in
     )
 
 
-def vital_signal_test(minutes: pd.DataFrame, cluster: str = "split_group", cov_type: str = "bias_reduced") -> WaldTest:
-    """H1 (a): the joint Wald test of the 14 vital terms of the GEE mean model, on the whole analysis set."""
+def vital_signal_test(minutes: pd.DataFrame, cluster: str = "split_group") -> JointTest:
+    """H1 (a): the generalized score test of the 14 vital terms of the GEE mean model, on the whole analysis set.
+
+    Plan deviation 2: a vital only deteriorating encounters show (supplemental oxygen, new confusion) separates the
+    labels, so the full model's Wald covariance is singular. The score test needs only the null model (intercept and
+    minute) and the full model's estimating equations at it, with the robust variance clustered as asked.
+    """
     exog = minute_design(minutes, fit_scaling(minutes))
-    result = sm.GEE(
-        minutes["label"].to_numpy(), exog, groups=minutes[cluster].to_numpy(), family=sm.families.Binomial(), cov_struct=sm.cov_struct.Exchangeable()
-    ).fit(cov_type=cov_type)
-    vitals = len(MINUTE_VITALS)
-    return _wald(result, [*range(1, 1 + vitals), *range(2 + vitals, 2 + 2 * vitals)])
+    labels, groups = minutes["label"].to_numpy(), minutes[cluster].to_numpy()
+    family, exchangeable = sm.families.Binomial(), sm.cov_struct.Exchangeable
+    null = sm.GEE(labels, exog[:, [0, 1 + len(MINUTE_VITALS)]], groups=groups, family=family, cov_struct=exchangeable()).fit()
+    test = sm.GEE(labels, exog, groups=groups, family=family, cov_struct=exchangeable()).compare_score_test(null)
+    return JointTest(statistic=float(test["statistic"]), degrees_of_freedom=int(test["df"]), p_value=float(test["p-value"]), method="score")
 
 
 def moderator_dummies(values: pd.Series, moderator: str) -> pd.DataFrame:
@@ -138,7 +150,7 @@ def moderator_dummies(values: pd.Series, moderator: str) -> pd.DataFrame:
     return pd.DataFrame({f"{moderator}={level}": (values == level).astype(float).to_numpy() for level in levels})
 
 
-def moderation_test(minutes: pd.DataFrame, moderator: str, cluster: str = "split_group", cov_type: str = "bias_reduced") -> WaldTest:
+def moderation_test(minutes: pd.DataFrame, moderator: str, cluster: str = "split_group", cov_type: str = "bias_reduced") -> JointTest:
     """H3 for one moderator: heart-rate minute mean on minute, label, moderator and all their interactions."""
     rows = minutes[minutes["heart_rate"].notna()]
     t = rows["minute_index"].to_numpy(dtype=float)
@@ -164,12 +176,38 @@ def moderation_test(minutes: pd.DataFrame, moderator: str, cluster: str = "split
     return _wald(result, list(range(first, first + k)))
 
 
-def moderation_tests(minutes: pd.DataFrame, cluster: str = "split_group", cov_type: str = "bias_reduced") -> dict[str, WaldTest]:
+def moderation_tests(minutes: pd.DataFrame, cluster: str = "split_group", cov_type: str = "bias_reduced") -> dict[str, JointTest]:
     """H3: one test per moderator, Holm-adjusted across the three."""
     raw = {moderator: moderation_test(minutes, moderator, cluster, cov_type) for moderator in MODERATORS}
     adjusted = multipletests([test.p_value for test in raw.values()], method="holm")[1]
     return {moderator: _with_holm(test, float(p)) for (moderator, test), p in zip(raw.items(), adjusted, strict=True)}
 
 
-def _with_holm(test: WaldTest, holm: float) -> WaldTest:
-    return WaldTest(test.statistic, test.degrees_of_freedom, test.p_value, holm, test.estimates)
+def _with_holm(test: JointTest, holm: float) -> JointTest:
+    return JointTest(test.statistic, test.degrees_of_freedom, test.p_value, holm, test.estimates)
+
+
+def heart_rate_rise(minutes: pd.DataFrame) -> pd.DataFrame:
+    """Per encounter, the minute-14 heart-rate mean minus the mean of minutes 0 to 4, with its label and moderators."""
+    late = minutes[minutes["minute_index"] == SCORING_MINUTE].set_index("encounter_key")["heart_rate"]
+    early = minutes[minutes["minute_index"] < 5].groupby("encounter_key")["heart_rate"].mean()
+    keep = ["encounter_key", "split_group", "label", *MODERATORS]
+    encounters = minutes[keep].drop_duplicates("encounter_key").set_index("encounter_key")
+    return encounters.assign(rise=late - early).dropna(subset=["rise"])
+
+
+def rise_moderation_tests(minutes: pd.DataFrame, cluster: str = "split_group", cov_type: str = "bias_reduced") -> dict[str, JointTest]:
+    """Sensitivity analysis 4: the calibration's formulation, rise on label by moderator, Holm-adjusted across the three."""
+    rises = heart_rate_rise(minutes)
+    raw = {}
+    for moderator in MODERATORS:
+        label = rises["label"].to_numpy(dtype=float)
+        dummies = moderator_dummies(rises[moderator], moderator).to_numpy()
+        k = dummies.shape[1]
+        exog = np.hstack([np.ones((len(rises), 1)), label[:, None], dummies, dummies * label[:, None]])
+        result = sm.GEE(
+            rises["rise"].to_numpy(), exog, groups=rises[cluster].to_numpy(), family=sm.families.Gaussian(), cov_struct=sm.cov_struct.Exchangeable()
+        ).fit(cov_type=cov_type)
+        raw[moderator] = _wald(result, list(range(2 + k, 2 + 2 * k)))
+    adjusted = multipletests([test.p_value for test in raw.values()], method="holm")[1]
+    return {moderator: _with_holm(test, float(p)) for (moderator, test), p in zip(raw.items(), adjusted, strict=True)}

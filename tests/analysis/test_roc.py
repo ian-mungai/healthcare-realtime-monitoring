@@ -11,6 +11,7 @@ Failure modes (written before the code):
    group's rows must leave the interval unchanged.
 6. A resample draws only one class: it is skipped and counted, not fatal, and the interval uses the rest.
 7. A rerun gives a different interval: the same seed gives the same result.
+8. A model that failed to fit returns NaN scores, which ranks turn into a meaningless AUC: missing scores stop it.
 """
 
 from __future__ import annotations
@@ -108,3 +109,8 @@ def test_the_same_seed_gives_the_same_intervals() -> None:
     second = roc.bootstrap(labels, {"model": a, "news2": b}, groups, "news2", 200, 11)
 
     expect.equal(first, second)
+
+
+def test_missing_scores_stop_the_auc() -> None:
+    with pytest.raises(roc.RocError, match="missing"):
+        roc.auc(np.array([0, 1, 0, 1]), np.array([0.1, np.nan, 0.3, 0.8]))

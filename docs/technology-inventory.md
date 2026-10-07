@@ -74,7 +74,7 @@ For developers and operators: locate implemented components, runtime tools and t
 | dbt-postgres 1.11.0 | The same dbt models on the local Postgres warehouse, through cross-adapter macros (Local Stack) |
 | Great Expectations and Soda | Processed-table expectations plus analytical contracts and prediction freshness |
 | OpenLineage and Marquez | START/COMPLETE/FAIL lineage events, shared collector, SigV4 transport and S3 fallback |
-| Python, SQL, pandas, NumPy, PyAthena, scikit-learn and joblib | Data preparation, Athena analysis, feature engineering, logistic regression, evaluation, serialization and approved-model scoring |
+| Python, SQL, pandas, NumPy, PyAthena, scikit-learn, statsmodels, JupyterLab and joblib | Data preparation, Athena analysis, feature engineering, logistic regression, evaluation, serialization and approved-model scoring |
 | Kimball modeling and slowly changing dimension (SCD) Type 2 | Conformed dimensions, observation fact grain, surrogate keys and provider-history preservation |
 | JavaScript Object Notation (JSON), newline-delimited JSON (NDJSON), Parquet and YAML Ain't Markup Language (YAML) | API/event contracts, partitioned model predictions, analytical storage and declarative configuration |
 | Analytical methods | Cohort filtering, data profiling, dimensional modeling, deterministic patient splits, fixed feature/outcome windows, classification metrics and synthetic proxy labeling |
