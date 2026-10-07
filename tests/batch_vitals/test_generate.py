@@ -278,7 +278,8 @@ def test_the_truth_file_records_each_precursor_and_the_trend_is_in_the_feature_w
     truth = json.loads((folder / "planted_truth.json").read_text(encoding="utf-8"))
     manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
 
-    expect.equal((truth["signal"], truth["version"], len(truth["encounters"])), ("study", "planted-signal-v1", 12))
+    version = json.loads(Path("config/planted_signal.json").read_text(encoding="utf-8"))["version"]
+    expect.equal((truth["signal"], truth["version"], len(truth["encounters"])), ("study", version, 12))
     expect.equal({entry["age_65_plus"] for entry in truth["encounters"] if entry["position"] == 2}, {True})
     expect.equal({entry["has_precursor"] for entry in truth["encounters"] if entry["scenario"] == NORMAL_SCENARIO}, {False})
     planted = [entry for entry in truth["encounters"] if entry["has_precursor"] and entry["heart_rate"] > 4]

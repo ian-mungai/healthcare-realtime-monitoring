@@ -147,9 +147,16 @@ def plan_scenarios(patient_ids: list[str], seed: str) -> dict[str, tuple[str, ..
 
 
 def plan_encounters(
-    settings: BatchSettings, cohort: list[FHIRPatientContext], bp_readings: list[BloodPressureReading], fetch_record: Callable[[int], list[VitalReading]]
+    settings: BatchSettings,
+    cohort: list[FHIRPatientContext],
+    bp_readings: list[BloodPressureReading],
+    fetch_record: Callable[[int], list[VitalReading]],
+    signal: dict[str, Any] | None = None,
 ) -> list[PlannedEncounter]:
-    """Check every input and fetch every waveform record before anything is written to HAPI or disk."""
+    """Check every input and fetch every waveform record before anything is written to HAPI or disk.
+
+    signal overrides the planted signal of settings.signal; the calibration job passes scaled versions.
+    """
     expected = cohort_size()
     if len(cohort) != expected:
         raise BatchError(f"the resource map holds {len(cohort)} patients but COHORT_SIZE is {expected}")
@@ -162,7 +169,7 @@ def plan_encounters(
     for position, context in enumerate(cohort, start=1):
         if not (context.admission_profile or {}).get("birth_date"):
             raise BatchError(f"no birth date for cohort position {position}; reload the cohort with scripts.synthea_loader.src.load_fhir")
-    signal = load_planted_signal(settings.signal)
+    signal = signal or load_planted_signal(settings.signal)
     records: dict[int, list[VitalReading]] = {}
     scenarios = plan_scenarios([context.hapi_patient_id for context in cohort], settings.seed)
     planned = []

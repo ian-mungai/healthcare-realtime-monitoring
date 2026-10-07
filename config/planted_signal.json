@@ -1,5 +1,5 @@
 {
-  "version": "planted-signal-v1",
+  "version": "planted-signal-v2",
   "description": "Known truth of the simulation study: the early-warning trend planted in the feature window of deterioration encounters. Effects are offsets reached at the feature-window end; sizes are drawn per encounter from a normal distribution. Oxygen and confusion start between 300 and 600 seconds, so the last feature-window observation set (at 600 seconds) records them. Calibrated in step 3b.3.",
   "signals": {
     "study": {
@@ -8,14 +8,42 @@
       "ramp_end_seconds": 900,
       "age_65_plus_heart_rate_multiplier": 0.5,
       "effects": {
-        "heart_rate": {"mean": 10.0, "sd": 4.0},
-        "respiratory_rate": {"mean": 3.0, "sd": 1.0},
-        "spo2": {"mean": -2.0, "sd": 1.0},
-        "systolic_bp": {"mean": -8.0, "sd": 4.0},
-        "temperature": {"mean": 0.4, "sd": 0.2}
+        "heart_rate": {
+          "mean": 7.5,
+          "sd": 3.0
+        },
+        "respiratory_rate": {
+          "mean": 2.25,
+          "sd": 0.75
+        },
+        "spo2": {
+          "mean": -1.5,
+          "sd": 0.75
+        },
+        "systolic_bp": {
+          "mean": -6.0,
+          "sd": 3.0
+        },
+        "temperature": {
+          "mean": 0.3,
+          "sd": 0.15
+        }
       },
-      "supplemental_oxygen": {"probability": 0.15, "concentration": 24.0, "start_seconds": [300, 600]},
-      "new_confusion": {"probability": 0.05, "start_seconds": [300, 600]}
+      "supplemental_oxygen": {
+        "probability": 0.3,
+        "concentration": 24.0,
+        "start_seconds": [
+          300,
+          600
+        ]
+      },
+      "new_confusion": {
+        "probability": 0.1,
+        "start_seconds": [
+          300,
+          600
+        ]
+      }
     },
     "null_control": {
       "precursor_probability": 0.0,
@@ -23,14 +51,78 @@
       "ramp_end_seconds": 900,
       "age_65_plus_heart_rate_multiplier": 0.5,
       "effects": {
-        "heart_rate": {"mean": 0.0, "sd": 0.0},
-        "respiratory_rate": {"mean": 0.0, "sd": 0.0},
-        "spo2": {"mean": 0.0, "sd": 0.0},
-        "systolic_bp": {"mean": 0.0, "sd": 0.0},
-        "temperature": {"mean": 0.0, "sd": 0.0}
+        "heart_rate": {
+          "mean": 0.0,
+          "sd": 0.0
+        },
+        "respiratory_rate": {
+          "mean": 0.0,
+          "sd": 0.0
+        },
+        "spo2": {
+          "mean": 0.0,
+          "sd": 0.0
+        },
+        "systolic_bp": {
+          "mean": 0.0,
+          "sd": 0.0
+        },
+        "temperature": {
+          "mean": 0.0,
+          "sd": 0.0
+        }
       },
-      "supplemental_oxygen": {"probability": 0.0, "concentration": 24.0, "start_seconds": [300, 600]},
-      "new_confusion": {"probability": 0.0, "start_seconds": [300, 600]}
+      "supplemental_oxygen": {
+        "probability": 0.0,
+        "concentration": 24.0,
+        "start_seconds": [
+          300,
+          600
+        ]
+      },
+      "new_confusion": {
+        "probability": 0.0,
+        "start_seconds": [
+          300,
+          600
+        ]
+      }
     }
+  },
+  "calibration": {
+    "seed": "2718281",
+    "base_version": "planted-signal-v2",
+    "method": "grid over trend and event scales; model AUC from grouped 5-fold cross-validated logistic regression on vital-features-v3; NEWS2 AUC from the last feature-window values",
+    "targets": {
+      "model": 0.8,
+      "news2": 0.7
+    },
+    "trend_scale": 1.0,
+    "event_scale": 1.0,
+    "achieved": {
+      "model": 0.7984,
+      "news2": 0.7049
+    },
+    "null_control": {
+      "model": 0.5007,
+      "news2": 0.48
+    },
+    "rq3": {
+      "calibration_seed": {
+        "estimate": -4.0371,
+        "lower": -5.4646,
+        "upper": -2.7453
+      },
+      "null_control": {
+        "estimate": -1.0737,
+        "lower": -2.3129,
+        "upper": 0.0344
+      },
+      "power": 1.0,
+      "null_false_positive_rate": 0.2,
+      "null_mean_estimate": -0.0658,
+      "seeds": 10
+    },
+    "report": "artifacts/e2e/calibration/20261007T170753Z_35b61fbff4ac"
   }
 }

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import hashlib
 import io
 import json
 import sys
@@ -22,6 +23,7 @@ from pathlib import Path
 from string import Template
 
 from e2e.report import ROOT, Blocked, Report
+from jobs.calibration.features import FEATURE_COLUMNS, encounter_features
 from jobs.cohort_reference import extract
 from jobs.local_warehouse import dbt, load
 from services.vitals_simulator.app.fhir.admission import ADMITTING_DIAGNOSES
@@ -69,6 +71,7 @@ BATCH_VALUE_SUMS_SQL = (
     "select loinc_code, round(cast(sum(value) as numeric), 3) from $raw.processed_fhir_observations "
     "where encounter_id in (select encounter_id from $raw.admissions) group by loinc_code order by loinc_code"
 )
+CALIBRATION_FEATURES_SQL = Template("select encounter_key, $columns from $$analytics.ml_training_dataset order by encounter_key")
 BATCH_ROWS_SQL = "select count(*) from $raw.processed_fhir_observations where encounter_id in (select encounter_id from $raw.admissions)"
 CHECKS_SQL = {
     "admissions_without_version": "select count(*) from $analytics.fact_admissions where patient_version_key is null",
@@ -200,6 +203,34 @@ def check_dbt(report: Report) -> None:
     )
 
 
+def check_calibration_features(report: Report, folder: Path) -> None:
+    """The calibration job's Python features equal the warehouse's v3 features for every encounter of the batch.
+
+    Only feature columns are compared; labels and model scores are not read.
+    """
+    by_encounter: dict[str, list[dict]] = {}
+    for path in sorted(folder.glob("*.ndjson")):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            record = json.loads(line)
+            by_encounter.setdefault(hashlib.md5(record["encounter_id"].encode(), usedforsecurity=False).hexdigest(), []).append(record)
+    rows = query(CALIBRATION_FEATURES_SQL.safe_substitute(columns=", ".join(FEATURE_COLUMNS)))
+    differing = 0
+    for row in rows:
+        key, *stored = row.split(",")
+        expected = encounter_features(by_encounter.get(key, []))
+        for column, value in zip(FEATURE_COLUMNS, stored, strict=True):
+            wanted = expected[column]
+            if (value == "") != (wanted is None) or (wanted is not None and abs(float(value) - wanted) > 1e-6):
+                differing += 1
+                break
+    report.check(
+        "Calibration features match the warehouse",
+        f"all {len(FEATURE_COLUMNS)} v3 features of every training encounter",
+        f"{differing} of {len(rows)} encounters differ",
+        differing == 0 and len(rows) > 0,
+    )
+
+
 def check_models(report: Report, folder: Path) -> None:
     values = {name: int(query(sql)[0]) for name, sql in CHECKS_SQL.items()}
     report.check(
@@ -285,6 +316,7 @@ def main(argv: list[str] | None = None) -> int:
         check_loads(report, args.batch)
         check_dbt(report)
         check_models(report, args.batch)
+        check_calibration_features(report, args.batch)
     except Exception as failure:
         error = failure
     report.finish(error)
