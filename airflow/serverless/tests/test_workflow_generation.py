@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import os
+import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import generate_healthcare_realtime_pipeline as generator
+import validate_generated_workflow as validator
+import yaml
 
 
 class WorkflowGenerationTests(unittest.TestCase):
@@ -111,6 +115,35 @@ class WorkflowGenerationTests(unittest.TestCase):
 
         with self.assertRaisesRegex(TypeError, "Unsupported task type"):
             generator.serialize_task(object())
+
+    # The generated-file check that local runs and CI share (validate_generated_workflow.py). Failure modes:
+    # 1. The committed check drifts from the DAG (CI on 0586fc0): the file must equal the DAG's current definition.
+    # 2. A deployment value leaks into the shareable file: account IDs, ARNs and task revisions are rejected.
+    def test_a_freshly_generated_workflow_passes_the_shared_check(self) -> None:
+        with tempfile.TemporaryDirectory() as scratch:
+            path = Path(scratch) / "workflow.yaml"
+            path.write_text(yaml.safe_dump(generator.build_workflow_definition(), sort_keys=False), encoding="utf-8")
+
+            self.assertEqual(validator.problems(path), [])
+
+    def test_a_stale_or_leaking_workflow_fails_the_shared_check(self) -> None:
+        definition = generator.build_workflow_definition()
+        stale = {
+            name: {**workflow, "tasks": {key: value for key, value in workflow["tasks"].items() if key != "extract_cohort_reference"}}
+            for name, workflow in definition.items()
+        }
+        with tempfile.TemporaryDirectory() as scratch:
+            path = Path(scratch) / "workflow.yaml"
+            path.write_text(yaml.safe_dump(stale, sort_keys=False), encoding="utf-8")
+            self.assertTrue(any("does not match" in problem for problem in validator.problems(path)))
+
+            path.write_text(
+                yaml.safe_dump(definition, sort_keys=False) + "# arn:aws:ecs:example-region-1:111111111111:task-definition/healthcare_realtime_dbt:42\n",
+                encoding="utf-8",
+            )
+            found = validator.problems(path)
+            for expected in ("account ID", "ARN", "task revision"):
+                self.assertTrue(any(expected in problem for problem in found), f"expected a problem naming {expected}: {found}")
 
 
 if __name__ == "__main__":

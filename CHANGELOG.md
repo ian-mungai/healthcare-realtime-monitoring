@@ -6,6 +6,7 @@ Notable changes to the synthetic portfolio system are recorded here. Releases us
 
 ### Changed
 
+- Move CI's inline check of the generated MWAA Serverless workflow into `airflow/serverless/validate_generated_workflow.py`, which the workflow tests also run locally: the file must match the DAG's current definition and hold no account ID, ARN or task revision. The inline copy had drifted from the DAG without any local check failing.
 - Deployment fixes from the Oct 6 2026 first deployment. The deploy user's Glue template allows tagging the Glue job; the EC2 template allows reading security group rules. `run_fhir_setup.sh` reads the seed bundle prefix from the setup task definition, because the targeted foundation apply does not record that output. The simulator's blood-pressure readings are exported from the current Synthea cohort; the quickstart says to export them before pushing images.
 - Adopt Conventional Docs for authored project Markdown after complete document and workflow review. Correct metadata, American Psychological Association (APA) Title Case headings, contents, terminology, procedure anatomy, source provenance and recorded verification boundaries; preserve historical evidence and the separate README structure.
 - Correct selected-environment loading, model-command configuration, per-vital ordering, blood-pressure freshness and teardown guidance.

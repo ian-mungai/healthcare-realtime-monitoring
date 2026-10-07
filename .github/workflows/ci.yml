@@ -251,7 +251,7 @@ jobs:
           print("Deployment package validation passed.")
           PY
 
-      - name: Generate MWAA Serverless workflow
+      - name: Generate and validate MWAA Serverless workflow
         env:
           MWAA_SERVERLESS_START_DATE: "2099-01-01T00:00:00+00:00"
           AIRFLOW__DBT__ECS_SECURITY_GROUP: "sg-ci-placeholder"
@@ -277,60 +277,9 @@ jobs:
           OPENLINEAGE_URL: "https://lineage.example.com"
         run: |
           PYTHONPATH="$PWD/airflow/dags:$PWD" python airflow/serverless/generate_healthcare_realtime_pipeline.py
+          # The same check the workflow tests run locally: the file matches the DAG and holds no deployment values.
+          PYTHONPATH="$PWD/airflow/serverless:$PWD/airflow/dags:$PWD" python airflow/serverless/validate_generated_workflow.py
 
-      - name: Validate generated MWAA Serverless workflow
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import yaml
-
-          path = Path("airflow/serverless/generated/healthcare_realtime_pipeline.yaml")
-          workflow = yaml.safe_load(path.read_text())
-          definition = workflow["healthcare_realtime_pipeline"]
-          tasks = definition["tasks"]
-
-          assert definition["schedule"] == "0 2 * * *"
-          assert definition["start_date"] == "2099-01-01T00:00:00+00:00"
-          assert definition["max_active_runs"] == 1
-          assert len(tasks) == 10
-          assert tasks["validate_processed_data"]["operator"] == "airflow.providers.standard.operators.python.PythonOperator"
-          assert tasks["validate_processed_data"]["python_callable"] == "lib.athena_lineage.run_athena_validation"
-          assert tasks["run_dbt_build"]["task_definition"] == "healthcare_realtime_dbt"
-          assert tasks["run_soda_checks"]["task_definition"] == "healthcare_realtime_soda"
-          assert tasks["run_great_expectations"]["task_definition"] == "healthcare_realtime_soda"
-          assert tasks["run_ml_scoring"]["task_definition"] == "healthcare_realtime_dbt"
-          assert tasks["run_ml_scoring"]["overrides"]["containerOverrides"][0]["command"] == ["score-ml", "--publish-s3"]
-          assert tasks["run_great_expectations"]["overrides"]["containerOverrides"][0]["command"] == [
-              "python",
-              "/app/validate_processed_observations.py",
-          ]
-          assert tasks["run_dbt_build"]["overrides"]["containerOverrides"][0]["command"][-3:] == [
-              "--exclude",
-              "ml_predictions_serving",
-              "ml_predictions_latest",
-          ]
-          assert tasks["extract_cohort_reference"]["dependencies"] == ["run_great_expectations"]
-          assert tasks["extract_cohort_reference"]["task_definition"] == "healthcare_realtime_fhir_setup"
-          assert tasks["extract_cohort_reference"]["overrides"]["containerOverrides"][0]["command"] == [
-              "python",
-              "-m",
-              "jobs.fhir_setup.task",
-              "reference",
-          ]
-          assert "{cohort_reference_enabled: true}" in tasks["run_dbt_build"]["overrides"]["containerOverrides"][0]["command"]
-          assert tasks["run_dbt_build"]["dependencies"] == ["extract_cohort_reference"]
-          assert tasks["refresh_prediction_models"]["dependencies"] == ["run_ml_scoring"]
-          assert tasks["validate_processed_data"]["op_kwargs"]["openlineage_url"] == "https://lineage.example.com"
-
-          content = path.read_text()
-          assert "111111111111" not in content
-          assert "task-definition/" not in content
-          assert "healthcare_realtime_dbt:42" not in content
-          assert "healthcare_realtime_soda:17" not in content
-          assert "healthcare_realtime_fhir_setup:3" not in content
-
-          print("MWAA Serverless workflow validation passed.")
-          PY
       - name: Terraform Init
         working-directory: infra
         run: |
