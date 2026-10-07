@@ -1,3 +1,4 @@
 boto3==1.43.87
 pyathena==3.36.0
 scikit-learn==1.9.1
+statsmodels==0.15.0
