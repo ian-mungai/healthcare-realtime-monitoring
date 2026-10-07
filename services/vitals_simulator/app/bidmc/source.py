@@ -122,6 +122,38 @@ def vary_reused_readings(readings: list[VitalReading], record_number: int, epoch
     return varied
 
 
+# Seeded variation between runs of the same patient: (offset standard deviation, noise standard deviation) per vital.
+RUN_VARIATION = {"heart_rate": (3.0, 0.5), "respiratory_rate": (1.0, 0.3), "spo2": (0.5, 0.2)}
+
+
+def vary_run_readings(readings: list[VitalReading], run_key: str) -> list[VitalReading]:
+    """Give one run its own stretch of the record and its own small vital offsets, so a patient's runs differ.
+
+    The run starts at a seeded point of the record (the 1 Hz offsets stay), and each vital gets a seeded offset plus
+    small noise per reading. The same run key always gives the same values. Values outside the processor's range, such
+    as dropouts, stay as they are so the processor still rejects them; varied values are kept inside the range.
+    """
+    if not readings:
+        return []
+    digest = hashlib.sha256(f"bidmc-run:{run_key}".encode()).digest()
+    rng = np.random.default_rng(int.from_bytes(digest[:8], "big"))
+    shift = int(rng.integers(len(readings)))
+    rotated = readings[shift:] + readings[:shift]
+    offsets = {name: rng.normal(0.0, offset_sd) for name, (offset_sd, _noise) in RUN_VARIATION.items()}
+    varied = []
+    for original, reading in zip(readings, rotated, strict=True):
+        values = {}
+        for name, (_offset_sd, noise) in RUN_VARIATION.items():
+            value = getattr(reading, name)
+            minimum, maximum = REALTIME_VITAL_RANGES[name]
+            if value is None or not minimum <= value <= maximum:
+                values[name] = value
+                continue
+            values[name] = round(min(max(value + offsets[name] + rng.normal(0.0, noise), minimum), maximum), 1)
+        varied.append(replace(reading, offset_seconds=original.offset_seconds, **values))
+    return varied
+
+
 def build_record_name(record_number: int) -> str:
     """
     Convert:

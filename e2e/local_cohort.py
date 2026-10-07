@@ -184,6 +184,24 @@ def check_reuse(report: Report, folder: Path, patient_ids: tuple[str, ...]) -> N
     )
     missing = sorted(position for position, means in feature_means.items() if None in means.values())
     report.evidence["feature_window_vital_missing_positions"] = missing
+    run_sequences: dict[int, set[tuple[float, ...]]] = {}
+    for entry in manifest["files"]:
+        started = datetime.fromisoformat(entry["started_at"])
+        rates = [
+            record["heart_rate"]
+            for record in map(json.loads, (folder / entry["name"]).read_text(encoding="utf-8").splitlines())
+            if "heart_rate" in record and (datetime.fromisoformat(record["event_timestamp"]) - started).total_seconds() < RAMP_START_SECONDS
+        ]
+        if rates:
+            run_sequences.setdefault(entry["position"], set()).add(tuple(rates))
+    # Two runs are copies when their pre-ramp heart-rate readings are identical; equal means alone can be chance.
+    copies = sorted(position for position, sequences in run_sequences.items() if len(sequences) < generate.RUNS_PER_PATIENT)
+    report.check(
+        "A patient's runs do not copy each other",
+        f"{generate.RUNS_PER_PATIENT} different pre-ramp heart-rate sequences per patient",
+        f"{len(copies)} patients with repeated runs",
+        not copies,
+    )
 
 
 def differs(first: dict[str, float | None], second: dict[str, float | None]) -> bool:

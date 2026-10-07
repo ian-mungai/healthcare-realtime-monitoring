@@ -9,7 +9,14 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from threading import Event
 
-from services.vitals_simulator.app.bidmc.source import VitalReading, bidmc_source_for_position, fetch_remote_bidmc_record, rotate_readings, vary_reused_readings
+from services.vitals_simulator.app.bidmc.source import (
+    VitalReading,
+    bidmc_source_for_position,
+    fetch_remote_bidmc_record,
+    rotate_readings,
+    vary_reused_readings,
+    vary_run_readings,
+)
 from services.vitals_simulator.app.fhir.admission import plan_admission
 from services.vitals_simulator.app.fhir.client import FHIRRetryableError, HAPIFHIRClient
 from services.vitals_simulator.app.fhir.encounter import SIMULATOR_SCENARIO_TAG_SYSTEM, build_simulator_encounter
@@ -263,7 +270,11 @@ def initialize_simulation_run(
         # A map written before birth dates were recorded puts the patient in the under-65 group.
         older = isinstance(birth_date, str) and bool(birth_date) and is_65_plus(birth_date, started_at)
         precursor = sample_precursor(planted_signal, scenarios[patient_id], seed, patient_id, run_id, older)
-        initialized.append(replace(simulation, context=context, scenario=scenarios[patient_id], bedside_cadence=bedside, precursor=precursor))
+        # Each run gets its own stretch of the patient's record and its own small offsets, so runs do not copy each other.
+        readings = vary_run_readings(simulation.readings, f"{seed}:{patient_id}:{run_id}")
+        initialized.append(
+            replace(simulation, context=context, readings=readings, scenario=scenarios[patient_id], bedside_cadence=bedside, precursor=precursor)
+        )
     return run_id, initialized
 
 

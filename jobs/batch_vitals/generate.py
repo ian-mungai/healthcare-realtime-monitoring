@@ -38,7 +38,14 @@ import numpy as np
 from scripts.synthea_loader.src.cohort import cohort_size
 from services.fhir_webhook.app.models import FHIRWebhookEvent
 from services.fhir_webhook.app.vitals import transform_fhir_vitals
-from services.vitals_simulator.app.bidmc.source import VitalReading, bidmc_source_for_position, fetch_remote_bidmc_record, rotate_readings, vary_reused_readings
+from services.vitals_simulator.app.bidmc.source import (
+    VitalReading,
+    bidmc_source_for_position,
+    fetch_remote_bidmc_record,
+    rotate_readings,
+    vary_reused_readings,
+    vary_run_readings,
+)
 from services.vitals_simulator.app.fhir.admission import Admission, plan_admission
 from services.vitals_simulator.app.fhir.client import CreatedFHIRResource, HAPIFHIRClient
 from services.vitals_simulator.app.fhir.encounter import build_simulator_encounter
@@ -176,7 +183,10 @@ def plan_encounters(
                     scenario=scenario,
                     started_at=started_at,
                     context=context,
-                    readings=vary_reused_readings(rotate_readings(records[record_number], epoch), record_number, epoch),
+                    readings=vary_run_readings(
+                        vary_reused_readings(rotate_readings(records[record_number], epoch), record_number, epoch),
+                        f"{settings.seed}:{context.hapi_patient_id}:{run_identifier(settings, run)}",
+                    ),
                     bp_readings=readings_by_patient[context.synthea_patient_id],
                     split_group=f"bidmc{record_number:02d}",
                     admission=admission,

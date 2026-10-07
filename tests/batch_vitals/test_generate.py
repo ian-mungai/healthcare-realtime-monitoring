@@ -18,6 +18,7 @@ Failure modes the generator must handle (written before the generator):
 13. A patient without a birth date cannot be placed in an age group: stop before any HAPI write.
 14. A stay that would end after the batch is generated cannot be a finished stay or reach the training set: stop
     before any HAPI write.
+15. A patient's runs must not copy each other: each run's feature window differs (its own record stretch and offsets).
 
 The local end-to-end run (python -m e2e.local_cohort) remains the proof against a real HAPI server.
 """
@@ -147,8 +148,10 @@ def test_outcome_window_follows_each_scenario(tmp_path: Path) -> None:
             for line in lines
             if "heart_rate" in line and (datetime.fromisoformat(line["event_timestamp"]) - encounter_start).total_seconds() >= 900
         }
-        expected = {135.0} if entry["scenario"] == DETERIORATION_SCENARIO else {80.0}
-        expect.equal(outcome_heart_rates, expected)
+        if entry["scenario"] == DETERIORATION_SCENARIO:
+            expect.equal(outcome_heart_rates, {135.0})
+        elif not all(50.0 <= value <= 100.0 for value in outcome_heart_rates):
+            expect.fail(f"expected: normal outcome heart rates inside 50 to 100, got {sorted(outcome_heart_rates)}")
 
 
 def test_a_rerun_reuses_encounters_and_writes_identical_files(tmp_path: Path) -> None:
@@ -315,3 +318,12 @@ def test_a_stay_ending_in_the_future_stops_before_writing_to_hapi(tmp_path: Path
     with pytest.raises(generate.BatchError, match="future"):
         generate.generate_batch(late, cohort(), blood_pressure(), fetch_record, hapi, now=datetime(2026, 10, 7, tzinfo=UTC))
     expect.equal(hapi.posts, 0)
+
+
+def test_a_patients_runs_have_different_feature_windows(tmp_path: Path) -> None:
+    folder = run(tmp_path)
+    manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
+
+    for position in (1, 2):
+        means = {round(feature_heart_rate(folder, item["name"], 0, 300), 2) for item in manifest["files"] if item["position"] == position}
+        expect.equal(len(means), 6)

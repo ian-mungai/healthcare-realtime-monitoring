@@ -440,3 +440,20 @@ def test_a_live_deterioration_run_carries_the_planted_precursor(monkeypatch):
     expect.equal({simulation.scenario for simulation in planted}, {DETERIORATION_SCENARIO})
     if not planted or not all(simulation.precursor.age_65_plus for simulation in planted):
         expect.fail("expected: deterioration runs carry a precursor with the patient's age group")
+
+
+def test_each_live_run_gets_its_own_stretch_of_the_record():
+    context = FHIRPatientContext("synthea-1000", "1000", "synthea-encounter-1000", "encounter-1000")
+    readings = [VitalReading("bidmc01n", offset, 70.0 + offset, 16.0, 98.0) for offset in range(60)]
+
+    class FakeClient:
+        def post_resource(self, resource):
+            return CreatedFHIRResource("Encounter", "run-encounter-1000", "Encounter/run-encounter-1000", 201)
+
+    simulation = PatientSimulation(context=context, bidmc_record_number=1, readings=readings, bp_cadence=None)
+    _, (first,) = initialize_simulation_run([simulation], datetime(2026, 9, 1, tzinfo=UTC), seed="7", client=FakeClient(), run_id="run-1")
+    _, (second,) = initialize_simulation_run([simulation], datetime(2026, 9, 1, tzinfo=UTC), seed="7", client=FakeClient(), run_id="run-2")
+
+    if first.readings == readings or first.readings == second.readings:
+        expect.fail("expected: each live run varies the patient's readings in its own way")
+    expect.equal([reading.offset_seconds for reading in first.readings], list(range(60)))
