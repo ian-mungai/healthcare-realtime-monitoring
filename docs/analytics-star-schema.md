@@ -1,7 +1,7 @@
 ---
 title: "Analytics Star Schema"
 description: "Look up analytical grains, keys, conformed dimensions and permitted joins."
-last_updated: 2026-10-06
+last_updated: 2026-10-07
 audience: [developer, operator]
 ---
 
@@ -32,6 +32,7 @@ For developers and operators: look up analytical grains, keys, conformed dimensi
 - **MD5**: Message Digest 5.
 - **NEWS2**: National Early Warning Score 2.
 - **NPPES**: National Plan and Provider Enumeration System.
+- **SNOMED CT**: Systematized Nomenclature of Medicine Clinical Terms.
 - **SQL**: Structured Query Language.
 - **UTF**: Unicode Transformation Format.
 
@@ -66,6 +67,20 @@ All hash keys use lowercase Message Digest 5 (MD5) hex over stable Unicode Trans
 The analytical staging boundary includes only the ten patient identifiers supplied through the private deployment configuration and observations with a valid `encounter_id`. Historical schema `1.0` rows and out-of-cohort patients remain in the immutable source layer for audit and replay purposes but are excluded from the star schema. Schema `1.1` events require `encounter_id`.
 
 The table named by `DBT_DIM_PROVIDER_TABLE` uses a type 2 slowly changing dimension. A changed provider name, taxonomy, description or state closes the current row at the new snapshot's effective date and creates a successor row. Encounter and fact rows retain both the stable `provider_key` and the effective `provider_version_key`.
+
+### Cohort Reference Models
+
+With the dbt variable `cohort_reference_enabled` set to true, dbt also builds models from the cohort reference tables (`dbt/models/sources.yml`, source `cohort_reference`). The local warehouse turns it on (Local Stack). On AWS it stays off until the reference extract runs there. The existing models compile to the same Athena SQL.
+
+| Model | Business key | Surrogate key | Purpose |
+| --- | --- | --- | --- |
+| `dim_patient_version` | `patient_id` plus `valid_from` | `patient_version_key` | Synthea demographics and insurance payer as a type 2 slowly changing dimension: a payer change starts a new version |
+| `dim_facility` | `facility_id` | `facility_key` | Synthea hospital name, city and state |
+| `dim_unit` | `facility_id` plus `unit_name` | `unit_key` | Each facility's inpatient units with their care level (`critical`, `intermediate` or `acute`) from the `hospital_units` seed |
+| `fact_admissions` | `encounter_id` | `admission_key` | One synthetic admission per encounter: facility, unit, admit and discharge times, length of stay, the SNOMED CT admitting diagnosis with its source (`synthea_history` or `simulator_fallback`), the `unit_key` of the admitting unit, the patient version valid on the admission date and age at admission |
+| `fact_encounter_minute_features` | `encounter_key` plus `minute_index` | `encounter_minute_key` | Mean vitals for each of the 15 feature-window minutes of each training encounter |
+
+The existing `DBT_DIM_PATIENT_TABLE` keeps its grain and columns. `fact_admissions` shares `encounter_key` and `patient_key` with the other facts.
 
 The committed provider seed is a synthetic National Plan and Provider Enumeration System (NPPES)-compatible fixture for reproducible portfolio runs. Because the source observations do not contain a practitioner reference, the table named by `DBT_DIM_ENCOUNTER_TABLE` assigns the current synthetic roster deterministically and marks the result with `is_synthetic_provider_assignment`. This demonstrates temporal attribution mechanics; it does not claim that a named clinician treated a patient.
 
@@ -102,6 +117,8 @@ Prerequisites:
 | --- | --- | :---: | :---: | :---: | :---: | :---: | --- |
 | Record vital-sign observation | One row per observation identifier (ID) and LOINC code | X | X | X | X | X | `value` |
 | Construct encounter features and label | One row per encounter | X | X | X | | | Vital aggregates and deterioration proxy |
+| Admit patient (reference models) | One row per admission | X | X | | | X | Length of stay, age at admission |
+| Construct minute features (reference models) | One row per encounter and feature-window minute | X | X | | | | Per-minute vital means |
 
 ## Feature and Label Construction
 
@@ -126,7 +143,7 @@ This label is a synthetic engineering proxy derived from NEWS2 extreme threshold
 
 ## Training Dataset
 
-`${ATHENA_DBT_DATABASE}.${DBT_ML_TRAINING_TABLE}` contains only training-eligible encounters and preserves the feature and label definition versions. The split is deterministic: a stable bucket derived from `patient_key` assigns buckets 0 through 7 to training and 8 through 9 to testing. Grouping by patient prevents encounters for the same synthetic patient from appearing in both partitions.
+`${ATHENA_DBT_DATABASE}.${DBT_ML_TRAINING_TABLE}` contains only training-eligible encounters and preserves the feature and label definition versions. The split is deterministic: a stable bucket derived from `patient_key` assigns buckets 0 through 7 to training and 8 through 9 to testing. Grouping by patient prevents encounters for the same synthetic patient from appearing in both partitions. With the cohort reference models on, the bucket comes from the patient's waveform split group instead, so the two patients who share a reused BIDMC record also stay in one partition. A dbt test checks that no split group appears in both.
 
 The baseline model uses the twelve vital-sign aggregates as predictors. Encounter, patient and provider keys remain available for traceability but are excluded from model features.
 

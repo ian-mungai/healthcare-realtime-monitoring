@@ -66,3 +66,14 @@ def test_get_patient_cohort_follows_the_cohort_size_setting(monkeypatch):
     monkeypatch.setattr(mapping, "load_fhir_resource_map", lambda: build_resource_map(100))
 
     expect.equal(len(mapping.get_patient_cohort()), 100)
+
+
+def test_get_patient_cohort_carries_the_admission_profile(monkeypatch):
+    resource_map = build_resource_map()
+    resource_map["cohort"]["synthea-patient-0"]["admission_profile"] = {"facilities": [{"id": "hospital-1", "name": "General Hospital"}], "diagnoses": []}
+    monkeypatch.setattr(mapping, "load_fhir_resource_map", lambda: resource_map)
+
+    cohort = mapping.get_patient_cohort()
+
+    expect.equal(cohort[0].admission_profile["facilities"][0]["id"], "hospital-1")
+    expect.equal(cohort[1].admission_profile, None)

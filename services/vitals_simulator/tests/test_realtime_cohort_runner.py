@@ -379,3 +379,25 @@ def test_load_patient_simulations_reuses_records_for_a_one_hundred_patient_cohor
         expect.fail("expected: a reused record gets its own seeded variation")
     expect.equal(simulations[0].readings[0].heart_rate, 70.0)
     expect.equal(max(fetched), 53)
+
+
+def test_live_encounters_carry_a_seeded_admission():
+    profile = {"facilities": [{"id": "hospital-1", "name": "General Hospital"}], "diagnoses": [{"code": "233604007", "display": "Pneumonia (disorder)"}]}
+    context = FHIRPatientContext("synthea-1000", "1000", "synthea-encounter-1000", "encounter-1000", admission_profile=profile)
+    resources = []
+
+    class FakeClient:
+        def post_resource(self, resource):
+            resources.append(resource)
+            return CreatedFHIRResource("Encounter", "run-encounter-1000", "Encounter/run-encounter-1000", 201)
+
+    initialize_simulation_run(
+        [PatientSimulation(context=context, bidmc_record_number=1, readings=[], bp_cadence=None)],
+        started_at=datetime(2026, 9, 17, 12, 0, tzinfo=UTC),
+        seed="test-seed",
+        client=FakeClient(),
+        run_id="run-123",
+    )
+
+    expect.equal(resources[0]["reasonCode"][0]["coding"][0]["code"], "233604007")
+    expect.equal(resources[0]["serviceProvider"]["display"], "General Hospital")

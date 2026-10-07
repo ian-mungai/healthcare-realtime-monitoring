@@ -33,6 +33,7 @@ from scripts.synthea_loader.src.cohort import cohort_size
 from services.fhir_webhook.app.models import FHIRWebhookEvent
 from services.fhir_webhook.app.vitals import transform_fhir_vitals
 from services.vitals_simulator.app.bidmc.source import VitalReading, bidmc_source_for_position, fetch_remote_bidmc_record, rotate_readings, vary_reused_readings
+from services.vitals_simulator.app.fhir.admission import Admission, plan_admission
 from services.vitals_simulator.app.fhir.client import CreatedFHIRResource, HAPIFHIRClient
 from services.vitals_simulator.app.fhir.encounter import build_simulator_encounter
 from services.vitals_simulator.app.fhir.mapping import FHIRPatientContext, get_patient_cohort
@@ -49,6 +50,8 @@ DEFAULT_SEED = "4817263"
 DEFAULT_START = "2026-09-01T08:00:00+00:00"
 BATCH_SOURCE = "batch_simulator"
 RUNS_PER_PATIENT = 2
+# A patient's simulated admissions start this many days apart, longer than the longest stay, so stays never overlap.
+ENCOUNTER_SPACING_DAYS = 14
 # Stable namespace for observation IDs, so the same observation gets the same ID on every run.
 OBSERVATION_NAMESPACE = uuid.UUID("4c7a1f9e-2b8d-5e3a-9f61-0d2c7b5a8e14")
 
@@ -58,7 +61,7 @@ class BatchError(RuntimeError):
 
 
 class EncounterClient(Protocol):
-    def post_resource(self, resource: dict) -> CreatedFHIRResource: ...
+    def upsert_resource(self, resource: dict) -> CreatedFHIRResource: ...
 
 
 @dataclass(frozen=True)
@@ -86,6 +89,11 @@ class PlannedEncounter:
     bp_readings: list[BloodPressureReading]
     # Patients that share a waveform record share a group, so a split by group keeps them in one partition.
     split_group: str
+    admission: Admission
+
+
+def run_identifier(settings: BatchSettings, run: int) -> str:
+    return f"batch-{settings.seed}-{run}"
 
 
 def plan_scenarios(patient_ids: list[str], seed: str) -> dict[str, tuple[str, str]]:
@@ -117,16 +125,18 @@ def plan_encounters(
         if not records[record_number]:
             raise BatchError(f"waveform record {record_number} has no readings")
         for run, scenario in enumerate(scenarios[context.hapi_patient_id], start=1):
+            admission = plan_admission(context.admission_profile, settings.seed, context.hapi_patient_id, run_identifier(settings, run))
             planned.append(
                 PlannedEncounter(
                     position=position,
                     run=run,
                     scenario=scenario,
-                    started_at=settings.start + timedelta(days=run - 1),
+                    started_at=settings.start + timedelta(days=(run - 1) * ENCOUNTER_SPACING_DAYS, hours=admission.admit_hour),
                     context=context,
                     readings=vary_reused_readings(rotate_readings(records[record_number], epoch), record_number, epoch),
                     bp_readings=readings_by_patient[context.synthea_patient_id],
                     split_group=f"bidmc{record_number:02d}",
+                    admission=admission,
                 )
             )
     return planned
@@ -190,10 +200,15 @@ def generate_batch(
         files: list[dict[str, Any]] = []
         rejected: Counter[str] = Counter()
         for encounter in planned:
-            run_id = f"batch-{settings.seed}-{encounter.run}"
-            created = client.post_resource(
-                build_simulator_encounter(encounter.context.hapi_patient_id, run_id, encounter.started_at, scenario=encounter.scenario)
+            encounter_resource = build_simulator_encounter(
+                encounter.context.hapi_patient_id,
+                run_identifier(settings, encounter.run),
+                encounter.started_at,
+                scenario=encounter.scenario,
+                admission=encounter.admission,
+                status="finished",
             )
+            created = client.upsert_resource(encounter_resource)
             name = f"position_{encounter.position:03d}_run_{encounter.run}.ndjson"
             lines = [json.dumps(record, sort_keys=True) for record in encounter_records(settings, encounter, created.resource_id, rejected)]
             content = ("\n".join(lines) + "\n").encode("utf-8")

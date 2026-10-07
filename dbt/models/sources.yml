@@ -22,6 +22,45 @@ sources:
           - name: patient_id
             tests:
               - not_null
+  - name: cohort_reference
+    description: >-
+      Cohort reference rows from jobs/cohort_reference/extract.py and the local loader: Synthea demographics and payer
+      history, facilities, the simulator's admissions from HAPI FHIR and the waveform split groups. Enabled with the
+      cohort_reference_enabled variable (on for the local warehouse; on AWS once the extract is deployed).
+    database: "{{ env_var('ATHENA_CATALOG') }}"
+    schema: "{{ env_var('ATHENA_SOURCE_DATABASE') }}"
+    config:
+      enabled: "{{ var('cohort_reference_enabled', false) }}"
+    tables:
+      - name: fhir_patients
+        columns:
+          - name: patient_id
+            tests:
+              - not_null
+              - unique
+      - name: patient_payer_history
+        columns:
+          - name: patient_id
+            tests:
+              - not_null
+      - name: facilities
+        columns:
+          - name: facility_id
+            tests:
+              - not_null
+              - unique
+      - name: admissions
+        columns:
+          - name: encounter_id
+            tests:
+              - not_null
+              - unique
+      - name: patient_split_groups
+        columns:
+          - name: patient_id
+            tests:
+              - not_null
+              - unique
   - name: model_serving
     database: "{{ env_var('ATHENA_CATALOG') }}"
     schema: "{{ env_var('ATHENA_ML_DATABASE') }}"

@@ -11,3 +11,14 @@ healthcare_realtime:
       s3_data_dir: "s3://{{ env_var('DATA_BUCKET_NAME') }}/dbt/"
       s3_data_naming: schema_table_unique
       threads: 4
+
+    # Local development warehouse in deploy/local/compose.yaml; run it through python -m jobs.local_warehouse.dbt.
+    local:
+      type: postgres
+      host: "{{ env_var('LOCAL_WAREHOUSE_HOST', '127.0.0.1') }}"
+      port: "{{ env_var('LOCAL_POSTGRES_PORT', '5432') | as_number }}"
+      user: warehouse
+      password: "{{ env_var('LOCAL_WAREHOUSE_DB_PASSWORD') }}"
+      dbname: warehouse
+      schema: "{{ env_var('ATHENA_DBT_DATABASE') }}"
+      threads: 4

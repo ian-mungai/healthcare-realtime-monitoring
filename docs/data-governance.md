@@ -1,7 +1,7 @@
 ---
 title: "Data Governance"
 description: "Look up schema validation, event identity, freshness, retention and lineage controls."
-last_updated: 2026-10-06
+last_updated: 2026-10-07
 audience: [developer, operator]
 ---
 
@@ -98,6 +98,8 @@ BIDMC measurements -> FHIR Observation -> Kinesis -> realtime serving
 | `${ATHENA_DBT_DATABASE}.${DBT_ML_PREDICTIONS_LATEST_TABLE}` | Athena / dbt | Predictions restricted to the approved model version |
 | `${LATEST_VITALS_TABLE}` | DynamoDB | Latest accepted realtime state by patient |
 | `quarantine/fhir_observations/` | Amazon S3 | Rejected analytical records with reasons |
+| `raw.fhir_patients`, `raw.patient_payer_history`, `raw.facilities` and `raw.admissions` | Local Postgres warehouse | Cohort reference rows: synthetic demographics (birth date, gender, race, ethnicity, marital status and state; no names or address lines), payer periods, Synthea hospitals and simulated admissions (Local Stack) |
+| `dim_patient_version`, `dim_facility`, `dim_unit`, `fact_admissions` and `fact_encounter_minute_features` | Local Postgres warehouse / dbt | Cohort reference models, built when `cohort_reference_enabled` is true; not yet built on AWS |
 | `${ATHENA_SOURCE_DATABASE}.${ATHENA_QUARANTINE_TABLE}` | Glue Catalog / Athena | Queryable view of quarantined records |
 | `metrics/glue/` | Amazon S3 | Per-run candidate, valid and rejected counts |
 | `glue/temp/` and `glue/spark-ui/` | Amazon S3 | Glue job temporary files and Spark UI event logs, kept in the project bucket so the job role needs no other bucket |

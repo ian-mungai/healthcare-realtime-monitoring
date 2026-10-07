@@ -26,3 +26,10 @@ def test_build_simulator_encounter_tags_the_labelled_scenario():
 
     expect.equal(tagged["meta"], {"tag": [{"system": SIMULATOR_SCENARIO_TAG_SYSTEM, "code": "deterioration_proxy"}]})
     expect.not_in("meta", build_simulator_encounter("1000", "run-123", started_at))
+
+
+def test_a_live_encounter_is_in_progress_and_a_completed_one_is_finished():
+    started_at = datetime(2026, 9, 17, 12, 0, tzinfo=UTC)
+
+    expect.equal(build_simulator_encounter("1000", "run-123", started_at)["status"], "in-progress")
+    expect.equal(build_simulator_encounter("1000", "run-123", started_at, status="finished")["status"], "finished")

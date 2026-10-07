@@ -19,6 +19,8 @@ class FHIRPatientContext:
     hapi_patient_id: str
     synthea_encounter_id: str
     hapi_encounter_id: str
+    # Hospitals and disorders from the patient's Synthea history, for planning simulated admissions.
+    admission_profile: dict | None = None
 
 
 def get_resource_map_file() -> Path:
@@ -92,6 +94,7 @@ def get_patient_cohort(expected_count: int | None = None) -> list[FHIRPatientCon
                 hapi_patient_id=entry["hapi_patient_id"],
                 synthea_encounter_id=entry["synthea_encounter_id"],
                 hapi_encounter_id=entry["hapi_encounter_id"],
+                admission_profile=entry.get("admission_profile"),
             )
         )
     return contexts

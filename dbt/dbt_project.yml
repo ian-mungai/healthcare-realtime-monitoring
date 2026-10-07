@@ -76,6 +76,12 @@ seeds:
     +enabled: "{{ var('run_project_evaluator', false) }}"
 
   healthcare_realtime:
+    hospital_units:
+      +enabled: "{{ var('cohort_reference_enabled', false) }}"
+      +column_types:
+        unit_name: varchar
+        care_level: varchar
+        care_level_rank: integer
     provider_history:
       +column_types:
         provider_npi: varchar

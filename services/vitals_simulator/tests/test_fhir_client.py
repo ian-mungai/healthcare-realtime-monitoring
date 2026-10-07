@@ -114,3 +114,20 @@ def test_count_resources_rejects_a_response_without_total():
 
     with pytest.raises(FHIRClientError, match="total"):
         HAPIFHIRClient(base_url=FHIR_BASE_URL).count_resources("Encounter", {"subject": "Patient/1000"})
+
+
+@respx.mock
+def test_upsert_resource_updates_the_resource_with_the_same_identifier():
+    # A rerun with changed admission logic must update the encounter it created before, not keep the old one.
+    route = respx.put(f"{FHIR_BASE_URL}/Encounter").mock(return_value=httpx.Response(200, json={"resourceType": "Encounter", "id": "encounter-1"}))
+    encounter = {"resourceType": "Encounter", "identifier": [{"system": "https://example.org/run", "value": "batch-1:patient-1"}]}
+
+    created = HAPIFHIRClient(base_url=FHIR_BASE_URL, max_retries=1).upsert_resource(encounter)
+
+    expect.equal(created.resource_id, "encounter-1")
+    expect.equal(route.calls.last.request.url.params["identifier"], "https://example.org/run|batch-1:patient-1")
+
+
+def test_upsert_resource_requires_an_identifier():
+    with pytest.raises(ValueError, match="identifier"):
+        HAPIFHIRClient(base_url=FHIR_BASE_URL).upsert_resource({"resourceType": "Encounter"})

@@ -10,6 +10,7 @@ Failure modes the generator must handle (written before the generator):
 6. A generated record does not pass the stream processor's schema check (a source waveform value outside the
    processor's range): leave it out and count it in the manifest, as the processor rejects it on the live path.
 7. Output names patients only by cohort position, never by HAPI or Synthea identifier, in file names and the manifest.
+8. A batch encounter is a completed historical stay: its status is finished, not in-progress like a live run's.
 
 The local end-to-end run (python -m e2e.local_cohort) remains the proof against a real HAPI server.
 """
@@ -41,19 +42,20 @@ def two_patient_cohort(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 class FakeHapi:
-    """Conditional create by identifier: the same identifier always returns the same encounter."""
+    """Conditional update by identifier: the same identifier always updates the same encounter."""
 
     def __init__(self, fail: bool = False) -> None:
         self.encounters: dict[str, dict] = {}
         self.posts = 0
         self.fail = fail
 
-    def post_resource(self, resource: dict) -> CreatedFHIRResource:
+    def upsert_resource(self, resource: dict) -> CreatedFHIRResource:
         if self.fail:
             raise FHIRRetryableError("HAPI unavailable")
         self.posts += 1
         identifier = resource["identifier"][0]["value"]
-        self.encounters.setdefault(identifier, {**resource, "id": f"encounter-{len(self.encounters) + 1}"})
+        existing_id = self.encounters.get(identifier, {}).get("id") or f"encounter-{len(self.encounters) + 1}"
+        self.encounters[identifier] = {**resource, "id": existing_id}
         encounter_id = self.encounters[identifier]["id"]
         return CreatedFHIRResource(resource_type="Encounter", resource_id=encounter_id, location=f"Encounter/{encounter_id}", status_code=201)
 
@@ -203,3 +205,22 @@ def test_split_groups_keep_patients_that_share_a_waveform_record_together(tmp_pa
     expect.equal({(entry["position"], entry["split_group"]) for entry in manifest["files"]}, {(1, "bidmc01"), (2, "bidmc02")})
     groups = json.loads((folder / "split_groups.json").read_text(encoding="utf-8"))
     expect.equal(groups, {"hapi-patient-0": "bidmc01", "hapi-patient-1": "bidmc02"})
+
+
+def test_batch_encounters_carry_admissions_that_never_overlap_for_a_patient(tmp_path: Path) -> None:
+    hapi = FakeHapi()
+
+    run(tmp_path, hapi)
+
+    periods: dict[str, list[tuple[datetime, datetime]]] = {}
+    for encounter in hapi.encounters.values():
+        expect.equal(len(encounter["reasonCode"]), 1)
+        expect.equal(len(encounter["location"]), 1)
+        expect.equal(encounter["status"], "finished")
+        start, end = (datetime.fromisoformat(encounter["period"][name]) for name in ("start", "end"))
+        periods.setdefault(encounter["subject"]["reference"], []).append((start, end))
+    for stays in periods.values():
+        stays.sort()
+        for (_, first_end), (second_start, _) in zip(stays, stays[1:], strict=False):
+            if second_start < first_end:
+                expect.fail("expected: a patient's simulated stays never overlap")

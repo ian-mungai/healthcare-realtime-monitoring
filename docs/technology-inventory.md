@@ -71,6 +71,7 @@ For developers and operators: locate implemented components, runtime tools and t
 | Apache Airflow 3.3.1 and SQLAlchemy 2.0.50 | Portable native directed acyclic graph (DAG), workflow-generation contract and Structured Query Language (SQL) persistence compatibility in the pinned local toolchain |
 | MWAA Serverless | Daily AWS-managed orchestration without a continuously running Airflow environment |
 | dbt Core and dbt-athena | Silver staging model, gold Kimball dimensions/fact, fixed-window features, model inputs and prediction views |
+| dbt-postgres 1.11.0 | The same dbt models on the local Postgres warehouse, through cross-adapter macros (Local Stack) |
 | Great Expectations and Soda | Processed-table expectations plus analytical contracts and prediction freshness |
 | OpenLineage and Marquez | START/COMPLETE/FAIL lineage events, shared collector, SigV4 transport and S3 fallback |
 | Python, SQL, pandas, NumPy, PyAthena, scikit-learn and joblib | Data preparation, Athena analysis, feature engineering, logistic regression, evaluation, serialization and approved-model scoring |
@@ -86,7 +87,7 @@ For developers and operators: locate implemented components, runtime tools and t
 | HTTP and service integration | Requests, HTTPX, Respx, WebSocket Client, Botocore signing, SQLAlchemy and PostgreSQL drivers |
 | Manual verification | Postman, AWS command-line interface (CLI), GitHub CLI, `jq`, Athena SQL, CloudWatch dashboards |
 | Infrastructure and delivery | Terraform AWS/AWSCC providers, Docker Buildx, Git, GitHub Actions, OIDC, protected environments, immutable image tags |
-| Local development | Docker Compose stack with PostgreSQL 16, HAPI FHIR and Grafana on localhost-only ports, checked by `e2e.local_stack` (Local Stack) |
+| Local development | Docker Compose stack with PostgreSQL 16, HAPI FHIR and Grafana on localhost-only ports, checked by `e2e.local_stack`; the local warehouse is checked by `e2e.local_warehouse` (Local Stack) |
 | Quality engineering | pytest, unittest, pytest-cov, Ruff, MyPy, Terraform tests, container smoke tests, contract syntax checks, pre-commit, gitleaks, tflint, checkov, SQLFluff, vulture, deptry, dbt-project-evaluator, an Airflow DagBag test, a whole-project privacy scan and the `e2e` scenario runner |
 | Test-data toolchain | Java 17, Gradle, Synthea, WFDB, deterministic seeds and patient/encounter mapping |
 | Reporting | Power BI Desktop through the Amazon Athena connector and Athena Open Database Connectivity (ODBC) 2.x driver; the private guide documents DirectQuery pages, Data Analysis Expressions (DAX) measures, drillthrough and synchronized slicers. Native measure execution and finished-report behavior are unverified; the `.pbix` remains outside the repository |

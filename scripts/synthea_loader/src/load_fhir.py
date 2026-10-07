@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 
 import httpx
 
+from scripts.synthea_loader.src.admission_profile import admission_profile
 from scripts.synthea_loader.src.cohort import cohort_size as configured_cohort_size
 
 DEFAULT_FHIR_BASE_URL = "http://127.0.0.1:8090/fhir"
@@ -360,7 +361,9 @@ def save_resource_map(resource_map: dict) -> None:
         json.dump(resource_map, file, indent=2, sort_keys=True)
 
 
-def update_resource_map(synthea_patient_id: str, hapi_patient_id: str, synthea_encounter_id: str, hapi_encounter_id: str) -> dict:
+def update_resource_map(
+    synthea_patient_id: str, hapi_patient_id: str, synthea_encounter_id: str, hapi_encounter_id: str, admission_profile: dict | None = None
+) -> dict:
     """
     Add or update Patient, Encounter and cohort mappings.
     """
@@ -375,6 +378,8 @@ def update_resource_map(synthea_patient_id: str, hapi_patient_id: str, synthea_e
         "synthea_encounter_id": synthea_encounter_id,
         "hapi_encounter_id": hapi_encounter_id,
     }
+    if admission_profile is not None:
+        resource_map["cohort"][synthea_patient_id]["admission_profile"] = admission_profile
 
     save_resource_map(resource_map)
 
@@ -561,7 +566,7 @@ def main() -> None:
         # Save mapping
         # -------------------------------------------------
 
-        resource_map = update_resource_map(synthea_patient_id, hapi_patient_id, synthea_encounter_id, hapi_encounter_id)
+        resource_map = update_resource_map(synthea_patient_id, hapi_patient_id, synthea_encounter_id, hapi_encounter_id, admission_profile(bundle))
 
         sys.stdout.write("\nFHIR resource mapping saved:\n")
 

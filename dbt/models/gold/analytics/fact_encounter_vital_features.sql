@@ -6,16 +6,8 @@ with encounter_windows as (
         provider_version_key,
         encounter_start_at,
         encounter_end_at,
-        date_add(
-            'minute',
-            {{ var('feature_window_minutes') }},
-            encounter_start_at
-        ) as feature_cutoff_at,
-        date_add(
-            'minute',
-            {{ var('feature_window_minutes') + var('outcome_window_minutes') }},
-            encounter_start_at
-        ) as outcome_cutoff_at
+        {{ add_minutes(var('feature_window_minutes'), 'encounter_start_at') }} as feature_cutoff_at,
+        {{ add_minutes(var('feature_window_minutes') + var('outcome_window_minutes'), 'encounter_start_at') }} as outcome_cutoff_at
     from {{ ref('dim_encounter') }}
 ),
 
@@ -45,7 +37,7 @@ features_and_outcomes as (
         encounter_end_at,
         feature_cutoff_at,
         outcome_cutoff_at,
-        date_diff('second', encounter_start_at, feature_cutoff_at) as feature_window_seconds,
+        {{ seconds_between('encounter_start_at', 'feature_cutoff_at') }} as feature_window_seconds,
         sum(case when is_feature_observation then 1 else 0 end) as feature_observation_count,
         sum(case when is_outcome_observation then 1 else 0 end) as outcome_observation_count,
         avg(case when is_feature_observation and loinc_code = '{{ var("vital_sign_loinc_codes")["heart_rate"] }}' then value end) as heart_rate_mean,

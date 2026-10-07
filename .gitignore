@@ -57,6 +57,7 @@ services/fhir_webhook/output/
 #dbt
 dbt/profiles.yml
 dbt/.user.yml
+deploy/dbt/.user.yml
 dbt/target/
 dbt/logs/
 dbt/dbt_packages/

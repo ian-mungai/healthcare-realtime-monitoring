@@ -9,6 +9,8 @@ SYNTHEA_DIR="$LOADER_DIR/synthea"
 POPULATION="${POPULATION:-100}"
 SEED="${SEED:-4817263}"
 STATE="${STATE:-Washington}"
+# Adults only: the BIDMC waveforms and the NEWS2-based label are adult measures.
+AGE_RANGE="${AGE_RANGE:-18-90}"
 
 if [ ! -d "$SYNTHEA_DIR" ]; then
     echo "Synthea is not installed."
@@ -24,10 +26,12 @@ echo "Generating Synthea population..."
 echo "Population: $POPULATION"
 echo "Seed:       $SEED"
 echo "State:      $STATE"
+echo "Ages:       $AGE_RANGE"
 
 ./run_synthea \
     -s "$SEED" \
     -p "$POPULATION" \
+    -a "$AGE_RANGE" \
     "$STATE"
 
 echo

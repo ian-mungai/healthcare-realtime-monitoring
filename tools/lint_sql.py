@@ -7,6 +7,9 @@ fixed placeholders so the result never depends on a local ``.env`` and no real v
 starts through ``tools/sqlfluff_offline.py``, which stops dbt listing the Glue catalog, and the AWS settings point at
 placeholder credentials with no config files, so any AWS call would fail instead of using a real login. Rules and the
 Athena dialect are in ``.sqlfluff``.
+
+dbt skips disabled models, so a second pass turns on the models that read the cohort reference tables
+(``cohort_reference_enabled``). The two passes lint both sides of every switch.
 """
 
 from __future__ import annotations
@@ -14,6 +17,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 from tools.process import run_command
@@ -56,6 +60,8 @@ PLACEHOLDERS = {
     "AWS_SHARED_CREDENTIALS_FILE": os.devnull,
     "AWS_EC2_METADATA_DISABLED": "true",
 }
+# Extra SQLFluff settings for each pass; the context values become dbt variables.
+PASSES = {"default": "", "cohort_reference_enabled": "[sqlfluff:templater:dbt:context]\ncohort_reference_enabled = True\n"}
 AWS_LOGIN_VARIABLES = ("AWS_PROFILE", "AWS_DEFAULT_PROFILE", "AWS_SESSION_TOKEN", "AWS_ROLE_ARN", "AWS_WEB_IDENTITY_TOKEN_FILE")
 
 
@@ -71,8 +77,20 @@ def main(argv: list[str] | None = None) -> int:
     paths = args.paths or [path for path in DEFAULT_PATHS if (ROOT / path).exists()]
     command = ["fix", "--show-lint-violations"] if args.fix else ["lint"]
     environment = {name: value for name, value in os.environ.items() if name not in AWS_LOGIN_VARIABLES} | PLACEHOLDERS
-    result = run_command(str(SQLFLUFF_PYTHON), [str(OFFLINE_ENTRY), *command, *paths], cwd=ROOT, timeout=900, env=environment, capture=False)
-    return result.returncode
+    returncode = 0
+    with tempfile.TemporaryDirectory(prefix="lint_sql_") as scratch:
+        for name, settings in PASSES.items():
+            sys.stdout.write(f"SQLFluff pass: {name}\n")
+            sys.stdout.flush()
+            extra: list[str] = []
+            if settings:
+                config = Path(scratch) / f"{name}.cfg"
+                config.write_text(settings, encoding="utf-8")
+                extra = ["--config", str(config)]
+            arguments = [str(OFFLINE_ENTRY), *command, *extra, *paths]
+            result = run_command(str(SQLFLUFF_PYTHON), arguments, cwd=ROOT, timeout=900, env=environment, capture=False)
+            returncode = returncode or result.returncode
+    return returncode
 
 
 if __name__ == "__main__":

@@ -1,0 +1,4 @@
+unit_name,care_level,care_level_rank
+Medical intensive care unit,critical,3
+Step-down unit,intermediate,2
+Medical-surgical ward,acute,1

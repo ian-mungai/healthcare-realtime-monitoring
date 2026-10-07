@@ -1,7 +1,9 @@
+import csv
 from pathlib import Path
 
 import yaml
 
+from services.vitals_simulator.app.fhir.admission import UNITS
 from testkit import expect
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -15,6 +17,8 @@ def read_model(name: str) -> str:
 
 def test_core_star_schema_models_exist() -> None:
     expected_models = {"dim_date.sql", "dim_encounter.sql", "dim_observation_type.sql", "dim_patient.sql", "dim_provider.sql", "fact_observations.sql"}
+    # Built only when cohort_reference_enabled is true (docs/analytics-star-schema.md#cohort-reference-models).
+    expected_models |= {"dim_facility.sql", "dim_patient_version.sql", "dim_unit.sql", "fact_admissions.sql"}
 
     expect.equal({path.name for path in CORE_MODELS.glob("*.sql")}, expected_models)
 
@@ -134,3 +138,12 @@ def test_latest_predictions_require_the_approved_model_version() -> None:
 
     expect.is_in('env_var("ML_APPROVED_MODEL_VERSION")', latest_model)
     expect.not_in("order by max(scored_at)", latest_model)
+
+
+def test_the_unit_seed_lists_every_simulator_unit_with_a_care_level() -> None:
+    # A unit added to the simulator but not to the seed would leave admissions without a unit row.
+    with (ROOT / "dbt/seeds/hospital_units.csv").open(encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+
+    expect.equal(sorted(row["unit_name"] for row in rows), sorted(UNITS))
+    expect.equal({row["care_level"] for row in rows}, {"critical", "intermediate", "acute"})

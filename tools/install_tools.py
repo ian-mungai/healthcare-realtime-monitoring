@@ -48,6 +48,8 @@ CHECKOV_VERSION = "3.3.19"
 
 # dbt-core and dbt-athena match deploy/dbt/requirements.in so SQLFluff compiles the models the way the dbt image runs them.
 SQLFLUFF_PACKAGES = ("sqlfluff==4.3.0", "sqlfluff-templater-dbt==4.3.0", "dbt-core==1.12.3", "dbt-athena==1.11.0")
+# The local warehouse runs dbt against Postgres; dbt-core matches the dbt image.
+DBT_POSTGRES_PACKAGES = ("dbt-core==1.12.3", "dbt-postgres==1.11.0")
 
 
 def installed_version(binary: Path, *args: str) -> str:
@@ -142,6 +144,18 @@ def install_sqlfluff() -> str:
     return f"installed  {' '.join(SQLFLUFF_PACKAGES)} (isolated environment)"
 
 
+def install_dbt_postgres() -> str:
+    """Install dbt-core and dbt-postgres into their own virtual environment under .tools for the local warehouse."""
+    environment = TOOLS / "dbt-postgres"
+    python = environment / "bin" / "python"
+    frozen = installed_version(python, "-m", "pip", "freeze").lower().splitlines()
+    if all(package in frozen for package in DBT_POSTGRES_PACKAGES):
+        return f"unchanged  {' '.join(DBT_POSTGRES_PACKAGES)}"
+    run_command(sys.executable, ["-m", "venv", "--clear", str(environment)], timeout=300, check=True)
+    run_command(str(python), ["-m", "pip", "install", "--quiet", *DBT_POSTGRES_PACKAGES], timeout=900, check=True)
+    return f"installed  {' '.join(DBT_POSTGRES_PACKAGES)} (isolated environment)"
+
+
 def install_dbt_packages() -> str:
     """Install the dbt packages pinned in dbt/package-lock.yml into dbt/dbt_packages, which the dbt templater needs."""
     dbt = TOOLS / "sqlfluff" / "bin" / "dbt"
@@ -191,7 +205,7 @@ def install_markdownlint() -> str:
 
 def main() -> int:
     """Install every pinned tool and report the result."""
-    for installer in (install_gitleaks, install_tflint, install_checkov, install_sqlfluff, install_dbt_packages, install_markdownlint):
+    for installer in (install_gitleaks, install_tflint, install_checkov, install_sqlfluff, install_dbt_packages, install_dbt_postgres, install_markdownlint):
         sys.stdout.write(installer() + "\n")
     return 0
 

@@ -57,6 +57,19 @@ class HAPIFHIRClient:
         response = self._send_with_retries(lambda: httpx.post(url, headers=headers, json=resource, timeout=self.timeout_seconds))
         return self._extract_created_resource(response, resource_type)
 
+    def upsert_resource(self, resource: dict) -> CreatedFHIRResource:
+        """Create the resource, or update the one with the same first identifier (a FHIR conditional update)."""
+        resource_type = resource.get("resourceType")
+        identifiers = resource.get("identifier") or [{}]
+        system, value = identifiers[0].get("system"), identifiers[0].get("value")
+        if not resource_type or not system or not value:
+            raise ValueError("a conditional update needs resourceType and an identifier with system and value")
+        url = f"{self.base_url}/{resource_type}"
+        headers = {"Content-Type": "application/fhir+json", "Accept": "application/fhir+json"}
+        params = {"identifier": f"{system}|{value}"}
+        response = self._send_with_retries(lambda: httpx.put(url, headers=headers, params=params, json=resource, timeout=self.timeout_seconds))
+        return self._extract_created_resource(response, resource_type)
+
     def count_resources(self, resource_type: str, params: dict[str, str]) -> int:
         """Return how many resources match a FHIR search, without downloading them."""
         url = f"{self.base_url}/{resource_type}"

@@ -186,3 +186,124 @@ models:
       - name: value
         tests:
           - not_null
+
+  - name: dim_patient_version
+    description: >-
+      Type 2 patient dimension with Synthea demographics. A new version starts whenever the patient's insurance payer
+      changes in their Synthea claims history. Built when cohort_reference_enabled is true.
+
+    columns:
+      - name: patient_version_key
+        tests:
+          - not_null
+          - unique
+
+      - name: patient_key
+        tests:
+          - not_null
+
+      - name: payer_name
+        tests:
+          - not_null
+
+      - name: valid_from
+        tests:
+          - not_null
+
+  - name: dim_facility
+    description: Synthea hospitals where the simulator places its admissions. Built when cohort_reference_enabled is true.
+
+    columns:
+      - name: facility_key
+        tests:
+          - not_null
+          - unique
+
+      - name: facility_name
+        tests:
+          - not_null
+
+  - name: dim_unit
+    description: >-
+      One row per facility and inpatient unit, with the unit's care level from the hospital_units seed (critical,
+      intermediate or acute). Built when cohort_reference_enabled is true.
+
+    columns:
+      - name: unit_key
+        tests:
+          - not_null
+          - unique
+
+      - name: facility_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_facility')
+                field: facility_key
+
+      - name: care_level
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['critical', 'intermediate', 'acute']
+
+  - name: fact_admissions
+    description: >-
+      One row per simulated admission: facility, unit, admit and discharge times and a synthetic admitting diagnosis
+      drawn from the patient's Synthea conditions. Built when cohort_reference_enabled is true.
+
+    columns:
+      - name: admission_key
+        tests:
+          - not_null
+          - unique
+
+      - name: patient_version_key
+        description: The patient version valid on the admission date.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_patient_version')
+                field: patient_version_key
+
+      - name: facility_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_facility')
+                field: facility_key
+
+      - name: unit_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_unit')
+                field: unit_key
+
+      - name: unit
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Medical intensive care unit', 'Step-down unit', 'Medical-surgical ward']
+
+      - name: length_of_stay_hours
+        tests:
+          - not_null
+
+      - name: diagnosis_code
+        tests:
+          - not_null
+
+      - name: diagnosis_source
+        description: synthea_history when the diagnosis is one of the patient's Synthea disorders; simulator_fallback otherwise.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['synthea_history', 'simulator_fallback']

@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from threading import Event
 
 from services.vitals_simulator.app.bidmc.source import VitalReading, bidmc_source_for_position, fetch_remote_bidmc_record, rotate_readings, vary_reused_readings
+from services.vitals_simulator.app.fhir.admission import plan_admission
 from services.vitals_simulator.app.fhir.client import FHIRRetryableError, HAPIFHIRClient
 from services.vitals_simulator.app.fhir.encounter import SIMULATOR_SCENARIO_TAG_SYSTEM, build_simulator_encounter
 from services.vitals_simulator.app.fhir.mapping import FHIRPatientContext, get_patient_cohort
@@ -235,7 +236,8 @@ def initialize_simulation_run(
     for simulation in simulations:
         patient_id = simulation.context.hapi_patient_id
         tag = scenarios[patient_id] if label_eligible else None
-        created = client.post_resource(build_simulator_encounter(patient_id, run_id, started_at, scenario=tag))
+        admission = plan_admission(simulation.context.admission_profile, seed, patient_id, run_id)
+        created = client.post_resource(build_simulator_encounter(patient_id, run_id, started_at, scenario=tag, admission=admission))
         context = replace(simulation.context, hapi_encounter_id=created.resource_id)
         initialized.append(replace(simulation, context=context, scenario=scenarios[patient_id]))
     return run_id, initialized

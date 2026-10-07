@@ -12,7 +12,7 @@ select
     encounters.provider_key,
     encounters.provider_version_key,
     {{ stable_key("observations.loinc_code") }} as observation_type_key,
-    cast(date_format(cast(observations.effective_datetime as timestamp), '%Y%m%d') as integer) as date_key,
+    {{ date_key('observations.effective_datetime') }} as date_key,
     observations.observation_id,
     observations.patient_id,
     observations.encounter_id,

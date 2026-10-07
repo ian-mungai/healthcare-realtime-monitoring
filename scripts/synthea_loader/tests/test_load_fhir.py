@@ -378,3 +378,14 @@ def test_select_production_cohort_takes_the_configured_cohort_size(tmp_path, mon
     expect.equal(select_production_cohort(bundles), bundles[:100])
     monkeypatch.delenv("COHORT_SIZE")
     expect.equal(select_production_cohort(bundles), bundles[:10])
+
+
+def test_the_resource_map_keeps_each_patients_admission_profile(tmp_path, monkeypatch):
+    from scripts.synthea_loader.src import load_fhir
+
+    monkeypatch.setattr(load_fhir, "RESOURCE_MAP_FILE", tmp_path / "fhir_resource_map.json")
+    profile = {"facilities": [{"id": "hospital-1", "name": "General Hospital"}], "diagnoses": []}
+
+    load_fhir.update_resource_map("synthea-1", "hapi-1", "synthea-encounter-1", "hapi-encounter-1", admission_profile=profile)
+
+    expect.equal(json.loads((tmp_path / "fhir_resource_map.json").read_text())["cohort"]["synthea-1"]["admission_profile"], profile)
