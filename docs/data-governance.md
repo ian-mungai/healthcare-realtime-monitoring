@@ -27,6 +27,8 @@ For developers and operators: look up schema validation, event identity, freshne
 
 ## Terminology
 
+- **ACVPU**: alert, confusion, voice, pain, unresponsive, the consciousness scale NEWS2 uses.
+- **AVPU**: alert, voice, pain, unresponsive, the scale without confusion.
 - **API**: application programming interface.
 - **AES**: Advanced Encryption Standard.
 - **ARN**: Amazon Resource Name.
@@ -108,7 +110,7 @@ The repository owner operates the portfolio datasets and infrastructure. Formal 
 
 ## Standards and Schema
 
-FHIR R4 `Observation` resources are transformed into versioned realtime payloads and analytical measurement rows. Current schema `1.1` payloads require a nonempty observation identifier (ID), patient ID, encounter ID, source, International Organization for Standardization (ISO)-8601 event timestamp and at least one supported numeric vital. Legacy schema `1.0` payloads remain replay-compatible without an encounter ID.
+FHIR R4 `Observation` resources are transformed into versioned realtime payloads and analytical measurement rows. Current schema `1.2` payloads require a nonempty observation identifier (ID), patient ID, encounter ID, source, International Organization for Standardization (ISO)-8601 event timestamp and at least one supported numeric vital. Schema `1.2` adds the optional temperature, inhaled oxygen concentration and consciousness fields; schema `1.1` payloads, without them, remain valid. Legacy schema `1.0` payloads remain replay-compatible without an encounter ID.
 
 Supported LOINC codes are:
 
@@ -121,6 +123,11 @@ The machine-readable source of truth is [`config/vital_signs.json`](../config/vi
 | `2708-6` | Oxygen saturation | 50-100 |
 | `8480-6` | Systolic blood pressure | 50-260 |
 | `8462-4` | Diastolic blood pressure | 30-180 |
+| `8310-5` | Body temperature (degrees Celsius) | 32-43 |
+| `3150-0` | Inhaled oxygen concentration (%) | 21-100 |
+| `67775-7` | Level of responsiveness (ACVPU ordinal) | 0-4 |
+
+Consciousness arrives as a coded FHIR answer and is stored as an ordinal: A (Alert, `LA9340-6`) 0, C (Confused, `LA6560-2`) 1, V (Verbal, `LA17108-4`) 2, P (Painful, `LA17107-6`) 3 and U (Unresponsive, `LA9343-0`) 4. LOINC `67775-7` is the AVPU code; its answer list has no confused answer, so C uses LOINC's own `LA6560-2`, the one answer outside that list. No LOINC code carries an ACVPU answer list. `80288-4` (Level of consciousness) lists Lethargic, Obtunded and Stuporous instead of Voice and Pain. The webhook rejects any other answer code.
 
 The realtime validator permits systolic values through 300 and diastolic values through 200. This intentionally broader ingestion boundary prevents obviously invalid events while the analytical layer applies the stricter portfolio-quality ranges above.
 

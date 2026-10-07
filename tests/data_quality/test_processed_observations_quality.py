@@ -47,7 +47,7 @@ def test_expected_processed_columns():
 
 
 def test_valid_loinc_codes():
-    expect.equal(set(VALID_LOINC_CODES), {"8867-4", "2708-6", "8480-6", "8462-4", "9279-1"})
+    expect.equal(set(VALID_LOINC_CODES), {"8867-4", "2708-6", "8480-6", "8462-4", "9279-1", "8310-5", "3150-0", "67775-7"})
 
 
 def test_compound_uniqueness_key():

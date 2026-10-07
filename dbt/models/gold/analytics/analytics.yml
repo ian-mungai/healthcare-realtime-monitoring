@@ -80,7 +80,7 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                values: ['vital-features-v2']
+                values: ['vital-features-v3']
 
       - name: label_definition_version
         tests:
@@ -116,7 +116,7 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                values: ['vital-features-v2']
+                values: ['vital-features-v3']
 
       - name: label_definition_version
         tests:

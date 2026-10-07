@@ -8,8 +8,11 @@ except ModuleNotFoundError:
     vital_signs = import_module("vital_signs")
 
 LEGACY_SCHEMA_VERSION = "1.0"
-SCHEMA_VERSION = "1.1"
-SUPPORTED_SCHEMA_VERSIONS = {LEGACY_SCHEMA_VERSION, SCHEMA_VERSION}
+ENCOUNTER_SCHEMA_VERSION = "1.1"
+# 1.2 adds temperature, inhaled oxygen concentration and the ACVPU ordinal; every field stays optional.
+SCHEMA_VERSION = "1.2"
+SUPPORTED_SCHEMA_VERSIONS = {LEGACY_SCHEMA_VERSION, ENCOUNTER_SCHEMA_VERSION, SCHEMA_VERSION}
+ORDINAL_FIELDS: tuple[str, ...] = vital_signs.ORDINAL_FIELDS
 
 VITAL_RANGES: dict[str, tuple[float, float]] = vital_signs.REALTIME_VITAL_RANGES
 
@@ -34,6 +37,9 @@ def validate_event_timestamp(value: Any) -> None:
 def validate_numeric_vital(name: str, value: Any) -> None:
     if isinstance(value, bool) or not isinstance(value, int | float):
         raise PermanentRecordError(f"{name} must be numeric")
+
+    if name in ORDINAL_FIELDS and not float(value).is_integer():
+        raise PermanentRecordError(f"{name} must be a whole-number ordinal")
 
     minimum, maximum = VITAL_RANGES[name]
 
@@ -60,8 +66,8 @@ def validate_vitals_payload(payload: dict[str, Any]) -> None:
 
     encounter_id = payload.get("encounter_id")
 
-    if schema_version == SCHEMA_VERSION and encounter_id is None:
-        raise PermanentRecordError(f"encounter_id is required for schema_version {SCHEMA_VERSION}")
+    if schema_version != LEGACY_SCHEMA_VERSION and encounter_id is None:
+        raise PermanentRecordError(f"encounter_id is required for schema_version {schema_version}")
 
     if encounter_id is not None and (not isinstance(encounter_id, str) or not encounter_id.strip()):
         raise PermanentRecordError("encounter_id must be a non-empty string")

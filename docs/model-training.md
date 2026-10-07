@@ -1,7 +1,7 @@
 ---
 title: "Model Training"
 description: "Build and evaluate a patient-grouped synthetic proxy baseline with reproducible artifacts."
-last_updated: 2026-10-06
+last_updated: 2026-10-07
 audience: [developer, operator]
 ---
 
@@ -46,7 +46,7 @@ The baseline estimates the synthetic deterioration proxy from encounter-level vi
 
 ## Dataset Contract
 
-`${ATHENA_DBT_DATABASE}.${DBT_ML_TRAINING_TABLE}` contains one row per eligible encounter. Features come from the first fixed 15 minutes and the proxy label comes from the following fixed 15 minutes; short encounters without both windows are excluded. The versioned proxy requires repeated extreme observations of the same vital so that an isolated synthetic measurement cannot determine the label. It carries twelve numeric features, a binary proxy label, versioned feature and label definitions and a deterministic patient-grouped split. Patient and provider identifiers are not model features.
+`${ATHENA_DBT_DATABASE}.${DBT_ML_TRAINING_TABLE}` contains one row per eligible encounter. Features come from the first fixed 15 minutes and the proxy label comes from the following fixed 15 minutes; short encounters without both windows are excluded. The versioned proxy requires repeated extreme observations of the same vital so that an isolated synthetic measurement cannot determine the label. It carries sixteen numeric features (`vital-features-v3`: the twelve vital aggregates plus temperature mean and maximum, maximum inhaled oxygen concentration and maximum consciousness ordinal), a binary proxy label, versioned feature and label definitions and a deterministic patient-grouped split. Patient and provider identifiers are not model features.
 
 The committed dbt tests require both partitions, reject patient leakage and warn when either partition lacks both label classes. The training command treats the missing-class warning as a hard failure. Soda validates population, key completeness, split values and label values.
 
@@ -92,13 +92,13 @@ Use the project virtual environment and deployment-specific bucket output withou
 
    Training and evaluation stop with a clear error when either partition cannot support binary classification.
 
-2. Inspect the manifest and evaluation artifacts. Confirm both patient-grouped partitions contain both label classes, the feature schema is `vital-features-v2` and the published checksums match the local artifacts. Successful training produces all four files and the model-version partition without validation errors.
+2. Inspect the manifest and evaluation artifacts. Confirm both patient-grouped partitions contain both label classes, the feature schema is `vital-features-v3` and the published checksums match the local artifacts. Successful training produces all four files and the model-version partition without validation errors.
 
 ## Activate a Reviewed Model
 
 Prerequisites:
 
-- A reviewed immutable model version with matching artifact checksums and feature schema `vital-features-v2`.
+- A reviewed immutable model version with matching artifact checksums and feature schema `vital-features-v3`. A model trained on `vital-features-v2` must be retrained.
 - The selected environment's deployed backend and private configuration.
 - Owner approval for the exact deployment plan before applying it.
 

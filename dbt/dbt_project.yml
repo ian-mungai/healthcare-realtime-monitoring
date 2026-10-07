@@ -14,6 +14,9 @@ vars:
     spo2: "2708-6"
     systolic_bp: "8480-6"
     diastolic_bp: "8462-4"
+    temperature: "8310-5"
+    inhaled_oxygen_concentration: "3150-0"
+    consciousness_level: "67775-7"
 
 model-paths:
   - models

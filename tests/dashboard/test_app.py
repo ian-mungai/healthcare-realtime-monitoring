@@ -149,3 +149,31 @@ def test_history_dataframe_includes_required_columns(monkeypatch) -> None:
     expect.equal(list(dataframe["patient_id"]), ["1000"])
     if not ({"heart_rate", "spo2", "respiratory_rate", "systolic_bp", "diastolic_bp"} <= set(dataframe.columns)):
         expect.fail('expected: {"heart_rate", "spo2", "respiratory_rate", "systolic_bp", "diastolic_bp"} <= set(dataframe.columns)')
+
+
+def test_bedside_measure_status_helpers() -> None:
+    expect.equal(app.temperature_status(None), "Unknown")
+    expect.equal(app.temperature_status(35.0), "Low")
+    expect.equal(app.temperature_status(37.1), "Normal")
+    expect.equal(app.temperature_status(38.6), "Fever")
+    expect.equal(app.oxygen_status(21.0), "Room air")
+    expect.equal(app.oxygen_status(28.0), "Supplemental")
+    expect.equal(app.acvpu_label(0), "A · Alert")
+    expect.equal(app.acvpu_label(1), "C · Confused")
+    expect.equal(app.acvpu_label(None), "--")
+
+
+def test_bedside_measures_stay_live_for_the_observation_set_interval() -> None:
+    now = datetime(2026, 9, 11, 12, tzinfo=UTC)
+    vitals = {
+        "patient_id": "1000",
+        "temperature": 37.1,
+        "temperature_event_timestamp": "2026-09-11T11:56:00Z",
+        "consciousness_level": 0,
+        "consciousness_level_event_timestamp": "2026-09-11T11:50:00Z",
+    }
+
+    filtered = app.live_vitals(vitals, now)
+
+    expect.equal(filtered["temperature"], 37.1)
+    expect.not_in("consciousness_level", filtered)

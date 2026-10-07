@@ -28,7 +28,10 @@ select
     avg(case when loinc_code = '{{ var("vital_sign_loinc_codes")["respiratory_rate"] }}' then value end) as respiratory_rate_mean,
     avg(case when loinc_code = '{{ var("vital_sign_loinc_codes")["spo2"] }}' then value end) as spo2_mean,
     avg(case when loinc_code = '{{ var("vital_sign_loinc_codes")["systolic_bp"] }}' then value end) as systolic_bp_mean,
-    avg(case when loinc_code = '{{ var("vital_sign_loinc_codes")["diastolic_bp"] }}' then value end) as diastolic_bp_mean
+    avg(case when loinc_code = '{{ var("vital_sign_loinc_codes")["diastolic_bp"] }}' then value end) as diastolic_bp_mean,
+    avg(case when loinc_code = '{{ var("vital_sign_loinc_codes")["temperature"] }}' then value end) as temperature_mean,
+    max(case when loinc_code = '{{ var("vital_sign_loinc_codes")["inhaled_oxygen_concentration"] }}' then value end) as inhaled_oxygen_concentration_max,
+    max(case when loinc_code = '{{ var("vital_sign_loinc_codes")["consciousness_level"] }}' then value end) as consciousness_level_max
 from feature_observations
 group by
     encounter_key,

@@ -37,6 +37,7 @@ from services.vitals_simulator.app.fhir.admission import Admission, plan_admissi
 from services.vitals_simulator.app.fhir.client import CreatedFHIRResource, HAPIFHIRClient
 from services.vitals_simulator.app.fhir.encounter import build_simulator_encounter
 from services.vitals_simulator.app.fhir.mapping import FHIRPatientContext, get_patient_cohort
+from services.vitals_simulator.app.simulation.bedside import BedsideCadence, baseline_temperature
 from services.vitals_simulator.app.simulation.cycle import build_simulator_event
 from services.vitals_simulator.app.simulation.scenario import LABEL_WINDOW_SECONDS, SCENARIOS, apply_vital_scenario, choose_patient_scenarios
 from services.vitals_simulator.app.synthea.blood_pressure import BloodPressureReading, load_synthea_blood_pressure_readings
@@ -90,6 +91,7 @@ class PlannedEncounter:
     # Patients that share a waveform record share a group, so a split by group keeps them in one partition.
     split_group: str
     admission: Admission
+    baseline_temperature: float
 
 
 def run_identifier(settings: BatchSettings, run: int) -> str:
@@ -137,6 +139,7 @@ def plan_encounters(
                     bp_readings=readings_by_patient[context.synthea_patient_id],
                     split_group=f"bidmc{record_number:02d}",
                     admission=admission,
+                    baseline_temperature=baseline_temperature(context.synthea_patient_id),
                 )
             )
     return planned
@@ -150,6 +153,11 @@ def encounter_records(settings: BatchSettings, encounter: PlannedEncounter, enco
     """
     patient_id = encounter.context.hapi_patient_id
     cadence = BloodPressureCadence(readings=encounter.bp_readings, interval_seconds=settings.bp_interval_seconds)
+    bedside = BedsideCadence(
+        baseline_temperature=encounter.baseline_temperature,
+        seed_key=f"{settings.seed}:{patient_id}:{run_identifier(settings, encounter.run)}",
+        interval_seconds=settings.bp_interval_seconds,
+    )
     available = len(encounter.readings)
     for cycle in range(settings.cycles):
         source = encounter.readings[cycle % available]
@@ -165,6 +173,7 @@ def encounter_records(settings: BatchSettings, encounter: PlannedEncounter, enco
             bp_cadence=cadence,
             bp_elapsed_seconds=elapsed_seconds,
             scenario=encounter.scenario,
+            bedside_cadence=bedside,
         )
         for observation in event.observations:
             identifier = observation["identifier"][0]["value"]

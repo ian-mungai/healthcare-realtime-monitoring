@@ -15,7 +15,8 @@ else:
 
 LATEST_VITALS_TABLE = os.environ["LATEST_VITALS_TABLE"]
 AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
-VITAL_FIELDS = ("heart_rate", "spo2", "respiratory_rate", "systolic_bp", "diastolic_bp")
+# The catalog's fields (config/vital_signs.json); this Lambda does not package it, so a contract test checks the list.
+VITAL_FIELDS = ("heart_rate", "respiratory_rate", "spo2", "systolic_bp", "diastolic_bp", "temperature", "inhaled_oxygen_concentration", "consciousness_level")
 dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
 latest_vitals_table = dynamodb.Table(LATEST_VITALS_TABLE)
 

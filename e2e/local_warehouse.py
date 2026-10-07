@@ -17,6 +17,7 @@ import contextlib
 import io
 import json
 import sys
+from decimal import Decimal
 from pathlib import Path
 from string import Template
 
@@ -62,6 +63,10 @@ TRAINING_FINGERPRINT_SQL = Template(
 )
 MODEL_TABLES = ("dim_patient_version", "dim_facility", "dim_unit", "fact_admissions", "fact_encounter_minute_features", "ml_training_dataset")
 RAW_TABLES = ("raw.processed_fhir_observations", "raw.patient_split_groups", *(f"raw.{name}" for name in extract.TABLES))
+BATCH_VALUE_SUMS_SQL = (
+    "select loinc_code, round(cast(sum(value) as numeric), 3) from raw.processed_fhir_observations "
+    "where encounter_id in (select encounter_id from raw.admissions) group by loinc_code order by loinc_code"
+)
 BATCH_ROWS_SQL = "select count(*) from raw.processed_fhir_observations where encounter_id in (select encounter_id from raw.admissions)"
 CHECKS_SQL = {
     "admissions_without_version": "select count(*) from analytics.fact_admissions where patient_version_key is null",
@@ -83,6 +88,10 @@ CHECKS_SQL = {
     # Synthea generates ages 18 to 90 on its run date; admissions fall within a month of it.
     "admissions_outside_adult_ages": "select count(*) from analytics.fact_admissions where age_at_admission_years < 18 or age_at_admission_years >= 91",
     "patients_65_and_over": "select count(distinct patient_key) from analytics.fact_admissions where age_at_admission_years >= 65",
+    "training_rows_without_bedside_features": (
+        "select count(*) from analytics.ml_training_dataset "
+        "where temperature_mean is null or inhaled_oxygen_concentration_max is null or consciousness_level_max is null"
+    ),
     "encounters_without_15_minutes": (
         "select count(*) from (select training.encounter_key from analytics.ml_training_dataset as training "
         "left join analytics.fact_encounter_minute_features as minutes on training.encounter_key = minutes.encounter_key "
@@ -123,6 +132,15 @@ def load_all(folder: Path) -> dict[str, int]:
     return counts | json.loads(output.getvalue())
 
 
+def batch_value_sums(folder: Path) -> dict[str, Decimal]:
+    """The sum of each measurement's values in the batch, after the Glue rules, rounded like the warehouse query."""
+    records = [json.loads(line) for path in sorted(folder.glob("*.ndjson")) for line in path.read_text(encoding="utf-8").splitlines()]
+    sums: dict[str, Decimal] = {}
+    for row in load.processed_rows(records)[0]:
+        sums[row["loinc_code"]] = sums.get(row["loinc_code"], Decimal(0)) + Decimal(str(row["value"]))
+    return {code: total.quantize(Decimal("0.001")) for code, total in sums.items()}
+
+
 def check_loads(report: Report, folder: Path) -> None:
     counts = load_all(folder)
     first = fingerprints(RAW_TABLES)
@@ -139,6 +157,15 @@ def check_loads(report: Report, folder: Path) -> None:
         f"{counts['processed_rows']} rows, none left from an earlier batch",
         f"{stored}",
         stored == counts["processed_rows"],
+    )
+    expected_sums = batch_value_sums(folder)
+    stored_sums = {code: Decimal(total) for code, total in (row.split(",") for row in query(BATCH_VALUE_SUMS_SQL))}
+    differing = sorted(code for code in expected_sums.keys() | stored_sums.keys() if expected_sums.get(code) != stored_sums.get(code))
+    report.check(
+        "Stored values match the batch for every measurement",
+        "the sum of values per LOINC code equals the batch's",
+        f"{len(differing)} codes differ" + (f": {', '.join(differing)}" if differing else ""),
+        not differing,
     )
     report.check("No processed rows quarantined", "0", f"{counts['quarantined_rows']}", counts["quarantined_rows"] == 0)
     report.check(
@@ -191,6 +218,12 @@ def check_models(report: Report) -> None:
         "0 encounters differ",
         f"{values['encounters_without_15_minutes']}",
         values["encounters_without_15_minutes"] == 0,
+    )
+    report.check(
+        "Every training encounter has temperature, inhaled oxygen and ACVPU features",
+        "0 rows without them",
+        f"{values['training_rows_without_bedside_features']}",
+        values["training_rows_without_bedside_features"] == 0,
     )
     report.check(
         "Every admitted patient is an adult",

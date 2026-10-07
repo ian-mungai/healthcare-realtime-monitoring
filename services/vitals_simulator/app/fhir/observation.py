@@ -3,6 +3,7 @@ from typing import Any
 
 from services.vital_signs import BLOOD_PRESSURE_PANEL, VITAL_SIGNS_BY_FIELD
 from services.vitals_simulator.app.bidmc.source import VitalReading
+from services.vitals_simulator.app.simulation.bedside import BedsideReading
 from services.vitals_simulator.app.synthea.blood_pressure import BloodPressureReading
 
 FHIR_OBSERVATION_CATEGORY_SYSTEM = "http://terminology.hl7.org/CodeSystem/observation-category"
@@ -15,6 +16,10 @@ SPO2 = VITAL_SIGNS_BY_FIELD["spo2"]
 BLOOD_PRESSURE = BLOOD_PRESSURE_PANEL
 SYSTOLIC_BP = VITAL_SIGNS_BY_FIELD["systolic_bp"]
 DIASTOLIC_BP = VITAL_SIGNS_BY_FIELD["diastolic_bp"]
+TEMPERATURE = VITAL_SIGNS_BY_FIELD["temperature"]
+INHALED_OXYGEN = VITAL_SIGNS_BY_FIELD["inhaled_oxygen_concentration"]
+CONSCIOUSNESS = VITAL_SIGNS_BY_FIELD["consciousness_level"]
+CONSCIOUSNESS_ANSWERS = {answer["ordinal"]: answer for answer in CONSCIOUSNESS["answers"]}
 
 
 def normalize_measurement(value: float | None, decimals: int = 1) -> float | None:
@@ -156,6 +161,47 @@ def build_observations_from_reading(reading: VitalReading, patient_id: str, enco
             )
         )
 
+    return observations
+
+
+def build_bedside_observations(
+    reading: BedsideReading, patient_id: str, encounter_id: str, effective_datetime: str, source_record_id: str, source_offset_seconds: int
+) -> list[dict[str, Any]]:
+    """Temperature and inhaled oxygen as quantities and ACVPU as a coded LOINC answer, one Observation each."""
+    observations = []
+    for vital, value in ((TEMPERATURE, reading.temperature), (INHALED_OXYGEN, reading.inhaled_oxygen_concentration)):
+        if value is not None:
+            observations.append(
+                build_observation(
+                    patient_id=patient_id,
+                    encounter_id=encounter_id,
+                    effective_datetime=effective_datetime,
+                    code=vital["loinc_code"],
+                    display=vital["display"],
+                    value=float(value),
+                    unit=vital["unit"],
+                    ucum_code=vital["ucum_code"],
+                    source_record_id=source_record_id,
+                    source_offset_seconds=source_offset_seconds,
+                )
+            )
+    if reading.consciousness_level is not None:
+        answer = CONSCIOUSNESS_ANSWERS[reading.consciousness_level]
+        coded = build_observation(
+            patient_id=patient_id,
+            encounter_id=encounter_id,
+            effective_datetime=effective_datetime,
+            code=CONSCIOUSNESS["loinc_code"],
+            display=CONSCIOUSNESS["display"],
+            value=0.0,
+            unit="",
+            ucum_code="",
+            source_record_id=source_record_id,
+            source_offset_seconds=source_offset_seconds,
+        )
+        coded.pop("valueQuantity")
+        coded["valueCodeableConcept"] = {"coding": [{"system": LOINC_SYSTEM, "code": answer["code"], "display": answer["display"]}], "text": answer["acvpu"]}
+        observations.append(coded)
     return observations
 
 

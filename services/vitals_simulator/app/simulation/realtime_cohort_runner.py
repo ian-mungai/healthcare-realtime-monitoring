@@ -16,6 +16,7 @@ from services.vitals_simulator.app.fhir.encounter import SIMULATOR_SCENARIO_TAG_
 from services.vitals_simulator.app.fhir.mapping import FHIRPatientContext, get_patient_cohort
 from services.vitals_simulator.app.fhir.observation import utc_now
 from services.vitals_simulator.app.fhir.publisher import PublishedSimulatorEvent, publish_simulator_event
+from services.vitals_simulator.app.simulation.bedside import BASELINE_MEAN, BedsideCadence, baseline_temperature
 from services.vitals_simulator.app.simulation.cycle import build_simulator_event
 from services.vitals_simulator.app.simulation.scenario import LABEL_WINDOW_SECONDS, NORMAL_SCENARIO, SCENARIOS, apply_vital_scenario, choose_patient_scenarios
 from services.vitals_simulator.app.synthea.blood_pressure import load_synthea_blood_pressure_readings, readings_for_patient
@@ -71,6 +72,9 @@ class PatientSimulation:
     readings: list[VitalReading]
     bp_cadence: BloodPressureCadence
     scenario: str = NORMAL_SCENARIO
+    baseline_temperature: float = BASELINE_MEAN
+    # Set per run by initialize_simulation_run, seeded by the scenario seed, the patient and the run.
+    bedside_cadence: BedsideCadence | None = None
 
 
 @dataclass(frozen=True)
@@ -179,6 +183,7 @@ def load_patient_simulations(bp_interval_seconds: int) -> list[PatientSimulation
                 bidmc_record_number=bidmc_record_number,
                 readings=readings,
                 bp_cadence=BloodPressureCadence(readings=patient_bp_readings, interval_seconds=bp_interval_seconds),
+                baseline_temperature=baseline_temperature(context.synthea_patient_id),
             )
         )
     return simulations
@@ -239,7 +244,11 @@ def initialize_simulation_run(
         admission = plan_admission(simulation.context.admission_profile, seed, patient_id, run_id)
         created = client.post_resource(build_simulator_encounter(patient_id, run_id, started_at, scenario=tag, admission=admission))
         context = replace(simulation.context, hapi_encounter_id=created.resource_id)
-        initialized.append(replace(simulation, context=context, scenario=scenarios[patient_id]))
+        interval_seconds = simulation.bp_cadence.interval_seconds if simulation.bp_cadence is not None else DEFAULT_BP_INTERVAL_SECONDS
+        bedside = BedsideCadence(
+            baseline_temperature=simulation.baseline_temperature, seed_key=f"{seed}:{patient_id}:{run_id}", interval_seconds=interval_seconds
+        )
+        initialized.append(replace(simulation, context=context, scenario=scenarios[patient_id], bedside_cadence=bedside))
     return run_id, initialized
 
 
@@ -266,6 +275,7 @@ def publish_patient_cycle(
         bp_cadence=simulation.bp_cadence,
         bp_elapsed_seconds=bp_elapsed_seconds,
         scenario=simulation.scenario,
+        bedside_cadence=simulation.bedside_cadence,
     )
     client = HAPIFHIRClient(max_retries=fhir_max_attempts, retry_delay_seconds=fhir_retry_backoff_seconds)
     return publish_simulator_event(event, client)

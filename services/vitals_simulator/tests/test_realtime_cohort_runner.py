@@ -8,6 +8,7 @@ from services.vitals_simulator.app.fhir.client import CreatedFHIRResource, FHIRP
 from services.vitals_simulator.app.fhir.mapping import FHIRPatientContext
 from services.vitals_simulator.app.fhir.publisher import PublishedSimulatorEvent
 from services.vitals_simulator.app.simulation import realtime_cohort_runner
+from services.vitals_simulator.app.simulation.bedside import baseline_temperature
 from services.vitals_simulator.app.simulation.realtime_cohort_runner import (
     CyclePublishResult,
     PatientCycleFailure,
@@ -379,6 +380,7 @@ def test_load_patient_simulations_reuses_records_for_a_one_hundred_patient_cohor
         expect.fail("expected: a reused record gets its own seeded variation")
     expect.equal(simulations[0].readings[0].heart_rate, 70.0)
     expect.equal(max(fetched), 53)
+    expect.equal(simulations[0].baseline_temperature, baseline_temperature(cohort[0].synthea_patient_id))
 
 
 def test_live_encounters_carry_a_seeded_admission():
@@ -401,3 +403,18 @@ def test_live_encounters_carry_a_seeded_admission():
 
     expect.equal(resources[0]["reasonCode"][0]["coding"][0]["code"], "233604007")
     expect.equal(resources[0]["serviceProvider"]["display"], "General Hospital")
+
+
+def test_each_live_run_gets_a_bedside_cadence_seeded_by_patient_and_run():
+    context = FHIRPatientContext("synthea-1000", "1000", "synthea-encounter-1000", "encounter-1000")
+
+    class FakeClient:
+        def post_resource(self, resource):
+            return CreatedFHIRResource("Encounter", "run-encounter-1000", "Encounter/run-encounter-1000", 201)
+
+    simulation = PatientSimulation(context=context, bidmc_record_number=1, readings=[], bp_cadence=None, baseline_temperature=36.6)
+    _, (first,) = initialize_simulation_run([simulation], datetime(2026, 9, 1, tzinfo=UTC), seed="7", client=FakeClient(), run_id="run-1")
+    _, (again,) = initialize_simulation_run([simulation], datetime(2026, 9, 1, tzinfo=UTC), seed="7", client=FakeClient(), run_id="run-1")
+
+    expect.equal(first.bedside_cadence.baseline_temperature, 36.6)
+    expect.equal(first.bedside_cadence.get_reading(0), again.bedside_cadence.get_reading(0))

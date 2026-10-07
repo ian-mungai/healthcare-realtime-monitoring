@@ -62,7 +62,7 @@ create temporary table staged (like $schema.$table including defaults) on commit
 \\copy staged ($columns) from '$csv_path' with (format csv, header true)
 insert into $schema.$table ($columns) select $columns from staged
 on conflict (observation_id, loinc_code) do update set $updates
-where $schema.$table.received_at is null or excluded.received_at > $schema.$table.received_at;
+where $schema.$table.received_at is null or excluded.received_at >= $schema.$table.received_at;
 delete from $schema.$table as current
 where
     current.encounter_id in (select staged.encounter_id from staged)
@@ -135,7 +135,8 @@ def rejection_reason(row: dict[str, Any], field_name: str) -> str | None:
 
 
 def upsert_sql(schema: str, table: str, csv_path: PurePosixPath, columns: Sequence[str] = PROCESSED_COLUMNS) -> str:
-    """One transaction: stage the CSV, insert new rows, update older ones (the Glue merge rule), then remove the
+    """One transaction: stage the CSV, insert new rows, update older or equally old ones (the Glue merge rule, with a tie
+    going to this load, so a regenerated batch replaces its earlier values), then remove the
     batch encounters' rows that the CSV no longer holds."""
     checked(schema, table, *columns)
     updates = ", ".join(f"{name} = excluded.{name}" for name in columns if name not in ("observation_id", "loinc_code"))

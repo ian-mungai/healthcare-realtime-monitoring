@@ -9,7 +9,9 @@ import yaml
 
 from services.vital_signs import (
     ANALYTICAL_VITAL_RANGES,
+    ANSWER_ORDINALS,
     BLOOD_PRESSURE_PANEL_CODE,
+    CODED_VITAL_FIELDS,
     DIASTOLIC_CODE,
     FLATTENED_MEASUREMENTS,
     LOINC_VITAL_FIELDS,
@@ -17,6 +19,7 @@ from services.vital_signs import (
     REALTIME_VITAL_RANGES,
     SUPPORTED_LOINC_CODES,
     SYSTOLIC_CODE,
+    VITAL_FIELDS,
 )
 from testkit import expect
 from tools.process import run_command
@@ -51,11 +54,11 @@ def test_catalog_has_unique_fields_and_loinc_codes() -> None:
     fields = [vital["field"] for vital in VITALS]
     loinc_codes = [vital["loinc_code"] for vital in VITALS]
 
-    expect.equal(CATALOG["schema_version"], "1.0")
-    if not (len(fields) == len(set(fields)) == 5):
-        expect.fail("expected: len(fields) == len(set(fields)) == 5")
-    if not (len(loinc_codes) == len(set(loinc_codes)) == 5):
-        expect.fail("expected: len(loinc_codes) == len(set(loinc_codes)) == 5")
+    expect.equal(CATALOG["schema_version"], "1.1")
+    if not (len(fields) == len(set(fields)) == 8):
+        expect.fail("expected: len(fields) == len(set(fields)) == 8")
+    if not (len(loinc_codes) == len(set(loinc_codes)) == 8):
+        expect.fail("expected: len(loinc_codes) == len(set(loinc_codes)) == 8")
 
 
 def test_catalog_loads_from_zipimport_runtime(tmp_path: Path) -> None:
@@ -71,7 +74,7 @@ def test_catalog_loads_from_zipimport_runtime(tmp_path: Path) -> None:
     probe = "from services.vital_signs import SUPPORTED_LOINC_CODES; print(len(SUPPORTED_LOINC_CODES))"
     result = run_command(sys.executable, ["-c", probe], cwd=tmp_path, env=environment, check=True)
 
-    expect.equal(result.stdout.strip(), "5")
+    expect.equal(result.stdout.strip(), "8")
 
 
 def test_python_service_definitions_match_catalog() -> None:
@@ -79,7 +82,8 @@ def test_python_service_definitions_match_catalog() -> None:
     code_by_field = {field: vital["loinc_code"] for field, vital in by_field.items()}
 
     expect.equal({field: tuple(vital["realtime_range"]) for field, vital in by_field.items()}, REALTIME_VITAL_RANGES)
-    expect.equal({code_by_field[field]: field for field in ("heart_rate", "respiratory_rate", "spo2")}, LOINC_VITAL_FIELDS)
+    quantity_fields = ("heart_rate", "respiratory_rate", "spo2", "temperature", "inhaled_oxygen_concentration")
+    expect.equal({code_by_field[field]: field for field in quantity_fields}, LOINC_VITAL_FIELDS)
     expect.equal(CATALOG["blood_pressure_panel"]["loinc_code"], BLOOD_PRESSURE_PANEL_CODE)
     expect.equal(code_by_field["systolic_bp"], SYSTOLIC_CODE)
     expect.equal(code_by_field["diastolic_bp"], DIASTOLIC_CODE)
@@ -127,3 +131,29 @@ def test_dbt_and_soda_contracts_match_catalog() -> None:
     expect.is_in("vital_sign_loinc_codes", feature_model)
     if expected_codes.intersection(feature_model.split("'")):
         expect.fail('expected: not expected_codes.intersection(feature_model.split("\'"))')
+
+
+def test_consciousness_is_coded_acvpu_with_ordered_loinc_answers() -> None:
+    consciousness = next(vital for vital in VITALS if vital["field"] == "consciousness_level")
+
+    expect.equal((consciousness["loinc_code"], consciousness["value_type"]), ("67775-7", "coded"))
+    expect.equal(
+        [(answer["code"], answer["acvpu"], answer["ordinal"]) for answer in consciousness["answers"]],
+        [("LA9340-6", "A", 0), ("LA6560-2", "C", 1), ("LA17108-4", "V", 2), ("LA17107-6", "P", 3), ("LA9343-0", "U", 4)],
+    )
+    expect.equal(CODED_VITAL_FIELDS, {"67775-7": "consciousness_level"})
+    expect.equal(ANSWER_ORDINALS["consciousness_level"]["LA6560-2"], 1)
+
+
+def test_hand_listed_vital_fields_match_the_catalog() -> None:
+    # The API Lambda does not package the catalog, so its field list is checked here instead.
+    fields = tuple(vital["field"] for vital in VITALS)
+    api_tree = ast.parse((ROOT / "services/vitals_api/handler.py").read_text())
+    api_fields = next(
+        ast.literal_eval(node.value)
+        for node in ast.walk(api_tree)
+        if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "VITAL_FIELDS" for target in node.targets)
+    )
+
+    expect.equal(VITAL_FIELDS, fields)
+    expect.equal(tuple(api_fields), fields)

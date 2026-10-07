@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "blood_pressure_panel": {
     "loinc_code": "85354-9",
     "display": "Blood pressure systolic and diastolic"
@@ -12,8 +12,14 @@
       "display": "Heart rate",
       "unit": "beats/minute",
       "ucum_code": "/min",
-      "realtime_range": [20, 250],
-      "analytical_range": [20, 250]
+      "realtime_range": [
+        20,
+        250
+      ],
+      "analytical_range": [
+        20,
+        250
+      ]
     },
     {
       "field": "respiratory_rate",
@@ -22,8 +28,14 @@
       "display": "Respiratory rate",
       "unit": "breaths/minute",
       "ucum_code": "/min",
-      "realtime_range": [4, 80],
-      "analytical_range": [4, 80]
+      "realtime_range": [
+        4,
+        80
+      ],
+      "analytical_range": [
+        4,
+        80
+      ]
     },
     {
       "field": "spo2",
@@ -32,8 +44,14 @@
       "display": "Oxygen saturation in Arterial blood",
       "unit": "%",
       "ucum_code": "%",
-      "realtime_range": [50, 100],
-      "analytical_range": [50, 100]
+      "realtime_range": [
+        50,
+        100
+      ],
+      "analytical_range": [
+        50,
+        100
+      ]
     },
     {
       "field": "systolic_bp",
@@ -42,8 +60,14 @@
       "display": "Systolic blood pressure",
       "unit": "mmHg",
       "ucum_code": "mm[Hg]",
-      "realtime_range": [50, 300],
-      "analytical_range": [50, 260]
+      "realtime_range": [
+        50,
+        300
+      ],
+      "analytical_range": [
+        50,
+        260
+      ]
     },
     {
       "field": "diastolic_bp",
@@ -52,8 +76,95 @@
       "display": "Diastolic blood pressure",
       "unit": "mmHg",
       "ucum_code": "mm[Hg]",
-      "realtime_range": [20, 200],
-      "analytical_range": [30, 180]
+      "realtime_range": [
+        20,
+        200
+      ],
+      "analytical_range": [
+        30,
+        180
+      ]
+    },
+    {
+      "field": "temperature",
+      "analytical_name": "body_temperature",
+      "loinc_code": "8310-5",
+      "display": "Body temperature",
+      "unit": "degrees Celsius",
+      "ucum_code": "Cel",
+      "realtime_range": [
+        30,
+        45
+      ],
+      "analytical_range": [
+        32,
+        43
+      ]
+    },
+    {
+      "field": "inhaled_oxygen_concentration",
+      "analytical_name": "inhaled_oxygen_concentration",
+      "loinc_code": "3150-0",
+      "display": "Inhaled oxygen concentration",
+      "unit": "%",
+      "ucum_code": "%",
+      "realtime_range": [
+        21,
+        100
+      ],
+      "analytical_range": [
+        21,
+        100
+      ]
+    },
+    {
+      "field": "consciousness_level",
+      "analytical_name": "consciousness_level",
+      "loinc_code": "67775-7",
+      "display": "Level of responsiveness",
+      "unit": "ACVPU ordinal",
+      "ucum_code": "{ordinal}",
+      "realtime_range": [
+        0,
+        4
+      ],
+      "analytical_range": [
+        0,
+        4
+      ],
+      "value_type": "coded",
+      "answers": [
+        {
+          "code": "LA9340-6",
+          "display": "Alert",
+          "acvpu": "A",
+          "ordinal": 0
+        },
+        {
+          "code": "LA6560-2",
+          "display": "Confused",
+          "acvpu": "C",
+          "ordinal": 1
+        },
+        {
+          "code": "LA17108-4",
+          "display": "Verbal",
+          "acvpu": "V",
+          "ordinal": 2
+        },
+        {
+          "code": "LA17107-6",
+          "display": "Painful",
+          "acvpu": "P",
+          "ordinal": 3
+        },
+        {
+          "code": "LA9343-0",
+          "display": "Unresponsive",
+          "acvpu": "U",
+          "ordinal": 4
+        }
+      ]
     }
   ]
 }

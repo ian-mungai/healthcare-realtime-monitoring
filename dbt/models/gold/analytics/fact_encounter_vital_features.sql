@@ -53,6 +53,12 @@ features_and_outcomes as (
         avg(case when is_feature_observation and loinc_code = '{{ var("vital_sign_loinc_codes")["systolic_bp"] }}' then value end) as systolic_bp_mean,
         min(case when is_feature_observation and loinc_code = '{{ var("vital_sign_loinc_codes")["systolic_bp"] }}' then value end) as systolic_bp_min,
         avg(case when is_feature_observation and loinc_code = '{{ var("vital_sign_loinc_codes")["diastolic_bp"] }}' then value end) as diastolic_bp_mean,
+        avg(case when is_feature_observation and loinc_code = '{{ var("vital_sign_loinc_codes")["temperature"] }}' then value end) as temperature_mean,
+        max(case when is_feature_observation and loinc_code = '{{ var("vital_sign_loinc_codes")["temperature"] }}' then value end) as temperature_max,
+        max(case when is_feature_observation and loinc_code = '{{ var("vital_sign_loinc_codes")["inhaled_oxygen_concentration"] }}' then value end)
+            as inhaled_oxygen_concentration_max,
+        max(case when is_feature_observation and loinc_code = '{{ var("vital_sign_loinc_codes")["consciousness_level"] }}' then value end)
+            as consciousness_level_max,
         sum(
             case
                 when

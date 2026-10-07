@@ -30,6 +30,7 @@ from dashboard.state import (
     vital_timestamp_key,
 )
 from scripts.synthea_loader.src.cohort import cohort_patient_ids
+from services.vital_signs import VITAL_SIGNS_BY_FIELD
 
 FHIR_RESOURCE_MAP_FILE = Path(os.getenv("FHIR_RESOURCE_MAP_FILE", "scripts/synthea_loader/state/fhir_resource_map.json"))
 PATIENT_IDS = cohort_patient_ids(FHIR_RESOURCE_MAP_FILE)
@@ -50,6 +51,10 @@ LIVE_VITAL_MAX_AGES = {
     "respiratory_rate": MAX_LIVE_DATA_AGE_SECONDS,
     "systolic_bp": BLOOD_PRESSURE_MAX_LIVE_DATA_AGE_SECONDS,
     "diastolic_bp": BLOOD_PRESSURE_MAX_LIVE_DATA_AGE_SECONDS,
+    # Bedside measures arrive with each observation set, on the blood-pressure interval.
+    "temperature": BLOOD_PRESSURE_MAX_LIVE_DATA_AGE_SECONDS,
+    "inhaled_oxygen_concentration": BLOOD_PRESSURE_MAX_LIVE_DATA_AGE_SECONDS,
+    "consciousness_level": BLOOD_PRESSURE_MAX_LIVE_DATA_AGE_SECONDS,
 }
 WARNING_VITAL_MAX_AGES = dict.fromkeys(LIVE_VITAL_MAX_AGES, MAX_LIVE_DATA_AGE_SECONDS)
 VITAL_DISPLAY_NAMES = {
@@ -58,7 +63,13 @@ VITAL_DISPLAY_NAMES = {
     "respiratory_rate": "Respiratory rate",
     "systolic_bp": "Systolic BP",
     "diastolic_bp": "Diastolic BP",
+    "temperature": "Temperature",
+    "inhaled_oxygen_concentration": "Inhaled O₂",
+    "consciousness_level": "ACVPU",
 }
+ROOM_AIR_PERCENT = 21.0
+ACVPU_NAMES = {"A": "Alert", "C": "Confused", "V": "Voice", "P": "Pain", "U": "Unresponsive"}
+ACVPU_LABELS = {answer["ordinal"]: f"{answer['acvpu']} · {ACVPU_NAMES[answer['acvpu']]}" for answer in VITAL_SIGNS_BY_FIELD["consciousness_level"]["answers"]}
 
 
 def get_initial_vitals(patient_id: str) -> dict[str, Any] | None:
@@ -340,6 +351,35 @@ def respiratory_rate_status(value: Any) -> str:
     return "Normal"
 
 
+def temperature_status(value: Any) -> str:
+    if value is None:
+        return "Unknown"
+
+    temperature = float(value)
+
+    if temperature <= 35.0:
+        return "Low"
+
+    if temperature >= 38.1:
+        return "Fever"
+
+    return "Normal"
+
+
+def oxygen_status(value: Any) -> str:
+    if value is None:
+        return "Unknown"
+
+    return "Room air" if float(value) <= ROOM_AIR_PERCENT else "Supplemental"
+
+
+def acvpu_label(value: Any) -> str:
+    if value is None:
+        return "--"
+
+    return ACVPU_LABELS.get(int(value), "--")
+
+
 def history_dataframe() -> pd.DataFrame:
     rows = [snapshot for history in st.session_state.cohort_history.values() for snapshot in history]
     if not rows:
@@ -615,6 +655,13 @@ def render_dashboard() -> None:
             value=f"{format_value(vitals.get('respiratory_rate'))} breaths/min",
         )
         blood_pressure_column.metric(label="Blood Pressure", value=f"{format_value(vitals.get('systolic_bp'))}/{format_value(vitals.get('diastolic_bp'))} mmHg")
+        temperature_column, oxygen_column, consciousness_column, _ = st.columns(4)
+        temperature_column.metric(label=f"Temperature · {temperature_status(vitals.get('temperature'))}", value=f"{format_value(vitals.get('temperature'))} °C")
+        oxygen_column.metric(
+            label=f"Inhaled O₂ · {oxygen_status(vitals.get('inhaled_oxygen_concentration'))}",
+            value=f"{format_value(vitals.get('inhaled_oxygen_concentration'))} %",
+        )
+        consciousness_column.metric(label="Consciousness (ACVPU)", value=acvpu_label(vitals.get("consciousness_level")))
         st.caption(
             f"Latest measurement {format_event_time(vitals.get('event_timestamp'))} · Latest measurement age {format_value(patient_ages[selected_patient])} sec"
         )

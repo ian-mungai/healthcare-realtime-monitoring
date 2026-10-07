@@ -124,3 +124,14 @@ def test_analytical_quarantine_fields_use_catalog_ranges() -> None:
 def test_measurement_delta_rejects_malformed_or_non_finite_values() -> None:
     expect.identical(measurement_delta({"heart_rate": "invalid"}, {"heart_rate": 82}, "heart_rate"), None)
     expect.identical(measurement_delta({"heart_rate": float("nan")}, {"heart_rate": 82}, "heart_rate"), None)
+
+
+def test_merge_vitals_keeps_bedside_measures_with_their_own_freshness() -> None:
+    current = {"patient_id": "1000", "heart_rate": 82.0, "heart_rate_event_timestamp": "2026-08-31T22:40:00Z"}
+    update = {"patient_id": "1000", "event_timestamp": "2026-08-31T22:45:00Z", "temperature": 38.4, "consciousness_level": 1}
+
+    merged = merge_vitals(current, update)
+
+    expect.equal((merged["temperature"], merged["consciousness_level"]), (38.4, 1))
+    expect.equal(merged["temperature_event_timestamp"], "2026-08-31T22:45:00Z")
+    expect.equal(merged["heart_rate_event_timestamp"], "2026-08-31T22:40:00Z")

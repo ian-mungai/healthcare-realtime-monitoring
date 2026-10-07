@@ -34,12 +34,12 @@ if not LOGGER.handlers:
     LOGGER.propagate = False
 
 if TYPE_CHECKING:
-    from services.vitals_stream_processor.schema import PermanentRecordError, validate_vitals_payload
+    from services.vitals_stream_processor.schema import VITAL_RANGES, PermanentRecordError, validate_vitals_payload
 else:
     try:
-        from services.vitals_stream_processor.schema import PermanentRecordError, validate_vitals_payload
+        from services.vitals_stream_processor.schema import VITAL_RANGES, PermanentRecordError, validate_vitals_payload
     except ModuleNotFoundError:
-        from schema import PermanentRecordError, validate_vitals_payload
+        from schema import VITAL_RANGES, PermanentRecordError, validate_vitals_payload
 
 AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
 LATEST_VITALS_TABLE = os.environ["LATEST_VITALS_TABLE"]
@@ -61,7 +61,8 @@ idempotency_table = dynamodb.Table(IDEMPOTENCY_TABLE)
 
 cloudwatch = boto3.client("cloudwatch", region_name=AWS_REGION)
 
-VITAL_FIELDS = ("heart_rate", "spo2", "respiratory_rate", "systolic_bp", "diastolic_bp")
+# Every measurement in the shared vital-sign catalog (config/vital_signs.json), in catalog order.
+VITAL_FIELDS = tuple(VITAL_RANGES)
 
 
 def decode_kinesis_record(record: dict[str, Any]) -> dict[str, Any]:

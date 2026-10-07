@@ -73,3 +73,22 @@ def test_lambda_handler_denies_unauthorized_patient(get_latest_vitals_table) -> 
 
     expect.equal(result["statusCode"], 403)
     get_latest_vitals_table.assert_not_called()
+
+
+@patch("services.vitals_api.handler.get_latest_vitals_table")
+def test_lambda_handler_returns_bedside_measures_and_their_freshness(get_latest_vitals_table) -> None:
+    get_latest_vitals_table.return_value.get_item.return_value = {
+        "Item": {
+            "patient_id": "137506799",
+            "heart_rate": Decimal("96"),
+            "heart_rate_event_timestamp": "2026-08-28T17:00:02Z",
+            "temperature": Decimal("38.4"),
+            "temperature_event_timestamp": "2026-08-28T17:05:00Z",
+            "consciousness_level": Decimal("1"),
+        }
+    }
+
+    body = json.loads(lambda_handler(event_for("137506799"), None)["body"])
+
+    expect.equal((body["temperature"], body["consciousness_level"]), (38.4, 1))
+    expect.equal(body["event_timestamp"], "2026-08-28T17:05:00Z")

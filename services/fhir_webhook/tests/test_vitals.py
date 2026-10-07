@@ -31,7 +31,7 @@ def test_transform_fhir_vitals_preserves_observation_id() -> None:
     expect.equal(result["observation_id"], "observation_123")
     expect.equal(result["patient_id"], "patient_123")
     expect.equal(result["encounter_id"], "encounter_456")
-    expect.equal(result["schema_version"], "1.1")
+    expect.equal(result["schema_version"], "1.2")
     expect.equal(result["heart_rate"], 94.0)
 
 
@@ -55,3 +55,34 @@ def test_transform_fhir_vitals_rejects_invalid_encounter_reference(reference: ob
 
     with pytest.raises(ValueError, match="encounter"):
         transform_fhir_vitals(event)
+
+
+def bedside_event(code: dict, value: dict) -> FHIRWebhookEvent:
+    event = build_heart_rate_event()
+    event.payload.pop("valueQuantity")
+    event.payload["code"] = {"coding": [{"system": "http://loinc.org", **code}]}
+    event.payload.update(value)
+    return event
+
+
+def test_temperature_and_inhaled_oxygen_become_event_fields() -> None:
+    temperature = transform_fhir_vitals(bedside_event({"code": "8310-5"}, {"valueQuantity": {"value": 38.4, "unit": "Cel"}}))
+    oxygen = transform_fhir_vitals(bedside_event({"code": "3150-0"}, {"valueQuantity": {"value": 28.0, "unit": "%"}}))
+
+    expect.equal(temperature["temperature"], 38.4)
+    expect.equal(oxygen["inhaled_oxygen_concentration"], 28.0)
+
+
+def test_a_coded_acvpu_answer_becomes_its_ordinal() -> None:
+    answer = {"valueCodeableConcept": {"coding": [{"system": "http://loinc.org", "code": "LA6560-2", "display": "Confused"}]}}
+
+    result = transform_fhir_vitals(bedside_event({"code": "67775-7"}, answer))
+
+    expect.equal(result["consciousness_level"], 1)
+
+
+def test_an_unknown_acvpu_answer_is_rejected() -> None:
+    answer = {"valueCodeableConcept": {"coding": [{"system": "http://loinc.org", "code": "LA25161-3", "display": "Lethargic"}]}}
+
+    with pytest.raises(ValueError, match="67775-7"):
+        transform_fhir_vitals(bedside_event({"code": "67775-7"}, answer))

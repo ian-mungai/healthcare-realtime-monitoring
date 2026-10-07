@@ -11,6 +11,7 @@ Failure modes the generator must handle (written before the generator):
    processor's range): leave it out and count it in the manifest, as the processor rejects it on the live path.
 7. Output names patients only by cohort position, never by HAPI or Synthea identifier, in file names and the manifest.
 8. A batch encounter is a completed historical stay: its status is finished, not in-progress like a live run's.
+9. Every observation set carries temperature, inhaled oxygen and ACVPU, from each patient's seeded baseline.
 
 The local end-to-end run (python -m e2e.local_cohort) remains the proof against a real HAPI server.
 """
@@ -224,3 +225,18 @@ def test_batch_encounters_carry_admissions_that_never_overlap_for_a_patient(tmp_
         for (_, first_end), (second_start, _) in zip(stays, stays[1:], strict=False):
             if second_start < first_end:
                 expect.fail("expected: a patient's simulated stays never overlap")
+
+
+def test_every_observation_set_carries_the_bedside_measures(tmp_path: Path) -> None:
+    folder = run(tmp_path)
+
+    bedside_fields = ("temperature", "inhaled_oxygen_concentration", "consciousness_level")
+    bedside = [record for record in records(folder) if any(field in record for field in bedside_fields)]
+    temperatures = [record for record in bedside if "temperature" in record]
+
+    expect.equal(len(temperatures), 4 * 6)
+    expect.equal(len([record for record in bedside if "inhaled_oxygen_concentration" in record]), 4 * 6)
+    expect.equal({record["consciousness_level"] for record in bedside if "consciousness_level" in record}, {0, 1})
+    for record in bedside:
+        validate_vitals_payload(record)
+        expect.equal(record["schema_version"], "1.2")

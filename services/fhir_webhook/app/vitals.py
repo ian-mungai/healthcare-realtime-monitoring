@@ -1,9 +1,9 @@
 from typing import Any
 
 from services.fhir_webhook.app.models import FHIRWebhookEvent
-from services.vital_signs import BLOOD_PRESSURE_PANEL_CODE, DIASTOLIC_CODE, LOINC_VITAL_FIELDS, SYSTOLIC_CODE
+from services.vital_signs import ANSWER_ORDINALS, BLOOD_PRESSURE_PANEL_CODE, CODED_VITAL_FIELDS, DIASTOLIC_CODE, LOINC_VITAL_FIELDS, SYSTOLIC_CODE
 
-SCHEMA_VERSION = "1.1"
+SCHEMA_VERSION = "1.2"
 
 
 def get_loinc_code(code: dict[str, Any]) -> str | None:
@@ -74,6 +74,15 @@ def transform_fhir_vitals(event: FHIRWebhookEvent) -> dict[str, Any]:
             raise ValueError(f"FHIR Observation {loinc_code} does not contain valueQuantity.value")
 
         payload[LOINC_VITAL_FIELDS[loinc_code]] = value
+
+    elif loinc_code in CODED_VITAL_FIELDS:
+        field = CODED_VITAL_FIELDS[loinc_code]
+        answer = get_loinc_code(observation.get("valueCodeableConcept", {}))
+
+        if answer not in ANSWER_ORDINALS[field]:
+            raise ValueError(f"FHIR Observation {loinc_code} does not contain a supported answer code")
+
+        payload[field] = ANSWER_ORDINALS[field][answer]
 
     elif loinc_code == BLOOD_PRESSURE_PANEL_CODE:
         for component in observation.get("component", []):

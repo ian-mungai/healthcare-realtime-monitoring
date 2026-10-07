@@ -10,6 +10,8 @@ Failure modes the local loader must handle (written before the loader):
 6. A regenerated batch moves an encounter's readings to new times and observation IDs: the encounter's rows from the
    earlier batch are removed in the same transaction, so only the new batch's rows remain (found by the end-to-end run).
 7. A reference table gains a column: the replace recreates it from its DDL instead of copying into the old columns.
+8. A regenerated batch changes a value but keeps the observation ID and receive time: the batch value replaces the
+   stored one, because a tie keeps the newer load (found by the end-to-end value check).
 
 The local warehouse end-to-end run (python -m e2e.local_warehouse) proves the load against the real Postgres server.
 """

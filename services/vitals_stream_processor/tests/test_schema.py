@@ -40,6 +40,12 @@ def test_legacy_payload_without_encounter_passes() -> None:
         ("systolic_bp", 301),
         ("diastolic_bp", 19),
         ("diastolic_bp", 201),
+        ("temperature", 29.9),
+        ("temperature", 45.1),
+        ("inhaled_oxygen_concentration", 20),
+        ("inhaled_oxygen_concentration", 101),
+        ("consciousness_level", -1),
+        ("consciousness_level", 5),
     ],
 )
 def test_out_of_range_vital_fails(field: str, value: int) -> None:
@@ -127,4 +133,25 @@ def test_validate_vitals_payload_rejects_missing_observation_id() -> None:
     payload = {"schema_version": "1.0", "patient_id": "137506799", "source": "fhir_webhook", "event_timestamp": "2026-08-31T22:42:19Z", "heart_rate": 94.0}
 
     with pytest.raises(ValueError, match="observation_id must be a non-empty string"):
+        validate_vitals_payload(payload)
+
+
+def test_schema_1_2_carries_the_bedside_measures() -> None:
+    payload = valid_payload() | {"schema_version": "1.2", "temperature": 37.1, "inhaled_oxygen_concentration": 21.0, "consciousness_level": 0}
+
+    validate_vitals_payload(payload)
+
+
+def test_schema_1_2_requires_an_encounter() -> None:
+    payload = valid_payload() | {"schema_version": "1.2"}
+    payload.pop("encounter_id")
+
+    with pytest.raises(PermanentRecordError, match="encounter_id"):
+        validate_vitals_payload(payload)
+
+
+def test_a_fractional_acvpu_ordinal_fails() -> None:
+    payload = valid_payload() | {"schema_version": "1.2", "consciousness_level": 1.5}
+
+    with pytest.raises(PermanentRecordError, match="consciousness_level"):
         validate_vitals_payload(payload)

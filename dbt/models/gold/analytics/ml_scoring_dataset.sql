@@ -14,7 +14,11 @@ select
     systolic_bp_mean,
     systolic_bp_min,
     diastolic_bp_mean,
+    temperature_mean,
+    temperature_max,
+    inhaled_oxygen_concentration_max,
+    consciousness_level_max,
     label_definition_version,
-    'vital-features-v2' as feature_schema_version
+    'vital-features-v3' as feature_schema_version
 from {{ ref('fact_encounter_vital_features') }}
 where is_scoring_eligible

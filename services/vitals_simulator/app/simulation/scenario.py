@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from dataclasses import replace
 
 from services.vitals_simulator.app.bidmc.source import VitalReading
+from services.vitals_simulator.app.simulation.bedside import BedsideReading
 from services.vitals_simulator.app.synthea.blood_pressure import BloodPressureReading
 
 NORMAL_SCENARIO = "normal"
@@ -71,6 +72,25 @@ def apply_blood_pressure_scenario(reading: BloodPressureReading, scenario: str, 
     if scenario == DETERIORATION_SCENARIO:
         return replace(reading, systolic=85.0, diastolic=55.0)
     return replace(reading, systolic=_clamp_required(reading.systolic, 105.0, 130.0), diastolic=_clamp_required(reading.diastolic, 60.0, 85.0))
+
+
+# Outcome-window bedside values of a deterioration encounter: fever, supplemental oxygen and new confusion (ACVPU C).
+DETERIORATION_TEMPERATURE = 38.6
+DETERIORATION_INHALED_OXYGEN = 28.0
+DETERIORATION_CONSCIOUSNESS = 1
+
+
+def apply_bedside_scenario(reading: BedsideReading, scenario: str, elapsed_seconds: float) -> BedsideReading:
+    if scenario not in SCENARIOS:
+        raise ValueError(f"Unsupported simulation scenario: {scenario}")
+    if scenario != DETERIORATION_SCENARIO or not is_outcome_window(elapsed_seconds):
+        return reading
+    return replace(
+        reading,
+        temperature=DETERIORATION_TEMPERATURE,
+        inhaled_oxygen_concentration=DETERIORATION_INHALED_OXYGEN,
+        consciousness_level=DETERIORATION_CONSCIOUSNESS,
+    )
 
 
 def _clamp(value: float | None, minimum: float, maximum: float) -> float | None:

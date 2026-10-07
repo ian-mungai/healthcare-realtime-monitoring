@@ -101,7 +101,7 @@ def test_ml_scoring_dataset_does_not_require_outcome_labels() -> None:
     expect.is_in("where is_scoring_eligible", scoring_model)
     expect.not_in("deterioration_proxy_label", scoring_model)
     expect.not_in("data_split", scoring_model)
-    expect.is_in("vital-features-v2", scoring_model)
+    expect.is_in("vital-features-v3", scoring_model)
 
 
 def test_non_string_accepted_values_are_not_quoted() -> None:

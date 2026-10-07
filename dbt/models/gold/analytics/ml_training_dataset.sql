@@ -30,9 +30,13 @@ select
     systolic_bp_mean,
     systolic_bp_min,
     diastolic_bp_mean,
+    temperature_mean,
+    temperature_max,
+    inhaled_oxygen_concentration_max,
+    consciousness_level_max,
     deterioration_proxy_label,
     label_definition_version,
-    'vital-features-v2' as feature_schema_version,
+    'vital-features-v3' as feature_schema_version,
     mod({{ hex_prefix_number(split_key, 7) }}, 10) as split_bucket,
     case
         when mod({{ hex_prefix_number(split_key, 7) }}, 10) < 8 then 'train'

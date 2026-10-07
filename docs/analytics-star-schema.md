@@ -145,7 +145,7 @@ This label is a synthetic engineering proxy derived from NEWS2 extreme threshold
 
 `${ATHENA_DBT_DATABASE}.${DBT_ML_TRAINING_TABLE}` contains only training-eligible encounters and preserves the feature and label definition versions. The split is deterministic: a stable bucket derived from `patient_key` assigns buckets 0 through 7 to training and 8 through 9 to testing. Grouping by patient prevents encounters for the same synthetic patient from appearing in both partitions. With the cohort reference models on, the bucket comes from the patient's waveform split group instead, so the two patients who share a reused BIDMC record also stay in one partition. A dbt test checks that no split group appears in both.
 
-The baseline model uses the twelve vital-sign aggregates as predictors. Encounter, patient and provider keys remain available for traceability but are excluded from model features.
+The baseline model uses the twelve vital-sign aggregates as predictors. `vital-features-v3` adds four bedside aggregates (temperature mean and maximum, maximum inhaled oxygen concentration and maximum consciousness ordinal), which the baseline does not use yet. Encounter, patient and provider keys remain available for traceability but are excluded from model features.
 
 ## Join Paths
 

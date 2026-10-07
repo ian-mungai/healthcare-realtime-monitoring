@@ -27,7 +27,19 @@ BLOOD_PRESSURE_PANEL_CODE = BLOOD_PRESSURE_PANEL["loinc_code"]
 SYSTOLIC_CODE = VITAL_SIGNS_BY_FIELD["systolic_bp"]["loinc_code"]
 DIASTOLIC_CODE = VITAL_SIGNS_BY_FIELD["diastolic_bp"]["loinc_code"]
 
-LOINC_VITAL_FIELDS = {VITAL_SIGNS_BY_FIELD[field]["loinc_code"]: field for field in ("heart_rate", "respiratory_rate", "spo2")}
+VITAL_FIELDS = tuple(vital["field"] for vital in VITAL_SIGNS)
+# Single-value quantity Observations; blood pressure arrives as components of its panel instead.
+LOINC_VITAL_FIELDS = {
+    vital["loinc_code"]: vital["field"]
+    for vital in VITAL_SIGNS
+    if vital.get("value_type", "quantity") == "quantity" and vital["loinc_code"] not in (SYSTOLIC_CODE, DIASTOLIC_CODE)
+}
+# Coded Observations (ACVPU): the answer code maps to an ordinal, which the event carries as a number.
+CODED_VITAL_FIELDS = {vital["loinc_code"]: vital["field"] for vital in VITAL_SIGNS if vital.get("value_type") == "coded"}
+ANSWER_ORDINALS = {
+    vital["field"]: {answer["code"]: answer["ordinal"] for answer in vital["answers"]} for vital in VITAL_SIGNS if vital.get("value_type") == "coded"
+}
+ORDINAL_FIELDS = tuple(ANSWER_ORDINALS)
 MEASUREMENT_NAMES = {vital["loinc_code"]: vital["analytical_name"] for vital in VITAL_SIGNS}
 FLATTENED_MEASUREMENTS = {vital["field"]: (vital["loinc_code"], vital["unit"]) for vital in VITAL_SIGNS}
 REALTIME_VITAL_RANGES = {vital["field"]: tuple(vital["realtime_range"]) for vital in VITAL_SIGNS}

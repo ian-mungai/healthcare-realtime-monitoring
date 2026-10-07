@@ -2,9 +2,7 @@ from datetime import UTC, datetime
 from math import isfinite
 from typing import Any
 
-from services.vital_signs import ANALYTICAL_VITAL_RANGES
-
-VITAL_FIELDS = ("heart_rate", "spo2", "respiratory_rate", "systolic_bp", "diastolic_bp")
+from services.vital_signs import ANALYTICAL_VITAL_RANGES, VITAL_FIELDS
 
 
 def vital_timestamp_key(field: str) -> str:

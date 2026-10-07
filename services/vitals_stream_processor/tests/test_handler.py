@@ -431,3 +431,20 @@ def test_calculate_latency_ms() -> None:
         latency = calculate_latency_ms("2026-08-28T16:00:03Z")
 
     expect.equal(latency, 2000.0)
+
+
+@patch("services.vitals_stream_processor.handler.latest_vitals_table")
+def test_write_latest_vitals_stores_the_bedside_measures(latest_vitals_table) -> None:
+    payload = {
+        "patient_id": "1000",
+        "event_timestamp": "2026-08-31T22:42:19Z",
+        "temperature": 38.4,
+        "inhaled_oxygen_concentration": 28.0,
+        "consciousness_level": 1,
+    }
+
+    expect.identical(write_latest_vitals(payload), True)
+
+    names = latest_vitals_table.update_item.call_args.kwargs["ExpressionAttributeNames"].values()
+    for field in ("temperature", "inhaled_oxygen_concentration", "consciousness_level", "consciousness_level_event_timestamp"):
+        expect.is_in(field, names)
