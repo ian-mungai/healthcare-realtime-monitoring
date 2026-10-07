@@ -18,6 +18,14 @@ from services.vitals_simulator.app.fhir.observation import utc_now
 from services.vitals_simulator.app.fhir.publisher import PublishedSimulatorEvent, publish_simulator_event
 from services.vitals_simulator.app.simulation.bedside import BASELINE_MEAN, BedsideCadence, baseline_temperature
 from services.vitals_simulator.app.simulation.cycle import build_simulator_event
+from services.vitals_simulator.app.simulation.precursor import (
+    NO_PRECURSOR,
+    Precursor,
+    apply_precursor_to_vitals,
+    is_65_plus,
+    load_planted_signal,
+    sample_precursor,
+)
 from services.vitals_simulator.app.simulation.scenario import LABEL_WINDOW_SECONDS, NORMAL_SCENARIO, SCENARIOS, apply_vital_scenario, choose_patient_scenarios
 from services.vitals_simulator.app.synthea.blood_pressure import load_synthea_blood_pressure_readings, readings_for_patient
 from services.vitals_simulator.app.synthea.blood_pressure_cadence import BloodPressureCadence
@@ -75,6 +83,7 @@ class PatientSimulation:
     baseline_temperature: float = BASELINE_MEAN
     # Set per run by initialize_simulation_run, seeded by the scenario seed, the patient and the run.
     bedside_cadence: BedsideCadence | None = None
+    precursor: Precursor = NO_PRECURSOR
 
 
 @dataclass(frozen=True)
@@ -237,6 +246,8 @@ def initialize_simulation_run(
     # Only runs long enough to produce labels count and are tagged; short check runs would otherwise skew the balance.
     prior_counts = count_labelled_runs(client, patient_ids) if label_eligible else None
     scenarios = choose_patient_scenarios(patient_ids, seed, prior_counts)
+    # The planted early-warning trend of the study (config/planted_signal.json); null_control plants nothing.
+    planted_signal = load_planted_signal(os.getenv("SIMULATOR_PLANTED_SIGNAL") or "study")
     initialized = []
     for simulation in simulations:
         patient_id = simulation.context.hapi_patient_id
@@ -248,7 +259,11 @@ def initialize_simulation_run(
         bedside = BedsideCadence(
             baseline_temperature=simulation.baseline_temperature, seed_key=f"{seed}:{patient_id}:{run_id}", interval_seconds=interval_seconds
         )
-        initialized.append(replace(simulation, context=context, scenario=scenarios[patient_id], bedside_cadence=bedside))
+        birth_date = (simulation.context.admission_profile or {}).get("birth_date")
+        # A map written before birth dates were recorded puts the patient in the under-65 group.
+        older = isinstance(birth_date, str) and bool(birth_date) and is_65_plus(birth_date, started_at)
+        precursor = sample_precursor(planted_signal, scenarios[patient_id], seed, patient_id, run_id, older)
+        initialized.append(replace(simulation, context=context, scenario=scenarios[patient_id], bedside_cadence=bedside, precursor=precursor))
     return run_id, initialized
 
 
@@ -265,6 +280,7 @@ def publish_patient_cycle(
     source_reading = simulation.readings[cycle_index]
     reading = get_replay_reading(source_reading, replay_index, available_cycles)
     scenario_elapsed_seconds = reading.offset_seconds if bp_elapsed_seconds is None else bp_elapsed_seconds
+    reading = apply_precursor_to_vitals(reading, simulation.precursor, scenario_elapsed_seconds)
     reading = apply_vital_scenario(reading, simulation.scenario, scenario_elapsed_seconds)
     simulation_start = get_cycle_simulation_start(cycle_timestamp, reading)
     event = build_simulator_event(
@@ -276,6 +292,7 @@ def publish_patient_cycle(
         bp_elapsed_seconds=bp_elapsed_seconds,
         scenario=simulation.scenario,
         bedside_cadence=simulation.bedside_cadence,
+        precursor=simulation.precursor,
     )
     client = HAPIFHIRClient(max_retries=fhir_max_attempts, retry_delay_seconds=fhir_retry_backoff_seconds)
     return publish_simulator_event(event, client)

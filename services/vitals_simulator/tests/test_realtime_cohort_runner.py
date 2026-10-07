@@ -9,6 +9,7 @@ from services.vitals_simulator.app.fhir.mapping import FHIRPatientContext
 from services.vitals_simulator.app.fhir.publisher import PublishedSimulatorEvent
 from services.vitals_simulator.app.simulation import realtime_cohort_runner
 from services.vitals_simulator.app.simulation.bedside import baseline_temperature
+from services.vitals_simulator.app.simulation.precursor import NO_PRECURSOR
 from services.vitals_simulator.app.simulation.realtime_cohort_runner import (
     CyclePublishResult,
     PatientCycleFailure,
@@ -27,6 +28,7 @@ from services.vitals_simulator.app.simulation.realtime_cohort_runner import (
     run_cycle,
     wait_for_next_cycle,
 )
+from services.vitals_simulator.app.simulation.scenario import DETERIORATION_SCENARIO
 from testkit import expect
 
 
@@ -418,3 +420,23 @@ def test_each_live_run_gets_a_bedside_cadence_seeded_by_patient_and_run():
 
     expect.equal(first.bedside_cadence.baseline_temperature, 36.6)
     expect.equal(first.bedside_cadence.get_reading(0), again.bedside_cadence.get_reading(0))
+
+
+def test_a_live_deterioration_run_carries_the_planted_precursor(monkeypatch):
+    monkeypatch.setenv("SIMULATOR_PLANTED_SIGNAL", "study")
+    profile = {"birth_date": "1950-07-19"}
+    contexts = [
+        FHIRPatientContext(f"synthea-{index}", f"{index}", f"synthea-encounter-{index}", f"encounter-{index}", admission_profile=profile) for index in range(40)
+    ]
+
+    class FakeClient:
+        def post_resource(self, resource):
+            return CreatedFHIRResource("Encounter", "run-encounter", "Encounter/run-encounter", 201)
+
+    simulations = [PatientSimulation(context=context, bidmc_record_number=1, readings=[], bp_cadence=None) for context in contexts]
+    _, initialized = initialize_simulation_run(simulations, datetime(2026, 9, 1, tzinfo=UTC), seed="7", client=FakeClient(), run_id="run-1")
+
+    planted = [simulation for simulation in initialized if simulation.precursor != NO_PRECURSOR]
+    expect.equal({simulation.scenario for simulation in planted}, {DETERIORATION_SCENARIO})
+    if not planted or not all(simulation.precursor.age_65_plus for simulation in planted):
+        expect.fail("expected: deterioration runs carry a precursor with the patient's age group")

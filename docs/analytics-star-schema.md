@@ -130,7 +130,7 @@ Every simulator task creates a new encounter for each cohort patient. For a run 
 
 Planned duration uses the cycle cap and interval, limited by available source cycles when replay is disabled. An unset or blank `SIMULATOR_MAX_CYCLES` defaults to ten cycles in the runner; `none` or `unlimited` removes the cap. Terraform configures unlimited cycles with replay. Scenario tags are written at encounter creation, so interrupted or concurrent runs can affect the counts without producing eligible analytical rows. Two complete runs are an initial attempt to supply both classes, not a guarantee. Verify actual observations in both windows, class diversity in both patient-grouped partitions and no patient leakage before training.
 
-Source Beth Israel Deaconess Medical Center (BIDMC) measurements and Synthea blood-pressure readings remain unchanged during the feature window. Scenario transformations apply only during the outcome window so they cannot leak into model features.
+Source Beth Israel Deaconess Medical Center (BIDMC) measurements and Synthea blood-pressure readings remain unchanged during the feature window of normal encounters. In deterioration encounters, the planted precursor of the simulation study ([`config/planted_signal.json`](../config/planted_signal.json)) adds a known early-warning trend to the feature window; that trend is the signal models are scored against. The fixed outcome-window values still define the label and the precursor never reaches the outcome window. The null control plants nothing, so its features carry no information about the label.
 
 <details>
 <summary>Old Patterns</summary>

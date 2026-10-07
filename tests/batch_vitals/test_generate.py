@@ -12,6 +12,12 @@ Failure modes the generator must handle (written before the generator):
 7. Output names patients only by cohort position, never by HAPI or Synthea identifier, in file names and the manifest.
 8. A batch encounter is a completed historical stay: its status is finished, not in-progress like a live run's.
 9. Every observation set carries temperature, inhaled oxygen and ACVPU, from each patient's seeded baseline.
+10. The study needs repeated measures: each patient gets six encounters, three per scenario, in a seeded order.
+11. The known truth must be recorded: planted_truth.json lists each encounter's precursor and age group by position.
+12. The null control must not overwrite the study: it uses its own folder and HAPI run identifiers, and plants nothing.
+13. A patient without a birth date cannot be placed in an age group: stop before any HAPI write.
+14. A stay that would end after the batch is generated cannot be a finished stay or reach the training set: stop
+    before any HAPI write.
 
 The local end-to-end run (python -m e2e.local_cohort) remains the proof against a real HAPI server.
 """
@@ -19,6 +25,7 @@ The local end-to-end run (python -m e2e.local_cohort) remains the proof against 
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -34,7 +41,7 @@ from services.vitals_simulator.app.synthea.blood_pressure import BloodPressureRe
 from services.vitals_stream_processor.schema import validate_vitals_payload
 from testkit import expect
 
-START = datetime(2026, 9, 1, 8, tzinfo=UTC)
+START = datetime(2026, 6, 1, 8, tzinfo=UTC)
 
 
 @pytest.fixture(autouse=True)
@@ -61,8 +68,21 @@ class FakeHapi:
         return CreatedFHIRResource(resource_type="Encounter", resource_id=encounter_id, location=f"Encounter/{encounter_id}", status_code=201)
 
 
+# Patient 0 is under 65 and patient 1 is 65 or older at the encounters.
+BIRTH_DATES = ("1980-04-02", "1950-07-19")
+
+
 def cohort(size: int = 2) -> list[FHIRPatientContext]:
-    return [FHIRPatientContext(f"synthea-{index}", f"hapi-patient-{index}", f"synthea-encounter-{index}", f"hapi-encounter-{index}") for index in range(size)]
+    return [
+        FHIRPatientContext(
+            f"synthea-{index}",
+            f"hapi-patient-{index}",
+            f"synthea-encounter-{index}",
+            f"hapi-encounter-{index}",
+            admission_profile={"birth_date": BIRTH_DATES[index % 2]},
+        )
+        for index in range(size)
+    ]
 
 
 def blood_pressure(size: int = 2) -> list[BloodPressureReading]:
@@ -73,20 +93,20 @@ def fetch_record(record_number: int) -> list[VitalReading]:
     return [VitalReading(f"bidmc{record_number:02d}n", offset, 80.0, 16.0, 97.0) for offset in range(60)]
 
 
-def settings(tmp_path: Path) -> generate.BatchSettings:
-    return generate.BatchSettings(seed="4817263", start=START, output_root=tmp_path / "batch_vitals")
+def settings(tmp_path: Path, signal: str = "study") -> generate.BatchSettings:
+    return generate.BatchSettings(seed="4817263", start=START, output_root=tmp_path / "batch_vitals", signal=signal)
 
 
-def run(tmp_path: Path, hapi: FakeHapi | None = None, **overrides) -> Path:
+def run(tmp_path: Path, hapi: FakeHapi | None = None, signal: str = "study", **overrides) -> Path:
     arguments = {"cohort": cohort(), "bp_readings": blood_pressure(), "fetch_record": fetch_record, "client": hapi or FakeHapi()}
-    return generate.generate_batch(settings(tmp_path), **{**arguments, **overrides})
+    return generate.generate_batch(settings(tmp_path, signal), **{**arguments, **overrides})
 
 
 def records(folder: Path) -> list[dict]:
     return [json.loads(line) for path in sorted(folder.glob("*.ndjson")) for line in path.read_text(encoding="utf-8").splitlines()]
 
 
-def test_every_patient_gets_one_normal_and_one_deterioration_encounter(tmp_path: Path) -> None:
+def test_every_patient_gets_three_normal_and_three_deterioration_encounters(tmp_path: Path) -> None:
     hapi = FakeHapi()
 
     run(tmp_path, hapi)
@@ -98,7 +118,7 @@ def test_every_patient_gets_one_normal_and_one_deterioration_encounter(tmp_path:
         tags.setdefault(encounter["subject"]["reference"], []).append(tag["code"])
     expect.equal(
         {patient: sorted(codes) for patient, codes in tags.items()},
-        {f"Patient/hapi-patient-{index}": [DETERIORATION_SCENARIO, NORMAL_SCENARIO] for index in range(2)},
+        {f"Patient/hapi-patient-{index}": [DETERIORATION_SCENARIO] * 3 + [NORMAL_SCENARIO] * 3 for index in range(2)},
     )
 
 
@@ -111,7 +131,7 @@ def test_records_pass_the_stream_processor_schema_and_cover_the_full_window(tmp_
     expect.equal({record["source"] for record in output}, {generate.BATCH_SOURCE})
     expect.equal(len({record["observation_id"] for record in output}), len(output))
     manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
-    expect.equal((manifest["cohort_size"], manifest["encounters"], manifest["cycles_per_encounter"]), (2, 4, 360))
+    expect.equal((manifest["cohort_size"], manifest["encounters"], manifest["cycles_per_encounter"]), (2, 12, 360))
     expect.equal(manifest["records"], len(output))
 
 
@@ -139,7 +159,7 @@ def test_a_rerun_reuses_encounters_and_writes_identical_files(tmp_path: Path) ->
     second = run(tmp_path, hapi)
 
     expect.equal(second, first)
-    expect.equal(len(hapi.encounters), 4)
+    expect.equal(len(hapi.encounters), 12)
     expect.equal({path.name: path.read_bytes() for path in second.iterdir()}, snapshot)
 
 
@@ -234,9 +254,64 @@ def test_every_observation_set_carries_the_bedside_measures(tmp_path: Path) -> N
     bedside = [record for record in records(folder) if any(field in record for field in bedside_fields)]
     temperatures = [record for record in bedside if "temperature" in record]
 
-    expect.equal(len(temperatures), 4 * 6)
-    expect.equal(len([record for record in bedside if "inhaled_oxygen_concentration" in record]), 4 * 6)
+    expect.equal(len(temperatures), 12 * 6)
+    expect.equal(len([record for record in bedside if "inhaled_oxygen_concentration" in record]), 12 * 6)
     expect.equal({record["consciousness_level"] for record in bedside if "consciousness_level" in record}, {0, 1})
     for record in bedside:
         validate_vitals_payload(record)
         expect.equal(record["schema_version"], "1.2")
+
+
+def feature_heart_rate(folder: Path, name: str, start: int, end: int) -> float:
+    """Mean heart rate between start and end seconds of one encounter's feature window."""
+    lines = [json.loads(line) for line in (folder / name).read_text(encoding="utf-8").splitlines()]
+    first = datetime.fromisoformat(lines[0]["event_timestamp"])
+    values = [r["heart_rate"] for r in lines if "heart_rate" in r and start <= (datetime.fromisoformat(r["event_timestamp"]) - first).total_seconds() < end]
+    return sum(values) / len(values)
+
+
+def test_the_truth_file_records_each_precursor_and_the_trend_is_in_the_feature_window(tmp_path: Path) -> None:
+    folder = run(tmp_path)
+    truth = json.loads((folder / "planted_truth.json").read_text(encoding="utf-8"))
+    manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
+
+    expect.equal((truth["signal"], truth["version"], len(truth["encounters"])), ("study", "planted-signal-v1", 12))
+    expect.equal({entry["age_65_plus"] for entry in truth["encounters"] if entry["position"] == 2}, {True})
+    expect.equal({entry["has_precursor"] for entry in truth["encounters"] if entry["scenario"] == NORMAL_SCENARIO}, {False})
+    planted = [entry for entry in truth["encounters"] if entry["has_precursor"] and entry["heart_rate"] > 4]
+    if not planted:
+        expect.fail("expected: at least one deterioration encounter with a heart-rate precursor")
+    for entry in planted:
+        name = next(item["name"] for item in manifest["files"] if (item["position"], item["run"]) == (entry["position"], entry["run"]))
+        rise = feature_heart_rate(folder, name, 870, 900) - feature_heart_rate(folder, name, 0, 300)
+        if abs(rise - entry["heart_rate"]) > 1.0:
+            expect.fail(f"expected: the feature window rises by the planted {entry['heart_rate']:.1f} bpm, got {rise:.1f}")
+
+
+def test_the_null_control_plants_nothing_and_keeps_its_own_encounters(tmp_path: Path) -> None:
+    hapi = FakeHapi()
+    study = run(tmp_path, hapi)
+    null = run(tmp_path, hapi, signal="null_control")
+    truth = json.loads((null / "planted_truth.json").read_text(encoding="utf-8"))
+
+    expect.equal(null.name, f"{study.name}_null-control")
+    expect.equal({entry["has_precursor"] for entry in truth["encounters"]}, {False})
+    expect.equal(len(hapi.encounters), 24)
+
+
+def test_a_patient_without_a_birth_date_stops_before_writing_to_hapi(tmp_path: Path) -> None:
+    hapi = FakeHapi()
+    patients = [replace(context, admission_profile={}) if index == 1 else context for index, context in enumerate(cohort())]
+
+    with pytest.raises(generate.BatchError, match="birth date"):
+        run(tmp_path, hapi, cohort=patients)
+    expect.equal(hapi.posts, 0)
+
+
+def test_a_stay_ending_in_the_future_stops_before_writing_to_hapi(tmp_path: Path) -> None:
+    hapi = FakeHapi()
+    late = generate.BatchSettings(seed="4817263", start=datetime(2026, 9, 1, 8, tzinfo=UTC), output_root=tmp_path / "batch_vitals")
+
+    with pytest.raises(generate.BatchError, match="future"):
+        generate.generate_batch(late, cohort(), blood_pressure(), fetch_record, hapi, now=datetime(2026, 10, 7, tzinfo=UTC))
+    expect.equal(hapi.posts, 0)

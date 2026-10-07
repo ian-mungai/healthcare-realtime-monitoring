@@ -12,6 +12,8 @@ Failure modes the local loader must handle (written before the loader):
 7. A reference table gains a column: the replace recreates it from its DDL instead of copying into the old columns.
 8. A regenerated batch changes a value but keeps the observation ID and receive time: the batch value replaces the
    stored one, because a tie keeps the newer load (found by the end-to-end value check).
+9. The null control must never mix with the study: LOCAL_WAREHOUSE_SIGNAL=null_control loads its own batch into its
+   own raw and analytics schemas, and an unknown signal stops the run.
 
 The local warehouse end-to-end run (python -m e2e.local_warehouse) proves the load against the real Postgres server.
 """
@@ -95,3 +97,15 @@ def test_the_load_statement_upserts_in_one_transaction() -> None:
 def test_unsafe_table_names_are_refused() -> None:
     with pytest.raises(ValueError, match="unsafe SQL identifier"):
         load.upsert_sql("raw", "observations; drop table x", load.CONTAINER_LOAD_DIR / "rows.csv")
+
+
+def test_each_signal_has_its_own_batch_and_schemas(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(load.SIGNAL_ENV, raising=False)
+    study = load.warehouse_schemas()
+    monkeypatch.setenv(load.SIGNAL_ENV, "null_control")
+    null = load.warehouse_schemas()
+
+    expect.equal((study.raw, study.analytics, study.batch.name), ("raw", "analytics", "seed-4817263_cohort-100"))
+    expect.equal((null.raw, null.analytics, null.batch.name), ("raw_null_control", "analytics_null_control", "seed-4817263_cohort-100_null-control"))
+    with pytest.raises(ValueError, match="LOCAL_WAREHOUSE_SIGNAL"):
+        load.warehouse_schemas("placebo")

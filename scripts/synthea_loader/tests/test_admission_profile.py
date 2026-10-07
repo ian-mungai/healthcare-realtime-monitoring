@@ -43,6 +43,7 @@ def test_profile_lists_hospital_facilities_and_disorders_only() -> None:
             "facilities": [{"id": "hospital-1", "name": "General Hospital"}, {"id": "hospital-2", "name": "County Medical Center"}],
             "diagnoses": [{"code": "233604007", "display": "Pneumonia (disorder)"}, {"code": "44054006", "display": "Diabetes mellitus type 2 (disorder)"}],
             "hospital_diagnoses": [],
+            "birth_date": None,
         },
     )
 
@@ -63,3 +64,12 @@ def test_disorders_diagnosed_at_hospital_visits_are_listed_first_as_hospital_dia
     profile = admission_profile(bundle(hospital_visit, clinic_visit, sinusitis, fracture))
 
     expect.equal(profile["hospital_diagnoses"], [{"code": "46866001", "display": "Fracture of lower limb (disorder)"}])
+
+
+def test_profile_keeps_the_birth_date_for_the_age_group_and_nothing_identifying() -> None:
+    patient = {"resourceType": "Patient", "id": "synthea-1", "birthDate": "1950-07-19", "name": [{"family": "Example"}], "address": [{"line": ["1 Main St"]}]}
+
+    profile = admission_profile(bundle(patient))
+
+    expect.equal(profile["birth_date"], "1950-07-19")
+    expect.equal(set(profile), {"facilities", "diagnoses", "hospital_diagnoses", "birth_date"})

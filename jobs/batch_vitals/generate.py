@@ -1,16 +1,20 @@
 """Generate a full-length vitals batch for every cohort patient without streaming it.
 
-Usage: python -m jobs.batch_vitals.generate [--seed SEED] [--start ISO-8601] [--output DIRECTORY]
+Usage: python -m jobs.batch_vitals.generate [--seed SEED] [--start ISO-8601] [--output DIRECTORY] [--signal SIGNAL]
 
-Each patient gets two 30-minute encounters, one normal and one deterioration_proxy, so every patient has both outcome
-classes. The run creates the encounters in HAPI FHIR with the simulator's scenario tags and builds every observation with
-the live simulator's own scenario, waveform and blood-pressure code. It converts each observation with the FHIR
-webhook's transform, so each record is the same event the stream processor receives from the live path. Records are
-checked against the processor schema: records it would reject are counted, not written. The rest are written as one
-NDJSON file per encounter, plus a manifest, under build/batch_vitals/seed-<SEED>_cohort-<SIZE>/. Settings come from
-the environment: COHORT_SIZE, FHIR_BASE_URL and FHIR_RESOURCE_MAP_FILE. A rerun with the same settings reuses the
-encounters and writes identical files. split_groups.json maps each patient to its waveform record, so a model split by
-record keeps the two patients that share a record in one partition.
+Each patient gets six 30-minute encounters, three normal and three deterioration_proxy in a seeded order, so every
+patient has both outcome classes several times. Deterioration encounters carry the planted precursor of the selected
+signal (config/planted_signal.json): --signal study plants it, --signal null_control plants nothing and writes to its
+own folder with its own HAPI encounters. planted_truth.json records each encounter's precursor by position.
+
+The run creates the encounters in HAPI FHIR with the simulator's scenario tags and builds every observation with the
+live simulator's own scenario, waveform and blood-pressure code. It converts each observation with the FHIR webhook's
+transform, so each record is the same event the stream processor receives from the live path. Records are checked
+against the processor schema: records it would reject are counted, not written. The rest are written as one NDJSON
+file per encounter, plus a manifest, under build/batch_vitals/seed-<SEED>_cohort-<SIZE>/ (with a _null-control suffix
+for the null control). Settings come from the environment: COHORT_SIZE, FHIR_BASE_URL and FHIR_RESOURCE_MAP_FILE. A
+rerun with the same settings reuses the encounters and writes identical files. split_groups.json maps each patient to
+its waveform record, so a model split by record keeps the two patients that share a record in one partition.
 """
 
 from __future__ import annotations
@@ -29,6 +33,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Protocol
 
+import numpy as np
+
 from scripts.synthea_loader.src.cohort import cohort_size
 from services.fhir_webhook.app.models import FHIRWebhookEvent
 from services.fhir_webhook.app.vitals import transform_fhir_vitals
@@ -39,7 +45,16 @@ from services.vitals_simulator.app.fhir.encounter import build_simulator_encount
 from services.vitals_simulator.app.fhir.mapping import FHIRPatientContext, get_patient_cohort
 from services.vitals_simulator.app.simulation.bedside import BedsideCadence, baseline_temperature
 from services.vitals_simulator.app.simulation.cycle import build_simulator_event
-from services.vitals_simulator.app.simulation.scenario import LABEL_WINDOW_SECONDS, SCENARIOS, apply_vital_scenario, choose_patient_scenarios
+from services.vitals_simulator.app.simulation.precursor import (
+    NO_PRECURSOR,
+    SIGNAL_MODES,
+    Precursor,
+    apply_precursor_to_vitals,
+    is_65_plus,
+    load_planted_signal,
+    sample_precursor,
+)
+from services.vitals_simulator.app.simulation.scenario import LABEL_WINDOW_SECONDS, SCENARIOS, apply_vital_scenario
 from services.vitals_simulator.app.synthea.blood_pressure import BloodPressureReading, load_synthea_blood_pressure_readings
 from services.vitals_simulator.app.synthea.blood_pressure_cadence import BloodPressureCadence
 from services.vitals_stream_processor.schema import PermanentRecordError, validate_vitals_payload
@@ -48,9 +63,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT_ROOT = REPO_ROOT / "build" / "batch_vitals"
 DEFAULT_RECORD_CACHE = REPO_ROOT / "build" / "bidmc_cache"
 DEFAULT_SEED = "4817263"
-DEFAULT_START = "2026-09-01T08:00:00+00:00"
+# Six stays 14 days apart, all finished before the batch is generated, so every one can reach the training set.
+DEFAULT_START = "2026-06-01T08:00:00+00:00"
 BATCH_SOURCE = "batch_simulator"
-RUNS_PER_PATIENT = 2
+RUNS_PER_PATIENT = 6
 # A patient's simulated admissions start this many days apart, longer than the longest stay, so stays never overlap.
 ENCOUNTER_SPACING_DAYS = 14
 # Stable namespace for observation IDs, so the same observation gets the same ID on every run.
@@ -73,6 +89,7 @@ class BatchSettings:
     interval_seconds: int = 5
     window_seconds: int = LABEL_WINDOW_SECONDS
     bp_interval_seconds: int = 300
+    signal: str = "study"
 
     @property
     def cycles(self) -> int:
@@ -92,16 +109,34 @@ class PlannedEncounter:
     split_group: str
     admission: Admission
     baseline_temperature: float
+    precursor: Precursor
+
+
+# Marks the null control's run identifiers; it gets its own HAPI encounters, so generating it never changes the study's.
+NULL_CONTROL_RUN_MARKER = "-null-"
 
 
 def run_identifier(settings: BatchSettings, run: int) -> str:
-    return f"batch-{settings.seed}-{run}"
+    return f"batch-{settings.seed}-{run}" if settings.signal == "study" else f"batch-{settings.seed}{NULL_CONTROL_RUN_MARKER}{run}"
 
 
-def plan_scenarios(patient_ids: list[str], seed: str) -> dict[str, tuple[str, str]]:
-    """The seeded first scenario for each patient, then the other one, so both runs cover both outcome classes."""
-    first = choose_patient_scenarios(patient_ids, seed)
-    return {patient_id: (first[patient_id], next(scenario for scenario in SCENARIOS if scenario != first[patient_id])) for patient_id in patient_ids}
+def is_null_control_run(run_id: str) -> bool:
+    return run_id.startswith("batch-") and NULL_CONTROL_RUN_MARKER in run_id
+
+
+def batch_name(settings: BatchSettings, size: int) -> str:
+    return f"seed-{settings.seed}_cohort-{size}" + ("" if settings.signal == "study" else "_null-control")
+
+
+def plan_scenarios(patient_ids: list[str], seed: str) -> dict[str, tuple[str, ...]]:
+    """Three runs of each scenario per patient, in an order seeded by the seed and the patient."""
+    plan = {}
+    for patient_id in patient_ids:
+        digest = hashlib.sha256(f"scenario-order:{seed}:{patient_id}".encode()).digest()
+        order = np.random.default_rng(int.from_bytes(digest[:8], "big")).permutation(RUNS_PER_PATIENT)
+        runs = [SCENARIOS[0]] * (RUNS_PER_PATIENT // 2) + [SCENARIOS[1]] * (RUNS_PER_PATIENT - RUNS_PER_PATIENT // 2)
+        plan[patient_id] = tuple(runs[int(index)] for index in order)
+    return plan
 
 
 def plan_encounters(
@@ -117,6 +152,10 @@ def plan_encounters(
     for position, context in enumerate(cohort, start=1):
         if not readings_by_patient.get(context.synthea_patient_id):
             raise BatchError(f"no blood-pressure readings for cohort position {position}; rerun scripts/export_vitals_simulator_bp.py")
+    for position, context in enumerate(cohort, start=1):
+        if not (context.admission_profile or {}).get("birth_date"):
+            raise BatchError(f"no birth date for cohort position {position}; reload the cohort with scripts.synthea_loader.src.load_fhir")
+    signal = load_planted_signal(settings.signal)
     records: dict[int, list[VitalReading]] = {}
     scenarios = plan_scenarios([context.hapi_patient_id for context in cohort], settings.seed)
     planned = []
@@ -128,18 +167,21 @@ def plan_encounters(
             raise BatchError(f"waveform record {record_number} has no readings")
         for run, scenario in enumerate(scenarios[context.hapi_patient_id], start=1):
             admission = plan_admission(context.admission_profile, settings.seed, context.hapi_patient_id, run_identifier(settings, run))
+            started_at = settings.start + timedelta(days=(run - 1) * ENCOUNTER_SPACING_DAYS, hours=admission.admit_hour)
+            older = is_65_plus((context.admission_profile or {})["birth_date"], started_at)
             planned.append(
                 PlannedEncounter(
                     position=position,
                     run=run,
                     scenario=scenario,
-                    started_at=settings.start + timedelta(days=(run - 1) * ENCOUNTER_SPACING_DAYS, hours=admission.admit_hour),
+                    started_at=started_at,
                     context=context,
                     readings=vary_reused_readings(rotate_readings(records[record_number], epoch), record_number, epoch),
                     bp_readings=readings_by_patient[context.synthea_patient_id],
                     split_group=f"bidmc{record_number:02d}",
                     admission=admission,
                     baseline_temperature=baseline_temperature(context.synthea_patient_id),
+                    precursor=sample_precursor(signal, scenario, settings.seed, context.hapi_patient_id, run_identifier(settings, run), older),
                 )
             )
     return planned
@@ -163,6 +205,7 @@ def encounter_records(settings: BatchSettings, encounter: PlannedEncounter, enco
         source = encounter.readings[cycle % available]
         elapsed_seconds = cycle * settings.interval_seconds
         reading = replace(source, offset_seconds=source.offset_seconds + (cycle // available) * available)
+        reading = apply_precursor_to_vitals(reading, encounter.precursor, elapsed_seconds)
         reading = apply_vital_scenario(reading, encounter.scenario, elapsed_seconds)
         cycle_timestamp = encounter.started_at + timedelta(seconds=elapsed_seconds)
         event = build_simulator_event(
@@ -174,6 +217,7 @@ def encounter_records(settings: BatchSettings, encounter: PlannedEncounter, enco
             bp_elapsed_seconds=elapsed_seconds,
             scenario=encounter.scenario,
             bedside_cadence=bedside,
+            precursor=encounter.precursor,
         )
         for observation in event.observations:
             identifier = observation["identifier"][0]["value"]
@@ -197,12 +241,16 @@ def generate_batch(
     bp_readings: list[BloodPressureReading],
     fetch_record: Callable[[int], list[VitalReading]],
     client: EncounterClient,
+    now: datetime | None = None,
 ) -> Path:
     """Create the encounters, write the batch to a staging folder and publish it only when every record is valid."""
     planned = plan_encounters(settings, cohort, bp_readings, fetch_record)
-    batch_name = f"seed-{settings.seed}_cohort-{len(cohort)}"
-    final = settings.output_root / batch_name
-    staging = settings.output_root / f".staging-{batch_name}"
+    latest = max(encounter.admission.discharge_at(encounter.started_at) for encounter in planned)
+    if latest > (now or datetime.now(UTC)):
+        raise BatchError(f"the last simulated stay ends in the future ({latest.date()}); use an earlier --start")
+    name = batch_name(settings, len(cohort))
+    final = settings.output_root / name
+    staging = settings.output_root / f".staging-{name}"
     shutil.rmtree(staging, ignore_errors=True)
     try:
         staging.mkdir(parents=True)
@@ -246,8 +294,17 @@ def generate_batch(
             "rejected_records": dict(sorted(rejected.items())),
             "scenario_counts": dict(sorted(Counter(entry["scenario"] for entry in files).items())),
             "source": BATCH_SOURCE,
+            "signal": settings.signal,
             "files": files,
         }
+        signal = load_planted_signal(settings.signal)
+        truth = {
+            "version": signal["version"],
+            "signal": settings.signal,
+            "parameters": {key: value for key, value in signal.items() if key not in ("version", "mode")},
+            "encounters": [truth_entry(encounter) for encounter in planned],
+        }
+        (staging / "planted_truth.json").write_text(json.dumps(truth, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         groups = {encounter.context.hapi_patient_id: encounter.split_group for encounter in planned}
         (staging / "split_groups.json").write_text(json.dumps(groups, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         (staging / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -257,6 +314,23 @@ def generate_batch(
         shutil.rmtree(staging, ignore_errors=True)
         raise
     return final
+
+
+def truth_entry(encounter: PlannedEncounter) -> dict[str, Any]:
+    """The encounter's planted precursor, by cohort position and run only."""
+    precursor = encounter.precursor
+    return {
+        "position": encounter.position,
+        "run": encounter.run,
+        "scenario": encounter.scenario,
+        "split_group": encounter.split_group,
+        "age_65_plus": is_65_plus((encounter.context.admission_profile or {})["birth_date"], encounter.started_at),
+        "has_precursor": precursor != NO_PRECURSOR,
+        **{name: round(getattr(precursor, name), 4) for name in ("heart_rate", "respiratory_rate", "spo2", "systolic_bp", "temperature")},
+        "oxygen_from_seconds": precursor.oxygen_from_seconds,
+        "inhaled_oxygen_concentration": precursor.inhaled_oxygen_concentration,
+        "confusion_from_seconds": precursor.confusion_from_seconds,
+    }
 
 
 def cached_fetch(cache_dir: Path) -> Callable[[int], list[VitalReading]]:
@@ -280,11 +354,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--start", default=DEFAULT_START, help="first encounter start, ISO-8601 with a UTC offset")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--record-cache", type=Path, default=DEFAULT_RECORD_CACHE)
+    parser.add_argument("--signal", choices=SIGNAL_MODES, default="study", help="planted signal from config/planted_signal.json")
     args = parser.parse_args(argv)
     start = datetime.fromisoformat(args.start)
     if start.tzinfo is None:
         parser.error("--start needs a UTC offset, for example 2026-09-01T08:00:00+00:00")
-    settings = BatchSettings(seed=str(args.seed), start=start.astimezone(UTC), output_root=args.output)
+    settings = BatchSettings(seed=str(args.seed), start=start.astimezone(UTC), output_root=args.output, signal=args.signal)
     folder = generate_batch(settings, get_patient_cohort(), load_synthea_blood_pressure_readings(), cached_fetch(args.record_cache), HAPIFHIRClient())
     manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
     shown = folder.relative_to(REPO_ROOT) if folder.is_relative_to(REPO_ROOT) else folder

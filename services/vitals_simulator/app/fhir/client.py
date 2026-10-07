@@ -68,7 +68,30 @@ class HAPIFHIRClient:
         headers = {"Content-Type": "application/fhir+json", "Accept": "application/fhir+json"}
         params = {"identifier": f"{system}|{value}"}
         response = self._send_with_retries(lambda: httpx.put(url, headers=headers, params=params, json=resource, timeout=self.timeout_seconds))
-        return self._extract_created_resource(response, resource_type)
+        created = self._extract_created_resource(response, resource_type)
+        self._remove_stale_tags(resource, response, created)
+        return created
+
+    def _remove_stale_tags(self, resource: dict, response: httpx.Response, created: CreatedFHIRResource) -> None:
+        """HAPI keeps a resource's existing tags on update; remove those of the update's tag systems it no longer carries."""
+        wanted = (resource.get("meta") or {}).get("tag") or []
+        systems = {tag.get("system") for tag in wanted}
+        try:
+            stored = ((response.json() or {}).get("meta") or {}).get("tag") or []
+        except ValueError:
+            return
+        keep = {(tag.get("system"), tag.get("code")) for tag in wanted}
+        stale = [
+            {"system": tag["system"], "code": tag["code"]}
+            for tag in stored
+            if tag.get("system") in systems and (tag.get("system"), tag.get("code")) not in keep
+        ]
+        if not stale:
+            return
+        url = f"{self.base_url}/{created.resource_type}/{created.resource_id}/$meta-delete"
+        body = {"resourceType": "Parameters", "parameter": [{"name": "meta", "valueMeta": {"tag": stale}}]}
+        headers = {"Content-Type": "application/fhir+json", "Accept": "application/fhir+json"}
+        self._send_with_retries(lambda: httpx.post(url, headers=headers, json=body, timeout=self.timeout_seconds))
 
     def count_resources(self, resource_type: str, params: dict[str, str]) -> int:
         """Return how many resources match a FHIR search, without downloading them."""

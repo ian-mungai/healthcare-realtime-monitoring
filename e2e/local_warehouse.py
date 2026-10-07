@@ -59,42 +59,45 @@ TRAINING_FEATURES = (
 )
 TRAINING_FINGERPRINT_SQL = Template(
     "select count(*), md5(string_agg(row_text, '' order by row_text)) from (select concat_ws('|', encounter_key, patient_key, "
-    "data_split, split_bucket, deterioration_proxy_label, $features) as row_text from analytics.ml_training_dataset) as rows"
+    "data_split, split_bucket, deterioration_proxy_label, $features) as row_text from $analytics.ml_training_dataset) as rows"
 )
 MODEL_TABLES = ("dim_patient_version", "dim_facility", "dim_unit", "fact_admissions", "fact_encounter_minute_features", "ml_training_dataset")
-RAW_TABLES = ("raw.processed_fhir_observations", "raw.patient_split_groups", *(f"raw.{name}" for name in extract.TABLES))
+RAW_TABLE_NAMES = ("processed_fhir_observations", "patient_split_groups", *extract.TABLES)
+# The signal's schemas (LOCAL_WAREHOUSE_SIGNAL); every SQL string names them as $raw and $analytics.
+SCHEMAS = load.warehouse_schemas("study")
 BATCH_VALUE_SUMS_SQL = (
-    "select loinc_code, round(cast(sum(value) as numeric), 3) from raw.processed_fhir_observations "
-    "where encounter_id in (select encounter_id from raw.admissions) group by loinc_code order by loinc_code"
+    "select loinc_code, round(cast(sum(value) as numeric), 3) from $raw.processed_fhir_observations "
+    "where encounter_id in (select encounter_id from $raw.admissions) group by loinc_code order by loinc_code"
 )
-BATCH_ROWS_SQL = "select count(*) from raw.processed_fhir_observations where encounter_id in (select encounter_id from raw.admissions)"
+BATCH_ROWS_SQL = "select count(*) from $raw.processed_fhir_observations where encounter_id in (select encounter_id from $raw.admissions)"
 CHECKS_SQL = {
-    "admissions_without_version": "select count(*) from analytics.fact_admissions where patient_version_key is null",
-    "admissions_raw": "select count(*) from raw.admissions",
-    "admissions_fact": "select count(*) from analytics.fact_admissions",
+    "admissions_without_version": "select count(*) from $analytics.fact_admissions where patient_version_key is null",
+    "admissions_raw": "select count(*) from $raw.admissions",
+    "admissions_fact": "select count(*) from $analytics.fact_admissions",
     "patients_without_one_current_version": (
-        "select count(*) from (select patient_id from analytics.dim_patient_version group by patient_id "
+        "select count(*) from (select patient_id from $analytics.dim_patient_version group by patient_id "
         "having sum(case when is_current then 1 else 0 end) <> 1) as patients"
     ),
     "split_groups_in_both_splits": (
-        "select count(*) from (select groups.split_group from analytics.ml_training_dataset as training "
-        "inner join raw.patient_split_groups as groups on training.patient_key = md5(groups.patient_id) "
+        "select count(*) from (select groups.split_group from $analytics.ml_training_dataset as training "
+        "inner join $raw.patient_split_groups as groups on training.patient_key = md5(groups.patient_id) "
         "group by groups.split_group having count(distinct training.data_split) > 1) as leaked"
     ),
     "splits_missing_a_class": (
-        "select 2 - count(*) from (select data_split from analytics.ml_training_dataset group by data_split "
+        "select 2 - count(*) from (select data_split from $analytics.ml_training_dataset group by data_split "
         "having count(distinct deterioration_proxy_label) = 2) as splits"
     ),
     # Synthea generates ages 18 to 90 on its run date; admissions fall within a month of it.
-    "admissions_outside_adult_ages": "select count(*) from analytics.fact_admissions where age_at_admission_years < 18 or age_at_admission_years >= 91",
-    "patients_65_and_over": "select count(distinct patient_key) from analytics.fact_admissions where age_at_admission_years >= 65",
+    "admissions_outside_adult_ages": "select count(*) from $analytics.fact_admissions where age_at_admission_years < 18 or age_at_admission_years >= 91",
+    "patients_65_and_over": "select count(distinct patient_key) from $analytics.fact_admissions where age_at_admission_years >= 65",
+    "training_rows": "select count(*) from $analytics.ml_training_dataset",
     "training_rows_without_bedside_features": (
-        "select count(*) from analytics.ml_training_dataset "
+        "select count(*) from $analytics.ml_training_dataset "
         "where temperature_mean is null or inhaled_oxygen_concentration_max is null or consciousness_level_max is null"
     ),
     "encounters_without_15_minutes": (
-        "select count(*) from (select training.encounter_key from analytics.ml_training_dataset as training "
-        "left join analytics.fact_encounter_minute_features as minutes on training.encounter_key = minutes.encounter_key "
+        "select count(*) from (select training.encounter_key from $analytics.ml_training_dataset as training "
+        "left join $analytics.fact_encounter_minute_features as minutes on training.encounter_key = minutes.encounter_key "
         "group by training.encounter_key having count(minutes.minute_index) <> 15) as short"
     ),
 }
@@ -102,11 +105,17 @@ CHECKS_SQL = {
 
 def query(sql: str) -> list[str]:
     """Run one read-only query in the local warehouse and return its rows as comma-separated text."""
+    load.checked(SCHEMAS.raw, SCHEMAS.analytics)
+    sql = Template(sql).safe_substitute(raw=SCHEMAS.raw, analytics=SCHEMAS.analytics)
     command = ["compose", "-f", str(load.COMPOSE_FILE), "exec", "-T", "postgres", "psql", "-U", "warehouse", "-d", "warehouse", "-At", "-F", ",", "-c", sql]
     result = run_command("docker", command, timeout=300)
     if result.returncode != 0:
         raise RuntimeError(f"warehouse query failed: {result.stderr.strip()[-300:]}")
     return result.stdout.strip().splitlines()
+
+
+def raw_tables() -> tuple[str, ...]:
+    return tuple(f"{SCHEMAS.raw}.{name}" for name in RAW_TABLE_NAMES)
 
 
 def table_sql(template: Template, qualified: str) -> str:
@@ -117,7 +126,7 @@ def table_sql(template: Template, qualified: str) -> str:
 
 def training_fingerprint() -> list[str]:
     load.checked(*TRAINING_FEATURES)
-    return query(TRAINING_FINGERPRINT_SQL.substitute(features=", ".join(f"round(cast({name} as numeric), 9)" for name in TRAINING_FEATURES)))
+    return query(TRAINING_FINGERPRINT_SQL.safe_substitute(features=", ".join(f"round(cast({name} as numeric), 9)" for name in TRAINING_FEATURES)))
 
 
 def fingerprints(tables: tuple[str, ...]) -> dict[str, str]:
@@ -126,7 +135,7 @@ def fingerprints(tables: tuple[str, ...]) -> dict[str, str]:
 
 def load_all(folder: Path) -> dict[str, int]:
     """Load the batch and extract the reference tables, keeping their JSON counts out of the report output."""
-    counts = load.load_batch(folder)
+    counts = load.load_batch(folder, SCHEMAS.raw)
     with contextlib.redirect_stdout(io.StringIO()) as output:
         extract.main([])
     return counts | json.loads(output.getvalue())
@@ -143,10 +152,10 @@ def batch_value_sums(folder: Path) -> dict[str, Decimal]:
 
 def check_loads(report: Report, folder: Path) -> None:
     counts = load_all(folder)
-    first = fingerprints(RAW_TABLES)
+    first = fingerprints(raw_tables())
     load_all(folder)
-    second = fingerprints(RAW_TABLES)
-    changed = [table for table in RAW_TABLES if first[table] != second[table]]
+    second = fingerprints(raw_tables())
+    changed = [table for table in raw_tables() if first[table] != second[table]]
     report.check(
         "Batch and reference loads are repeatable", "a second run leaves identical rows in every raw table", f"{len(changed)} tables differ", not changed
     )
@@ -191,7 +200,7 @@ def check_dbt(report: Report) -> None:
     )
 
 
-def check_models(report: Report) -> None:
+def check_models(report: Report, folder: Path) -> None:
     values = {name: int(query(sql)[0]) for name, sql in CHECKS_SQL.items()}
     report.check(
         "One admission row per extracted admission",
@@ -219,6 +228,19 @@ def check_models(report: Report) -> None:
         f"{values['encounters_without_15_minutes']}",
         values["encounters_without_15_minutes"] == 0,
     )
+    encounters = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))["encounters"]
+    report.check(
+        "Admissions are the loaded batch's encounters",
+        f"{encounters} admissions, none from the null control or another batch",
+        f"{values['admissions_fact']}",
+        values["admissions_fact"] == encounters,
+    )
+    report.check(
+        "Every batch encounter reaches the training set",
+        f"{encounters} training rows, one per finished stay",
+        f"{values['training_rows']}",
+        values["training_rows"] == encounters,
+    )
     report.check(
         "Every training encounter has temperature, inhaled oxygen and ACVPU features",
         "0 rows without them",
@@ -232,23 +254,26 @@ def check_models(report: Report) -> None:
         values["admissions_outside_adult_ages"] == 0,
     )
     report.evidence["patients_65_and_over"] = values["patients_65_and_over"]
-    codes = set(query("select distinct diagnosis_code from analytics.fact_admissions"))
+    codes = set(query("select distinct diagnosis_code from $analytics.fact_admissions"))
     report.check(
         "Every admitting diagnosis is on the admitting list", "0 other codes", f"{len(codes - set(ADMITTING_DIAGNOSES))}", codes <= set(ADMITTING_DIAGNOSES)
     )
     report.evidence["diagnosis_sources"] = dict(
-        row.split(",") for row in query("select diagnosis_source, count(*) from analytics.fact_admissions group by diagnosis_source order by 1")
+        row.split(",") for row in query("select diagnosis_source, count(*) from $analytics.fact_admissions group by diagnosis_source order by 1")
     )
-    report.evidence["model_row_counts"] = {table: int(query(table_sql(COUNT_SQL, f"analytics.{table}"))[0]) for table in MODEL_TABLES}
+    report.evidence["model_row_counts"] = {table: int(query(table_sql(COUNT_SQL, f"{SCHEMAS.analytics}.{table}"))[0]) for table in MODEL_TABLES}
     report.evidence["split_sizes"] = dict(
-        row.split(",") for row in query("select data_split, count(*) from analytics.ml_training_dataset group by data_split order by 1")
+        row.split(",") for row in query("select data_split, count(*) from $analytics.ml_training_dataset group by data_split order by 1")
     )
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
-    parser.add_argument("--batch", type=Path, default=load.DEFAULT_BATCH)
+    parser.add_argument("--batch", type=Path, default=None, help="defaults to the batch of LOCAL_WAREHOUSE_SIGNAL (study)")
     args = parser.parse_args(argv)
+    global SCHEMAS
+    SCHEMAS = load.warehouse_schemas()
+    args.batch = args.batch or SCHEMAS.batch
     report = Report(scenario="local_warehouse", purpose=PURPOSE, limits=LIMITS, reproduce=REPRODUCE)
     error: BaseException | None = None
     try:
@@ -256,10 +281,10 @@ def main(argv: list[str] | None = None) -> int:
             raise Blocked("the batch is missing; run python -m jobs.batch_vitals.generate first")
         if not dbt.DBT.is_file():
             raise Blocked("dbt-postgres is not installed; run .venv/bin/python -m tools.install_tools")
-        report.parameters = {"batch": args.batch.name}
+        report.parameters = {"batch": args.batch.name, "signal": SCHEMAS.signal, "schemas": f"{SCHEMAS.raw}, {SCHEMAS.analytics}"}
         check_loads(report, args.batch)
         check_dbt(report)
-        check_models(report)
+        check_models(report, args.batch)
     except Exception as failure:
         error = failure
     report.finish(error)

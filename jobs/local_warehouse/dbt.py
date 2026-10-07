@@ -15,6 +15,7 @@ import os
 import sys
 from pathlib import Path
 
+from jobs.local_warehouse.load import warehouse_schemas
 from scripts.infrastructure.render_project_config import load_environment_file
 from scripts.synthea_loader.src.cohort import cohort_patient_ids
 from tools.process import run_command
@@ -60,6 +61,10 @@ def local_environment() -> dict[str, str]:
     environment["LOCAL_WAREHOUSE_DB_PASSWORD"] = stack["LOCAL_WAREHOUSE_DB_PASSWORD"]
     environment["LOCAL_POSTGRES_PORT"] = stack.get("LOCAL_POSTGRES_PORT", "5432")
     environment["ACTIVE_PATIENT_IDS"] = ",".join(patient_ids)
+    # The null control reads and builds its own schemas, so its models never mix with the study's.
+    schemas = warehouse_schemas()
+    environment["ATHENA_SOURCE_DATABASE"] = schemas.raw
+    environment["ATHENA_DBT_DATABASE"] = schemas.analytics
     return environment
 
 

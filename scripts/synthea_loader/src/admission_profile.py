@@ -13,10 +13,11 @@ SNOMED_SYSTEM = "http://snomed.info/sct"
 HOSPITAL_ENCOUNTER_CLASSES = {"IMP", "EMER"}
 
 
-def admission_profile(bundle: dict[str, Any]) -> dict[str, list[dict[str, str]]]:
+def admission_profile(bundle: dict[str, Any]) -> dict[str, Any]:
     """The patient's hospital facilities (any facility when never admitted) and disorders, in first-seen order.
 
     hospital_diagnoses holds the disorders diagnosed at a hospital or emergency visit; admissions prefer them.
+    birth_date sets the patient's age group at each simulated admission (the planted signal's 65-and-over effect).
     """
     hospitals: dict[str, str] = {}
     facilities: dict[str, str] = {}
@@ -44,7 +45,9 @@ def admission_profile(bundle: dict[str, Any]) -> dict[str, list[dict[str, str]]]
                     if resource.get("encounter", {}).get("reference") in hospital_visits:
                         hospital_diagnoses.setdefault(coding["code"], coding["display"])
     chosen = hospitals or facilities
+    patient: dict[str, Any] = next((entry["resource"] for entry in bundle.get("entry", []) if entry.get("resource", {}).get("resourceType") == "Patient"), {})
     return {
+        "birth_date": patient.get("birthDate"),
         "facilities": [{"id": organization_id, "name": name} for organization_id, name in chosen.items()],
         "diagnoses": [{"code": code, "display": display} for code, display in diagnoses.items()],
         "hospital_diagnoses": [{"code": code, "display": display} for code, display in hospital_diagnoses.items()],

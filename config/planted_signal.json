@@ -1,0 +1,36 @@
+{
+  "version": "planted-signal-v1",
+  "description": "Known truth of the simulation study: the early-warning trend planted in the feature window of deterioration encounters. Effects are offsets reached at the feature-window end; sizes are drawn per encounter from a normal distribution. Oxygen and confusion start between 300 and 600 seconds, so the last feature-window observation set (at 600 seconds) records them. Calibrated in step 3b.3.",
+  "signals": {
+    "study": {
+      "precursor_probability": 0.75,
+      "ramp_start_seconds": 300,
+      "ramp_end_seconds": 900,
+      "age_65_plus_heart_rate_multiplier": 0.5,
+      "effects": {
+        "heart_rate": {"mean": 10.0, "sd": 4.0},
+        "respiratory_rate": {"mean": 3.0, "sd": 1.0},
+        "spo2": {"mean": -2.0, "sd": 1.0},
+        "systolic_bp": {"mean": -8.0, "sd": 4.0},
+        "temperature": {"mean": 0.4, "sd": 0.2}
+      },
+      "supplemental_oxygen": {"probability": 0.15, "concentration": 24.0, "start_seconds": [300, 600]},
+      "new_confusion": {"probability": 0.05, "start_seconds": [300, 600]}
+    },
+    "null_control": {
+      "precursor_probability": 0.0,
+      "ramp_start_seconds": 300,
+      "ramp_end_seconds": 900,
+      "age_65_plus_heart_rate_multiplier": 0.5,
+      "effects": {
+        "heart_rate": {"mean": 0.0, "sd": 0.0},
+        "respiratory_rate": {"mean": 0.0, "sd": 0.0},
+        "spo2": {"mean": 0.0, "sd": 0.0},
+        "systolic_bp": {"mean": 0.0, "sd": 0.0},
+        "temperature": {"mean": 0.0, "sd": 0.0}
+      },
+      "supplemental_oxygen": {"probability": 0.0, "concentration": 24.0, "start_seconds": [300, 600]},
+      "new_confusion": {"probability": 0.0, "start_seconds": [300, 600]}
+    }
+  }
+}

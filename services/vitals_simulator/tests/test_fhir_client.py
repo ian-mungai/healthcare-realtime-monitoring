@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import pytest
 import respx
@@ -126,6 +128,47 @@ def test_upsert_resource_updates_the_resource_with_the_same_identifier():
 
     expect.equal(created.resource_id, "encounter-1")
     expect.equal(route.calls.last.request.url.params["identifier"], "https://example.org/run|batch-1:patient-1")
+
+
+SCENARIO_SYSTEM = "https://example.org/fhir/CodeSystem/vitals-simulator-scenario"
+
+
+@respx.mock
+def test_upsert_resource_removes_tags_the_update_no_longer_carries():
+    # HAPI keeps an existing resource's tags on update, so a changed scenario would leave both scenario tags.
+    tagged = {
+        "resourceType": "Encounter",
+        "id": "encounter-1",
+        "meta": {"tag": [{"system": SCENARIO_SYSTEM, "code": "normal"}, {"system": SCENARIO_SYSTEM, "code": "deterioration_proxy"}]},
+    }
+    respx.put(f"{FHIR_BASE_URL}/Encounter").mock(return_value=httpx.Response(200, json=tagged))
+    meta_delete = respx.post(f"{FHIR_BASE_URL}/Encounter/encounter-1/$meta-delete").mock(return_value=httpx.Response(200, json={"resourceType": "Parameters"}))
+    encounter = {
+        "resourceType": "Encounter",
+        "identifier": [{"system": "https://example.org/run", "value": "batch-1:patient-1"}],
+        "meta": {"tag": [{"system": SCENARIO_SYSTEM, "code": "deterioration_proxy"}]},
+    }
+
+    HAPIFHIRClient(base_url=FHIR_BASE_URL, max_retries=1).upsert_resource(encounter)
+
+    removed = json.loads(meta_delete.calls.last.request.content)["parameter"][0]["valueMeta"]["tag"]
+    expect.equal(removed, [{"system": SCENARIO_SYSTEM, "code": "normal"}])
+
+
+@respx.mock
+def test_upsert_resource_leaves_matching_tags_alone():
+    tagged = {"resourceType": "Encounter", "id": "encounter-1", "meta": {"tag": [{"system": SCENARIO_SYSTEM, "code": "normal"}]}}
+    respx.put(f"{FHIR_BASE_URL}/Encounter").mock(return_value=httpx.Response(200, json=tagged))
+    meta_delete = respx.post(f"{FHIR_BASE_URL}/Encounter/encounter-1/$meta-delete")
+    encounter = {
+        "resourceType": "Encounter",
+        "identifier": [{"system": "https://example.org/run", "value": "b:p"}],
+        "meta": {"tag": [{"system": SCENARIO_SYSTEM, "code": "normal"}]},
+    }
+
+    HAPIFHIRClient(base_url=FHIR_BASE_URL, max_retries=1).upsert_resource(encounter)
+
+    expect.equal(meta_delete.call_count, 0)
 
 
 def test_upsert_resource_requires_an_identifier():

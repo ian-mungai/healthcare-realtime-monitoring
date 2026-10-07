@@ -5,7 +5,7 @@ Usage: python -m jobs.cohort_reference.extract
 Demographics and payer history come from each cohort patient's Synthea bundle, facilities from Synthea's hospital file
 and admissions from the simulator's encounters in HAPI FHIR. Rows keep no name, address line or other identifying
 detail. The local run writes them to the raw schema of the local warehouse, each table in one transaction. It reads
-COHORT_SIZE, FHIR_BASE_URL and FHIR_RESOURCE_MAP_FILE.
+COHORT_SIZE, FHIR_BASE_URL, FHIR_RESOURCE_MAP_FILE and LOCAL_WAREHOUSE_SIGNAL (study or null_control).
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ from typing import Any
 
 import httpx
 
+from jobs.batch_vitals.generate import is_null_control_run
 from jobs.local_warehouse import load
 from scripts.synthea_loader.src.cohort import cohort_size
 from scripts.synthea_loader.src.load_fhir import FHIR_OUTPUT_DIR, find_patient_bundles, load_bundle
@@ -140,11 +141,12 @@ def facility_rows(hospital_bundle: dict[str, Any], facility_ids: set[str]) -> li
     return rows
 
 
-def admission_rows(base_url: str, patient_ids: set[str]) -> tuple[list[dict[str, Any]], dict[str, int]]:
-    """Every cohort patient's simulator encounter that carries an admission, read page by page; return the rows and the
-    skipped counts: encounters without admission fields and encounters of patients outside the cohort."""
+def admission_rows(base_url: str, patient_ids: set[str], signal: str = "study") -> tuple[list[dict[str, Any]], dict[str, int]]:
+    """Every cohort patient's simulator encounter of this signal that carries an admission, read page by page; return the
+    rows and the skipped counts: encounters without admission fields, of patients outside the cohort and of the other
+    signal (the study's warehouse skips the null control's encounters and the other way round)."""
     rows: list[dict[str, Any]] = []
-    skipped = {"without_admission": 0, "outside_cohort": 0}
+    skipped = {"without_admission": 0, "outside_cohort": 0, "other_signal": 0}
     url: str | None = f"{base_url.rstrip('/')}/Encounter"
     params: dict[str, Any] | None = {"identifier": f"{SIMULATOR_ENCOUNTER_IDENTIFIER_SYSTEM}|", "_count": PAGE_SIZE}
     with httpx.Client(headers={"Accept": "application/fhir+json"}, timeout=60) as client:
@@ -156,6 +158,8 @@ def admission_rows(base_url: str, patient_ids: set[str]) -> tuple[list[dict[str,
                     skipped["without_admission"] += 1
                 elif row["patient_id"] not in patient_ids:
                     skipped["outside_cohort"] += 1
+                elif is_null_control_run(row["run_id"]) != (signal == "null_control"):
+                    skipped["other_signal"] += 1
                 else:
                     rows.append(row)
             url = next((link["url"] for link in page.get("link", []) if link.get("relation") == "next"), None)
@@ -189,13 +193,13 @@ def admission_row(encounter: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
-def write_local(tables: dict[str, list[dict[str, Any]]]) -> None:
-    """Replace each raw reference table in the local warehouse, one transaction per table."""
+def write_local(tables: dict[str, list[dict[str, Any]]], schema: str) -> None:
+    """Replace each raw reference table in the selected signal's raw schema, one transaction per table."""
     for table, rows in tables.items():
         columns, column_sql = TABLES[table]
         ddl = Template("create table if not exists $schema.$table (" + column_sql + ")")
         csv_path = load.CONTAINER_LOAD_DIR / f"{table}.csv"
-        load.run_sql(load.replace_table_sql(load.RAW_SCHEMA, table, ddl, csv_path, columns), rows, columns, csv_path)
+        load.run_sql(load.replace_table_sql(schema, table, ddl, csv_path, columns), rows, columns, csv_path)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -211,7 +215,8 @@ def main(argv: list[str] | None = None) -> int:
         bundle = load_bundle(path)
         bundles[resources(bundle, "Patient")[0]["id"]] = bundle
     facility_ids = {facility["id"] for entry in entries.values() for facility in (entry.get("admission_profile") or {}).get("facilities", [])}
-    admissions, skipped = admission_rows(os.getenv("FHIR_BASE_URL") or "http://127.0.0.1:8080/fhir", set(cohort.values()))
+    schemas = load.warehouse_schemas()
+    admissions, skipped = admission_rows(os.getenv("FHIR_BASE_URL") or "http://127.0.0.1:8080/fhir", set(cohort.values()), schemas.signal)
     facility_ids |= {row["facility_id"] for row in admissions}
     hospital_file = next(FHIR_OUTPUT_DIR.glob("hospitalInformation*.json"))
     tables = {
@@ -220,7 +225,7 @@ def main(argv: list[str] | None = None) -> int:
         "facilities": facility_rows(load_bundle(hospital_file), facility_ids),
         "admissions": admissions,
     }
-    write_local(tables)
+    write_local(tables, schemas.raw)
     counts = {table: len(rows) for table, rows in tables.items()} | {f"encounters_{reason}": count for reason, count in skipped.items()}
     sys.stdout.write(json.dumps(counts, sort_keys=True) + "\n")
     return 0

@@ -9,6 +9,8 @@ Failure modes the extract must handle (written before the extract):
 5. An encounter has no admission fields (created before admissions existed): it is skipped and counted.
 6. Rows never carry a patient's name, address line or other identifying detail.
 7. HAPI still holds encounters of patients from an earlier cohort: they are skipped and counted, not extracted.
+8. HAPI holds the study's and the null control's encounters for the same patients: each warehouse keeps its own
+   signal's encounters and skips and counts the other's.
 """
 
 from __future__ import annotations
@@ -124,7 +126,7 @@ def test_admissions_read_every_page_and_skip_encounters_without_admission_fields
     rows, skipped = extract.admission_rows(HAPI, {"hapi-1"})
 
     expect.equal([row["encounter_id"] for row in rows], ["encounter-1", "encounter-3"])
-    expect.equal(skipped, {"without_admission": 1, "outside_cohort": 0})
+    expect.equal(skipped, {"without_admission": 1, "outside_cohort": 0, "other_signal": 0})
     expect.equal(
         {key: rows[0][key] for key in ("patient_id", "facility_id", "unit", "diagnosis_code", "diagnosis_source", "scenario", "admitted_at", "discharged_at")},
         {
@@ -150,7 +152,7 @@ def test_admissions_skip_patients_outside_the_cohort() -> None:
     rows, skipped = extract.admission_rows(HAPI, {"hapi-1"})
 
     expect.equal([row["encounter_id"] for row in rows], ["encounter-1"])
-    expect.equal(skipped, {"without_admission": 0, "outside_cohort": 1})
+    expect.equal(skipped, {"without_admission": 0, "outside_cohort": 1, "other_signal": 0})
 
 
 def test_facilities_keep_only_the_cohort_facilities() -> None:
@@ -171,3 +173,19 @@ def test_facilities_keep_only_the_cohort_facilities() -> None:
             {"facility_id": "synthea-fallback-facility", "facility_name": "Regional General Hospital", "city": None, "state": None},
         ],
     )
+
+
+@respx.mock
+def test_each_signal_keeps_only_its_own_encounters() -> None:
+    null_control = encounter(5)
+    null_control["identifier"] = [{"system": SYSTEM, "value": "batch-4817263-null-1:hapi-1"}]
+    page = {"resourceType": "Bundle", "entry": [{"resource": encounter(1)}, {"resource": null_control}], "link": []}
+    respx.get(f"{HAPI}/Encounter").mock(return_value=httpx.Response(200, json=page))
+
+    rows, skipped = extract.admission_rows(HAPI, {"hapi-1"})
+    null_rows, null_skipped = extract.admission_rows(HAPI, {"hapi-1"}, signal="null_control")
+
+    expect.equal([row["encounter_id"] for row in rows], ["encounter-1"])
+    expect.equal(skipped["other_signal"], 1)
+    expect.equal([row["encounter_id"] for row in null_rows], ["encounter-5"])
+    expect.equal(null_skipped["other_signal"], 1)

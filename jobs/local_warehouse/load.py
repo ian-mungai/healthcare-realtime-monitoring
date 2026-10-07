@@ -5,7 +5,8 @@ Usage: python -m jobs.local_warehouse.load [--batch DIRECTORY]
 Each batch record becomes one processed row per measurement, with the Glue job's names, units, analytical ranges and
 merge rule (jobs/glue/fhir_observations_raw_to_processed.py). Valid rows are upserted into raw.processed_fhir_observations
 and rejected rows into raw.processed_fhir_observations_quarantine, each in one transaction inside the local Postgres
-container. The batch is the full record of its encounters, so rows a regenerated batch no longer holds are removed.
+container: the study by default, or the null control with LOCAL_WAREHOUSE_SIGNAL=null_control, which gets its own
+raw_null_control schema. The batch is the full record of its encounters, so rows a regenerated batch no longer holds are removed.
 split_groups.json becomes raw.patient_split_groups. A rerun leaves the same rows. Start the local stack first.
 """
 
@@ -14,10 +15,12 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import re
 import sys
 import tempfile
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from string import Template
@@ -29,7 +32,29 @@ from tools.process import run_command
 REPO_ROOT = Path(__file__).resolve().parents[2]
 COMPOSE_FILE = REPO_ROOT / "deploy" / "local" / "compose.yaml"
 DEFAULT_BATCH = REPO_ROOT / "build" / "batch_vitals" / "seed-4817263_cohort-100"
-RAW_SCHEMA = "raw"
+SIGNAL_ENV = "LOCAL_WAREHOUSE_SIGNAL"
+
+
+@dataclass(frozen=True)
+class WarehouseSchemas:
+    """Where one signal's batch lives and which local warehouse schemas hold it."""
+
+    signal: str
+    raw: str
+    analytics: str
+    batch: Path
+
+
+def warehouse_schemas(signal: str | None = None) -> WarehouseSchemas:
+    """The study (the default) or the null control, from LOCAL_WAREHOUSE_SIGNAL, so the two never share tables."""
+    chosen = signal or os.getenv(SIGNAL_ENV) or "study"
+    if chosen == "study":
+        return WarehouseSchemas(chosen, "raw", "analytics", DEFAULT_BATCH)
+    if chosen == "null_control":
+        return WarehouseSchemas(chosen, "raw_null_control", "analytics_null_control", DEFAULT_BATCH.with_name(f"{DEFAULT_BATCH.name}_null-control"))
+    raise ValueError(f"{SIGNAL_ENV} must be study or null_control")
+
+
 # Load files are copied here inside the Postgres container, which the postgres user owns.
 CONTAINER_LOAD_DIR = PurePosixPath("/var/lib/postgresql/local_load")
 IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -182,21 +207,22 @@ QUARANTINE_DDL = Template(
 )
 
 
-def load_batch(folder: Path) -> dict[str, int]:
-    """Load one batch folder into the local warehouse and return the row counts."""
+def load_batch(folder: Path, schema: str | None = None) -> dict[str, int]:
+    """Load one batch folder into the selected signal's raw schema and return the row counts."""
+    raw_schema = schema or warehouse_schemas().raw
     records = [json.loads(line) for path in sorted(folder.glob("*.ndjson")) for line in path.read_text(encoding="utf-8").splitlines()]
     rows, rejected = processed_rows(records)
     processed_csv = CONTAINER_LOAD_DIR / "processed.csv"
-    run_sql(upsert_sql(RAW_SCHEMA, "processed_fhir_observations", processed_csv), rows, PROCESSED_COLUMNS, processed_csv)
+    run_sql(upsert_sql(raw_schema, "processed_fhir_observations", processed_csv), rows, PROCESSED_COLUMNS, processed_csv)
     quarantine = [{**row, "rejection_reason": reason} for row, reason in rejected]
     quarantine_csv = CONTAINER_LOAD_DIR / "quarantine.csv"
-    quarantine_sql = replace_table_sql(RAW_SCHEMA, "processed_fhir_observations_quarantine", QUARANTINE_DDL, quarantine_csv, QUARANTINE_COLUMNS)
+    quarantine_sql = replace_table_sql(raw_schema, "processed_fhir_observations_quarantine", QUARANTINE_DDL, quarantine_csv, QUARANTINE_COLUMNS)
     run_sql(quarantine_sql, quarantine, QUARANTINE_COLUMNS, quarantine_csv)
     groups = json.loads((folder / "split_groups.json").read_text(encoding="utf-8"))
     group_rows = [{"patient_id": patient_id, "split_group": group} for patient_id, group in sorted(groups.items())]
     groups_csv = CONTAINER_LOAD_DIR / "split_groups.csv"
     run_sql(
-        replace_table_sql(RAW_SCHEMA, "patient_split_groups", SPLIT_GROUP_DDL, groups_csv, ("patient_id", "split_group")),
+        replace_table_sql(raw_schema, "patient_split_groups", SPLIT_GROUP_DDL, groups_csv, ("patient_id", "split_group")),
         group_rows,
         ("patient_id", "split_group"),
         groups_csv,
@@ -206,11 +232,13 @@ def load_batch(folder: Path) -> dict[str, int]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
-    parser.add_argument("--batch", type=Path, default=DEFAULT_BATCH)
+    parser.add_argument("--batch", type=Path, default=None, help="defaults to the batch of LOCAL_WAREHOUSE_SIGNAL (study)")
     args = parser.parse_args(argv)
+    schemas = warehouse_schemas()
+    args.batch = args.batch or schemas.batch
     if not (args.batch / "manifest.json").is_file():
         parser.error(f"no batch at {args.batch}; run python -m jobs.batch_vitals.generate first")
-    counts = load_batch(args.batch)
+    counts = load_batch(args.batch, schemas.raw)
     sys.stdout.write(json.dumps(counts, sort_keys=True) + "\n")
     return 0
 

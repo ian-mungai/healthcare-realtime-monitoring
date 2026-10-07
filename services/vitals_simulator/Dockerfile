@@ -14,6 +14,7 @@ COPY services/__init__.py ./services/__init__.py
 COPY services/vital_signs.py ./services/vital_signs.py
 COPY services/vitals_simulator ./services/vitals_simulator
 COPY config/vital_signs.json ./config/vital_signs.json
+COPY config/planted_signal.json ./config/planted_signal.json
 
 # The one-off FHIR setup task (docs/fhir-setup-tasks.md) runs from this image with its own command.
 COPY scripts/__init__.py ./scripts/__init__.py
