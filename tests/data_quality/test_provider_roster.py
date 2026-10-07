@@ -37,14 +37,11 @@ class FakeRegistry:
 
     def __init__(self, npis: frozenset[str] = frozenset(), names: frozenset[tuple[str, str]] = frozenset()) -> None:
         self.npis, self.names = set(npis), set(names)
-        self.questions = 0
 
     def npi_exists(self, npi: str) -> bool:
-        self.questions += 1
         return npi in self.npis
 
     def name_exists(self, first: str, last: str, state: str) -> bool:
-        self.questions += 1
         return (first, last) in self.names
 
 

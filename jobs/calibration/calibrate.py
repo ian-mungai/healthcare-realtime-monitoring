@@ -69,7 +69,7 @@ OFFLINE_NAMESPACE = uuid.UUID("8d3f2a61-7c4e-5b19-a0d2-3e6f9c1b4a57")
 PURPOSE = "The planted signal, calibrated on a separate seed, gives NEWS2 about 0.70 and the model about 0.80, with the null control near 0.50."
 LIMITS = (
     "Calibrates on one calibration seed with the same 100 patients and waveform records as the study, so study results "
-    "will differ by sampling. The model is a logistic regression on vital-features-v3 only; the study's models in step 5 "
+    "will differ by sampling. The model is a logistic regression on vital-features-v3 only; the study analysis's models "
     "also use trends. The study seed's discrimination is not computed here."
 )
 REPRODUCE = "Run `.venv/bin/python -m jobs.calibration.calibrate` with COHORT_SIZE and FHIR_RESOURCE_MAP_FILE exported."
