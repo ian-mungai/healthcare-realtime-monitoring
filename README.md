@@ -100,7 +100,7 @@ set +a
 
 ### Validate the Repository
 
-These commands mirror the local-CI checks in `.github/workflows/ci.yml`. Run `.venv/bin/pre-commit run --all-files` for the repository checks described in the quality checks guide:
+These commands mirror the local-CI checks in `.github/workflows/ci.yml`. Run `.venv/bin/pre-commit run --all-files` for the repository checks:
 
 ```zsh
 .venv/bin/python -m pytest tests scripts/synthea_loader/tests/test_load_fhir.py services/fhir_webhook/tests services/vitals_simulator/tests services/vitals_stream_processor/tests services/vitals_replay/tests services/vitals_api/tests services/websocket_handler/tests --cov -q
@@ -117,7 +117,7 @@ The `--cov` run enforces the coverage minimum set in `pyproject.toml`. CI runs `
 
 ### End-to-End Verification
 
-End-to-End (E2E) runs need a deployed environment. `.venv/bin/python -m e2e.run session` runs the realtime, access, rejection and replay scenarios of the end-to-end test plan and writes a report for each under `artifacts/e2e/`. The [load-testing guide](docs/load-testing.md) runs the isolated Kinesis-to-DynamoDB-to-WebSocket test and saves a JavaScript Object Notation (JSON) and Markdown report for every run under `artifacts/e2e/load_test/`. The [demo guide](docs/demo-guide.md) and the [release checklist](docs/release-checklist.md) cover the full realtime and analytical path; verified results are recorded in the release notes.
+End-to-End (E2E) runs need a deployed environment. `.venv/bin/python -m e2e.run session` runs the realtime, access, rejection and replay scenarios and writes a report for each under `artifacts/e2e/`. The [load-testing guide](docs/load-testing.md) runs the isolated Kinesis-to-DynamoDB-to-WebSocket test and saves a JavaScript Object Notation (JSON) and Markdown report for every run under `artifacts/e2e/load_test/`. The [demo guide](docs/demo-guide.md) and the [release checklist](docs/release-checklist.md) cover the full realtime and analytical path; verified results are recorded in the release notes.
 
 ### Run the Dashboards
 
@@ -171,7 +171,7 @@ Use the [load-testing guide](docs/load-testing.md) to run an isolated test that 
 
 The diagram source is [docs/architecture/architecture.html](docs/architecture/architecture.html). The [architecture guide](docs/architecture.md) describes the realtime path, analytical path, recovery model, security boundaries and observability design.
 
-The diagram is a design snapshot identified as commit `8f7c07c`. Its synthetic-only footer does not describe the public deidentified BIDMC measurements. [Data](#data) records the source provenance; the architecture guide explains the diagram's historical boundary.
+The diagram's synthetic-only footer does not describe the public deidentified BIDMC measurements. [Data](#data) records the source provenance.
 
 ```text
 Simulator -> HAPI FHIR -> webhook -> Kinesis -> Lambda -> DynamoDB -> REST/WebSocket -> live cohort dashboard

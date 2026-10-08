@@ -177,8 +177,6 @@ The REST, WebSocket, access-control and failure-handling checks above also run a
    .venv/bin/python -m e2e.run session
    ```
 
-   The end-to-end test plan describes each scenario and its prerequisites.
-
 ## Analytics and Recovery Evidence
 
 Before you start:

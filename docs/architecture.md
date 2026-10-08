@@ -55,7 +55,7 @@ The design keeps three concerns distinct:
 
 The rendered diagram at [architecture/architecture.png](architecture/architecture.png) is built from [architecture/architecture.html](architecture/architecture.html).
 
-The diagram identifies its design revision as commit `8f7c07c`. Its Oct 8 2026 update removed only the Terraform state bucket and the GitHub deployment path; other components were not reviewed again. Its synthetic-only footer does not describe the public BIDMC measurements' provenance. Patient identities and Synthea blood pressure are synthetic; heart rate, respiratory rate and oxygen saturation use public deidentified recordings. [Data](../README.md#data) records that source boundary. The Mermaid view and path descriptions below describe the implemented flows.
+Its synthetic-only footer does not describe the public BIDMC measurements' provenance. Patient identities and Synthea blood pressure are synthetic; heart rate, respiratory rate and oxygen saturation use public deidentified recordings. [Data](../README.md#data) records that source boundary. The Mermaid view and path descriptions below describe the implemented flows.
 
 Rendering prerequisites:
 

@@ -2,7 +2,8 @@
 
 Usage: python -m e2e.local_cohort [--seed SEED] [--output DIRECTORY] [--signal study|null_control]
 
-Run it after the local stack is started, the cohort is loaded into local HAPI FHIR and the batch is generated. It reads COHORT_SIZE, FHIR_BASE_URL and FHIR_RESOURCE_MAP_FILE like the generator. The run checks
+Run it after the local stack is started, the cohort is loaded into local HAPI FHIR and the batch is generated. It
+reads COHORT_SIZE, FHIR_BASE_URL and FHIR_RESOURCE_MAP_FILE like the generator. The run checks
 that every cohort patient exists in HAPI with three normal and three deterioration batch encounters, that the manifest
 and files agree, that every record passes the stream processor's schema and follows its scenario in the outcome window
 (deterioration values inside the approved ranges, varying within and between encounters), that planted_truth.json

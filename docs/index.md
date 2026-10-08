@@ -26,18 +26,15 @@ For developers and operators of the synthetic portfolio system: select the docum
 | [Data Governance](data-governance.md) | Schema, freshness, lineage and replay controls |
 | [Demo Guide](demo-guide.md) | Start, inspect and shut down a synthetic demo |
 | [Deployment Guide](deployment.md) | Configuration, packages and deployment validation |
-| End-to-End Test Plan | Approved scenarios, failure modes and run evidence |
 | [Environments](environments.md) | Environment selection and account isolation |
 | [Externally Managed Prerequisites](external-prerequisites.md) | Resources managed outside application Terraform |
 | [Fast Healthcare Interoperability Resources (FHIR) Setup Tasks](fhir-setup-tasks.md) | Load the synthetic cohort and register the subscription |
 | [Infrastructure Lifecycle](infrastructure-lifecycle.md) | Bootstrap, converge and tear down infrastructure |
-| Local Stack | Run Postgres, HAPI FHIR and Grafana locally in Docker, generate batch vitals and build the local warehouse |
 | [Realtime Load Testing](load-testing.md) | Run isolated throughput and latency verification |
 | [Model Predictions](model-predictions.md) | Score with an approved immutable model |
 | [Model Training](model-training.md) | Train and evaluate the nonclinical proxy model |
 | [Operations Runbook](operations-runbook.md) | Verify health, diagnose failures and perform recovery |
 | [Power BI Athena Connection](power-bi-connection.md) | Connect Power BI Desktop to Athena |
-| Quality Checks | Hook policies, pinned tools and review gates |
 | [First Deployment Quickstart](quickstart.md) | Prepare a clone and deploy a development stack |
 | [Release Checklist](release-checklist.md) | Historical release checklist and repeatable release gate |
 | [v1.0.0 Release Notes](release-notes-v1.0.0.md) | Historical release evidence; does not certify later changes |

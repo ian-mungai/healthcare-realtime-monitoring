@@ -64,13 +64,13 @@ The analytical path uses bronze, silver and gold layers. All dbt models build in
 
 All hash keys use lowercase Message Digest 5 (MD5) hex over stable Unicode Transformation Format (UTF)-8 business identifiers. `date_key` uses the integer `YYYYMMDD` convention.
 
-The analytical staging boundary includes only the ten patient identifiers supplied through the private deployment configuration and observations with a valid `encounter_id`. Historical schema `1.0` rows and out-of-cohort patients remain in the immutable source layer for audit and replay purposes but are excluded from the star schema. Schema `1.1` events require `encounter_id`.
+The analytical staging boundary includes only the ten patient identifiers supplied through the private deployment configuration and observations with a valid `encounter_id`. Schema `1.0` rows and out-of-cohort patients remain in the immutable source layer for audit and replay purposes but are excluded from the star schema. Schema `1.1` events require `encounter_id`.
 
 The table named by `DBT_DIM_PROVIDER_TABLE` uses a type 2 slowly changing dimension. A changed provider name, taxonomy, description or state closes the current row at the new snapshot's effective date and creates a successor row. Encounter and fact rows retain both the stable `provider_key` and the effective `provider_version_key`.
 
 ### Cohort Reference Models
 
-With the dbt variable `cohort_reference_enabled` set to true, dbt also builds models from the cohort reference tables (`dbt/models/sources.yml`, source `cohort_reference`). The local warehouse turns it on (Local Stack). The daily AWS workflow also turns it on after its `extract_cohort_reference` task refreshes the tables ([FHIR Setup Tasks](fhir-setup-tasks.md#how-it-runs)). The `parse_timestamp` macro reads the extract's ISO-8601 timestamps on both Athena and Postgres. The existing models compile to the same Athena SQL.
+With the dbt variable `cohort_reference_enabled` set to true, dbt also builds models from the cohort reference tables (`dbt/models/sources.yml`, source `cohort_reference`). The local warehouse turns it on. The daily AWS workflow also turns it on after its `extract_cohort_reference` task refreshes the tables ([FHIR Setup Tasks](fhir-setup-tasks.md#how-it-runs)). The `parse_timestamp` macro reads the extract's ISO-8601 timestamps on both Athena and Postgres. The existing models compile to the same Athena SQL.
 
 | Model | Business key | Surrogate key | Purpose |
 | --- | --- | --- | --- |
@@ -134,13 +134,6 @@ Every simulator task creates a new encounter for each cohort patient. For a run 
 Planned duration uses the cycle cap and interval, limited by available source cycles when replay is disabled. An unset or blank `SIMULATOR_MAX_CYCLES` defaults to ten cycles in the runner; `none` or `unlimited` removes the cap. Terraform configures unlimited cycles with replay. Scenario tags are written at encounter creation, so interrupted or concurrent runs can affect the counts without producing eligible analytical rows. Two complete runs are an initial attempt to supply both classes, not a guarantee. Verify actual observations in both windows, class diversity in both patient-grouped partitions and no patient leakage before training.
 
 Source Beth Israel Deaconess Medical Center (BIDMC) measurements and Synthea blood-pressure readings remain unchanged during the feature window of normal encounters. In deterioration encounters, the planted precursor of the simulation study ([`config/planted_signal.json`](../config/planted_signal.json)) adds a known early-warning trend to the feature window; that trend is the signal models are scored against. The outcome-window values, drawn per deterioration encounter inside ranges that stay past every label limit, still define the label and the precursor never reaches the outcome window. The null control plants nothing, so its features carry no information about the label.
-
-<details>
-<summary>Old Patterns</summary>
-
-At `5765c1e`, scenario selection used only random choice or the stable seed and patient identifier for every run. Reusing the same seed repeated the assignment rather than increasing scenario diversity. Neither one run nor repeated same-seed runs guaranteed both classes in either patient-grouped partition. The history-based selector replaces that assignment rule; the analytical class and leakage gates remain.
-
-</details>
 
 This label is a synthetic engineering proxy derived from NEWS2 extreme thresholds. It is not a diagnosis, a validated clinical outcome or suitable for patient care or clinical model training.
 

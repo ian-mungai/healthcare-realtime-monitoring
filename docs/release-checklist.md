@@ -131,7 +131,7 @@ Before committing screenshots, diagrams, examples or portfolio documents:
 
 ## Next Release
 
-These checks cover the Fast Healthcare Interoperability Resources (FHIR) setup task inside the virtual private cloud (VPC), the scoped IAM policies and roles and the end-to-end runner added after v1.0.1. The end-to-end test plan lists them in session order.
+These checks cover the Fast Healthcare Interoperability Resources (FHIR) setup task inside the virtual private cloud (VPC), the scoped IAM policies and roles and the end-to-end runner added after v1.0.1.
 
 - [ ] The changed IAM templates are planned, reviewed and applied using `infra/iam/scripts/manage_policies.py`.
 - [ ] FHIR setup `load` and `register` pass with both reports retained under `artifacts/e2e/fhir_setup/`.

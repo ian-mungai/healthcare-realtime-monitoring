@@ -1,6 +1,5 @@
-# checkov settings. Every skipped rule below is an accepted risk for this synthetic-data portfolio stack,
-# approved by the repository owner on 2026-09-28; tools/repo_checks.py blocks additions to this list.
-# See repository-policy#terraform for the table of reasons.
+# checkov settings. Every skipped rule below is an accepted risk for this synthetic-data portfolio stack, with its reason
+# beside it; tools/repo_checks.py blocks additions to this list.
 compact: true
 quiet: true
 framework:

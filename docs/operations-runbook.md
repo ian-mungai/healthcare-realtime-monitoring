@@ -116,7 +116,7 @@ Terraform keeps the application state in a local, ignored file in `infra/`, in t
 
 ## CI and Deployment Gate
 
-The CI workflow runs Python tests, linting, type checks, Soda syntax checks, Terraform format and validation, generated-workflow validation, deployment-package checks and container builds on pull requests and updates to `main`. A separate Repository Checks job runs the pre-commit hooks described in the quality checks guide, scans the full Git history with gitleaks and proves each check against good and bad samples. Infrastructure deployment runs locally from one checkout with the [quickstart](quickstart.md); there is no deployment workflow ([deployment guide](deployment.md#where-deployments-run)).
+The CI workflow runs Python tests, linting, type checks, Soda syntax checks, Terraform format and validation, generated-workflow validation, deployment-package checks and container builds on pull requests and updates to `main`. A separate Repository Checks job runs the pre-commit hooks, scans the full Git history with gitleaks and proves each check against good and bad samples. Infrastructure deployment runs locally from one checkout with the [quickstart](quickstart.md); there is no deployment workflow ([deployment guide](deployment.md#where-deployments-run)).
 
 Before infrastructure deployment, run:
 
@@ -188,7 +188,7 @@ Use temporary Postman variables for endpoints and authorization. Do not export c
 
 ### End-to-End Scenarios
 
-With no simulator task running, `.venv/bin/python -m e2e.run session` runs the realtime, access, rejection and replay scenarios and writes a report for each under `artifacts/e2e/`. Scenario details, prerequisites and the deployment-session steps are in the end-to-end test plan.
+With no simulator task running, `.venv/bin/python -m e2e.run session` runs the realtime, access, rejection and replay scenarios and writes a report for each under `artifacts/e2e/`.
 
 The replay scenario adds a temporary inline Deny policy named `healthcare_realtime_e2e_replay_<RUN_ID>` to the realtime processor role. Its cleanup attempts removal and verifies policy absence even after failure. A killed run can leave the Deny in place for its test patient. A failed cleanup remains a report finding.
 

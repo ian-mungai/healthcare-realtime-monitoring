@@ -41,8 +41,7 @@ LIMITS = (
     "planted signal, not clinical performance. The bootstrap holds out-of-fold scores fixed and does not refit models."
 )
 REPRODUCE = (
-    "Build both arms' warehouses, then run "
-    "`.venv/bin/python -m e2e.analysis --plan-sha256 <PLAN_SHA256>` with the hash recorded when the plan was frozen."
+    "Build both arms' warehouses, then run `.venv/bin/python -m e2e.analysis --plan-sha256 <PLAN_SHA256>` with the hash recorded when the plan was frozen."
 )
 
 

@@ -101,7 +101,7 @@ BIDMC measurements -> FHIR Observation -> Kinesis -> realtime serving
 | `${ATHENA_DBT_DATABASE}.${DBT_ML_PREDICTIONS_LATEST_TABLE}` | Athena / dbt | Predictions restricted to the approved model version |
 | `${LATEST_VITALS_TABLE}` | DynamoDB | Latest accepted realtime state by patient |
 | `quarantine/fhir_observations/` | Amazon S3 | Rejected analytical records with reasons |
-| `raw.fhir_patients`, `raw.patient_payer_history`, `raw.facilities` and `raw.admissions` | Local Postgres warehouse | Cohort reference rows: synthetic demographics (birth date, gender, race, ethnicity, marital status and state; no names or address lines), payer periods, Synthea hospitals and simulated admissions with the synthetic attending's NPI (Local Stack) |
+| `raw.fhir_patients`, `raw.patient_payer_history`, `raw.facilities` and `raw.admissions` | Local Postgres warehouse | Cohort reference rows: synthetic demographics (birth date, gender, race, ethnicity, marital status and state; no names or address lines), payer periods, Synthea hospitals and simulated admissions with the synthetic attending's NPI |
 | `reference/cohort/` (`fhir_patients`, `patient_payer_history`, `facilities`, `admissions`, `patient_split_groups`) | Amazon S3 / Glue Catalog | Cohort reference rows written daily by the FHIR setup task as JSON lines, read through Glue tables in the source database |
 | `dim_patient_version`, `dim_facility`, `dim_unit`, `fact_admissions`, `fact_encounter_minute_features` and `fact_encounter_trend_features` | Athena / dbt and the local Postgres warehouse | Cohort reference models, built when `cohort_reference_enabled` is true: daily on AWS and in the local warehouse |
 | `${ATHENA_SOURCE_DATABASE}.${ATHENA_QUARANTINE_TABLE}` | Glue Catalog / Athena | Queryable view of quarantined records |
@@ -148,7 +148,7 @@ Great Expectations validates the processed Iceberg table for required fields, al
 
 ## Provider and Feature Provenance
 
-The committed provider history is a synthetic National Plan and Provider Enumeration System (NPPES)-compatible fixture. It contains no assertion about real clinicians and deterministic encounter assignments are explicitly flagged as synthetic. Its generator checked every NPI against the NPPES NPI Registry (no real clinician anywhere in the US) and every name against Washington clinicians on Oct 7 2026; it keeps only counts and attempt numbers, never a matched clinician's number or name. An NPI unassigned on that date can still be issued later. A local utility can merge a normalized NPPES snapshot into effective-dated history, but real provider extracts and generated histories must remain outside the public repository.
+The committed provider history is a synthetic National Plan and Provider Enumeration System (NPPES)-compatible fixture. It contains no assertion about real clinicians and deterministic encounter assignments are explicitly flagged as synthetic. Its generator checked every NPI against the NPPES NPI Registry (no real clinician anywhere in the US) and every name against Washington clinicians when the fixture was generated; it keeps only counts and attempt numbers, never a matched clinician's number or name. An NPI unassigned at generation can still be issued later. A local utility can merge a normalized NPPES snapshot into effective-dated history, but real provider extracts and generated histories must remain outside the public repository.
 
 The encounter feature table uses the first fixed 15 minutes for features and the following fixed 15 minutes for the outcome proxy. The boundary is computable while an encounter is in progress and does not depend on its eventual end time. The outcome window produces a versioned deterioration proxy that requires repeated observations of the same vital beyond a National Early Warning Score 2 (NEWS2) extreme threshold, reducing sensitivity to isolated synthetic measurements. This proxy supports pipeline demonstration only and is not a diagnosis, a validated clinical outcome or approved training data for clinical use.
 
@@ -157,12 +157,6 @@ The simulator creates fresh encounter identifiers at task startup. Runs planned 
 Tags and logs record startup assignments, not completed analytical labels. Interrupted or concurrent runs can affect the counts. Transformations remain confined to the outcome window and the analytical split stays grouped by patient to prevent leakage. Actual window observations, class diversity in both partitions and no patient leakage determine readiness; the [star-schema reference](analytics-star-schema.md#feature-and-label-construction) defines these boundaries.
 
 The training dataset excludes ineligible encounters and assigns complete patient histories to either training or testing. Its feature schema, label definition, split rule and source-row fingerprint are recorded with every baseline model artifact. Generated model files remain under the ignored `build/` directory unless a reviewed private artifact store is configured.
-
-Historical quality checkpoint before the star-schema expansion, verified on Sep 3 2026:
-
-- Great Expectations: 15 of 15 expectations passed.
-- Soda: 26 of 26 contract checks passed across four datasets.
-- Lineage tests: 41 of 41 passed.
 
 ## Deduplication and Ordering
 
@@ -229,13 +223,6 @@ Why: operational values are outside the portfolio evidence boundary.
 
 - Do: use placeholders in shareable evidence.
 - Don't: publish state, credentials or signed requests.
-
-<details>
-<summary>Old Patterns</summary>
-
-Commit `53ff5b1` permits the NAT gateway and configured operator network ranges to reach HAPI. The task-based cohort setup introduced in commit `b9db2e8` supplies only the NAT gateway to the HAPI module. Operator-machine access is outside that implemented configuration.
-
-</details>
 
 ## Retention and Recovery
 

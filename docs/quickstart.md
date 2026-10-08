@@ -259,7 +259,7 @@ Initialize Terraform with local state in the selected environment's workspace:
 
 Generate the pinned synthetic cohort locally, load it into HAPI FHIR with the FHIR setup task and synchronize the HAPI-assigned IDs before planning the full application:
 
-Synthea generates 100 adult patients, aged 18 to 90, with the pinned seed; with `COHORT_SIZE` unset, the setup task loads the first ten. The other 90 serve local development (Local Stack).
+Synthea generates 100 adult patients, aged 18 to 90, with the pinned seed; with `COHORT_SIZE` unset, the setup task loads the first ten. The other 90 serve local development.
 
 1. Run the following command block:
 
