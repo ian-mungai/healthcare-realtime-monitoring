@@ -29,10 +29,19 @@ EXPECTED_CONTRACT_FILES = {
     "fact_admissions.yml",
     "fact_encounter_minute_features.yml",
     "fact_encounter_trend_features.yml",
+    "fact_unit_hourly_census.yml",
     # The NEWS2 benchmark at the end of the feature window, built on every run.
     "fact_encounter_news2.yml",
 }
-REFERENCE_MODELS = ("dim_patient_version", "dim_facility", "dim_unit", "fact_admissions", "fact_encounter_minute_features", "fact_encounter_trend_features")
+REFERENCE_MODELS = (
+    "dim_patient_version",
+    "dim_facility",
+    "dim_unit",
+    "fact_admissions",
+    "fact_encounter_minute_features",
+    "fact_encounter_trend_features",
+    "fact_unit_hourly_census",
+)
 
 
 def test_soda_contract_files_exist() -> None:

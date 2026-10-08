@@ -1,0 +1,139 @@
+{
+  "uid": "hrm-quality-safety",
+  "title": "Quality and Safety",
+  "description": "Admission NEWS2 and the deterioration proxy by unit and attending specialty, for quality and patient-safety officers. Synthetic data; not for patient care.",
+  "tags": [
+    "healthcare-realtime",
+    "synthetic"
+  ],
+  "timezone": "utc",
+  "editable": false,
+  "schemaVersion": 41,
+  "refresh": "",
+  "time": {
+    "from": "now-180d",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "barchart",
+      "title": "Admission NEWS2 risk band by unit",
+      "description": "NEWS2 at the end of each admission's feature window: low 0-4, medium 5-6, high 7 or more (Royal College of Physicians 2017).",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "sql": "select admissions.unit, case when news2.news2_total >= 7 then 'High (7+)' when news2.news2_total >= 5 then 'Medium (5-6)' else 'Low (0-4)' end as risk_band, count(*) as admissions from @@ANALYTICS@@.fact_admissions as admissions inner join @@ANALYTICS@@.fact_encounter_news2 as news2 on admissions.encounter_key = news2.encounter_key where $__timeFilter(admissions.admitted_at) and news2.news2_total is not null group by 1, 2 order by 1, 2"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Mean admission NEWS2 by day",
+      "description": "Mean NEWS2 of the day's admissions by unit.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "sql": "select date_trunc('day', admissions.admitted_at) as \"time\", admissions.unit as metric, avg(news2.news2_total) as mean_news2 from @@ANALYTICS@@.fact_admissions as admissions inner join @@ANALYTICS@@.fact_encounter_news2 as news2 on admissions.encounter_key = news2.encounter_key where $__timeFilter(admissions.admitted_at) group by 1, 2 order by 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Deterioration proxy rate by unit",
+      "description": "Share of training-eligible admissions with the synthetic deterioration proxy label.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "sql": "select admissions.unit, count(*) as admissions, avg(1.0 * training.deterioration_proxy_label) as deterioration_rate from @@ANALYTICS@@.fact_admissions as admissions inner join @@ANALYTICS@@.ml_training_dataset as training on admissions.encounter_key = training.encounter_key where $__timeFilter(admissions.admitted_at) group by 1 order by 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Deterioration proxy rate by attending specialty",
+      "description": "The same rate by the attending's specialty at admission (synthetic roster).",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "sql": "select admissions.attending_specialty, count(*) as admissions, avg(1.0 * training.deterioration_proxy_label) as deterioration_rate from @@ANALYTICS@@.fact_admissions as admissions inner join @@ANALYTICS@@.ml_training_dataset as training on admissions.encounter_key = training.encounter_key where $__timeFilter(admissions.admitted_at) group by 1 order by 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "type": "piechart",
+      "title": "Admissions by diagnosis source",
+      "description": "Admitting diagnoses from the patient's Synthea history or the simulator's fallback.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "sql": "select diagnosis_source, count(*) as admissions from @@ANALYTICS@@.fact_admissions where $__timeFilter(admitted_at) group by 1 order by 2 desc"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    }
+  ]
+}

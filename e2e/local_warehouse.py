@@ -19,7 +19,7 @@ import io
 import json
 import statistics
 import sys
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from string import Template
@@ -75,6 +75,8 @@ BATCH_VALUE_SUMS_SQL = (
     "select loinc_code, round(cast(sum(value) as numeric), 3) from $raw.processed_fhir_observations "
     "where encounter_id in (select encounter_id from $raw.admissions) group by loinc_code order by loinc_code"
 )
+ADMISSION_HOURS_SQL = "select facility_id, unit, admitted_at, discharged_at from $raw.admissions"
+CENSUS_SQL = "select unit_key, to_char(hour_start, 'YYYY-MM-DD HH24:MI'), census, admissions, discharges from $analytics.fact_unit_hourly_census"
 NEWS2_SQL = "select encounter_key, coalesce(cast(news2_total as varchar), '') from $analytics.fact_encounter_news2 order by encounter_key"
 TREND_FIELDS = ("heart_rate", "respiratory_rate", "spo2", "systolic_bp", "temperature")
 TRENDS_SQL = Template("select encounter_key, $columns from $$analytics.fact_encounter_trend_features order by encounter_key")
@@ -297,6 +299,42 @@ def check_news2_and_trends(report: Report, folder: Path) -> None:
     )
 
 
+def expected_census() -> dict[tuple[str, str], tuple[int, int, int]]:
+    """Per unit and UTC hour, the admissions present at any time in that hour and those admitted and discharged in it."""
+    counts: dict[tuple[str, str], list[int]] = {}
+    for row in query(ADMISSION_HOURS_SQL):
+        facility_id, unit, admitted_text, discharged_text = row.split(",")
+        admitted = datetime.fromisoformat(admitted_text).astimezone(UTC)
+        discharged = datetime.fromisoformat(discharged_text).astimezone(UTC)
+        unit_key = hashlib.md5(f"{facility_id}|{unit}".encode(), usedforsecurity=False).hexdigest()
+        hour = admitted.replace(minute=0, second=0, microsecond=0)
+        while hour < discharged:
+            cell = counts.setdefault((unit_key, hour.strftime("%Y-%m-%d %H:%M")), [0, 0, 0])
+            cell[0] += 1
+            cell[1] += int(hour <= admitted < hour + timedelta(hours=1))
+            cell[2] += int(hour <= discharged < hour + timedelta(hours=1))
+            hour += timedelta(hours=1)
+    return {key: (present, admitted, discharged) for key, (present, admitted, discharged) in counts.items()}
+
+
+def check_census(report: Report) -> None:
+    """The hourly census equals a count from the raw admissions, hour by hour and unit by unit."""
+    expected = expected_census()
+    stored = {}
+    for row in query(CENSUS_SQL):
+        unit_key, hour, census, admitted, discharged = row.split(",")
+        stored[(unit_key, hour)] = (int(census), int(admitted), int(discharged))
+    differing = sum(1 for key in expected.keys() | stored.keys() if expected.get(key) != stored.get(key))
+    report.check(
+        "Hourly census matches the admissions",
+        f"{len(expected)} unit hours with census, admissions and discharges equal",
+        f"{differing} of {len(expected | stored)} unit hours differ",
+        differing == 0 and len(stored) > 0,
+    )
+    report.evidence["census_unit_hours"] = len(stored)
+    report.evidence["census_peak"] = max((values[0] for values in stored.values()), default=0)
+
+
 def batch_records(folder: Path) -> dict[str, list[dict]]:
     """The batch's records by encounter key (the warehouse's MD5 of the encounter ID)."""
     by_encounter: dict[str, list[dict]] = {}
@@ -419,6 +457,7 @@ def main(argv: list[str] | None = None) -> int:
         check_models(report, args.batch)
         check_calibration_features(report, args.batch)
         check_news2_and_trends(report, args.batch)
+        check_census(report)
     except Exception as failure:
         error = failure
     report.finish(error)

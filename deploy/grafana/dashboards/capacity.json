@@ -1,0 +1,139 @@
+{
+  "uid": "hrm-capacity",
+  "title": "Capacity",
+  "description": "Census, admissions, discharges and acuity by unit and hour, for administrators' staffing and bed planning. Synthetic data; not for patient care.",
+  "tags": [
+    "healthcare-realtime",
+    "synthetic"
+  ],
+  "timezone": "utc",
+  "editable": false,
+  "schemaVersion": 41,
+  "refresh": "",
+  "time": {
+    "from": "now-180d",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Census by unit",
+      "description": "Simulated admissions present at any time in each UTC hour, summed over facilities.",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "sql": "select hour_start as \"time\", unit as metric, sum(census) as census from @@ANALYTICS@@.fact_unit_hourly_census where $__timeFilter(hour_start) group by 1, 2 order by 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Census by care level",
+      "description": "Critical, intermediate and acute care levels from the hospital_units seed.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "sql": "select census.hour_start as \"time\", units.care_level as metric, sum(census.census) as census from @@ANALYTICS@@.fact_unit_hourly_census as census inner join @@ANALYTICS@@.dim_unit as units on census.unit_key = units.unit_key where $__timeFilter(census.hour_start) group by 1, 2 order by 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Admissions and discharges per hour",
+      "description": "Admissions starting and discharges ending in each UTC hour.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "sql": "select hour_start as \"time\", sum(admissions) as admissions, sum(discharges) as discharges from @@ANALYTICS@@.fact_unit_hourly_census where $__timeFilter(hour_start) group by 1 order by 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Patients with admission NEWS2 of 5 or more",
+      "description": "Patients present whose admission NEWS2 was medium or high, by unit.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "sql": "select hour_start as \"time\", unit as metric, sum(patients_news2_5_or_more) as patients from @@ANALYTICS@@.fact_unit_hourly_census where $__timeFilter(hour_start) group by 1, 2 order by 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Peak and mean census by unit",
+      "description": "Per facility unit, over the hours that held at least one admission.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "sql": "select unit, max(census) as peak_census, avg(1.0 * census) as mean_census from @@ANALYTICS@@.fact_unit_hourly_census where $__timeFilter(hour_start) group by 1 order by 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    }
+  ]
+}

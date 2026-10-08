@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Start, check, stop or reset the local Docker stack (deploy/local/compose.yaml).
-#   start   generate deploy/local/.env once, start Postgres, HAPI FHIR and Grafana, wait until each is healthy
+#   start   generate deploy/local/.env once, render the Grafana dashboards, start Postgres, HAPI FHIR and Grafana,
+#           wait until each is healthy
 #   status  show the services and their localhost ports
 #   stop    stop and remove the containers; the data volumes stay
 #   reset   also delete the data volumes (needs CONFIRM_LOCAL_STACK_RESET=delete-local-stack-data)
@@ -57,6 +58,8 @@ case "$COMMAND" in
   start)
     docker info >/dev/null 2>&1 || { echo "Docker is not running; start Docker Desktop first." >&2; exit 1; }
     ensure_stack_env
+    # Grafana loads the dashboards rendered for the local warehouse from deploy/grafana/dashboards/.
+    (cd "$REPO_ROOT" && .venv/bin/python -m scripts.grafana.render_dashboards --target local --output "$STACK_DIR/grafana/dashboards")
     "${COMPOSE[@]}" up --detach --wait postgres
     "${COMPOSE[@]}" up --detach hapi grafana
     set -a

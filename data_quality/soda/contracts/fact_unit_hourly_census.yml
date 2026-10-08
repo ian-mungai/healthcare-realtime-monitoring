@@ -1,0 +1,24 @@
+dataset: ${env.SODA_DATA_SOURCE_NAME}/${env.ATHENA_CATALOG}/${env.ATHENA_DBT_DATABASE}/fact_unit_hourly_census
+
+checks:
+  - row_count:
+      threshold:
+        must_be_greater_than: 0
+
+columns:
+  - name: unit_hour_key
+    checks:
+      - missing:
+      - duplicate:
+
+  - name: unit_key
+    checks:
+      - missing:
+
+  - name: hour_start
+    checks:
+      - missing:
+
+  - name: census
+    checks:
+      - missing:

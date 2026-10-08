@@ -259,6 +259,34 @@ models:
         tests:
           - not_null
 
+  - name: fact_unit_hourly_census
+    description: >-
+      One row per unit and UTC hour that holds a simulated admission: the census (admissions present at any time in
+      the hour), admissions and discharges in the hour and the admission NEWS2 of the patients present. Built when
+      cohort_reference_enabled is true. e2e.local_warehouse checks it against a count from the raw admissions.
+
+    columns:
+      - name: unit_hour_key
+        tests:
+          - not_null
+          - unique
+
+      - name: unit_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_unit')
+                field: unit_key
+
+      - name: hour_start
+        tests:
+          - not_null
+
+      - name: census
+        tests:
+          - not_null
+
   - name: ml_predictions_serving
     description: Versioned encounter-level deterioration proxy predictions for analytical presentation.
 

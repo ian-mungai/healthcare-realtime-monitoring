@@ -78,6 +78,9 @@ airflow/serverless/generated/
 # Local documentation-review evidence; never committed.
 /.documentation_review.json
 
+# Grafana dashboards rendered for the local stack from deploy/grafana/dashboards/.
+/deploy/local/grafana/dashboards/
+
 # Local plans (analysis, implementation and gap plans); never committed or pushed.
 /plans/
 # Local verification evidence; scenario source in e2e/ remains tracked.

@@ -69,6 +69,8 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      # Rendered from deploy/grafana/dashboards/ by scripts/local/local_stack.sh start; ignored by Git.
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
     ports:
       - "127.0.0.1:${LOCAL_GRAFANA_PORT:-3000}:3000"
 

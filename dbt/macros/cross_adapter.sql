@@ -95,3 +95,16 @@ cast(from_iso8601_timestamp({{ expression }}) at time zone 'UTC' as timestamp)
 {% macro postgres__parse_timestamp(expression) -%}
 (cast({{ expression }} as timestamptz) at time zone 'UTC')
 {%- endmacro %}
+
+{#- Timestamp plus a number of hours given by a column or expression. -#}
+{% macro add_hours(hours, expression) -%}
+    {{ return(adapter.dispatch('add_hours', 'healthcare_realtime')(hours, expression)) }}
+{%- endmacro %}
+
+{% macro default__add_hours(hours, expression) -%}
+date_add('hour', {{ hours }}, {{ expression }})
+{%- endmacro %}
+
+{% macro postgres__add_hours(hours, expression) -%}
+({{ expression }} + ({{ hours }}) * interval '1 hour')
+{%- endmacro %}

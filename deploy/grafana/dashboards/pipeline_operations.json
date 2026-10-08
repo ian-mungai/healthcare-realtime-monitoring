@@ -1,0 +1,141 @@
+{
+  "uid": "hrm-pipeline-operations",
+  "title": "Pipeline Operations",
+  "description": "Observation volume, freshness and rejected records of the vitals pipeline. Synthetic data; not for patient care.",
+  "tags": [
+    "healthcare-realtime",
+    "synthetic"
+  ],
+  "timezone": "utc",
+  "editable": false,
+  "schemaVersion": 41,
+  "refresh": "",
+  "time": {
+    "from": "now-180d",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Observations per hour",
+      "description": "Accepted observations by vital, per UTC hour of measurement.",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "sql": "select date_trunc('hour', effective_datetime) as \"time\", observation_type as metric, count(*) as observations from @@ANALYTICS@@.fact_observations where $__timeFilter(effective_datetime) group by 1, 2 order by 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Latest observation",
+      "description": "Freshness: the newest measurement and the newest receipt in the warehouse.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "sql": "select max(effective_datetime) as latest_measured, max(received_at) as latest_received from @@ANALYTICS@@.fact_observations"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dateTimeAsIso"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 3,
+      "type": "bargauge",
+      "title": "Observations by vital",
+      "description": "Accepted observations in the selected range.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "sql": "select observation_type, count(*) as observations from @@ANALYTICS@@.fact_observations where $__timeFilter(effective_datetime) group by 1 order by 2 desc"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Encounters with a complete NEWS2",
+      "description": "Encounters whose feature window has all seven NEWS2 parameters.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "sql": "select sum(case when news2_total is null then 0 else 1 end) as complete, count(*) as encounters from @@ANALYTICS@@.fact_encounter_news2"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Rejected records by reason",
+      "description": "Records the processing step quarantined, by reason. May be empty.",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "sql": "select rejection_reason, count(*) as records from @@RAW@@.@@QUARANTINE@@ where $__timeFilter(received_at) group by 1 order by 2 desc"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    }
+  ]
+}

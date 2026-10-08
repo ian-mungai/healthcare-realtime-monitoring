@@ -1,0 +1,13 @@
+# The dashboards rendered for the local warehouse (scripts/grafana/render_dashboards.py); edit their sources in
+# deploy/grafana/dashboards/, not in Grafana.
+apiVersion: 1
+
+providers:
+  - name: healthcare-realtime
+    orgId: 1
+    folder: Healthcare Realtime
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/dashboards
