@@ -123,6 +123,13 @@ data "aws_iam_policy_document" "lambda" {
   }
 
   statement {
+    sid       = "KeepFeatureWindowReadings"
+    effect    = "Allow"
+    actions   = ["dynamodb:PutItem"]
+    resources = [var.feature_window_table_arn]
+  }
+
+  statement {
     sid    = "ManageObservationIdempotency"
     effect = "Allow"
 
@@ -177,6 +184,7 @@ resource "aws_lambda_function" "vitals_processor" {
       LOAD_TEST_RESULTS_TABLE   = var.load_test_table_name
       CONNECTIONS_TABLE         = var.connections_table_name
       IDEMPOTENCY_TABLE         = var.idempotency_table_name
+      FEATURE_WINDOW_TABLE      = var.feature_window_table_name
       IDEMPOTENCY_TTL_SECONDS   = "604800"
       IDEMPOTENCY_LEASE_SECONDS = "60"
       WEBSOCKET_ENDPOINT        = "https://${var.websocket_api_id}.execute-api.${var.aws_region}.amazonaws.com/${var.websocket_stage_name}"

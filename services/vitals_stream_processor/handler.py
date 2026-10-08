@@ -34,11 +34,17 @@ if not LOGGER.handlers:
     LOGGER.propagate = False
 
 if TYPE_CHECKING:
+    from services.feature_window import TTL_SECONDS as WINDOW_TTL_SECONDS
+    from services.feature_window import reading_key
     from services.vitals_stream_processor.schema import VITAL_RANGES, PermanentRecordError, validate_vitals_payload
 else:
     try:
+        from services.feature_window import TTL_SECONDS as WINDOW_TTL_SECONDS
+        from services.feature_window import reading_key
         from services.vitals_stream_processor.schema import VITAL_RANGES, PermanentRecordError, validate_vitals_payload
     except ModuleNotFoundError:
+        from feature_window import TTL_SECONDS as WINDOW_TTL_SECONDS
+        from feature_window import reading_key
         from schema import VITAL_RANGES, PermanentRecordError, validate_vitals_payload
 
 AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
@@ -46,6 +52,7 @@ LATEST_VITALS_TABLE = os.environ["LATEST_VITALS_TABLE"]
 LOAD_TEST_RESULTS_TABLE = os.environ["LOAD_TEST_RESULTS_TABLE"]
 CONNECTIONS_TABLE = os.environ["CONNECTIONS_TABLE"]
 IDEMPOTENCY_TABLE = os.environ["IDEMPOTENCY_TABLE"]
+FEATURE_WINDOW_TABLE = os.environ["FEATURE_WINDOW_TABLE"]
 IDEMPOTENCY_TTL_SECONDS = int(os.getenv("IDEMPOTENCY_TTL_SECONDS", "604800"))
 IDEMPOTENCY_LEASE_SECONDS = int(os.getenv("IDEMPOTENCY_LEASE_SECONDS", "60"))
 WEBSOCKET_ENDPOINT = os.getenv("WEBSOCKET_ENDPOINT", "")
@@ -58,6 +65,7 @@ latest_vitals_table = dynamodb.Table(LATEST_VITALS_TABLE)
 load_test_results_table = dynamodb.Table(LOAD_TEST_RESULTS_TABLE)
 connections_table = dynamodb.Table(CONNECTIONS_TABLE)
 idempotency_table = dynamodb.Table(IDEMPOTENCY_TABLE)
+feature_window_table = dynamodb.Table(FEATURE_WINDOW_TABLE)
 
 cloudwatch = boto3.client("cloudwatch", region_name=AWS_REGION)
 
@@ -194,6 +202,31 @@ def write_latest_vitals(payload: dict[str, Any]) -> bool:
 
         raise
 
+    return True
+
+
+def write_window_reading(payload: dict[str, Any]) -> bool:
+    """Keep an encounter's observation set for the early-warning endpoint's feature window.
+
+    Every reading is kept, including one the latest cache skips as stale, because the window needs all of them. The
+    put replaces an item with the same key, so a retried or replayed record is kept once. Records without an
+    encounter and load-test records are not kept.
+    """
+    encounter_id = payload.get("encounter_id")
+    if not encounter_id or payload.get("source") == "load_test":
+        return False
+    item = to_dynamodb_item(payload)
+    vitals = {field: item[field] for field in VITAL_FIELDS if field in item}
+    feature_window_table.put_item(
+        Item={
+            "encounter_id": encounter_id,
+            "reading": reading_key(payload["event_timestamp"], payload["observation_id"]),
+            "patient_id": payload["patient_id"],
+            "event_timestamp": payload["event_timestamp"],
+            **vitals,
+            "expires_at": int(datetime.now(UTC).timestamp()) + WINDOW_TTL_SECONDS,
+        }
+    )
     return True
 
 
@@ -348,12 +381,15 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, list[dict[s
 
             if is_load_test:
                 write_load_test_result(payload)
-            elif not write_latest_vitals(payload):
-                complete_observation_claim(claimed_observation_id, claim_token)
-                metrics_by_namespace.setdefault(metric_namespace, []).extend(
-                    [{"MetricName": "RecordsProcessed", "Value": 1, "Unit": "Count"}, {"MetricName": "StaleRecordsSkipped", "Value": 1, "Unit": "Count"}]
-                )
-                continue
+            else:
+                # Before the latest cache: the window keeps a reading the cache skips as stale.
+                write_window_reading(payload)
+                if not write_latest_vitals(payload):
+                    complete_observation_claim(claimed_observation_id, claim_token)
+                    metrics_by_namespace.setdefault(metric_namespace, []).extend(
+                        [{"MetricName": "RecordsProcessed", "Value": 1, "Unit": "Count"}, {"MetricName": "StaleRecordsSkipped", "Value": 1, "Unit": "Count"}]
+                    )
+                    continue
 
             deliveries, delivery_failures, active_connections = push_vitals(payload)
 

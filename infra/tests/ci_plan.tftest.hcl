@@ -65,6 +65,7 @@ variables {
   dbt_ml_predictions_serving_table_name   = "example_predictions_serving"
   dbt_ml_predictions_latest_table_name    = "example_predictions_latest"
   latest_vitals_table_name                = "example-latest-vitals"
+  feature_window_table_name               = "example-feature-window"
   processed_observations_state_table_name = "example-processed-observations"
   load_test_results_table_name            = "example-load-test-results"
   websocket_connections_table_name        = "example-websocket-connections"
@@ -93,6 +94,7 @@ run "plan" {
       filebase64sha256("${path.module}/../build/lambda/vitals_stream_processor.zip") != "",
       filebase64sha256("${path.module}/../build/lambda/websocket_handler.zip") != "",
       filebase64sha256("${path.module}/../build/lambda/vitals_api.zip") != "",
+      filebase64sha256("${path.module}/../build/lambda/early_warning.zip") != "",
       filebase64sha256("${path.module}/../build/lambda/vitals_replay.zip") != "",
     ])
     error_message = "Every Lambda deployment package must produce a source code hash."

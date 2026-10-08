@@ -62,6 +62,37 @@ resource "aws_dynamodb_table" "load_test_results" {
   tags = merge(var.tags, { Purpose = "load-testing", DataClassification = var.data_classification })
 }
 
+# The readings of each encounter's feature window, written by the stream processor and scored by the early-warning
+# endpoint (services/feature_window.py). Items expire two days after they are written.
+resource "aws_dynamodb_table" "feature_window" {
+  name                        = var.feature_window_table_name
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "encounter_id"
+  range_key                   = "reading"
+  deletion_protection_enabled = var.deletion_protection_enabled
+
+  attribute {
+    name = "encounter_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "reading"
+    type = "S"
+  }
+
+  ttl {
+    attribute_name = "expires_at"
+    enabled        = true
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
+
+  tags = merge(var.tags, { Purpose = "early-warning", DataClassification = var.data_classification })
+}
+
 resource "aws_dynamodb_table" "websocket_connections" {
   name                        = var.websocket_connections_table_name
   billing_mode                = "PAY_PER_REQUEST"

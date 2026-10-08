@@ -39,6 +39,8 @@ class WorkflowGenerationTests(unittest.TestCase):
                 "DATA_JOBS_ECS_CLUSTER": "healthcare-realtime-data-jobs",
                 "MWAA_SERVERLESS_START_DATE": "2099-01-01T00:00:00+00:00",
                 "OPENLINEAGE_URL": "https://lineage.example.com",
+                "HAPI_FHIR_BASE_URL": "http://hapi.example.com/fhir",
+                "API_STAGE_NAME": "development",
             },
             clear=False,
         )
@@ -58,6 +60,19 @@ class WorkflowGenerationTests(unittest.TestCase):
         self.assertEqual(dag.task_dict["run_ml_scoring"].upstream_task_ids, {"run_dbt_build"})
         self.assertEqual(dag.task_dict["refresh_prediction_models"].upstream_task_ids, {"run_ml_scoring"})
         self.assertEqual(dag.task_dict["run_soda_checks"].upstream_task_ids, {"refresh_prediction_models"})
+
+    # The ingestion workflow's health checks. Failure modes: the checks run in parallel, so a dead webhook also
+    # reports a misleading subscription result; the schedule differs from the 30-minute window the delivery check
+    # reads; a check's settings are missing from the generated file, so it runs against nothing.
+    def test_ingestion_dag_chains_the_three_checks_every_30_minutes(self) -> None:
+        dag = generator.load_dag("healthcare_realtime_ingestion")
+
+        self.assertEqual(dag.schedule, "*/30 * * * *")
+        self.assertEqual([task.task_id for task in dag.topological_sort()], ["check_webhook_health", "check_subscription_active", "check_recent_deliveries"])
+        self.assertEqual(dag.task_dict["check_subscription_active"].upstream_task_ids, {"check_webhook_health"})
+        tasks = generator.build_workflow_definition("healthcare_realtime_ingestion")["healthcare_realtime_ingestion"]["tasks"]
+        self.assertEqual(tasks["check_webhook_health"]["op_kwargs"], {"stage": "development", "aws_region": "example-region-1"})
+        self.assertEqual(tasks["check_recent_deliveries"]["python_callable"], "lib.ingestion_health.check_recent_deliveries")
 
     def test_serverless_definition_preserves_contract_and_normalizes_ecs_families(self) -> None:
         workflow = generator.build_workflow_definition()["healthcare_realtime_pipeline"]
@@ -121,10 +136,11 @@ class WorkflowGenerationTests(unittest.TestCase):
     # 2. A deployment value leaks into the shareable file: account IDs, ARNs and task revisions are rejected.
     def test_a_freshly_generated_workflow_passes_the_shared_check(self) -> None:
         with tempfile.TemporaryDirectory() as scratch:
-            path = Path(scratch) / "workflow.yaml"
-            path.write_text(yaml.safe_dump(generator.build_workflow_definition(), sort_keys=False), encoding="utf-8")
+            for name in generator.WORKFLOWS:
+                path = Path(scratch) / f"{name}.yaml"
+                path.write_text(yaml.safe_dump(generator.build_workflow_definition(name), sort_keys=False), encoding="utf-8")
 
-            self.assertEqual(validator.problems(path), [])
+                self.assertEqual(validator.problems(path), [])
 
     def test_a_stale_or_leaking_workflow_fails_the_shared_check(self) -> None:
         definition = generator.build_workflow_definition()
@@ -133,7 +149,7 @@ class WorkflowGenerationTests(unittest.TestCase):
             for name, workflow in definition.items()
         }
         with tempfile.TemporaryDirectory() as scratch:
-            path = Path(scratch) / "workflow.yaml"
+            path = Path(scratch) / f"{generator.PIPELINE}.yaml"
             path.write_text(yaml.safe_dump(stale, sort_keys=False), encoding="utf-8")
             self.assertTrue(any("does not match" in problem for problem in validator.problems(path)))
 

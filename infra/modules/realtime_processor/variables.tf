@@ -43,6 +43,16 @@ variable "load_test_table_arn" {
   type        = string
 }
 
+variable "feature_window_table_name" {
+  description = "DynamoDB table where the processor keeps each encounter's feature-window readings."
+  type        = string
+}
+
+variable "feature_window_table_arn" {
+  description = "ARN of the feature-window table."
+  type        = string
+}
+
 variable "lambda_zip_path" {
   description = "Path to the packaged realtime processor Lambda zip."
   type        = string

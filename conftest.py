@@ -12,6 +12,7 @@ TEST_ENVIRONMENT = {
     "LOAD_TEST_RESULTS_TABLE": "example-load-test-results",
     "CONNECTIONS_TABLE": "example-websocket-connections",
     "IDEMPOTENCY_TABLE": "example-processed-observations",
+    "FEATURE_WINDOW_TABLE": "example-feature-window",
     "ATHENA_SOURCE_DATABASE": "example_source",
     "ATHENA_DBT_DATABASE": "example_dbt",
     "ATHENA_ML_DATABASE": "example_ml",

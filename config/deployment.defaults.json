@@ -30,6 +30,7 @@
     "dbt_ml_predictions_serving_table_name": "ml_predictions_serving",
     "dbt_ml_predictions_latest_table_name": "ml_predictions_latest",
     "latest_vitals_table_name": "healthcare-realtime-latest-vitals",
+    "feature_window_table_name": "healthcare-realtime-feature-window",
     "processed_observations_state_table_name": "healthcare-realtime-processed-observations",
     "load_test_results_table_name": "healthcare-realtime-load-test-results",
     "websocket_connections_table_name": "healthcare-realtime-websocket-connections",

@@ -34,3 +34,29 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "early_warning_zip_path" {
+  description = "Path to the packaged early-warning Lambda (scripts/lambda/build_early_warning.sh)."
+  type        = string
+}
+
+variable "feature_window_table_name" {
+  description = "DynamoDB table holding each encounter's feature-window readings and stored scores."
+  type        = string
+}
+
+variable "feature_window_table_arn" {
+  description = "ARN of the feature-window table."
+  type        = string
+}
+
+variable "data_bucket_name" {
+  description = "Bucket holding the published model artifacts."
+  type        = string
+}
+
+variable "approved_model_version" {
+  description = "Model version whose scoring parameters the endpoint uses; empty until a model is approved."
+  type        = string
+  default     = ""
+}

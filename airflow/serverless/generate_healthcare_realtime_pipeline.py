@@ -15,15 +15,28 @@ from airflow.providers.amazon.aws.sensors.s3 import S3KeySensor
 from airflow.providers.standard.operators.python import PythonOperator
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DAG_PATH = REPO_ROOT / "airflow" / "dags" / "healthcare_realtime_pipeline.py"
-OUTPUT_PATH = REPO_ROOT / "airflow" / "serverless" / "generated" / "healthcare_realtime_pipeline.yaml"
+PIPELINE = "healthcare_realtime_pipeline"
+# Every DAG that becomes an MWAA Serverless workflow, by DAG file and workflow name.
+WORKFLOWS = (PIPELINE, "healthcare_realtime_ingestion")
 
 
-def load_dag():
-    spec = importlib.util.spec_from_file_location("healthcare_realtime_pipeline", DAG_PATH)
+def dag_path(name: str) -> Path:
+    return REPO_ROOT / "airflow" / "dags" / f"{name}.py"
+
+
+def output_path(name: str) -> Path:
+    return REPO_ROOT / "airflow" / "serverless" / "generated" / f"{name}.yaml"
+
+
+DAG_PATH = dag_path(PIPELINE)
+OUTPUT_PATH = output_path(PIPELINE)
+
+
+def load_dag(name: str = PIPELINE):
+    spec = importlib.util.spec_from_file_location(name, dag_path(name))
 
     if spec is None or spec.loader is None:
-        raise RuntimeError(f"Unable to load DAG from {DAG_PATH}")
+        raise RuntimeError(f"Unable to load DAG from {dag_path(name)}")
 
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -173,8 +186,8 @@ def validate_task_contract(task) -> None:
             raise ValueError(f"MWAA Serverless generation does not support {callback_name} for task {task.task_id}")
 
 
-def build_workflow_definition() -> dict[str, Any]:
-    dag = load_dag()
+def build_workflow_definition(name: str = PIPELINE) -> dict[str, Any]:
+    dag = load_dag(name)
     validate_dag_contract(dag)
     start_date = serverless_start_date()
 
@@ -196,10 +209,11 @@ def build_workflow_definition() -> dict[str, Any]:
 
 
 def main() -> None:
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    definition = build_workflow_definition()
-    OUTPUT_PATH.write_text(yaml.safe_dump(definition, sort_keys=False), encoding="utf-8")
-    sys.stdout.write(f"Generated {OUTPUT_PATH}\n")
+    for name in WORKFLOWS:
+        path = output_path(name)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(yaml.safe_dump(build_workflow_definition(name), sort_keys=False), encoding="utf-8")
+        sys.stdout.write(f"Generated {path}\n")
 
 
 if __name__ == "__main__":

@@ -13,6 +13,7 @@ else
 fi
 
 ARTIFACTS=(
+  "$REPO_ROOT/build/lambda/early_warning.zip"
   "$REPO_ROOT/build/lambda/fhir_webhook.zip"
   "$REPO_ROOT/build/lambda/vitals_api.zip"
   "$REPO_ROOT/build/lambda/vitals_replay.zip"

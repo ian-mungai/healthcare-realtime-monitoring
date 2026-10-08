@@ -30,6 +30,8 @@ ENVIRONMENT = {
     "ATHENA_WORKGROUP": "example-workgroup",
     "ATHENA_RESULTS_S3_URI": "s3://ci-project-data-bucket/athena-results/",
     "OPENLINEAGE_URL": "https://lineage.example.com",
+    "HAPI_FHIR_BASE_URL": "http://hapi.example.com/fhir",
+    "API_STAGE_NAME": "development",
 }
 
 
@@ -43,6 +45,7 @@ class DagBagTests(unittest.TestCase):
     def test_every_dag_file_imports_without_errors(self) -> None:
         self.assertEqual(self.dagbag.import_errors, {})
         self.assertIn("healthcare_realtime_pipeline", self.dagbag.dags)
+        self.assertIn("healthcare_realtime_ingestion", self.dagbag.dags)
 
     def test_every_declared_task_belongs_to_a_dag(self) -> None:
         declared = {task_id for path in DAG_FOLDER.rglob("*.py") for task_id in TASK_ID.findall(path.read_text())}

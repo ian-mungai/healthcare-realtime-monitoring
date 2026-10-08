@@ -25,6 +25,9 @@ from tools.process import run_command
 
 ROOT = Path(__file__).resolve().parents[1]
 INFRA = ROOT / "infra"
+# The deployment names every environment shares (config/deployment.defaults.json, terraform section).
+DEPLOYMENT_DEFAULTS = ROOT / "config" / "deployment.defaults.json"
+ATHENA_SECONDS = 300
 
 
 @dataclass
@@ -57,6 +60,31 @@ class Context:
 
     def get(self, url: str, signed: bool = True) -> requests.Response:
         return requests.get(url, headers=self.signed_headers(url) if signed else {}, timeout=15)
+
+    def athena_rows(self, query: str, database: str, parameters: list[str] | None = None) -> list[list[str | None]]:
+        """The rows of one Athena query in the deployment's workgroup, without the header row; values are strings."""
+        defaults = json.loads(DEPLOYMENT_DEFAULTS.read_text(encoding="utf-8"))["terraform"]
+        athena = self.client("athena")
+        request: dict[str, Any] = {
+            "QueryString": query,
+            "QueryExecutionContext": {"Catalog": defaults["athena_catalog_name"], "Database": database},
+            "WorkGroup": defaults["athena_workgroup_name"],
+            "ResultConfiguration": {"OutputLocation": f"s3://{self.env['DATA_BUCKET_NAME']}/athena_results/e2e/"},
+        }
+        if parameters:
+            request["ExecutionParameters"] = parameters
+        execution = athena.start_query_execution(**request)["QueryExecutionId"]
+
+        def finished() -> bool:
+            return athena.get_query_execution(QueryExecutionId=execution)["QueryExecution"]["Status"]["State"] in {"SUCCEEDED", "FAILED", "CANCELLED"}
+
+        wait_until(finished, ATHENA_SECONDS)
+        status = athena.get_query_execution(QueryExecutionId=execution)["QueryExecution"]["Status"]
+        if status["State"] != "SUCCEEDED":
+            raise RuntimeError(f"an Athena query ended {status['State']}: {status.get('StateChangeReason', '')[:200]}")
+        rows = athena.get_paginator("get_query_results").paginate(QueryExecutionId=execution)
+        values = [[cell.get("VarCharValue") for cell in row["Data"]] for page in rows for row in page["ResultSet"]["Rows"]]
+        return values[1:]
 
     def vitals_url(self, patient_id: str) -> str:
         return f"{str(self.output('vitals_api_endpoint')).rstrip('/')}/patients/{patient_id}/vitals"

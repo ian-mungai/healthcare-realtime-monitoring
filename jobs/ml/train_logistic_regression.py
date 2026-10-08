@@ -145,6 +145,21 @@ def train_baseline(records: list[dict[str, Any]]) -> tuple[Pipeline, dict[str, A
     return model, manifest
 
 
+def scoring_parameters(model: Pipeline, manifest: dict[str, Any]) -> dict[str, Any]:
+    """The fitted pipeline as plain numbers, for the early-warning endpoint to score without scikit-learn
+    (services/early_warning/scoring.py): median imputation, standard scaling and the logistic coefficients."""
+    imputer, scaler, classifier = (model.named_steps[name] for name in ("imputer", "scaler", "classifier"))
+    return {
+        "model_version": manifest["model_version"],
+        "feature_columns": list(FEATURE_COLUMNS),
+        "medians": [float(value) for value in imputer.statistics_],
+        "means": [float(value) for value in scaler.mean_],
+        "scales": [float(value) for value in scaler.scale_],
+        "coefficients": [float(value) for value in classifier.coef_[0]],
+        "intercept": float(classifier.intercept_[0]),
+    }
+
+
 def _features(records: list[dict[str, Any]]) -> list[list[float]]:
     return [[_numeric_value(record[column]) for column in FEATURE_COLUMNS] for record in records]
 
@@ -243,6 +258,7 @@ def write_artifacts(
     joblib.dump(model, model_path)
     manifest["model_sha256"] = hashlib.sha256(model_path.read_bytes()).hexdigest()
     (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    (output_dir / "scoring_parameters.json").write_text(json.dumps(scoring_parameters(model, manifest), indent=2, sort_keys=True) + "\n")
     if evaluation is not None:
         (output_dir / "evaluation.json").write_text(json.dumps(evaluation, indent=2, sort_keys=True) + "\n")
     if predictions is not None:
@@ -262,7 +278,12 @@ def publish_artifacts(output_dir: Path, bucket: str, model_version: str, s3_clie
         raise ValueError(f"Invalid model version: {model_version}")
     client = s3_client or boto3.client("s3")
     published: dict[str, str] = {}
-    content_types = {"model.joblib": "application/octet-stream", "manifest.json": "application/json", "evaluation.json": "application/json"}
+    content_types = {
+        "model.joblib": "application/octet-stream",
+        "manifest.json": "application/json",
+        "evaluation.json": "application/json",
+        "scoring_parameters.json": "application/json",
+    }
     for filename, content_type in content_types.items():
         path = output_dir / filename
         body = path.read_bytes()

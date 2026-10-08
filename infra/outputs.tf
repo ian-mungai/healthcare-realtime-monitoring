@@ -96,6 +96,16 @@ output "mwaa_workflow_arn" {
   value = module.mwaa.workflow_arn
 }
 
+output "mwaa_ingestion_workflow_name" {
+  description = "MWAA Serverless workflow running the ingestion health checks."
+  value       = module.mwaa.ingestion_workflow_name
+}
+
+output "mwaa_ingestion_workflow_arn" {
+  description = "ARN of the ingestion health workflow."
+  value       = module.mwaa.ingestion_workflow_arn
+}
+
 output "mwaa_workflow_status" {
   value = module.mwaa.workflow_status
 }

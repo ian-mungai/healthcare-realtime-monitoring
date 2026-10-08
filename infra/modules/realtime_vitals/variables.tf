@@ -19,6 +19,11 @@ variable "load_test_results_table_name" {
   type        = string
 }
 
+variable "feature_window_table_name" {
+  description = "DynamoDB table holding each encounter's feature-window readings for the early-warning endpoint."
+  type        = string
+}
+
 variable "websocket_connections_table_name" {
   description = "Name of the active WebSocket connections DynamoDB table."
   type        = string

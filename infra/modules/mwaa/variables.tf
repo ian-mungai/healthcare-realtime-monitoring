@@ -3,6 +3,12 @@ variable "workflow_name" {
   type        = string
 }
 
+variable "ingestion_workflow_name" {
+  description = "Amazon MWAA Serverless workflow name of the ingestion health checks"
+  type        = string
+  default     = "healthcare_realtime_ingestion"
+}
+
 variable "data_bucket_name" {
   description = "Healthcare realtime data bucket"
   type        = string
@@ -15,7 +21,7 @@ variable "source_prefix" {
 }
 
 variable "enable_schedule" {
-  description = "Enable the daily workflow only after an immutable ML model version is approved."
+  description = "Enable the daily and ingestion workflow schedules only after an immutable ML model version is approved."
   type        = bool
 }
 

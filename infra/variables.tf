@@ -176,6 +176,11 @@ variable "latest_vitals_table_name" {
   type        = string
 }
 
+variable "feature_window_table_name" {
+  description = "DynamoDB table holding each encounter's feature-window readings for the early-warning endpoint."
+  type        = string
+}
+
 variable "processed_observations_state_table_name" {
   description = "DynamoDB table containing realtime idempotency claims."
   type        = string

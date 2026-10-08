@@ -10,6 +10,15 @@ resource "aws_s3_object" "workflow_definition" {
   content_type = "application/x-yaml"
 }
 
+# The ingestion health workflow (airflow/dags/healthcare_realtime_ingestion.py) shares the role, code and network.
+resource "aws_s3_object" "ingestion_workflow_definition" {
+  bucket       = var.data_bucket_name
+  key          = "${var.source_prefix}/workflows/healthcare_realtime_ingestion.yml"
+  source       = "${path.root}/../airflow/serverless/generated/healthcare_realtime_ingestion.yaml"
+  source_hash  = filemd5("${path.root}/../airflow/serverless/generated/healthcare_realtime_ingestion.yaml")
+  content_type = "application/x-yaml"
+}
+
 resource "aws_s3_object" "workflow_code" {
   bucket = var.data_bucket_name
   key    = "${var.source_prefix}/code/healthcare_realtime_mwaa_serverless_code.zip"
@@ -256,6 +265,31 @@ resource "aws_iam_role_policy" "mwaa_ecs_access" {
   policy = data.aws_iam_policy_document.mwaa_ecs_access.json
 }
 
+resource "aws_iam_role_policy" "mwaa_ingestion_health" {
+  name = "healthcare_realtime_mwaa_serverless_ingestion_health"
+  role = aws_iam_role.mwaa_execution.id
+
+  # The ingestion workflow finds the webhook's API by name and reads the webhook Lambda's error and invocation counts.
+  policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Sid      = "ReadWebhookMetrics"
+        Effect   = "Allow"
+        Action   = ["cloudwatch:GetMetricStatistics"]
+        Resource = "*"
+      },
+      {
+        Sid      = "FindWebhookApi"
+        Effect   = "Allow"
+        Action   = ["apigateway:GET"]
+        Resource = "arn:aws:apigateway:${data.aws_region.current.region}::/apis"
+      },
+    ]
+  })
+}
+
 resource "aws_iam_role_policy" "mwaa_logs_access" {
   name = "healthcare_realtime_mwaa_serverless_logs_access"
   role = aws_iam_role.mwaa_execution.id
@@ -317,6 +351,52 @@ resource "awscc_mwaaserverless_workflow" "healthcare_realtime" {
   ]
 }
 
+resource "awscc_mwaaserverless_workflow" "ingestion" {
+  name         = var.ingestion_workflow_name
+  role_arn     = aws_iam_role.mwaa_execution.arn
+  trigger_mode = var.enable_schedule ? "scheduled" : "manual_only"
+
+  definition_s3_location = {
+    bucket     = var.data_bucket_name
+    object_key = aws_s3_object.ingestion_workflow_definition.key
+    version_id = aws_s3_object.ingestion_workflow_definition.version_id
+  }
+
+  code = {
+    s3_location = {
+      bucket     = var.data_bucket_name
+      object_key = aws_s3_object.workflow_code.key
+      version_id = aws_s3_object.workflow_code.version_id
+    }
+  }
+
+  network_configuration = {
+    subnet_ids         = var.subnet_ids
+    security_group_ids = var.security_group_ids
+  }
+
+  encryption_configuration = {
+    type = "AWS_MANAGED_KEY"
+  }
+
+  tags = var.tags
+
+  depends_on = [aws_iam_role_policy.mwaa_ingestion_health]
+}
+
+resource "aws_cloudwatch_log_metric_filter" "ingestion_task_failures" {
+  name           = "healthcare-realtime-mwaa-serverless-ingestion-task-failures"
+  pattern        = "{ $.event = \"Task finished\" && $.final_state != \"success\" }"
+  log_group_name = "/aws/mwaa-serverless/${basename(awscc_mwaaserverless_workflow.ingestion.workflow_arn)}/"
+
+  # The same metric as the pipeline's, so one failed health check raises the task-failure alarm.
+  metric_transformation {
+    name      = "TaskFailure"
+    namespace = "HealthcareRealtime/Pipeline"
+    value     = "1"
+  }
+}
+
 resource "aws_cloudwatch_log_metric_filter" "task_failures" {
   name           = "healthcare-realtime-mwaa-serverless-task-failures"
   pattern        = "{ $.event = \"Task finished\" && $.final_state != \"success\" }"
@@ -343,7 +423,7 @@ resource "aws_cloudwatch_log_metric_filter" "openlineage_emission_failures" {
 
 resource "aws_cloudwatch_metric_alarm" "task_failures" {
   alarm_name          = "healthcare-realtime-pipeline-task-failure"
-  alarm_description   = "An MWAA Serverless pipeline task finished without a successful state."
+  alarm_description   = "An MWAA Serverless pipeline or ingestion health task finished without a successful state."
   namespace           = "HealthcareRealtime/Pipeline"
   metric_name         = "TaskFailure"
   statistic           = "Sum"

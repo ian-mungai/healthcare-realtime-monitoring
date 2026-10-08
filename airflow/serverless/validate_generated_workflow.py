@@ -1,11 +1,11 @@
-"""Check the generated MWAA Serverless workflow file against the DAG and for leaked deployment values.
+"""Check the generated MWAA Serverless workflow files against their DAGs and for leaked deployment values.
 
-Usage: PYTHONPATH=airflow/serverless:airflow/dags:. python airflow/serverless/validate_generated_workflow.py [PATH]
+Usage: PYTHONPATH=airflow/serverless:airflow/dags:. python airflow/serverless/validate_generated_workflow.py [PATH ...]
 
-Run it after generate_healthcare_realtime_pipeline.py with the same environment. The file must equal the definition
-the DAG produces now, so the shared check cannot drift from the DAG, and it must hold no account ID, Amazon Resource
-Name (ARN) or ECS task revision, so it stays shareable. Local runs and CI both use this script; the DAG's structure is
-covered by tests/test_workflow_generation.py.
+Run it after generate_healthcare_realtime_pipeline.py with the same environment; without a path it checks every
+workflow. Each file is named after its DAG and must equal the definition that DAG produces now, so the shared check
+cannot drift from the DAG, and it must hold no account ID, Amazon Resource Name (ARN) or ECS task revision, so it stays
+shareable. Local runs and CI both use this script; the DAGs' structure is covered by tests/test_workflow_generation.py.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ def problems(path: Path) -> list[str]:
     """Every problem with the generated file; an empty list when it is current and shareable."""
     content = path.read_text(encoding="utf-8")
     found = []
-    if yaml.safe_load(content) != generator.build_workflow_definition():
+    if yaml.safe_load(content) != generator.build_workflow_definition(path.stem):
         found.append(f"{path} does not match the DAG's current definition; regenerate it")
     for problem, pattern in LEAKS:
         if pattern.search(content) or (problem == "a task revision" and "task-definition/" in content):
@@ -39,8 +39,8 @@ def problems(path: Path) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     arguments = sys.argv[1:] if argv is None else argv
-    path = Path(arguments[0]) if arguments else generator.OUTPUT_PATH
-    found = problems(path)
+    paths = [Path(argument) for argument in arguments] or [generator.output_path(name) for name in generator.WORKFLOWS]
+    found = [problem for path in paths for problem in problems(path)]
     for problem in found:
         sys.stderr.write(problem + "\n")
     if not found:

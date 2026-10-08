@@ -37,3 +37,13 @@ output "websocket_connections_table_arn" {
   description = "ARN of the WebSocket connections DynamoDB table."
   value       = aws_dynamodb_table.websocket_connections.arn
 }
+
+output "feature_window_table_name" {
+  description = "DynamoDB table holding each encounter's feature-window readings."
+  value       = aws_dynamodb_table.feature_window.name
+}
+
+output "feature_window_table_arn" {
+  description = "ARN of the feature-window table."
+  value       = aws_dynamodb_table.feature_window.arn
+}

@@ -177,3 +177,50 @@ def test_bedside_measures_stay_live_for_the_observation_set_interval() -> None:
 
     expect.equal(filtered["temperature"], 37.1)
     expect.not_in("consciousness_level", filtered)
+
+
+# Live NEWS2 and the real-time model score on the watchlist. Failure modes: NEWS2 counts a stale bedside measure as
+# current; NEWS2 here disagrees with the endpoint's (services/early_warning/scoring.py); a patient without an
+# early-warning result breaks the refresh; a score is shown without its model version or before the window closes.
+LIVE = {
+    "respiratory_rate": 22,
+    "respiratory_rate_event_timestamp": "2026-09-11T11:59:58Z",
+    "spo2": 93,
+    "spo2_event_timestamp": "2026-09-11T11:59:58Z",
+    "heart_rate": 95,
+    "heart_rate_event_timestamp": "2026-09-11T11:59:58Z",
+    "systolic_bp": 120,
+    "systolic_bp_event_timestamp": "2026-09-11T11:58:00Z",
+    "inhaled_oxygen_concentration": 21,
+    "inhaled_oxygen_concentration_event_timestamp": "2026-09-11T11:58:00Z",
+    "consciousness_level": 0,
+    "consciousness_level_event_timestamp": "2026-09-11T11:58:00Z",
+    "temperature": 37.0,
+    "temperature_event_timestamp": "2026-09-11T11:58:00Z",
+}
+
+
+def test_live_news2_uses_only_current_measurements() -> None:
+    now = datetime(2026, 9, 11, 12, tzinfo=UTC)
+
+    expect.equal((app.live_news2(LIVE, now)["total"], app.live_news2(LIVE, now)["band"]), (5, "medium"))
+    stale = {**LIVE, "temperature_event_timestamp": "2026-09-11T11:50:00Z"}
+    expect.equal(app.live_news2(stale, now)["missing"], ["temperature"])
+    expect.equal(app.news2_label(app.live_news2(stale, now)), "NEWS2 -- · missing Temperature")
+    expect.equal(app.news2_label(app.live_news2(LIVE, now)), "NEWS2 **5** · :orange[Medium]")
+
+
+def test_early_warning_requests_are_signed_and_a_missing_patient_is_none(monkeypatch) -> None:
+    monkeypatch.setattr(app, "get_sigv4_headers", lambda url: {"Authorization": "signed"})
+    request = Mock(return_value=Mock(status_code=404))
+    monkeypatch.setattr(app.requests, "get", request)
+
+    expect.identical(app.get_early_warning("1000"), None)
+    request.assert_called_once_with("https://api.example.com/development/patients/1000/early-warning", headers={"Authorization": "signed"}, timeout=10)
+
+
+def test_model_labels_name_the_state_and_the_version() -> None:
+    expect.equal(app.model_label(None), "Model score unavailable")
+    expect.equal(app.model_label({"status": "window_open", "window_closes_at": "2026-09-11T12:15:00Z"}), "Model scores at 12:15:00 UTC")
+    expect.equal(app.model_label({"status": "scored", "probability": 0.4213, "model_version": "logistic-abc"}), "Model risk **42%** · logistic-abc")
+    expect.equal(app.model_label({"status": "no_approved_model"}), "Model: no approved model")

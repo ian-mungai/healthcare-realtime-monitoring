@@ -27,3 +27,11 @@ output "trigger_mode" {
   description = "Current MWAA Serverless workflow trigger mode."
   value       = awscc_mwaaserverless_workflow.healthcare_realtime.trigger_mode
 }
+
+output "ingestion_workflow_name" {
+  value = awscc_mwaaserverless_workflow.ingestion.name
+}
+
+output "ingestion_workflow_arn" {
+  value = awscc_mwaaserverless_workflow.ingestion.workflow_arn
+}

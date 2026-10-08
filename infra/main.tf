@@ -302,6 +302,7 @@ module "realtime_vitals" {
   processed_observations_table_name = var.processed_observations_state_table_name
   load_test_results_table_name      = var.load_test_results_table_name
   websocket_connections_table_name  = var.websocket_connections_table_name
+  feature_window_table_name         = var.feature_window_table_name
 }
 
 module "realtime_processor" {
@@ -309,20 +310,22 @@ module "realtime_processor" {
 
   aws_region = var.aws_region
 
-  kinesis_stream_arn       = module.kinesis.stream_arn
-  load_test_stream_arn     = module.load_test_kinesis.stream_arn
-  latest_vitals_table_name = module.realtime_vitals.latest_vitals_table_name
-  latest_vitals_table_arn  = module.realtime_vitals.latest_vitals_table_arn
-  idempotency_table_name   = module.realtime_vitals.processed_observations_table_name
-  idempotency_table_arn    = module.realtime_vitals.processed_observations_table_arn
-  load_test_table_name     = module.realtime_vitals.load_test_results_table_name
-  load_test_table_arn      = module.realtime_vitals.load_test_results_table_arn
-  lambda_zip_path          = "${path.root}/../build/lambda/vitals_stream_processor.zip"
-  connections_table_name   = module.realtime_vitals.websocket_connections_table_name
-  connections_table_arn    = module.realtime_vitals.websocket_connections_table_arn
-  websocket_api_id         = module.realtime_websocket.api_id
-  websocket_stage_name     = var.api_stage_name
-  failure_queue_arn        = module.realtime_failure_handling.vitals_failures_queue_arn
+  kinesis_stream_arn        = module.kinesis.stream_arn
+  load_test_stream_arn      = module.load_test_kinesis.stream_arn
+  latest_vitals_table_name  = module.realtime_vitals.latest_vitals_table_name
+  latest_vitals_table_arn   = module.realtime_vitals.latest_vitals_table_arn
+  idempotency_table_name    = module.realtime_vitals.processed_observations_table_name
+  idempotency_table_arn     = module.realtime_vitals.processed_observations_table_arn
+  load_test_table_name      = module.realtime_vitals.load_test_results_table_name
+  load_test_table_arn       = module.realtime_vitals.load_test_results_table_arn
+  feature_window_table_name = module.realtime_vitals.feature_window_table_name
+  feature_window_table_arn  = module.realtime_vitals.feature_window_table_arn
+  lambda_zip_path           = "${path.root}/../build/lambda/vitals_stream_processor.zip"
+  connections_table_name    = module.realtime_vitals.websocket_connections_table_name
+  connections_table_arn     = module.realtime_vitals.websocket_connections_table_arn
+  websocket_api_id          = module.realtime_websocket.api_id
+  websocket_stage_name      = var.api_stage_name
+  failure_queue_arn         = module.realtime_failure_handling.vitals_failures_queue_arn
 }
 
 module "realtime_websocket" {
@@ -352,6 +355,12 @@ module "vitals_api" {
   lambda_zip_path       = "${path.root}/../build/lambda/vitals_api.zip"
   patient_access_policy = jsonencode(var.realtime_patient_access_policy)
   stage_name            = var.api_stage_name
+
+  early_warning_zip_path    = "${path.root}/../build/lambda/early_warning.zip"
+  feature_window_table_name = module.realtime_vitals.feature_window_table_name
+  feature_window_table_arn  = module.realtime_vitals.feature_window_table_arn
+  data_bucket_name          = module.raw_s3.bucket_name
+  approved_model_version    = var.ml_approved_model_version
 }
 
 module "realtime_observability" {

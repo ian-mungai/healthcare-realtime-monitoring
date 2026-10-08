@@ -28,6 +28,8 @@ DATA_JOBS_CLUSTER="$(terraform -chdir=infra output -raw dbt_ecs_cluster_name)"
 RAW_BUCKET="$(terraform -chdir=infra output -raw raw_s3_bucket_name)"
 GLUE_JOB_NAME="$(terraform -chdir=infra output -raw glue_job_name)"
 OPENLINEAGE_URL="${OPENLINEAGE_URL:-$(terraform -chdir=infra output -raw openlineage_collector_url 2>/dev/null || true)}"
+# The ingestion health workflow checks HAPI, which the foundation stage creates; it finds the webhook's API at run time.
+HAPI_FHIR_BASE_URL="$(terraform -chdir=infra output -raw hapi_fhir_base_url)"
 PRIVATE_SUBNETS="$(terraform -chdir=infra output -json private_subnet_ids | "$PYTHON_BIN" -c 'import json,sys; print(",".join(json.load(sys.stdin)))')"
 MWAA_SERVERLESS_START_DATE="$("$PYTHON_BIN" -c 'from datetime import UTC, datetime, timedelta; print((datetime.now(UTC) + timedelta(minutes=10)).isoformat())')"
 
@@ -45,6 +47,7 @@ export GLUE_JOB_NAME
 export MWAA_SERVERLESS_START_DATE
 export RAW_BUCKET
 export OPENLINEAGE_URL
+export HAPI_FHIR_BASE_URL
 
 PYTHONPATH="$REPO_ROOT/airflow/dags:$REPO_ROOT" \
 "$PYTHON_BIN" airflow/serverless/generate_healthcare_realtime_pipeline.py

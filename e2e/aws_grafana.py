@@ -33,7 +33,7 @@ from typing import Any
 
 import httpx
 
-from e2e.context import ROOT, Context, load_context, wait_until
+from e2e.context import ROOT, Context, load_context
 from e2e.local_grafana import QUERY_RANGE, check_dashboards
 from e2e.report import Blocked, Report
 from scripts.grafana import render_dashboards as render
@@ -43,7 +43,6 @@ CONTAINER = "grafana"
 FORWARD_DOCUMENT = "AWS-StartPortForwardingSession"
 READY_SECONDS = 90
 CENSUS_SQL = "select sum(census) from fact_unit_hourly_census"
-ATHENA_SECONDS = 300
 PURPOSE = "The AWS Grafana, reached only through an SSM port forward, serves the dashboards and every panel query returns rows from Athena."
 LIMITS = (
     "Runs the panel queries through Grafana's query API, not a browser, so it does not check how panels draw. The "
@@ -93,25 +92,8 @@ def check_private(report: Report, context: Context, task: dict[str, Any]) -> Non
 
 def athena_census(context: Context) -> float:
     """The census total counted by Athena directly, not through Grafana."""
-    defaults = json.loads(render.DEPLOYMENT_DEFAULTS.read_text(encoding="utf-8"))["terraform"]
-    athena = context.client("athena")
-    execution = athena.start_query_execution(
-        QueryString=CENSUS_SQL,
-        QueryExecutionContext={"Catalog": defaults["athena_catalog_name"], "Database": render.aws_target().values["ANALYTICS"]},
-        WorkGroup=defaults["athena_workgroup_name"],
-        ResultConfiguration={"OutputLocation": f"s3://{context.env['DATA_BUCKET_NAME']}/athena_results/e2e/"},
-    )["QueryExecutionId"]
-
-    def finished() -> bool:
-        state = athena.get_query_execution(QueryExecutionId=execution)["QueryExecution"]["Status"]["State"]
-        return state in {"SUCCEEDED", "FAILED", "CANCELLED"}
-
-    wait_until(finished, ATHENA_SECONDS)
-    status = athena.get_query_execution(QueryExecutionId=execution)["QueryExecution"]["Status"]
-    if status["State"] != "SUCCEEDED":
-        raise RuntimeError(f"the Athena census query ended {status['State']}: {status.get('StateChangeReason', '')[:200]}")
-    rows = athena.get_query_results(QueryExecutionId=execution)["ResultSet"]["Rows"]
-    return float(rows[1]["Data"][0].get("VarCharValue") or 0)
+    rows = context.athena_rows(CENSUS_SQL, render.aws_target().values["ANALYTICS"])
+    return float(rows[0][0] or 0)
 
 
 def wait_ready(url: str, forward: Any) -> None:

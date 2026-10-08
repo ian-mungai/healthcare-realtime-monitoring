@@ -30,6 +30,7 @@ from dashboard.state import (
     vital_timestamp_key,
 )
 from scripts.synthea_loader.src.cohort import cohort_patient_ids
+from services.early_warning.scoring import news2_summary
 from services.vital_signs import VITAL_SIGNS_BY_FIELD
 
 FHIR_RESOURCE_MAP_FILE = Path(os.getenv("FHIR_RESOURCE_MAP_FILE", "scripts/synthea_loader/state/fhir_resource_map.json"))
@@ -39,6 +40,8 @@ WEBSOCKET_URL = os.environ["VITALS_WEBSOCKET_URL"]
 
 REFRESH_INTERVAL_SECONDS = 0.5
 API_REFRESH_INTERVAL_SECONDS = 2.0
+# The model score changes once per encounter, when its feature window closes.
+EARLY_WARNING_REFRESH_INTERVAL_SECONDS = 30.0
 HISTORY_SIZE = 60
 LOAD_TEST_SOURCE = "load_test"
 MAX_LIVE_DATA_AGE_SECONDS = 10.0
@@ -68,12 +71,27 @@ VITAL_DISPLAY_NAMES = {
     "consciousness_level": "ACVPU",
 }
 ROOM_AIR_PERCENT = 21.0
+# RCP 2017 NEWS2 clinical risk bands, as services/early_warning/scoring.py names them.
+NEWS2_BANDS = {"low": ("Low", "green"), "low-medium": ("Low-medium", "orange"), "medium": ("Medium", "orange"), "high": ("High", "red")}
 ACVPU_NAMES = {"A": "Alert", "C": "Confused", "V": "Voice", "P": "Pain", "U": "Unresponsive"}
 ACVPU_LABELS = {answer["ordinal"]: f"{answer['acvpu']} · {ACVPU_NAMES[answer['acvpu']]}" for answer in VITAL_SIGNS_BY_FIELD["consciousness_level"]["answers"]}
 
 
 def get_initial_vitals(patient_id: str) -> dict[str, Any] | None:
     url = f"{API_ENDPOINT}/patients/{patient_id}/vitals"
+    response = requests.get(url, headers=get_sigv4_headers(url), timeout=10)
+
+    if response.status_code == 404:
+        return None
+
+    response.raise_for_status()
+
+    return response.json()
+
+
+def get_early_warning(patient_id: str) -> dict[str, Any] | None:
+    """The early-warning endpoint's NEWS2 and model score for one patient, or None without live vitals."""
+    url = f"{API_ENDPOINT}/patients/{patient_id}/early-warning"
     response = requests.get(url, headers=get_sigv4_headers(url), timeout=10)
 
     if response.status_code == 404:
@@ -260,6 +278,25 @@ def refresh_vitals_from_api() -> None:
         st.session_state.pop("api_refresh_error", None)
     except Exception as error:
         st.session_state.api_refresh_error = str(error)
+
+
+def refresh_early_warning() -> None:
+    """The model score of every patient's current encounter, from the early-warning endpoint."""
+    last_refresh = st.session_state.get("last_early_warning_refresh_monotonic")
+    if last_refresh is not None and time.monotonic() - last_refresh < EARLY_WARNING_REFRESH_INTERVAL_SECONDS:
+        return
+    st.session_state["last_early_warning_refresh_monotonic"] = time.monotonic()
+    st.session_state.pop("early_warning_error", None)
+    scores = st.session_state.setdefault("model_scores", {})
+    with ThreadPoolExecutor(max_workers=min(len(PATIENT_IDS), 10) or 1) as executor:
+        futures = {executor.submit(get_early_warning, patient_id): patient_id for patient_id in PATIENT_IDS}
+        for future in as_completed(futures):
+            try:
+                result = future.result()
+            except requests.RequestException as error:
+                st.session_state.early_warning_error = str(error)
+                continue
+            scores[futures[future]] = result.get("model") if result else None
 
 
 def process_websocket_messages() -> None:
@@ -538,6 +575,29 @@ def warning_vitals(vitals: dict[str, Any], now: datetime | None = None) -> dict[
     return filter_vitals_by_age(vitals, WARNING_VITAL_MAX_AGES, now)
 
 
+def live_news2(vitals: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
+    """NEWS2 from the measurements still current; a stale parameter counts as missing, so there is no total."""
+    return news2_summary(live_vitals(vitals, now))
+
+
+def news2_label(summary: dict[str, Any]) -> str:
+    if summary["total"] is None:
+        return f"NEWS2 -- · missing {', '.join(VITAL_DISPLAY_NAMES[name] for name in summary['missing'])}"
+    name, color = NEWS2_BANDS[summary["band"]]
+    return f"NEWS2 **{summary['total']}** · :{color}[{name}]"
+
+
+def model_label(model: dict[str, Any] | None) -> str:
+    """The real-time model score of the patient's current encounter, or why there is none yet."""
+    if not model:
+        return "Model score unavailable"
+    if model["status"] == "scored":
+        return f"Model risk **{float(model['probability']):.0%}** · {model['model_version']}"
+    if model["status"] == "window_open":
+        return f"Model scores at {datetime.fromisoformat(model['window_closes_at'].replace('Z', '+00:00')):%H:%M:%S} UTC"
+    return {"no_approved_model": "Model: no approved model", "no_encounter": "Model: no current encounter"}.get(model["status"], "Model score unavailable")
+
+
 def analytical_quarantine_label(vitals: dict[str, Any]) -> str | None:
     fields = analytical_quarantine_fields(vitals)
     if not fields:
@@ -573,6 +633,8 @@ def render_patient_cards(patient_ages: dict[str, float | None]) -> None:
                 score_label = "--" if warning_score < 0 else str(warning_score)
                 st.markdown(f"**Patient {patient_id}** · :{priority_color}[{priority}] · :{freshness_color}[{freshness}]")
                 st.caption(f"Vital warning score: {score_label}")
+                st.markdown(news2_label(live_news2(raw_vitals)))
+                st.caption(model_label(st.session_state.get("model_scores", {}).get(patient_id)))
                 st.markdown(
                     f"HR **{format_value(vitals.get('heart_rate'))}** bpm  \n"
                     f"SpO₂ **{format_value(vitals.get('spo2'))}**%  \n"
@@ -624,10 +686,12 @@ def render_dashboard() -> None:
 
     st.divider()
 
-    tracked_column, urgent_column, review_column, freshness_column, websocket_column = st.columns(5)
+    news2_totals = [live_news2(st.session_state.cohort_vitals.get(patient_id, {}))["total"] for patient_id in PATIENT_IDS]
+    tracked_column, urgent_column, review_column, news2_column, freshness_column, websocket_column = st.columns(6)
     tracked_column.metric("Patients", len(PATIENT_IDS))
     urgent_column.metric("Urgent", priorities.count("Urgent"))
     review_column.metric("Review", priorities.count("Review"))
+    news2_column.metric("NEWS2 5+", sum(1 for total in news2_totals if total is not None and total >= 5))
     freshness_column.metric("Current", f"{current_patient_count}/{len(PATIENT_IDS)}")
     websocket_column.metric("Live connections", f"{websocket_connections}/{len(PATIENT_IDS)}")
 
@@ -662,6 +726,9 @@ def render_dashboard() -> None:
             value=f"{format_value(vitals.get('inhaled_oxygen_concentration'))} %",
         )
         consciousness_column.metric(label="Consciousness (ACVPU)", value=acvpu_label(vitals.get("consciousness_level")))
+        news2 = live_news2(raw_vitals)
+        st.markdown(f"{news2_label(news2)} · {model_label(st.session_state.get('model_scores', {}).get(selected_patient))}")
+        st.caption("NEWS2 points: " + " · ".join(f"{VITAL_DISPLAY_NAMES[name]} {points}" for name, points in news2["scores"].items()))
         st.caption(
             f"Latest measurement {format_event_time(vitals.get('event_timestamp'))} · Latest measurement age {format_value(patient_ages[selected_patient])} sec"
         )
@@ -689,6 +756,9 @@ def render_dashboard() -> None:
     if st.session_state.get("api_refresh_error"):
         st.warning(f"Live state refresh failed: {st.session_state.api_refresh_error}")
 
+    if st.session_state.get("early_warning_error"):
+        st.warning(f"Early-warning refresh failed: {st.session_state.early_warning_error}")
+
     st.caption("Synthetic/research data for demonstration only. This dashboard is not intended for clinical decision-making.")
 
 
@@ -698,6 +768,7 @@ def main() -> None:
     load_initial_state()
     process_websocket_messages()
     refresh_vitals_from_api()
+    refresh_early_warning()
     render_dashboard()
     time.sleep(REFRESH_INTERVAL_SECONDS)
     st.rerun()

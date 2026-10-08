@@ -112,6 +112,111 @@ resource "aws_apigatewayv2_route" "latest_vitals" {
   target             = "integrations/${aws_apigatewayv2_integration.vitals_api.id}"
 }
 
+# GET /patients/{patient_id}/early-warning (services/early_warning): NEWS2 from the latest cache and the approved
+# model's score of the current encounter's feature window, stored once beside the window readings.
+resource "aws_iam_role" "early_warning" {
+  name               = "healthcare_realtime_early_warning_role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+
+  tags = var.tags
+}
+
+data "aws_iam_policy_document" "early_warning" {
+  statement {
+    sid       = "ReadLatestVitals"
+    effect    = "Allow"
+    actions   = ["dynamodb:GetItem"]
+    resources = [var.latest_vitals_table_arn]
+  }
+
+  statement {
+    sid       = "ReadWindowAndStoreScore"
+    effect    = "Allow"
+    actions   = ["dynamodb:GetItem", "dynamodb:Query", "dynamodb:PutItem"]
+    resources = [var.feature_window_table_arn]
+  }
+
+  statement {
+    sid       = "ReadScoringParameters"
+    effect    = "Allow"
+    actions   = ["s3:GetObject"]
+    resources = ["arn:aws:s3:::${var.data_bucket_name}/ml/model_artifacts/*/scoring_parameters.json"]
+  }
+
+  statement {
+    sid    = "WriteLambdaLogs"
+    effect = "Allow"
+
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents"
+    ]
+
+    resources = [
+      "arn:aws:logs:${var.aws_region}:*:*"
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "early_warning" {
+  name   = "healthcare_realtime_early_warning"
+  role   = aws_iam_role.early_warning.id
+  policy = data.aws_iam_policy_document.early_warning.json
+}
+
+resource "aws_lambda_function" "early_warning" {
+  function_name = "healthcare_realtime_early_warning"
+
+  role    = aws_iam_role.early_warning.arn
+  runtime = "python3.12"
+  handler = "handler.lambda_handler"
+
+  filename         = var.early_warning_zip_path
+  source_code_hash = filebase64sha256(var.early_warning_zip_path)
+
+  timeout     = 15
+  memory_size = 256
+
+  environment {
+    variables = {
+      LATEST_VITALS_TABLE       = var.latest_vitals_table_name
+      FEATURE_WINDOW_TABLE      = var.feature_window_table_name
+      DATA_BUCKET_NAME          = var.data_bucket_name
+      ML_APPROVED_MODEL_VERSION = var.approved_model_version
+      PATIENT_ACCESS_POLICY     = var.patient_access_policy
+    }
+  }
+
+  tags = var.tags
+}
+
+resource "aws_apigatewayv2_integration" "early_warning" {
+  api_id = aws_apigatewayv2_api.vitals_api.id
+
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.early_warning.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "early_warning" {
+  api_id = aws_apigatewayv2_api.vitals_api.id
+
+  route_key          = "GET /patients/{patient_id}/early-warning"
+  authorization_type = "AWS_IAM"
+  target             = "integrations/${aws_apigatewayv2_integration.early_warning.id}"
+}
+
+resource "aws_lambda_permission" "early_warning" {
+  statement_id = "AllowApiGatewayInvoke"
+
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.early_warning.function_name
+  principal     = "apigateway.amazonaws.com"
+
+  source_arn = "${aws_apigatewayv2_api.vitals_api.execution_arn}/*/*"
+}
+
 resource "aws_apigatewayv2_stage" "development" {
   api_id = aws_apigatewayv2_api.vitals_api.id
   name   = var.stage_name

@@ -168,14 +168,15 @@ class RecordingS3Client:
 
 
 def test_publish_artifacts_uses_versioned_encrypted_paths(tmp_path: Path) -> None:
-    for filename in ("model.joblib", "manifest.json", "evaluation.json"):
+    for filename in ("model.joblib", "manifest.json", "evaluation.json", "scoring_parameters.json"):
         (tmp_path / filename).write_text(f"{filename}\n")
     (tmp_path / "predictions.jsonl").write_text('{"model_version":"logistic-abc123"}\n')
     client = RecordingS3Client()
 
     published = publish_artifacts(tmp_path, "example-bucket", "logistic-abc123", client)
 
-    expect.equal(len(client.requests), 4)
+    expect.equal(len(client.requests), 5)
+    expect.equal(published["scoring_parameters.json"], "s3://example-bucket/ml/model_artifacts/logistic-abc123/scoring_parameters.json")
     if not all(request["ServerSideEncryption"] == "AES256" for request in client.requests):
         expect.fail('expected: all(request["ServerSideEncryption"] == "AES256" for request in client.requests)')
     if not all(len(request["Metadata"]["sha256"]) == 64 for request in client.requests):

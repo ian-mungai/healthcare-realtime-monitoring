@@ -217,10 +217,12 @@ jobs:
               Path("build/lambda/vitals_stream_processor.zip"): {
                   "config/__init__.py",
                   "config/vital_signs.json",
+                  "feature_window.py",
                   "handler.py",
                   "schema.py",
                   "vital_signs.py",
               },
+              Path("build/lambda/early_warning.zip"): {"authorization.py", "feature_window.py", "handler.py", "news2.py", "scoring.py"},
               Path("build/lambda/websocket_handler.zip"): {"handler.py"},
               Path("build/lambda/vitals_api.zip"): {"handler.py"},
               Path("build/lambda/vitals_replay.zip"): {"handler.py"},
@@ -233,6 +235,7 @@ jobs:
               },
               Path("build/mwaa/healthcare_realtime_mwaa_serverless_code.zip"): {
                   "lib/athena_lineage.py",
+                  "lib/ingestion_health.py",
                   "lineage/openlineage/client.py",
                   "lineage/openlineage/config.py",
                   "lineage/openlineage/athena_lineage.py",
@@ -275,6 +278,8 @@ jobs:
           ATHENA_WORKGROUP: "example-workgroup"
           ATHENA_RESULTS_S3_URI: "s3://ci-project-data-bucket/athena-results/"
           OPENLINEAGE_URL: "https://lineage.example.com"
+          HAPI_FHIR_BASE_URL: "http://hapi.example.com/fhir"
+          API_STAGE_NAME: "development"
         run: |
           PYTHONPATH="$PWD/airflow/dags:$PWD" python airflow/serverless/generate_healthcare_realtime_pipeline.py
           # The same check the workflow tests run locally: the file matches the DAG and holds no deployment values.

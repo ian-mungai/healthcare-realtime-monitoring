@@ -15,6 +15,7 @@ VARIABLES = {
     "ATHENA_PROCESSED_TABLE": "processed_observations_table_name",
     "ATHENA_WORKGROUP": "athena_workgroup_name",
     "ATHENA_RESULTS_S3_URI": "athena_results_s3_uri",
+    "API_STAGE_NAME": "api_stage_name",
 }
 
 

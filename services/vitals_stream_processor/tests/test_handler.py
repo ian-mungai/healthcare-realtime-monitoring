@@ -19,6 +19,7 @@ from services.vitals_stream_processor.handler import (
     to_dynamodb_item,
     write_latest_vitals,
     write_load_test_result,
+    write_window_reading,
 )
 from services.vitals_stream_processor.schema import PermanentRecordError
 from testkit import expect
@@ -448,3 +449,54 @@ def test_write_latest_vitals_stores_the_bedside_measures(latest_vitals_table) ->
     names = latest_vitals_table.update_item.call_args.kwargs["ExpressionAttributeNames"].values()
     for field in ("temperature", "inhaled_oxygen_concentration", "consciousness_level", "consciousness_level_event_timestamp"):
         expect.is_in(field, names)
+
+
+# The early-warning endpoint scores an encounter from the readings kept here (services/early_warning). Failure modes:
+# a reading the latest cache skips as stale is lost to the window; a retried record is counted twice; load-test or
+# legacy records without an encounter enter a patient's window; readings sort by text in another time format.
+WINDOW_PAYLOAD = {
+    "schema_version": "1.2",
+    "observation_id": "observation-7",
+    "patient_id": "patient-01",
+    "encounter_id": "encounter-1",
+    "source": "fhir_webhook",
+    "event_timestamp": "2026-10-08T12:00:05+00:00",
+    "heart_rate": 91.5,
+    "spo2": 96.0,
+}
+
+
+@patch("services.vitals_stream_processor.handler.feature_window_table")
+def test_a_window_reading_is_keyed_by_encounter_and_sortable_utc_time(feature_window_table) -> None:
+    with patch("services.vitals_stream_processor.handler.datetime") as mocked_datetime:
+        mocked_datetime.now.return_value = datetime(2026, 10, 8, 12, 0, 6, tzinfo=UTC)
+        expect.equal(write_window_reading(WINDOW_PAYLOAD), True)
+
+    item = feature_window_table.put_item.call_args.kwargs["Item"]
+    expect.equal(item["encounter_id"], "encounter-1")
+    expect.equal(item["reading"], "2026-10-08T12:00:05.000000Z#observation-7")
+    expect.equal((item["heart_rate"], item["spo2"]), (Decimal("91.5"), Decimal("96.0")))
+    expect.equal(item["expires_at"], int(datetime(2026, 10, 8, 12, 0, 6, tzinfo=UTC).timestamp()) + 2 * 86400)
+
+
+@patch("services.vitals_stream_processor.handler.feature_window_table")
+def test_records_without_an_encounter_and_load_tests_stay_out_of_the_window(feature_window_table) -> None:
+    legacy = {key: value for key, value in WINDOW_PAYLOAD.items() if key != "encounter_id"}
+
+    expect.equal(write_window_reading({**legacy, "schema_version": "1.0"}), False)
+    expect.equal(write_window_reading({**WINDOW_PAYLOAD, "source": "load_test"}), False)
+    feature_window_table.put_item.assert_not_called()
+
+
+@patch("services.vitals_stream_processor.handler.emit_metrics")
+@patch("services.vitals_stream_processor.handler.complete_observation_claim")
+@patch("services.vitals_stream_processor.handler.write_window_reading")
+@patch("services.vitals_stream_processor.handler.write_latest_vitals", return_value=False)
+@patch("services.vitals_stream_processor.handler.claim_observation", return_value="claim-token")
+def test_a_reading_stale_for_the_latest_cache_still_enters_the_window(
+    claim_observation, write_latest_vitals, write_window_reading, complete_observation_claim, emit_metrics
+) -> None:
+    result = lambda_handler({"Records": [build_kinesis_record(WINDOW_PAYLOAD)]}, None)
+
+    write_window_reading.assert_called_once_with(WINDOW_PAYLOAD)
+    expect.equal(result, {"batchItemFailures": []})

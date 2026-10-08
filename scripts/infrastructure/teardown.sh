@@ -67,13 +67,15 @@ build_or_verify_destroy_packages() {
   fi
 
   local required_files=(
-    "$REPO_ROOT/build/lambda/fhir_webhook.zip"
+    "$REPO_ROOT/build/lambda/early_warning.zip"
+  "$REPO_ROOT/build/lambda/fhir_webhook.zip"
     "$REPO_ROOT/build/lambda/vitals_api.zip"
     "$REPO_ROOT/build/lambda/vitals_replay.zip"
     "$REPO_ROOT/build/lambda/vitals_stream_processor.zip"
     "$REPO_ROOT/build/lambda/websocket_handler.zip"
     "$REPO_ROOT/build/glue/healthcare_realtime_lineage.zip"
     "$REPO_ROOT/airflow/serverless/generated/healthcare_realtime_pipeline.yaml"
+    "$REPO_ROOT/airflow/serverless/generated/healthcare_realtime_ingestion.yaml"
     "$REPO_ROOT/build/mwaa/healthcare_realtime_mwaa_serverless_code.zip"
   )
   local missing=0 required_file

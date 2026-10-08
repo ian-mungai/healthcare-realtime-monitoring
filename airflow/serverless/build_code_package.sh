@@ -22,6 +22,7 @@ mkdir -p "$BUILD_ROOT/lineage/openlineage"
 
 cp "$REPO_ROOT/airflow/dags/lib/__init__.py" "$BUILD_ROOT/lib/__init__.py"
 cp "$REPO_ROOT/airflow/dags/lib/athena_lineage.py" "$BUILD_ROOT/lib/athena_lineage.py"
+cp "$REPO_ROOT/airflow/dags/lib/ingestion_health.py" "$BUILD_ROOT/lib/ingestion_health.py"
 
 cp "$REPO_ROOT/lineage/__init__.py" "$BUILD_ROOT/lineage/__init__.py"
 cp "$REPO_ROOT/lineage/openlineage/__init__.py" "$BUILD_ROOT/lineage/openlineage/__init__.py"
