@@ -145,7 +145,7 @@ Prerequisites:
 
    If a destroy apply stops after deleting some resources, do not reuse its saved plan. Correct the permission or active-workflow cause, run `destroy-plan` again and review the replacement plan. The wrapper rebuilds packages while deployment outputs are available. After a partial destroy removes those outputs, it verifies and reuses the existing local artifacts so Terraform can finish removing the remaining resources.
 
-   Confirm that no application resources remain before separately considering the webhook secret, GitHub environment, account policies, OpenID Connect (OIDC) provider or retained RDS snapshots. Keep the Terraform state bucket for future recreation and audit history.
+   Confirm that no application resources remain before separately considering the webhook secret, the Grafana admin secret, GitHub environment, account policies, OpenID Connect (OIDC) provider or retained RDS snapshots. Keep the Terraform state bucket for future recreation and audit history.
 
    Verify the destroyed application state and, when the deployment identity has Resource Groups Tagging application programming interface (API) read access, search for tagged resources that require review:
 
@@ -231,7 +231,7 @@ Prerequisites:
    done < <(terraform -chdir=infra/bootstrap state list)
    ```
 
-4. Confirm the bucket returns `NoSuchBucket` and local bootstrap state no longer lists its retired resources. Revoke the temporary deletion permission and verify its absence. Retain the webhook secret only when that is the approved retirement scope. A new account or region starts with the [first-deployment quickstart](quickstart.md) and an empty backend.
+4. Confirm the bucket returns `NoSuchBucket` and local bootstrap state no longer lists its retired resources. Revoke the temporary deletion permission and verify its absence. Retain the webhook and Grafana admin secrets only when that is the approved retirement scope. A new account or region starts with the [first-deployment quickstart](quickstart.md) and an empty backend.
 
 ## Recreation
 

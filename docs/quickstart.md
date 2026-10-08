@@ -46,6 +46,7 @@ For developers and operators: prepare a clone and create a synthetic development
 
 Angle-bracket values are placeholders. Replace each with the approved value for its named subject before running a command; keep real deployment values private.
 
+- `<ADMIN_PROFILE>`: AWS CLI profile of the administrator identity that creates account prerequisites.
 - `<AWS_ACCOUNT_ID>`: aws account id for the selected environment or example.
 - `<ROLE_NAME>`: role name for the selected environment or example.
 
@@ -161,6 +162,21 @@ Use a temporary administrator or approved bootstrap identity for these account-l
     Your own identity never reads this secret: the registration in step 4 runs as the FHIR setup task, whose role reads it inside AWS. The prerequisite check only confirms that a secret with this name exists. Apply the policy templates after setting `FHIR_WEBHOOK_SECRET_ID`, because the Secrets Manager policy is scoped to that name.
 
     Create the protected GitHub environment only when GitHub deployment is required. A local first deployment does not need GitHub OpenID Connect (OIDC) before the application stack exists.
+
+3. Only when `ENABLE_GRAFANA=true`, create the Grafana admin password secret once with the administrator identity. The password is generated in a pipe, so it never appears in the command line, the terminal or shell history:
+
+    ```zsh
+    openssl rand -hex 24 | tr -d '\n' | aws secretsmanager create-secret \
+      --profile "<ADMIN_PROFILE>" \
+      --region "$AWS_REGION" \
+      --name healthcare-realtime/grafana-admin \
+      --description "Grafana admin password; read by the Grafana task and the operator." \
+      --secret-string file:///dev/stdin \
+      --query Name \
+      --output text
+    ```
+
+    The Grafana task reads the password at start and `e2e.aws_grafana` reads it to sign in. The deployment policies can only describe and read this secret, so Terraform never creates it, never holds its value and leaves it in place at teardown. The prerequisite check confirms that it exists when Grafana is enabled.
 
 ## 3. Create State and Deploy
 

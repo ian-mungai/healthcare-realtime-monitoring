@@ -25,6 +25,8 @@ VITALS_API_NAME = "healthcare-realtime-vitals-api"
 WEBHOOK_PATH = "/webhooks/fhir"
 HEALTH_PATH = "/health"
 WEBHOOK_LAMBDA = "healthcare_realtime_fhir_webhook"
+# The body services/fhir_webhook/app/lambda_handler.py returns with 401 for a missing or wrong secret.
+WEBHOOK_REFUSAL = "Invalid webhook secret"
 
 Getter = Callable[..., Any]
 
@@ -61,11 +63,25 @@ def resolve_api_endpoint(stage: str, aws_region: str, apis: Any = None) -> str:
 
 
 def check_webhook_health(stage: str, aws_region: str, get: Getter = requests.get, apis: Any = None) -> dict[str, Any]:
-    """The webhook's GET /health route answers 200 with status healthy."""
-    body = _get_json(f"{resolve_api_endpoint(stage, aws_region, apis)}{HEALTH_PATH}", get)
-    if not isinstance(body, dict) or body.get("status") != "healthy":
-        raise IngestionHealthError(f"the webhook reported {body.get('status') if isinstance(body, dict) else body!r}, not healthy")
-    return body
+    """The webhook Lambda answers GET /health.
+
+    Every webhook route needs the shared secret, which this workflow does not hold, so the Lambda's own refusal (401,
+    "Invalid webhook secret") passes: API Gateway reached the Lambda and the Lambda read its secret, as it answers 500
+    without one. A 200 healthy also passes; any other answer fails.
+    """
+    url = f"{resolve_api_endpoint(stage, aws_region, apis)}{HEALTH_PATH}"
+    try:
+        response = get(url, headers={"Accept": "application/json"}, timeout=TIMEOUT_SECONDS)
+        body = response.json()
+    except requests.RequestException as error:
+        raise IngestionHealthError(f"{url} could not be read: {error}") from error
+    except ValueError:
+        body = None
+    if response.status_code == 200 and isinstance(body, dict) and body.get("status") == "healthy":
+        return {"status": "healthy"}
+    if response.status_code == 401 and body == {"detail": WEBHOOK_REFUSAL}:
+        return {"status": "reachable"}
+    raise IngestionHealthError(f"{url} answered HTTP {response.status_code} with {body!r}, not the webhook's health answer or its refusal")
 
 
 def check_subscription_active(fhir_base_url: str, stage: str, aws_region: str, get: Getter = requests.get, apis: Any = None) -> dict[str, Any]:

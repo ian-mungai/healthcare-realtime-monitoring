@@ -34,7 +34,7 @@ from typing import Any
 import httpx
 
 from e2e.context import ROOT, Context, load_context
-from e2e.local_grafana import QUERY_RANGE, check_dashboards
+from e2e.local_grafana import QueryRange, check_dashboards
 from e2e.report import Blocked, Report
 from scripts.grafana import render_dashboards as render
 from tools.process import background, find_program
@@ -42,7 +42,6 @@ from tools.process import background, find_program
 CONTAINER = "grafana"
 FORWARD_DOCUMENT = "AWS-StartPortForwardingSession"
 READY_SECONDS = 90
-CENSUS_SQL = "select sum(census) from fact_unit_hourly_census"
 PURPOSE = "The AWS Grafana, reached only through an SSM port forward, serves the dashboards and every panel query returns rows from Athena."
 LIMITS = (
     "Runs the panel queries through Grafana's query API, not a browser, so it does not check how panels draw. The "
@@ -90,9 +89,9 @@ def check_private(report: Report, context: Context, task: dict[str, Any]) -> Non
     report.check("Grafana security groups allow no inbound traffic", "0 inbound rules", f"{len(inbound)} inbound rules", not inbound)
 
 
-def athena_census(context: Context) -> float:
-    """The census total counted by Athena directly, not through Grafana."""
-    rows = context.athena_rows(CENSUS_SQL, render.aws_target().values["ANALYTICS"])
+def athena_census(context: Context, window: QueryRange) -> float:
+    """The census total over the panel's hours, counted by Athena directly, not through Grafana."""
+    rows = context.athena_rows(window.census_sql("fact_unit_hourly_census"), render.aws_target().values["ANALYTICS"])
     return float(rows[0][0] or 0)
 
 
@@ -125,14 +124,19 @@ def run(report: Report, context: Context) -> None:
     task_id = task["taskArn"].rsplit("/", 1)[-1]
     parameters = json.dumps({"portNumber": [str(context.output("grafana_container_port"))], "localPortNumber": [str(port)]})
     target = f"ecs:{cluster}_{task_id}_{task['grafana_runtime_id']}"
-    report.parameters = {"service": service, "task_definition": task["taskDefinitionArn"].rsplit("/", 1)[-1], "range": QUERY_RANGE}
+    query_range = QueryRange.ending_now()
+    report.parameters = {
+        "service": service,
+        "task_definition": task["taskDefinitionArn"].rsplit("/", 1)[-1],
+        "range": [query_range.start.isoformat(), query_range.end.isoformat()],
+    }
     environment = {**os.environ, "AWS_PROFILE": context.env["AWS_PROFILE"], "AWS_REGION": context.env["AWS_REGION"]}
     args = ["ssm", "start-session", "--target", target, "--document-name", FORWARD_DOCUMENT, "--parameters", parameters]
     with background("aws", args, cwd=ROOT, env=environment) as forward:
         url = f"http://127.0.0.1:{port}"
         wait_ready(url, forward)
         with httpx.Client(base_url=url, auth=("admin", password), timeout=120) as client:
-            check_dashboards(report, client, lambda: athena_census(context))
+            check_dashboards(report, client, query_range, lambda window: athena_census(context, window))
 
 
 def main(argv: list[str] | None = None) -> int:

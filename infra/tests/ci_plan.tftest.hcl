@@ -28,6 +28,12 @@ mock_provider "aws" {
       json = "{\"Version\":\"2012-10-17\",\"Statement\":[]}"
     }
   }
+
+  mock_data "aws_secretsmanager_secret" {
+    defaults = {
+      arn = "arn:aws:secretsmanager:example-region-1:111111111111:secret:healthcare-realtime/grafana-admin-AbCdEf"
+    }
+  }
 }
 
 mock_provider "awscc" {}
@@ -245,5 +251,27 @@ run "openlineage_collector_plan" {
   assert {
     condition     = length(module.openlineage_collector.alarm_names) == 5
     error_message = "The running managed collector must expose five actionable health and delivery alarms."
+  }
+}
+
+run "grafana_plan" {
+  command = plan
+
+  variables {
+    aws_region                 = "example-region-1"
+    data_bucket_name           = "ci-project-data-bucket"
+    realtime_alert_email       = "alerts@example.com"
+    vitals_simulator_image_tag = "sha-ci"
+    dbt_image_tag              = "sha-ci"
+    soda_image_tag             = "sha-ci"
+    ml_approved_model_version  = "logistic-ci"
+
+    enable_grafana    = true
+    grafana_image_tag = "sha-ci"
+  }
+
+  assert {
+    condition     = module.grafana_ecs.admin_secret_arn == "arn:aws:secretsmanager:example-region-1:111111111111:secret:healthcare-realtime/grafana-admin-AbCdEf"
+    error_message = "Grafana must read the operator-created admin secret instead of creating one."
   }
 }

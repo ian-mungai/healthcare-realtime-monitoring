@@ -51,32 +51,12 @@ resource "aws_cloudwatch_log_group" "grafana" {
   tags = var.tags
 }
 
-# The admin password is generated during the apply and written to the secret as a write-only value, so it never
-# enters the plan or the state. Raise secret_string_wo_version to rotate it.
-ephemeral "random_password" "admin" {
+# The operator creates the admin password secret before the apply (docs/external-prerequisites.md), so its value never
+# enters Terraform. The task reads it at start; teardown leaves it in place.
+data "aws_secretsmanager_secret" "admin" {
   count = var.enabled ? 1 : 0
 
-  length  = 32
-  special = false
-}
-
-resource "aws_secretsmanager_secret" "admin" {
-  count = var.enabled ? 1 : 0
-
-  name        = "healthcare-realtime/grafana-admin"
-  description = "Grafana admin password; read by the Grafana task and the operator."
-  # The password is generated and replaceable, so a destroy removes it at once and a new deployment can reuse the name.
-  recovery_window_in_days = 0
-
-  tags = var.tags
-}
-
-resource "aws_secretsmanager_secret_version" "admin" {
-  count = var.enabled ? 1 : 0
-
-  secret_id                = aws_secretsmanager_secret.admin[0].id
-  secret_string_wo         = ephemeral.random_password.admin[0].result
-  secret_string_wo_version = 1
+  name = "healthcare-realtime/grafana-admin"
 }
 
 data "aws_iam_policy_document" "ecs_tasks_assume_role" {
@@ -135,7 +115,7 @@ data "aws_iam_policy_document" "task_execution" {
     sid       = "ReadGrafanaAdminPassword"
     effect    = "Allow"
     actions   = ["secretsmanager:GetSecretValue"]
-    resources = [aws_secretsmanager_secret.admin[0].arn]
+    resources = [data.aws_secretsmanager_secret.admin[0].arn]
   }
 }
 
@@ -337,7 +317,7 @@ resource "aws_ecs_task_definition" "grafana" {
       secrets = [
         {
           name      = "GF_SECURITY_ADMIN_PASSWORD"
-          valueFrom = aws_secretsmanager_secret.admin[0].arn
+          valueFrom = data.aws_secretsmanager_secret.admin[0].arn
         }
       ]
 
@@ -367,8 +347,6 @@ resource "aws_ecs_task_definition" "grafana" {
   ])
 
   tags = var.tags
-
-  depends_on = [aws_secretsmanager_secret_version.admin]
 }
 
 resource "aws_ecs_service" "grafana" {

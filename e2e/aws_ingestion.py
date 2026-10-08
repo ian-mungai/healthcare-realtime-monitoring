@@ -13,6 +13,8 @@ Failure modes (written before the code):
 1. The run is started twice by a retried request: the start uses a client token, so a retry joins the same run.
 2. The check waits forever on a run that hangs: it stops after RUN_SECONDS and reports the last state.
 3. The run succeeds with a task missing or skipped: each of the three tasks must be present and successful.
+4. A task's earlier failed try hides its final result, or a try number is read as part of the name: task instance IDs
+   end in the try number (ex_<run>_<task>_<try>), and only each task's last try counts.
 """
 
 from __future__ import annotations
@@ -36,13 +38,19 @@ REPRODUCE = "Apply the application stage, register the subscription, then run `.
 
 
 def task_states(client: Any, workflow_arn: str, run_id: str) -> dict[str, str]:
-    states: dict[str, str] = {}
+    """Each task's status on its last try, by task name."""
+    tries: dict[str, tuple[int, str]] = {}
     arguments: dict[str, Any] = {"WorkflowArn": workflow_arn, "RunId": run_id}
     while True:
         page = client.list_task_instances(**arguments)
-        states.update({task["TaskInstanceId"]: task["Status"] for task in page.get("TaskInstances", [])})
+        for instance in page.get("TaskInstances", []):
+            name, _, attempt = instance["TaskInstanceId"].rpartition("_")
+            task = next((task for task in TASKS if name.endswith(task)), name)
+            number = int(attempt) if attempt.isdigit() else 0
+            if task not in tries or number >= tries[task][0]:
+                tries[task] = (number, instance["Status"])
         if not page.get("NextToken"):
-            return states
+            return {task: status for task, (_, status) in tries.items()}
         arguments["NextToken"] = page["NextToken"]
 
 
@@ -60,7 +68,7 @@ def run(report: Report, context: Context) -> None:
     report.check("Ingestion workflow run", "SUCCESS", final, final == "SUCCESS")
     states = task_states(client, workflow_arn, run_id)
     for task in TASKS:
-        observed = next((status for task_id, status in states.items() if task_id == task or task_id.endswith(task)), "absent")
+        observed = states.get(task, "absent")
         report.check(f"Task {task}", "SUCCESS", observed, observed == "SUCCESS")
 
 

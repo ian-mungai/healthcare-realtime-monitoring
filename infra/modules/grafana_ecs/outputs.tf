@@ -10,7 +10,7 @@ output "service_name" {
 
 output "admin_secret_arn" {
   description = "Secrets Manager secret holding the Grafana admin password, or null when disabled."
-  value       = var.enabled ? aws_secretsmanager_secret.admin[0].arn : null
+  value       = var.enabled ? data.aws_secretsmanager_secret.admin[0].arn : null
 }
 
 output "container_port" {

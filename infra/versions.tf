@@ -12,11 +12,6 @@ terraform {
       version = "~> 6.0"
     }
 
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.9"
-    }
-
     awscc = {
       source  = "hashicorp/awscc"
       version = "~> 1.0"

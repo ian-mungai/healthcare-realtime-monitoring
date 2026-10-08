@@ -22,6 +22,7 @@ TERRAFORM_VARIABLES = {
     "PROCESSED_OBSERVATIONS_STATE_TABLE_NAME": "processed_observations_state_table_name",
     "LOAD_TEST_RESULTS_TABLE_NAME": "load_test_results_table_name",
     "WEBSOCKET_CONNECTIONS_TABLE_NAME": "websocket_connections_table_name",
+    "FEATURE_WINDOW_TABLE_NAME": "feature_window_table_name",
     "FHIR_WEBHOOK_SECRET_ID": "fhir_webhook_secret_id",
     "ATHENA_WORKGROUP_NAME": "athena_workgroup_name",
     "ATHENA_CATALOG_NAME": "athena_catalog_name",

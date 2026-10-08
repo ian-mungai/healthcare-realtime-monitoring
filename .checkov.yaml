@@ -14,7 +14,6 @@ skip-check:
   - CKV2_AWS_30  # PostgreSQL query logging is not kept for the demo databases.
   - CKV2_AWS_5  # Task security groups are attached at run time by ECS RunTask, which the scan cannot see.
   - CKV2_AWS_51  # API Gateway uses IAM and shared-secret authentication instead of client certificates.
-  - CKV2_AWS_57  # Secrets are not rotated automatically in this stack.
   - CKV2_AWS_60  # Snapshot tag copying is not needed; final snapshots are skipped in demo teardown.
   - CKV2_AWS_61  # The data bucket keeps objects until teardown; a lifecycle policy is a documented follow-up in the data governance guide.
   - CKV2_AWS_62  # S3 event notifications are not used by the pipeline.

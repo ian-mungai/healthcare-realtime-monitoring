@@ -24,8 +24,10 @@
         "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:catalog",
         "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:database/${SOURCE_DATABASE_NAME}",
         "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:database/${DBT_DATABASE_NAME}",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:database/${ML_DATABASE_NAME}",
         "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/${SOURCE_DATABASE_NAME}/*",
         "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/${DBT_DATABASE_NAME}/*",
+        "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/${ML_DATABASE_NAME}/*",
         "arn:aws:glue:${AWS_REGION}:${AWS_ACCOUNT_ID}:job/${GLUE_JOB_NAME}"
       ]
     },

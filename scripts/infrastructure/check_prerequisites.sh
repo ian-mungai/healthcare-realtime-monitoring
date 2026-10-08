@@ -120,6 +120,15 @@ else
   fail "FHIR webhook secret registration"
 fi
 
+if [[ "${ENABLE_GRAFANA:-false}" == "true" ]]; then
+  grafana_secret="$(aws secretsmanager list-secrets --query "SecretList[?Name=='healthcare-realtime/grafana-admin'].Name | [0]" --output text 2>/dev/null || true)"
+  if [[ "$grafana_secret" == "healthcare-realtime/grafana-admin" ]]; then
+    pass "Grafana admin secret registration"
+  else
+    fail "Grafana admin secret registration"
+  fi
+fi
+
 policy_inventory="$(aws iam list-policies --scope Local --query 'Policies[].PolicyName' --output json 2>/dev/null || echo '[]')"
 missing_policies=0
 for policy_path in "$REPO_ROOT"/infra/iam/policies/*.json; do

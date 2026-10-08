@@ -12,6 +12,10 @@ Failure modes (written before the code):
    which is normal when no simulator runs, fails it.
 5. The webhook's API ID exists only after the application apply, so a URL fixed when the workflow is generated points
    nowhere: the checks find the API by its Terraform name at run time; its name, paths and Lambda name match Terraform.
+6. Every webhook route needs the shared secret (docs/operations-runbook.md), so an unauthenticated /health answers 401:
+   the check holds no secret and passes only on the Lambda's own "Invalid webhook secret" refusal, which shows API
+   Gateway reached the Lambda and the Lambda read its secret (it answers 500 without one). Any other 401, a 500 or
+   another status fails. Owner decision, Oct 8 2026.
 """
 
 from __future__ import annotations
@@ -70,8 +74,11 @@ def test_the_webhook_must_answer_healthy() -> None:
 
     expect.equal(health.check_webhook_health("development", "example-region-1", get=healthy, apis=apis())["status"], "healthy")
     expect.equal(seen, [f"{API_ENDPOINT}/development/health"])
-    with pytest.raises(health.IngestionHealthError, match="503"):
-        health.check_webhook_health("development", "example-region-1", get=opener(503, {}), apis=apis())
+    refused = health.check_webhook_health("development", "example-region-1", get=opener(401, {"detail": "Invalid webhook secret"}), apis=apis())
+    expect.equal(refused["status"], "reachable")
+    for status, body in ((401, {"message": "Unauthorized"}), (500, {"detail": "Webhook secret is not configured"}), (503, {})):
+        with pytest.raises(health.IngestionHealthError, match=str(status)):
+            health.check_webhook_health("development", "example-region-1", get=opener(status, body), apis=apis())
     with pytest.raises(health.IngestionHealthError, match="degraded"):
         health.check_webhook_health("development", "example-region-1", get=opener(200, {"status": "degraded"}), apis=apis())
 
@@ -132,3 +139,5 @@ def test_the_names_and_paths_match_terraform() -> None:
     expect.is_in(f'"${{var.api_endpoint}}{health.WEBHOOK_PATH}"', webhook_outputs)
     expect.is_in(f'"${{var.api_endpoint}}{health.HEALTH_PATH}"', webhook_outputs)
     expect.is_in(f'function_name = "{health.WEBHOOK_LAMBDA}"', webhook)
+    handler = (ROOT / "services" / "fhir_webhook" / "app" / "lambda_handler.py").read_text(encoding="utf-8")
+    expect.is_in(f'build_response(401, {{"detail": "{health.WEBHOOK_REFUSAL}"}})', handler)

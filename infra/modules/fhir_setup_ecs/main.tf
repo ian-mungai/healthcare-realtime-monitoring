@@ -152,8 +152,10 @@ resource "aws_ecs_task_definition" "fhir_setup" {
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
 
-  cpu    = "256"
-  memory = "512"
+  # The reference extract reads every Synthea bundle (about 2 GiB peak for the 100-patient output, measured Oct 8
+  # 2026); 4 GiB is Fargate's limit for 0.5 vCPU.
+  cpu    = "512"
+  memory = "4096"
 
   execution_role_arn = aws_iam_role.task_execution.arn
   task_role_arn      = aws_iam_role.task.arn

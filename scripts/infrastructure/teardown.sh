@@ -68,7 +68,7 @@ build_or_verify_destroy_packages() {
 
   local required_files=(
     "$REPO_ROOT/build/lambda/early_warning.zip"
-  "$REPO_ROOT/build/lambda/fhir_webhook.zip"
+    "$REPO_ROOT/build/lambda/fhir_webhook.zip"
     "$REPO_ROOT/build/lambda/vitals_api.zip"
     "$REPO_ROOT/build/lambda/vitals_replay.zip"
     "$REPO_ROOT/build/lambda/vitals_stream_processor.zip"
@@ -101,7 +101,7 @@ terraform_plan_args=(
 )
 
 cleanup_args() {
-  local data_bucket simulator_repository dbt_repository soda_repository marquez_repository
+  local data_bucket simulator_repository dbt_repository soda_repository marquez_repository grafana_repository
   local aws_region="${AWS_REGION:-${AWS_DEFAULT_REGION:-}}"
   if [[ -z "$aws_region" ]]; then
     echo "Set AWS_REGION before inspecting or cleaning storage." >&2
@@ -113,6 +113,7 @@ cleanup_args() {
   dbt_repository="$(basename "$(terraform -chdir="$INFRA_DIR" output -raw dbt_ecr_repository_url)")"
   soda_repository="$(basename "$(terraform -chdir="$INFRA_DIR" output -raw soda_ecr_repository_url)")"
   marquez_repository="$(basename "$(terraform -chdir="$INFRA_DIR" output -raw openlineage_collector_ecr_repository_url)")"
+  grafana_repository="$(basename "$(terraform -chdir="$INFRA_DIR" output -raw grafana_ecr_repository_url)")"
 
   CLEANUP_ARGS=(
     --region "$aws_region"
@@ -122,6 +123,7 @@ cleanup_args() {
     --ecr-repository "$dbt_repository"
     --ecr-repository "$soda_repository"
     --ecr-repository "$marquez_repository"
+    --ecr-repository "$grafana_repository"
   )
   if [[ -n "${AWS_PROFILE:-}" ]]; then
     CLEANUP_ARGS+=(--profile "$AWS_PROFILE")

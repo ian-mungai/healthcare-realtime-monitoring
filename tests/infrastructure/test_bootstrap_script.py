@@ -35,3 +35,19 @@ def test_teardown_can_resume_after_deployment_outputs_are_removed() -> None:
     expect.is_in("build_or_verify_destroy_packages", destroy_block)
     expect.not_in("build_packages", destroy_block)
     expect.is_in("healthcare_realtime_mwaa_serverless_code.zip", script)
+
+
+def test_storage_cleanup_covers_every_ecr_repository() -> None:
+    """cleanup-preview counts and cleanup-apply empties every repository Terraform creates, Grafana included."""
+    script = (REPO_ROOT / "scripts" / "infrastructure" / "teardown.sh").read_text(encoding="utf-8")
+    cleanup_block = script.split("cleanup_args() {", maxsplit=1)[1].split("\n}\n", maxsplit=1)[0]
+    with (REPO_ROOT / "infra" / "outputs.tf").open(encoding="utf-8") as stream:
+        outputs = {name.strip('"'): body["value"] for output in hcl2.load(stream)["output"] for name, body in output.items()}
+
+    modules = sorted(
+        path.parent.name for path in (REPO_ROOT / "infra" / "modules").glob("*/main.tf") if 'resource "aws_ecr_repository"' in path.read_text(encoding="utf-8")
+    )
+    expect.equal(cleanup_block.count('--ecr-repository "$'), len(modules))
+    for module in modules:
+        names = [name for name, value in outputs.items() if value in (f"${{module.{module}.ecr_repository_url}}", f"${{module.{module}.ecr_repository_name}}")]
+        expect.equal(any(f"output -raw {name})" in cleanup_block for name in names), True, f"cleanup_args does not read the {module} repository")
