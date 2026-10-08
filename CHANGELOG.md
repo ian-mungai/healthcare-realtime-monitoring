@@ -25,6 +25,7 @@ Notable changes to the synthetic portfolio system are recorded here. Releases us
 
 ### Fixed
 
+- The HAPI and Marquez databases use `db.t3.micro`. PostgreSQL `db.t4g.micro` can be ordered in only two us-west-2 zones, so the database could not be created in the stack's subnets.
 - A normal encounter whose source vital stays outside its normal range now varies in the outcome window: the value is reflected back inside the range instead of held at the limit, so the live dashboard shows no flat heart rate of 100. Values the stream processor rejects stay dropouts. `e2e.local_cohort` checks that no normal encounter's heart rate stays on one value.
 - The study results repeat after a warehouse rebuild. Postgres summed floats in the order it read rows, so reloading the same batch changed feature means, standard deviations and slopes in the 15th significant digit and moved the gradient-boosted trees' AUC (0.8607 to 0.8659). Each float aggregate in the feature models now orders its rows by their key on Postgres (`in_row_order`); Athena SQL is unchanged. `e2e.local_warehouse` reloads the batch between its two builds and compares the feature tables to the last digit instead of 9 decimal places.
 - The ingestion workflow's webhook check accepts the Lambda's own 401 refusal (`Invalid webhook secret`) as reachable: every webhook route needs the shared secret, which the workflow does not hold, so the check failed on every run. A 200 `healthy` still passes; any other answer fails.

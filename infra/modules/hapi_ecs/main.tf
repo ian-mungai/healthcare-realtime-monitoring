@@ -100,7 +100,7 @@ resource "aws_db_instance" "hapi" {
   engine         = "postgres"
   engine_version = "16"
 
-  instance_class = "db.t4g.micro"
+  instance_class = "db.t3.micro"
 
   allocated_storage     = 20
   max_allocated_storage = 50
