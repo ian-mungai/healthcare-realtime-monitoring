@@ -5,12 +5,10 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$REPO_ROOT/scripts/infrastructure/project_env.sh"
 load_project_env "${PROJECT_ENV_FILE:-$REPO_ROOT/.env}"
-BOOTSTRAP_DIR="$REPO_ROOT/infra/bootstrap"
 INFRA_DIR="$REPO_ROOT/infra"
 ACTION="${1:-}"
 CONFIRMATION="apply-healthcare-realtime-bootstrap"
 ENVIRONMENT="${DEPLOYMENT_ENVIRONMENT:-development}"
-BOOTSTRAP_WORKSPACE="$(bootstrap_workspace)"
 "$REPO_ROOT/scripts/infrastructure/render_project_config.sh"
 
 usage() {
@@ -18,11 +16,7 @@ usage() {
 Usage: scripts/infrastructure/bootstrap.sh <action>
 
 Actions:
-  state-plan   Initialize the local bootstrap stack and save a state-bucket plan.
-  state-apply  Create the reviewed, protected Terraform state bucket.
-  state-backup Save the local bootstrap state in the protected state bucket.
-  main-init    Configure a fresh application stack to use the persistent bucket.
-  main-migrate Migrate an existing application state into the persistent bucket.
+  init         Initialize infra/ with local state in the selected environment's workspace.
   repositories-plan  Save a plan containing only the five ECR repositories.
   repositories-apply Apply the reviewed ECR repository plan.
   foundation-plan  Save the network, data-bucket, HAPI, Glue, dbt, and Soda foundation plan.
@@ -30,7 +24,8 @@ Actions:
   application-plan Generate MWAA assets and save the complete application plan.
   application-apply Apply the reviewed complete application plan.
 
-Set CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap for every apply or migration action.
+Set CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap for every apply action. Terraform state is local and
+teardown removes it; nothing is kept between deployments.
 EOF
 }
 
@@ -41,75 +36,16 @@ require_confirmation() {
   fi
 }
 
-select_bootstrap_workspace() {
-  terraform -chdir="$BOOTSTRAP_DIR" workspace select -or-create "$BOOTSTRAP_WORKSPACE" >/dev/null
-}
-
-bootstrap_state_file() {
-  if [[ "$BOOTSTRAP_WORKSPACE" == "default" ]]; then
-    echo "$BOOTSTRAP_DIR/terraform.tfstate"
-  else
-    echo "$BOOTSTRAP_DIR/terraform.tfstate.d/$BOOTSTRAP_WORKSPACE/terraform.tfstate"
-  fi
-}
-
-write_backend_config() {
-  select_bootstrap_workspace
-  local bucket region key
-  bucket="$(terraform -chdir="$BOOTSTRAP_DIR" output -raw state_bucket_name)"
-  region="$(terraform -chdir="$BOOTSTRAP_DIR" output -raw aws_region)"
-  key="$(terraform -chdir="$BOOTSTRAP_DIR" output -raw main_backend_key)"
-
-  printf 'bucket = "%s"\nkey    = "%s"\nregion = "%s"\n' "$bucket" "$key" "$region" > "$INFRA_DIR/backend.hcl"
-  echo "Wrote ignored backend configuration for the persistent state bucket."
-}
-
 # Name the environment's rendered variable file explicitly on every plan.
 application_plan_args=(-input=false -var-file=deployment.auto.tfvars.json)
 
 case "$ACTION" in
-  state-plan)
-    terraform -chdir="$BOOTSTRAP_DIR" init
-    select_bootstrap_workspace
-    terraform -chdir="$BOOTSTRAP_DIR" plan -input=false -var-file=deployment.auto.tfvars.json -out=tfplan-state-bootstrap-$ENVIRONMENT
-    terraform -chdir="$BOOTSTRAP_DIR" show -no-color tfplan-state-bootstrap-$ENVIRONMENT
-    ;;
-  state-apply)
-    require_confirmation
-    select_bootstrap_workspace
-    terraform -chdir="$BOOTSTRAP_DIR" apply -input=false tfplan-state-bootstrap-$ENVIRONMENT
-    ;;
-  state-backup)
-    : "${TF_STATE_BUCKET:?Set TF_STATE_BUCKET in .env or the current shell.}"
-    select_bootstrap_workspace
-    test -s "$(bootstrap_state_file)"
-    bootstrap_bucket="$(terraform -chdir="$BOOTSTRAP_DIR" output -raw state_bucket_name)"
-    bootstrap_state_key="$(terraform -chdir="$BOOTSTRAP_DIR" output -raw bootstrap_state_backup_key)"
-    if [[ "$TF_STATE_BUCKET" != "$bootstrap_bucket" ]]; then
-      echo "TF_STATE_BUCKET does not match the bucket managed by the bootstrap state." >&2
-      exit 2
-    fi
-    aws s3api put-object \
-      --bucket "$TF_STATE_BUCKET" \
-      --key "$bootstrap_state_key" \
-      --body "$(bootstrap_state_file)" \
-      --server-side-encryption AES256 \
-      --region "$AWS_REGION" \
-      >/dev/null
-    aws s3api head-object --bucket "$TF_STATE_BUCKET" --key "$bootstrap_state_key" --region "$AWS_REGION" >/dev/null
-    echo "Bootstrap state backup verified."
-    ;;
-  main-init)
-    write_backend_config
-    terraform -chdir="$INFRA_DIR" init -reconfigure -backend-config=backend.hcl
-    ;;
-  main-migrate)
-    require_confirmation
-    write_backend_config
-    terraform -chdir="$INFRA_DIR" init -input=false -migrate-state -force-copy -backend-config=backend.hcl
+  init)
+    terraform -chdir="$INFRA_DIR" init -input=false
+    select_environment_workspace "$INFRA_DIR"
     ;;
   repositories-plan)
-    require_selected_backend "$INFRA_DIR"
+    select_environment_workspace "$INFRA_DIR"
     terraform -chdir="$INFRA_DIR" plan "${application_plan_args[@]}" \
       -target=module.vitals_simulator_ecs.aws_ecr_repository.vitals_simulator \
       -target=module.dbt_ecs.aws_ecr_repository.dbt \
@@ -120,12 +56,12 @@ case "$ACTION" in
     terraform -chdir="$INFRA_DIR" show -no-color tfplan-bootstrap-ecr-$ENVIRONMENT
     ;;
   repositories-apply)
-    require_selected_backend "$INFRA_DIR"
+    select_environment_workspace "$INFRA_DIR"
     require_confirmation
     terraform -chdir="$INFRA_DIR" apply -input=false tfplan-bootstrap-ecr-$ENVIRONMENT
     ;;
   foundation-plan)
-    require_selected_backend "$INFRA_DIR"
+    select_environment_workspace "$INFRA_DIR"
     "$REPO_ROOT/scripts/glue/build_lineage_package.sh"
     terraform -chdir="$INFRA_DIR" plan "${application_plan_args[@]}" \
       -target=module.network \
@@ -139,12 +75,12 @@ case "$ACTION" in
     terraform -chdir="$INFRA_DIR" show -no-color tfplan-bootstrap-foundation-$ENVIRONMENT
     ;;
   foundation-apply)
-    require_selected_backend "$INFRA_DIR"
+    select_environment_workspace "$INFRA_DIR"
     require_confirmation
     terraform -chdir="$INFRA_DIR" apply -input=false tfplan-bootstrap-foundation-$ENVIRONMENT
     ;;
   application-plan)
-    require_selected_backend "$INFRA_DIR"
+    select_environment_workspace "$INFRA_DIR"
     for builder in "$REPO_ROOT"/scripts/lambda/build_*.sh; do
       "$builder"
     done
@@ -155,7 +91,7 @@ case "$ACTION" in
     terraform -chdir="$INFRA_DIR" show -no-color tfplan-bootstrap-application-$ENVIRONMENT
     ;;
   application-apply)
-    require_selected_backend "$INFRA_DIR"
+    select_environment_workspace "$INFRA_DIR"
     require_confirmation
     terraform -chdir="$INFRA_DIR" apply -input=false tfplan-bootstrap-application-$ENVIRONMENT
     ;;

@@ -4,14 +4,7 @@ from typing import Any
 
 import pytest
 
-from scripts.infrastructure.cleanup_storage import (
-    chunks,
-    delete_ecr_images,
-    delete_s3_object_versions,
-    list_ecr_images,
-    list_s3_object_versions,
-    validate_targets,
-)
+from scripts.infrastructure.cleanup_storage import chunks, delete_ecr_images, delete_s3_object_versions, list_ecr_images, list_s3_object_versions
 from testkit import expect
 
 
@@ -103,11 +96,6 @@ def test_fails_when_manifest_references_cannot_be_removed() -> None:
 
     with pytest.raises(RuntimeError, match="still referenced by manifest lists"):
         delete_ecr_images(client, "images", [{"imageDigest": "sha256:child"}])
-
-
-def test_refuses_to_clean_state_bucket() -> None:
-    with pytest.raises(ValueError, match="protected Terraform state bucket"):
-        validate_targets(["state", "data"], {"state"})
 
 
 def test_chunks_empty_input() -> None:

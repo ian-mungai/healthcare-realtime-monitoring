@@ -32,7 +32,6 @@ For developers and operators: locate implemented components, runtime tools and t
 - **NDJSON**: newline-delimited JSON.
 - **NEWS2**: National Early Warning Score 2.
 - **ODBC**: Open Database Connectivity.
-- **OIDC**: OpenID Connect.
 - **PITR**: point-in-time recovery.
 - **RDS**: Relational Database Service.
 - **REST**: Representational State Transfer.
@@ -62,7 +61,7 @@ For developers and operators: locate implemented components, runtime tools and t
 | Streaming and storage | Kinesis Data Streams, Kinesis Data Firehose, versioned encrypted S3, DynamoDB, Simple Queue Service (SQS) and dead-letter queues |
 | APIs and databases | application programming interface (API) Gateway HyperText Transfer Protocol (HTTP)/WebSocket APIs, VPC Link, HAPI FHIR, Relational Database Service (RDS) for PostgreSQL |
 | Analytics | Amazon Web Services (AWS) Glue Data Catalog and PySpark jobs, Apache Iceberg, Athena, Managed Workflows for Apache Airflow (MWAA) Serverless |
-| Security and operations | Identity and Access Management (IAM), GitHub OpenID Connect (OIDC) federation, Secrets Manager, Key Management Service (KMS), Simple Notification Service (SNS), CloudWatch logs, metrics, dashboards, alarms and point-in-time recovery (PITR) |
+| Security and operations | Identity and Access Management (IAM), Secrets Manager, Key Management Service (KMS), Simple Notification Service (SNS), CloudWatch logs, metrics, dashboards, alarms and point-in-time recovery (PITR) |
 
 ## Analytics, Quality and ML
 
@@ -86,7 +85,7 @@ For developers and operators: locate implemented components, runtime tools and t
 | Monitoring and analytics clients | Streamlit live cohort and model analytics dashboards, Altair, Athena queries, Representational State Transfer (REST) polling, WebSocket updates, AWS SigV4 |
 | HTTP and service integration | Requests, HTTPX, Respx, WebSocket Client, Botocore signing, SQLAlchemy and PostgreSQL drivers |
 | Manual verification | Postman, AWS command-line interface (CLI), GitHub CLI, `jq`, Athena SQL, CloudWatch dashboards |
-| Infrastructure and delivery | Terraform AWS/AWSCC providers, Docker Buildx, Git, GitHub Actions, OIDC, protected environments, immutable image tags |
+| Infrastructure and delivery | Terraform AWS/AWSCC providers with local state, Docker Buildx, Git, GitHub Actions for CI, immutable image tags |
 | Local development | Docker Compose stack with PostgreSQL 16, HAPI FHIR and Grafana on localhost-only ports, checked by `e2e.local_stack`; the local warehouse is checked by `e2e.local_warehouse` (Local Stack) |
 | Quality engineering | pytest, unittest, pytest-cov, Ruff, MyPy, Terraform tests, container smoke tests, contract syntax checks, pre-commit, gitleaks, tflint, checkov, SQLFluff, vulture, deptry, dbt-project-evaluator, an Airflow DagBag test, a whole-project privacy scan and the `e2e` scenario runner |
 | Test-data toolchain | Java 17, Gradle, Synthea, WFDB, deterministic seeds and patient/encounter mapping |

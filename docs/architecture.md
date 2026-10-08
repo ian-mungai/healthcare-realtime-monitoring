@@ -55,7 +55,7 @@ The design keeps three concerns distinct:
 
 The rendered diagram at [architecture/architecture.png](architecture/architecture.png) is built from [architecture/architecture.html](architecture/architecture.html).
 
-The unchanged diagram identifies its design revision as commit `8f7c07c`. Its synthetic-only footer does not describe the public BIDMC measurements' provenance. Patient identities and Synthea blood pressure are synthetic; heart rate, respiratory rate and oxygen saturation use public deidentified recordings. [Data](../README.md#data) records that source boundary. The Mermaid view and path descriptions below describe the implemented flows.
+The diagram identifies its design revision as commit `8f7c07c`. Its Oct 8 2026 update removed only the Terraform state bucket and the GitHub deployment path; other components were not reviewed again. Its synthetic-only footer does not describe the public BIDMC measurements' provenance. Patient identities and Synthea blood pressure are synthetic; heart rate, respiratory rate and oxygen saturation use public deidentified recordings. [Data](../README.md#data) records that source boundary. The Mermaid view and path descriptions below describe the implemented flows.
 
 Rendering prerequisites:
 
@@ -195,7 +195,6 @@ Terraform owns the AWS infrastructure. A clone supplies target-specific configur
 .env                                      target-specific inputs entered once
 config/deployment.defaults.json           tracked stable project defaults
 infra/deployment.auto.tfvars.json         generated application Terraform inputs
-infra/bootstrap/deployment.auto.tfvars.json generated state-bootstrap inputs
 ```
 
 The tracked `.env.example` contains placeholders only. The renderer derives shared settings such as patient access policy and the Terraform state prefix. Generated MWAA workflow definitions, Terraform state, secrets, endpoint identifiers and deployment-specific values remain local to the target environment. Setup and deployment checks are documented in [operations-runbook.md](operations-runbook.md).

@@ -5,7 +5,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$REPO_ROOT/scripts/infrastructure/project_env.sh"
 load_project_env "${PROJECT_ENV_FILE:-$REPO_ROOT/.env}"
-require_selected_backend "$REPO_ROOT/infra"
+select_environment_workspace "$REPO_ROOT/infra"
 
 : "${AWS_REGION:?Set AWS_REGION in the project environment file.}"
 "$REPO_ROOT/scripts/infrastructure/render_project_config.sh" >/dev/null

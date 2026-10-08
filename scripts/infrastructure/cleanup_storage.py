@@ -64,17 +64,10 @@ def delete_ecr_images(client: Any, repository: str, images: list[dict[str, str]]
         pending = retryable
 
 
-def validate_targets(buckets: list[str], protected_buckets: set[str]) -> None:
-    overlap = set(buckets).intersection(protected_buckets)
-    if overlap:
-        raise ValueError(f"Refusing to clean protected Terraform state bucket: {sorted(overlap)[0]}")
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Preview or empty application S3 buckets and ECR repositories before Terraform teardown.")
     parser.add_argument("--s3-bucket", action="append", default=[], help="Versioned application bucket to inspect; repeat as needed.")
     parser.add_argument("--ecr-repository", action="append", default=[], help="Application ECR repository to inspect; repeat as needed.")
-    parser.add_argument("--protected-bucket", action="append", default=[], help="Bucket that must never be emptied; repeat as needed.")
     parser.add_argument("--profile", help="Optional AWS CLI profile name.")
     parser.add_argument("--region", default=os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION"), help="AWS region.")
     parser.add_argument("--execute", action="store_true", help="Delete the listed versions and images. The default is preview only.")
@@ -88,14 +81,6 @@ def main() -> None:
         raise SystemExit("Specify at least one --s3-bucket or --ecr-repository target")
     if args.execute and args.confirm != CONFIRMATION:
         raise SystemExit(f"--execute requires --confirm {CONFIRMATION}")
-
-    protected_buckets = set(args.protected_bucket)
-    if state_bucket := os.getenv("TF_STATE_BUCKET"):
-        protected_buckets.add(state_bucket)
-    try:
-        validate_targets(args.s3_bucket, protected_buckets)
-    except ValueError as error:
-        raise SystemExit(str(error)) from error
 
     session = boto3.Session(profile_name=args.profile, region_name=args.region)
     s3 = session.client("s3")

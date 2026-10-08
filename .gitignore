@@ -26,7 +26,6 @@ env/
 
 # Terraform
 **/.terraform/*
-infra/backend.hcl
 *.tfstate
 *.tfstate.*
 *.tfplan

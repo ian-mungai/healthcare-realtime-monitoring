@@ -7,7 +7,7 @@ cd "$REPO_ROOT"
 
 source "$REPO_ROOT/scripts/infrastructure/project_env.sh"
 load_project_env "${PROJECT_ENV_FILE:-$REPO_ROOT/.env}"
-require_selected_backend "$REPO_ROOT/infra"
+select_environment_workspace "$REPO_ROOT/infra"
 
 if [[ -z "${PYTHON_BIN:-}" && -x "$REPO_ROOT/.venv/bin/python" ]]; then
   PYTHON_BIN="$REPO_ROOT/.venv/bin/python"

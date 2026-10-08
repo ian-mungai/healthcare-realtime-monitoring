@@ -1,7 +1,7 @@
 ---
 title: "Deployment Stages and Recovery"
 description: "Choose the deployment stage and recover from interrupted infrastructure operations."
-last_updated: 2026-10-02
+last_updated: 2026-10-08
 audience: [developer, operator]
 ---
 
@@ -14,7 +14,6 @@ For developers and operators: choose the deployment stage and recover from inter
 - **ECR**: Elastic Container Registry.
 - **AWS**: Amazon Web Services.
 - **FHIR**: Fast Healthcare Interoperability Resources.
-- **OIDC**: OpenID Connect.
 
 ## Before You Start
 
@@ -30,16 +29,16 @@ Do not combine commands from older notes or issue registers with the quickstart.
 
 ## Deployment Stages
 
-The bootstrap wrapper divides creation into four explicit stages:
+The bootstrap wrapper initializes local state, then divides creation into three explicit stages:
 
 | Stage | Purpose | Completion checkpoint |
 | --- | --- | --- |
-| `state-*` | Create protected remote state and initialize the main backend | Bootstrap backup is verified and `main-init` succeeds |
+| `init` | Initialize `infra/` with local state in the selected environment's workspace | `terraform -chdir=infra workspace show` names the environment's workspace |
 | `repositories-*` | Create Elastic Container Registry (ECR) repositories before image publication | All required repositories exist |
 | `foundation-*` | Create HAPI Fast Healthcare Interoperability Resources (FHIR), storage, the FHIR setup task and the other resources needed to build the cohort-dependent application configuration; `run_fhir_setup.sh load` then seeds the cohort | `terraform -chdir=infra output -raw glue_job_name` returns a value |
 | `application-*` | Create the remaining realtime, analytical, workflow and observability resources | A final Terraform plan reports `No changes` |
 
-The wrapper renders ignored Terraform configuration from the selected `${PROJECT_ENV_FILE:-.env}` file before each stage. Do not edit `infra/deployment.auto.tfvars.json`, `infra/bootstrap/deployment.auto.tfvars.json` or `infra/backend.hcl` by hand.
+The wrapper renders ignored Terraform configuration from the selected `${PROJECT_ENV_FILE:-.env}` file before each stage. Do not edit `infra/deployment.auto.tfvars.json` by hand.
 
 ## Interrupted Deployment
 
@@ -59,6 +58,6 @@ Use these checks before continuing:
 
 ## Existing State or Recreation
 
-Do not use the first-deployment state commands when a protected state bucket or application state already exists. Follow the [infrastructure lifecycle guide](infrastructure-lifecycle.md) for state migration, guarded teardown and recreation.
+Terraform state is local and lives only in the deploying checkout; teardown removes it. Resume an interrupted deployment from the same checkout. Follow the [infrastructure lifecycle guide](infrastructure-lifecycle.md) for guarded teardown and recreation.
 
-Use the [operations runbook](operations-runbook.md) for service recovery, replay and routine operational checks. Use the [deployment guide](deployment.md) after local deployment when GitHub OpenID Connect (OIDC) or the optional shared OpenLineage collector is required.
+Use the [operations runbook](operations-runbook.md) for service recovery, replay and routine operational checks. Use the [deployment guide](deployment.md) after local deployment when the optional shared OpenLineage collector is required.

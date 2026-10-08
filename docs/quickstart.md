@@ -1,13 +1,13 @@
 ---
 title: "First Deployment Quickstart"
-description: "Prepare a clone and create a synthetic development stack from an empty backend."
-last_updated: 2026-10-07
+description: "Prepare a clone and create a synthetic development stack with empty local Terraform state."
+last_updated: 2026-10-08
 audience: [developer, operator]
 ---
 
 # First Deployment Quickstart
 
-For developers and operators: prepare a clone and create a synthetic development stack from an empty backend.
+For developers and operators: prepare a clone and create a synthetic development stack with empty local Terraform state.
 
 ## Contents
 
@@ -35,7 +35,6 @@ For developers and operators: prepare a clone and create a synthetic development
 - **KMS**: Key Management Service.
 - **MWAA**: Managed Workflows for Apache Airflow.
 - **NAT**: network address translation.
-- **OIDC**: OpenID Connect.
 - **REST**: Representational State Transfer.
 - **SNS**: Simple Notification Service.
 - **SSO**: single sign-on.
@@ -58,13 +57,13 @@ Angle-bracket values are placeholders. Replace each with the approved value for 
 
 ## Goal
 
-Use this path only for the first deployment from a fresh clone when the project has no existing Terraform state bucket, bootstrap state or application resources. It is the shortest reviewed path to a ten-patient live demo in a standard commercial AWS account. Allow 60 to 90 minutes for infrastructure and image builds, then 10 minutes for the realtime demo. The optional full analytical validation adds about 30 minutes.
+Use this path for every deployment: the account has no application resources and the checkout has no Terraform state, because teardown removes both. It is the shortest reviewed path to a ten-patient live demo in a standard commercial AWS account. Allow 60 to 90 minutes for infrastructure and image builds, then 10 minutes for the realtime demo. The optional full analytical validation adds about 30 minutes.
 
 These steps create the development environment from the selected `${PROJECT_ENV_FILE:-.env}` file. To create production, export `PROJECT_ENV_FILE=.env.production` first and follow the [environments guide](environments.md).
 
-Do not use this quickstart to recreate a destroyed environment with a retained state bucket or to migrate an existing deployment. Follow the [infrastructure lifecycle guide](infrastructure-lifecycle.md) for those workflows.
+Deploy and tear down from the same checkout: the state lives only there ([local Terraform state](infrastructure-lifecycle.md#local-terraform-state)).
 
-The target region must provide at least two Availability Zones and support the services checked by the regional readiness command, including Managed Workflows for Apache Airflow (MWAA) Serverless. A first deployment creates a new persistent state bucket in the target region and initializes an empty Terraform backend.
+The target region must provide at least two Availability Zones and support the services checked by the regional readiness command, including Managed Workflows for Apache Airflow (MWAA) Serverless. The deployment keeps its Terraform state in a local, ignored file and the teardown removes it.
 
 ## 1. Prepare the Clone
 
@@ -83,7 +82,7 @@ From the repository root:
 
     The root requirements file installs the workflow-generator dependencies in the same environment. The verified compatibility set uses Apache Airflow 3.3.1 with SQLAlchemy 2.0.50; do not install Airflow 3.0.x or downgrade SQLAlchemy separately because that recreates the incompatible dependency set.
 
-    Replace every placeholder in the selected `${PROJECT_ENV_FILE:-.env}` file. No personal Internet Protocol (IP) address is needed: the HAPI load balancer accepts only the network address translation (NAT) gateway and the cohort load and subscription registration run as an Elastic Container Service (ECS) task inside the virtual private cloud (VPC) ([Fast Healthcare Interoperability Resources (FHIR) setup tasks](fhir-setup-tasks.md)). Patient IDs are not user inputs: the generated FHIR resource map supplies them before the full application plan. Enter the deployment region once as `AWS_REGION` and use globally unique names for the state and application-data buckets. The state bucket and every regional service are created in `AWS_REGION`. MWAA Serverless definitions and code are stored under `orchestration/mwaa-serverless/` in the application-data bucket. Leave `ML_APPROVED_MODEL_VERSION` empty for the first deployment. Image tags are not first-deployment inputs; the image publishing script generates and records them later.
+    Replace every placeholder in the selected `${PROJECT_ENV_FILE:-.env}` file. No personal Internet Protocol (IP) address is needed: the HAPI load balancer accepts only the network address translation (NAT) gateway and the cohort load and subscription registration run as an Elastic Container Service (ECS) task inside the virtual private cloud (VPC) ([Fast Healthcare Interoperability Resources (FHIR) setup tasks](fhir-setup-tasks.md)). Patient IDs are not user inputs: the generated FHIR resource map supplies them before the full application plan. Enter the deployment region once as `AWS_REGION` and use globally unique names for the state and application-data buckets. Every regional service is created in `AWS_REGION`. MWAA Serverless definitions and code are stored under `orchestration/mwaa-serverless/` in the application-data bucket. Leave `ML_APPROVED_MODEL_VERSION` empty for the first deployment. Image tags are not first-deployment inputs; the image publishing script generates and records them later.
 
     Set `ENABLE_OPENLINEAGE_COLLECTOR=true` in the selected environment file to create the managed collector. Do not add its URL to that file; Terraform generates the URL and passes it to project services. When the setting is `false`, lineage uses durable S3 fallback unless the optional external-collector override documented in the [deployment guide](deployment.md) is added.
 
@@ -161,8 +160,6 @@ Use a temporary administrator or approved bootstrap identity for these account-l
 
     Your own identity never reads this secret: the registration in step 4 runs as the FHIR setup task, whose role reads it inside AWS. The prerequisite check only confirms that a secret with this name exists. Apply the policy templates after setting `FHIR_WEBHOOK_SECRET_ID`, because the Secrets Manager policy is scoped to that name.
 
-    Create the protected GitHub environment only when GitHub deployment is required. A local first deployment does not need GitHub OpenID Connect (OIDC) before the application stack exists.
-
 3. Only when `ENABLE_GRAFANA=true`, create the Grafana admin password secret once with the administrator identity. The password is generated in a pipe, so it never appears in the command line, the terminal or shell history:
 
     ```zsh
@@ -180,47 +177,25 @@ Use a temporary administrator or approved bootstrap identity for these account-l
 
 ## 3. Create State and Deploy
 
-Create the protected state bucket and initialize a new empty main backend:
+Initialize Terraform with local state in the selected environment's workspace:
 
 1. Run the following command block:
 
     ```zsh
-    ./scripts/infrastructure/bootstrap.sh state-plan
+    ./scripts/infrastructure/bootstrap.sh init
     ```
 
-    Review the preceding plan or cleanup preview. Obtain approval for its exact changes before running the next action. Stop on unexpected deletion, replacement or permission changes.
-
-2. Apply only the reviewed and approved action:
-
-    ```zsh
-    CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap ./scripts/infrastructure/bootstrap.sh state-apply
-    ```
-
-3. Back up the applied bootstrap state:
-
-    ```zsh
-    ./scripts/infrastructure/bootstrap.sh state-backup
-    ```
-
-    Confirm the protected backup exists before initialization.
-
-4. Initialize the application backend:
-
-    ```zsh
-    ./scripts/infrastructure/bootstrap.sh main-init
-    ```
-
-5. Check deployment prerequisites:
+2. Check deployment prerequisites:
 
     ```zsh
     ./scripts/infrastructure/check_prerequisites.sh pre-deploy
     ```
 
-    The state plan must create a new bucket and its protection controls. Stop if Terraform refreshes, imports or updates an existing state bucket; that indicates stale local metadata or a non-first deployment. Do not continue to `main-init` until the state-bucket apply and backup both succeed.
+    Stop if `terraform -chdir=infra state list` lists any resource: an earlier deployment from this checkout was not torn down.
 
     Create the Elastic Container Registry (ECR) repositories and push immutable images. The publishing script records the generated immutable tag in the selected environment file and rerenders Terraform inputs only after all five pushes succeed:
 
-6. Run the following command block:
+3. Run the following command block:
 
     ```zsh
     ./scripts/infrastructure/bootstrap.sh repositories-plan
@@ -230,7 +205,7 @@ Create the protected state bucket and initialize a new empty main backend:
 
     The simulator image packages `services/vitals_simulator/data/blood_pressure_readings.json`, which must cover every cohort patient. Before pushing images, generate the cohort with the two Synthea commands from step 4 and export the readings with `PYTHONPATH=. .venv/bin/python scripts/export_vitals_simulator_bp.py`. If the file changes, commit it first, because the image tag names the commit. Otherwise the simulator stops with "No blood pressure readings found for Synthea patient".
 
-7. Apply only the reviewed and approved action:
+4. Apply only the reviewed and approved action:
 
     ```zsh
     CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap ./scripts/infrastructure/bootstrap.sh repositories-apply
@@ -239,7 +214,7 @@ Create the protected state bucket and initialize a new empty main backend:
 
     Deploy the foundation one command at a time. `pipefail` preserves Terraform failures while `tee` stores complete output in untracked temporary logs:
 
-8. Run the following command block:
+5. Run the following command block:
 
     ```zsh
     set -o pipefail
@@ -248,7 +223,7 @@ Create the protected state bucket and initialize a new empty main backend:
 
     Review the preceding plan or cleanup preview. Obtain approval for its exact changes before running the next action. Stop on unexpected deletion, replacement or permission changes.
 
-9. Apply only the reviewed and approved action:
+6. Apply only the reviewed and approved action:
 
     ```zsh
     CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap ./scripts/infrastructure/bootstrap.sh foundation-apply 2>&1 | tee /tmp/healthcare-foundation-apply.log
@@ -263,7 +238,7 @@ Create the protected state bucket and initialize a new empty main backend:
 
     When a plan reports only a computed MWAA workflow-version output change, reconcile state with a reviewed refresh-only plan:
 
-10. Run the following command block:
+7. Run the following command block:
 
     ```zsh
     terraform -chdir=infra plan -refresh-only -input=false -var-file=deployment.auto.tfvars.json -out=tfrefresh
@@ -272,7 +247,7 @@ Create the protected state bucket and initialize a new empty main backend:
 
     Review the preceding plan or cleanup preview. Obtain approval for its exact changes before running the next action. Stop on unexpected deletion, replacement or permission changes.
 
-11. Apply only the reviewed and approved action:
+8. Apply only the reviewed and approved action:
 
     ```zsh
     terraform -chdir=infra apply -input=false tfrefresh
@@ -307,7 +282,7 @@ Synthea generates 100 adult patients, aged 18 to 90, with the pinned seed; with 
     ./scripts/infrastructure/run_fhir_setup.sh register
     ```
 
-    `run_fhir_setup.sh load` uploads the generated bundles, runs the loader inside the VPC, downloads the published map and rerenders the ignored Terraform inputs with the ten HAPI patient IDs. `run_fhir_setup.sh register` registers the webhook subscription from inside AWS, reading the secret there and reuses an existing subscription. Each run writes a report under `artifacts/e2e/fhir_setup/`; see [FHIR setup tasks](fhir-setup-tasks.md). The live dashboard reads the same generated map directly. Review the application plan before applying it. The final convergence plan must report `No changes`. Confirm the Simple Notification Service (SNS) email subscription when AWS sends the request. Configure GitHub OIDC later using the [deployment guide](deployment.md) when remote deployment is required.
+    `run_fhir_setup.sh load` uploads the generated bundles, runs the loader inside the VPC, downloads the published map and rerenders the ignored Terraform inputs with the ten HAPI patient IDs. `run_fhir_setup.sh register` registers the webhook subscription from inside AWS, reading the secret there and reuses an existing subscription. Each run writes a report under `artifacts/e2e/fhir_setup/`; see [FHIR setup tasks](fhir-setup-tasks.md). The live dashboard reads the same generated map directly. Review the application plan before applying it. The final convergence plan must report `No changes`. Confirm the Simple Notification Service (SNS) email subscription when AWS sends the request.
 
 ## 5. Run the Fastest Live Demo
 

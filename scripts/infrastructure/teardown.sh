@@ -6,7 +6,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$REPO_ROOT/scripts/infrastructure/project_env.sh"
 load_project_env "${PROJECT_ENV_FILE:-$REPO_ROOT/.env}"
 INFRA_DIR="$REPO_ROOT/infra"
-require_selected_backend "$INFRA_DIR"
+select_environment_workspace "$INFRA_DIR"
 ACTION="${1:-}"
 ENVIRONMENT="${DEPLOYMENT_ENVIRONMENT:-development}"
 CONFIRMATION="delete-healthcare-realtime-$ENVIRONMENT"
@@ -22,10 +22,10 @@ Actions:
   cleanup-preview  Count application S3 versions and ECR images without deleting them.
   cleanup-apply    Empty application S3 buckets and ECR repositories.
   destroy-plan     Save the final Terraform destroy plan.
-  destroy-apply    Apply the reviewed destroy plan.
+  destroy-apply    Apply the reviewed destroy plan, then remove the local state and saved plans.
 
 Set CONFIRM_TEARDOWN=delete-healthcare-realtime-<environment> (for example -development) for every apply action.
-Set TF_STATE_BUCKET to the separate persistent state bucket before cleanup or destroy.
+Terraform state is local and not kept: destroy-apply removes it once it lists no resource.
 EOF
 }
 
@@ -36,18 +36,22 @@ require_confirmation() {
   fi
 }
 
-require_separate_state_bucket() {
-  if [[ -z "${TF_STATE_BUCKET:-}" ]]; then
-    echo "TF_STATE_BUCKET must name the separate persistent Terraform state bucket." >&2
-    exit 2
+# No state is kept after a teardown: once the destroy leaves nothing in state, delete the workspace's state files and
+# the saved plans, which hold a copy of the state.
+remove_local_state() {
+  local remaining workspace state_dir
+  workspace="$(environment_workspace)"
+  state_dir="$INFRA_DIR"
+  [[ "$workspace" == "default" ]] || state_dir="$INFRA_DIR/terraform.tfstate.d/$workspace"
+  if [[ -f "$state_dir/terraform.tfstate" ]]; then
+    remaining="$(terraform -chdir="$INFRA_DIR" state list)"
+    if [[ -n "$remaining" ]]; then
+      echo "Keeping the local state: it still lists $(wc -l <<<"$remaining" | tr -d ' ') resource(s)." >&2
+      exit 1
+    fi
   fi
-
-  local data_bucket=""
-  data_bucket="$(terraform -chdir="$INFRA_DIR" output -raw raw_s3_bucket_name 2>/dev/null || true)"
-  if [[ -n "$data_bucket" && "$TF_STATE_BUCKET" == "$data_bucket" ]]; then
-    echo "Refusing teardown because Terraform state is stored in the application data bucket." >&2
-    exit 2
-  fi
+  rm -f "$state_dir"/terraform.tfstate "$state_dir"/terraform.tfstate.*backup "$INFRA_DIR"/tfplan-*
+  echo "Local Terraform state and saved plans removed."
 }
 
 build_packages() {
@@ -118,7 +122,6 @@ cleanup_args() {
   CLEANUP_ARGS=(
     --region "$aws_region"
     --s3-bucket "$data_bucket"
-    --protected-bucket "$TF_STATE_BUCKET"
     --ecr-repository "$simulator_repository"
     --ecr-repository "$dbt_repository"
     --ecr-repository "$soda_repository"
@@ -132,37 +135,32 @@ cleanup_args() {
 
 case "$ACTION" in
   prepare-plan)
-    require_separate_state_bucket
     build_packages
     terraform -chdir="$INFRA_DIR" plan "${terraform_plan_args[@]}" -out=tfplan-teardown-prepare-$ENVIRONMENT
     terraform -chdir="$INFRA_DIR" show -no-color tfplan-teardown-prepare-$ENVIRONMENT
     ;;
   prepare-apply)
     require_confirmation
-    require_separate_state_bucket
     terraform -chdir="$INFRA_DIR" apply -input=false tfplan-teardown-prepare-$ENVIRONMENT
     ;;
   cleanup-preview)
-    require_separate_state_bucket
     cleanup_args
     "$REPO_ROOT/.venv/bin/python" -m scripts.infrastructure.cleanup_storage "${CLEANUP_ARGS[@]}"
     ;;
   cleanup-apply)
     require_confirmation
-    require_separate_state_bucket
     cleanup_args
     "$REPO_ROOT/.venv/bin/python" -m scripts.infrastructure.cleanup_storage "${CLEANUP_ARGS[@]}" --execute --confirm "$CONFIRMATION"
     ;;
   destroy-plan)
-    require_separate_state_bucket
     build_or_verify_destroy_packages
     terraform -chdir="$INFRA_DIR" plan -destroy "${terraform_plan_args[@]}" -out=tfplan-teardown-destroy-$ENVIRONMENT
     terraform -chdir="$INFRA_DIR" show -no-color tfplan-teardown-destroy-$ENVIRONMENT
     ;;
   destroy-apply)
     require_confirmation
-    require_separate_state_bucket
     terraform -chdir="$INFRA_DIR" apply -input=false tfplan-teardown-destroy-$ENVIRONMENT
+    remove_local_state
     ;;
   *)
     usage

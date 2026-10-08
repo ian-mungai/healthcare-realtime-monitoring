@@ -1,7 +1,7 @@
 ---
 title: "Operations Runbook"
 description: "Verify service health, diagnose failures and recover bounded processing paths."
-last_updated: 2026-10-06
+last_updated: 2026-10-08
 audience: [developer, operator]
 ---
 
@@ -37,7 +37,6 @@ For developers and operators: verify service health, diagnose failures and recov
 - **JSONL**: JSON Lines.
 - **MWAA**: Managed Workflows for Apache Airflow.
 - **NAT**: network address translation.
-- **OIDC**: OpenID Connect.
 - **REST**: Representational State Transfer.
 - **SSO**: single sign-on.
 - **URL**: uniform resource locator.
@@ -105,41 +104,19 @@ Before the foundation deployment, enter authorized Identity and Access Managemen
 
 ### Terraform State
 
-Use the dedicated, private, versioned state bucket created by `infra/bootstrap`. It must be separate from the application-data bucket so application teardown cannot remove its own state. Managed Workflows for Apache Airflow (MWAA) Serverless source artifacts live under `orchestration/mwaa-serverless/` in the application-data bucket:
+Terraform keeps the application state in a local, ignored file in `infra/`, in the selected environment's workspace. There is no state bucket and nothing is kept after a teardown. Managed Workflows for Apache Airflow (MWAA) Serverless source artifacts live under `orchestration/mwaa-serverless/` in the application-data bucket.
 
-1. Run the following command block:
-
-   ```zsh
-   ./scripts/infrastructure/bootstrap.sh state-plan
-   ```
-
-   For a new environment, inspect the state plan and obtain approval for its exact changes before the next step. Stop on unexpected deletion, replacement or permission changes.
-
-2. Apply only the approved state plan and initialize the main stack:
+1. Initialize `infra/` and select the environment's workspace before the first plan:
 
    ```zsh
-   CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
-     ./scripts/infrastructure/bootstrap.sh state-apply
-   ./scripts/infrastructure/bootstrap.sh state-backup
-   ./scripts/infrastructure/bootstrap.sh main-init
+   ./scripts/infrastructure/bootstrap.sh init
    ```
 
-   `state-backup` copies the ignored local bootstrap state into the protected state bucket; do not run `main-init` until it succeeds. See the [infrastructure lifecycle guide](infrastructure-lifecycle.md#persistent-state-bootstrap) for restoring it.
-
-   For an existing deployment, make a private backup and migrate it once:
-
-3. Migrate only an existing deployment after approval for the exact state transfer. Skip this step for the new environment initialized above:
-
-   ```zsh
-   CONFIRM_BOOTSTRAP=apply-healthcare-realtime-bootstrap \
-     ./scripts/infrastructure/bootstrap.sh main-migrate
-   ```
-
-4. Confirm that the state object and bootstrap backup exist in the configured bucket before removing any local state backup. S3 versioning provides recovery and Terraform's `use_lockfile` setting provides native locking.
+2. Run every deployment, operation and teardown from the same checkout. The state exists only there, so do not delete `infra/terraform.tfstate` or switch checkouts while a deployment is up. `teardown.sh destroy-apply` removes the state, its backups and the saved plans once the state lists no resource ([infrastructure lifecycle](infrastructure-lifecycle.md#local-terraform-state)).
 
 ## CI and Deployment Gate
 
-The CI workflow runs Python tests, linting, type checks, Soda syntax checks, Terraform format and validation, generated-workflow validation, deployment-package checks and container builds on pull requests and updates to `main`. A separate Repository Checks job runs the pre-commit hooks described in the quality checks guide, scans the full Git history with gitleaks and proves each check against good and bad samples. Infrastructure deployment uses the manual OpenID Connect (OIDC)-authenticated workflow and protected environment described in the [deployment guide](deployment.md).
+The CI workflow runs Python tests, linting, type checks, Soda syntax checks, Terraform format and validation, generated-workflow validation, deployment-package checks and container builds on pull requests and updates to `main`. A separate Repository Checks job runs the pre-commit hooks described in the quality checks guide, scans the full Git history with gitleaks and proves each check against good and bad samples. Infrastructure deployment runs locally from one checkout with the [quickstart](quickstart.md); there is no deployment workflow ([deployment guide](deployment.md#where-deployments-run)).
 
 Before infrastructure deployment, run:
 
@@ -336,7 +313,7 @@ Stop the simulator immediately after validation or a recorded demo:
 
 2. Verify the status reports no running simulator. Complete the approved [controlled application teardown](infrastructure-lifecycle.md#controlled-application-teardown) after evidence capture.
 
-The simulator is the intentionally short-lived Fargate workload. Controlled teardown removes HAPI and processing resources while retaining the protected state bucket and documented prerequisites. Stopping the simulator alone does not end infrastructure charges. Review CloudWatch logs, Fargate task count, network address translation (NAT) gateway usage, managed database size and retained object storage periodically when the environment is not being demonstrated.
+The simulator is the intentionally short-lived Fargate workload. Controlled teardown removes HAPI and processing resources and the local Terraform state, keeping only the documented prerequisites. Stopping the simulator alone does not end infrastructure charges. Review CloudWatch logs, Fargate task count, network address translation (NAT) gateway usage, managed database size and retained object storage periodically when the environment is not being demonstrated.
 
 ## Evidence Handoff
 

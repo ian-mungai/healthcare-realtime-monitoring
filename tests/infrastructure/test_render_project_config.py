@@ -22,14 +22,9 @@ def environment() -> dict[str, str]:
         "AWS_ACCOUNT_ID": "111111111111",
         "AWS_REGION": "us-west-2",
         "PROJECT_NAME": "healthcare-realtime-monitoring",
-        "TF_STATE_BUCKET": "example-state-bucket",
         "DATA_BUCKET_NAME": "example-data-bucket",
         "FHIR_RESOURCE_MAP_S3_KEY": "config/vitals_simulator/fhir_resource_map.json",
         "REALTIME_ALERT_EMAIL": "alerts@example.com",
-        "GITHUB_REPOSITORY": "example/healthcare-realtime-monitoring",
-        "GITHUB_DEPLOYMENT_ENVIRONMENT": "development",
-        "GITHUB_OIDC_SUBJECT_PREFIX": "repo:example@1/healthcare-realtime-monitoring@2",
-        "ENABLE_GITHUB_OIDC": "true",
         "FHIR_WEBHOOK_SECRET_ID": "healthcare-realtime/fhir-webhook",
         "REALTIME_PATIENT_ACCESS_PRINCIPALS": "arn:aws:iam::111111111111:user/dashboard",
         "ENABLE_OPENLINEAGE_COLLECTOR": "true",
@@ -49,16 +44,13 @@ def defaults() -> dict[str, object]:
 
 def test_build_configuration_derives_shared_values() -> None:
     patients = tuple(f"patient-{number:02d}" for number in range(1, 11))
-    deployment, bootstrap = renderer.build_configuration(environment(), defaults(), patients)
+    deployment = renderer.build_configuration(environment(), defaults(), patients)
 
     expect.equal(deployment["active_patient_ids"], list(patients))
     expect.equal(deployment["realtime_patient_access_policy"], {"arn:aws:iam::111111111111:user/dashboard": list(patients)})
     expect.equal(deployment["athena_results_s3_uri"], "s3://example-data-bucket/athena_results/")
     expect.equal(deployment["fhir_resource_map_s3_key"], "config/vitals_simulator/fhir_resource_map.json")
-    expect.equal(len(deployment["github_deployment_policy_arns"]), 20)
-    if not all(arn.startswith("arn:aws:iam::111111111111:policy/") for arn in deployment["github_deployment_policy_arns"]):
-        expect.fail('expected: all(arn.startswith("arn:aws:iam::111111111111:policy/") for arn in deployment["github_deployment_policy_arns"])')
-    expect.equal(bootstrap, {"aws_region": "us-west-2", "project_name": "healthcare-realtime-monitoring", "state_bucket_name": "example-state-bucket"})
+    expect.equal("github_deployment_policy_arns" in deployment, False)
 
 
 def test_generated_patient_ids_must_be_exactly_ten() -> None:
@@ -67,7 +59,7 @@ def test_generated_patient_ids_must_be_exactly_ten() -> None:
 
 
 def test_missing_resource_map_uses_internal_bootstrap_patient_ids() -> None:
-    deployment, _ = renderer.build_configuration(environment(), defaults())
+    deployment = renderer.build_configuration(environment(), defaults())
 
     expect.equal(deployment["active_patient_ids"], [f"bootstrap-patient-{number:02d}" for number in range(1, 11)])
 
@@ -77,39 +69,28 @@ def test_new_install_uses_bootstrap_image_tags_until_images_are_published() -> N
     for name in renderer.GENERATED_STRING_VARIABLES:
         values.pop(name)
 
-    deployment, _ = renderer.build_configuration(values, defaults())
+    deployment = renderer.build_configuration(values, defaults())
 
     expect.equal({deployment[name] for name in renderer.GENERATED_STRING_VARIABLES.values()}, {"sha-bootstrap"})
 
 
 def test_external_openlineage_url_is_an_optional_explicit_override() -> None:
-    deployment, _ = renderer.build_configuration(environment(), defaults())
+    deployment = renderer.build_configuration(environment(), defaults())
     expect.equal(deployment["external_openlineage_collector_url"], "")
 
     values = environment()
     values["EXTERNAL_OPENLINEAGE_COLLECTOR_URL"] = "https://lineage.example.com"
-    deployment, _ = renderer.build_configuration(values, defaults())
+    deployment = renderer.build_configuration(values, defaults())
 
     expect.equal(deployment["external_openlineage_collector_url"], "https://lineage.example.com")
-
-
-def test_disabled_github_oidc_allows_empty_repository_configuration() -> None:
-    values = environment()
-    values.update({"ENABLE_GITHUB_OIDC": "false", "GITHUB_REPOSITORY": "", "GITHUB_OIDC_SUBJECT_PREFIX": "", "GITHUB_DEPLOYMENT_ENVIRONMENT": ""})
-
-    deployment, _ = renderer.build_configuration(values, defaults())
-
-    expect.identical(deployment["enable_github_oidc"], False)
-    expect.equal(deployment["github_repository"], "")
 
 
 def test_build_configuration_ignores_ambient_shell_values(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AWS_REGION", "conflicting-region")
 
-    deployment, bootstrap = renderer.build_configuration(environment(), defaults())
+    deployment = renderer.build_configuration(environment(), defaults())
 
     expect.equal(deployment["aws_region"], "us-west-2")
-    expect.equal(bootstrap["aws_region"], "us-west-2")
 
 
 def test_write_or_check_detects_stale_generated_file(tmp_path: Path) -> None:

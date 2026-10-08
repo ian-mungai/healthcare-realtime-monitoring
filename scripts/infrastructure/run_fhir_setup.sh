@@ -11,7 +11,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$REPO_ROOT/scripts/infrastructure/project_env.sh"
 ENV_FILE="${PROJECT_ENV_FILE:-$REPO_ROOT/.env}"
 load_project_env "$ENV_FILE"
-require_selected_backend "$REPO_ROOT/infra"
+select_environment_workspace "$REPO_ROOT/infra"
 
 COMMAND="${1:-}"
 if [[ "$COMMAND" != "load" && "$COMMAND" != "register" && "$COMMAND" != "reference" ]]; then

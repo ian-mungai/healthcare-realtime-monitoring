@@ -56,27 +56,5 @@
     "bootstrap-patient-08",
     "bootstrap-patient-09",
     "bootstrap-patient-10"
-  ],
-  "github_deployment_policy_names": [
-    "healthcare_realtime_apigateway_policy",
-    "healthcare_realtime_cloudformation_policy",
-    "healthcare_realtime_cloudwatch_policy",
-    "healthcare_realtime_dynamodb_policy",
-    "healthcare_realtime_ec2_policy",
-    "healthcare_realtime_ecr_policy",
-    "healthcare_realtime_ecs_policy",
-    "healthcare_realtime_elasticloadbalancing_policy",
-    "healthcare_realtime_firehose_policy",
-    "healthcare_realtime_glue_policy",
-    "healthcare_realtime_iam_policy",
-    "healthcare_realtime_kinesis_policy",
-    "healthcare_realtime_kms_policy",
-    "healthcare_realtime_lambda_policy",
-    "healthcare_realtime_logs_policy",
-    "healthcare_realtime_mwaa_policy",
-    "healthcare_realtime_rds_policy",
-    "healthcare_realtime_s3_policy",
-    "healthcare_realtime_sns_policy",
-    "healthcare_realtime_sqs_policy"
   ]
 }

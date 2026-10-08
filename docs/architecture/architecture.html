@@ -267,8 +267,6 @@
         <text x="594" y="150" fill="#94a3b8" font-size="8" text-anchor="start">WebSocket</text>
         <path d="M 170 545 L 200 545 L 200 598 L 645 598 L 645 547" fill="none" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <text x="420" y="593" fill="#94a3b8" font-size="8" text-anchor="middle">DirectQuery (Athena ODBC)</text>
-        <path d="M 170 645 L 380 645 L 380 572" fill="none" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="5,5" marker-end="url(#arrowhead)"/>
-        <text x="290" y="640" fill="#94a3b8" font-size="8" text-anchor="middle">OIDC role · plan/apply</text>
 
         <!-- Components -->
         <rect x="20" y="100" width="150" height="50" rx="6" fill="#0f172a"/>
@@ -292,7 +290,7 @@
         <rect x="20" y="620" width="150" height="50" rx="6" fill="#0f172a"/>
         <rect x="20" y="620" width="150" height="50" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
         <text x="95.0" y="638" fill="white" font-size="11" font-weight="600" text-anchor="middle">GitHub Actions</text>
-        <text x="95.0" y="652" fill="#94a3b8" font-size="8.5" text-anchor="middle">CI · manual deploy</text>
+        <text x="95.0" y="652" fill="#94a3b8" font-size="8.5" text-anchor="middle">CI checks only</text>
         <rect x="225" y="90" width="150" height="50" rx="6" fill="#0f172a"/>
         <rect x="225" y="90" width="150" height="50" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
         <text x="300.0" y="108" fill="white" font-size="11" font-weight="600" text-anchor="middle">HAPI ALB</text>
@@ -391,14 +389,11 @@
         <rect x="980" y="520" width="170" height="50" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
         <text x="1065.0" y="538" fill="white" font-size="11" font-weight="600" text-anchor="middle">Amazon ECR</text>
         <text x="1065.0" y="552" fill="#94a3b8" font-size="8.5" text-anchor="middle">sha-* image tags</text>
-        <rect x="230" y="520" width="300" height="50" rx="6" fill="#0f172a"/>
-        <rect x="230" y="520" width="300" height="50" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
-        <text x="380.0" y="538" fill="white" font-size="11" font-weight="600" text-anchor="middle">Terraform state bucket</text>
-        <text x="380.0" y="552" fill="#94a3b8" font-size="8.5" text-anchor="middle">separate bootstrap stack · versioned</text>
 
         <!-- Notes -->
         <text x="760" y="600" fill="#94a3b8" font-size="8">Every data store has a DataClassification tag.</text>
         <text x="760" y="614" fill="#94a3b8" font-size="8">All patient data is synthetic; stacks are torn down after demos.</text>
+        <text x="760" y="628" fill="#94a3b8" font-size="8">Terraform state stays in the deploying checkout; teardown removes it.</text>
 
         <!-- Legend (outside the region boundary) -->
         <text x="200" y="718" fill="white" font-size="10" font-weight="600">Legend</text>
@@ -447,14 +442,14 @@
           <li>• REST and WebSocket clients authenticate with AWS IAM (SigV4)</li>
           <li>• Webhook secret lives in Secrets Manager; RDS credentials are RDS-managed</li>
           <li>• CloudWatch alarms notify through a KMS-encrypted SNS topic</li>
-          <li>• GitHub deploys only from main through OIDC and a protected environment</li>
+          <li>• Deployments run from one checkout; Terraform state stays local and teardown removes it</li>
         </ul>
       </div>
     </div>
 
     <!-- Footer -->
     <p class="footer">
-      Healthcare Realtime Monitoring • reviewed against infra/, services/ and airflow/ at commit 8f7c07c • synthetic data only
+      Healthcare Realtime Monitoring • reviewed against infra/, services/ and airflow/ at 8f7c07c, state path Oct 8 2026 • synthetic data only
     </p>
   </div>
 

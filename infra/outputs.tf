@@ -53,11 +53,6 @@ output "openlineage_emission_failure_alarm_name" {
   value       = aws_cloudwatch_metric_alarm.openlineage_emission_failures.alarm_name
 }
 
-output "github_deployment_role_arn" {
-  description = "GitHub Actions OIDC deployment role ARN, or null when OIDC is disabled."
-  value       = one(aws_iam_role.github_deployment[*].arn)
-}
-
 output "firehose_delivery_stream_name" {
   description = "Firehose stream delivering realtime vitals to S3"
   value       = module.firehose.delivery_stream_name

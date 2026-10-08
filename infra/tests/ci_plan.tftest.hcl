@@ -78,7 +78,6 @@ variables {
   api_stage_name                          = "test"
   fhir_webhook_secret_id                  = "example/fhir-webhook"
   fhir_resource_map_s3_key                = "config/vitals_simulator/fhir_resource_map.json"
-  github_deployment_environment           = "test"
 }
 
 run "plan" {
@@ -148,63 +147,6 @@ run "bootstrap_plan" {
   assert {
     condition     = module.mwaa.trigger_mode == "manual_only"
     error_message = "First-deployment bootstrap must not schedule scoring before a model is approved."
-  }
-}
-
-run "github_oidc_plan" {
-  command = plan
-
-  variables {
-    aws_region                 = "example-region-1"
-    data_bucket_name           = "ci-project-data-bucket"
-    realtime_alert_email       = "alerts@example.com"
-    vitals_simulator_image_tag = "sha-ci"
-    dbt_image_tag              = "sha-ci"
-    soda_image_tag             = "sha-ci"
-    ml_approved_model_version  = "logistic-ci"
-
-    enable_github_oidc         = true
-    github_repository          = "example-owner/healthcare-realtime-monitoring"
-    github_oidc_subject_prefix = "repo:example-owner@1234/healthcare-realtime-monitoring@5678"
-    github_deployment_policy_arns = [
-      "arn:aws:iam::111111111111:policy/healthcare_realtime_deployment"
-    ]
-  }
-
-  assert {
-    condition     = aws_iam_role.github_deployment[0].max_session_duration == 3600
-    error_message = "GitHub OIDC deployment role must use bounded one-hour sessions."
-  }
-}
-
-# Quickstart reconciles state with a refresh-only plan; before the application stage the OIDC resources are not in state.
-run "github_oidc_refresh_only_before_application" {
-  command = plan
-
-  plan_options {
-    mode = refresh-only
-  }
-
-  variables {
-    aws_region                 = "example-region-1"
-    data_bucket_name           = "ci-project-data-bucket"
-    realtime_alert_email       = "alerts@example.com"
-    vitals_simulator_image_tag = "sha-ci"
-    dbt_image_tag              = "sha-ci"
-    soda_image_tag             = "sha-ci"
-    ml_approved_model_version  = "logistic-ci"
-
-    enable_github_oidc         = true
-    github_repository          = "example-owner/healthcare-realtime-monitoring"
-    github_oidc_subject_prefix = "repo:example-owner@1234/healthcare-realtime-monitoring@5678"
-    github_deployment_policy_arns = [
-      "arn:aws:iam::111111111111:policy/healthcare_realtime_deployment"
-    ]
-  }
-
-  assert {
-    condition     = output.github_deployment_role_arn == null
-    error_message = "A refresh-only plan must succeed and report no GitHub deployment role before the application stage creates it."
   }
 }
 

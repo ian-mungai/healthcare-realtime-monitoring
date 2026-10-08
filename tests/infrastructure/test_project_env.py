@@ -42,3 +42,13 @@ def test_rejects_non_assignment_lines(tmp_path: Path) -> None:
 
     expect.equal(result.returncode, 2)
     expect.is_in("Invalid environment assignment", result.stderr)
+
+
+def test_each_environment_gets_its_own_local_state_workspace(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("DEPLOYMENT_ENVIRONMENT=staging\n", encoding="utf-8")
+    development = tmp_path / "development.env"
+    development.write_text("AWS_REGION=example-region-1\n", encoding="utf-8")
+
+    expect.equal(run_loader(env_file, "environment_workspace").stdout.strip(), "staging")
+    expect.equal(run_loader(development, "unset DEPLOYMENT_ENVIRONMENT; environment_workspace").stdout.strip(), "default")

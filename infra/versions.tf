@@ -1,11 +1,6 @@
 terraform {
   required_version = ">= 1.11"
 
-  backend "s3" {
-    encrypt      = true
-    use_lockfile = true
-  }
-
   required_providers {
     aws = {
       source  = "hashicorp/aws"

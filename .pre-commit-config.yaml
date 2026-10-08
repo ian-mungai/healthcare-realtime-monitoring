@@ -155,7 +155,7 @@ repos:
         files: \.tf$
       - id: tflint
         name: tflint
-        entry: bash -c 'status=0; for dir in infra infra/bootstrap infra/modules/*/; do [ -d "$dir" ] || continue; .tools/bin/tflint --chdir="$dir" --format=compact || status=1; done; exit $status'
+        entry: bash -c 'status=0; for dir in infra infra/modules/*/; do [ -d "$dir" ] || continue; .tools/bin/tflint --chdir="$dir" --format=compact || status=1; done; exit $status'
         language: system
         pass_filenames: false
         files: \.tf$

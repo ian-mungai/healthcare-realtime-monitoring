@@ -82,7 +82,7 @@ Complete the placeholders in the selected `${PROJECT_ENV_FILE:-.env}` file, then
 ./scripts/infrastructure/render_project_config.sh
 ```
 
-Stable project defaults live in `config/deployment.defaults.json`. The generated `infra/deployment.auto.tfvars.json` and `infra/bootstrap/deployment.auto.tfvars.json` files are ignored by Git and must not be edited by hand. Infrastructure and demo scripts treat `.env` as authoritative, so stale shell exports cannot silently change deployment configuration. Image tags are generated after Elastic Container Registry (ECR) repository creation and recorded in the selected `${PROJECT_ENV_FILE:-.env}` file by the publishing script. Verify the local toolchain and selected AWS identity after rendering. Cloud resources are checked in later deployment phases:
+Stable project defaults live in `config/deployment.defaults.json`. The generated `infra/deployment.auto.tfvars.json` file is ignored by Git and must not be edited by hand. Terraform state stays local to the deploying checkout and teardown removes it. Infrastructure and demo scripts treat `.env` as authoritative, so stale shell exports cannot silently change deployment configuration. Image tags are generated after Elastic Container Registry (ECR) repository creation and recorded in the selected `${PROJECT_ENV_FILE:-.env}` file by the publishing script. Verify the local toolchain and selected AWS identity after rendering. Cloud resources are checked in later deployment phases:
 
 ```zsh
 ./scripts/infrastructure/check_prerequisites.sh local
@@ -160,7 +160,6 @@ Use the [load-testing guide](docs/load-testing.md) to run an isolated test that 
 - **NEWS2**: National Early Warning Score 2.
 - **NPPES**: National Plan and Provider Enumeration System.
 - **ODBC**: Open Database Connectivity.
-- **OIDC**: OpenID Connect.
 - **REST**: Representational State Transfer.
 - **SQL**: Structured Query Language.
 - **SQS**: Simple Queue Service.
@@ -204,7 +203,7 @@ The [v1.0.1 release notes](docs/release-notes-v1.0.1.md) summarize the current v
 
 Start with the [first-deployment quickstart](docs/quickstart.md). It is the only complete command sequence for a fresh clone, account or region. Development and production run in separate AWS accounts; the [environments guide](docs/environments.md) explains how to select one. Terraform uses a protected S3 backend with native state locking and generated ignored inputs derived from the selected `${PROJECT_ENV_FILE:-.env}` file.
 
-Cohort loading and subscription registration run as a one-off ECS task inside the virtual private cloud (VPC), so no personal Internet Protocol (IP) address is opened to HAPI ([FHIR setup tasks](docs/fhir-setup-tasks.md)). The [deployment stages and recovery guide](docs/bootstrap.md) explains interrupted stages. The [infrastructure lifecycle guide](docs/infrastructure-lifecycle.md) covers state migration, guarded teardown, account retirement and recreation. The [external prerequisite inventory](docs/external-prerequisites.md) identifies account configuration outside the application stack. The [deployment guide](docs/deployment.md) covers GitHub OpenID Connect (OIDC) and the optional shared OpenLineage collector. Recovery, cost control and operational checks are in the [operations runbook](docs/operations-runbook.md).
+Cohort loading and subscription registration run as a one-off ECS task inside the virtual private cloud (VPC), so no personal Internet Protocol (IP) address is opened to HAPI ([FHIR setup tasks](docs/fhir-setup-tasks.md)). The [deployment stages and recovery guide](docs/bootstrap.md) explains interrupted stages. The [infrastructure lifecycle guide](docs/infrastructure-lifecycle.md) covers state migration, guarded teardown, account retirement and recreation. The [external prerequisite inventory](docs/external-prerequisites.md) identifies account configuration outside the application stack. The [deployment guide](docs/deployment.md) covers where deployments run and the optional shared OpenLineage collector. Recovery, cost control and operational checks are in the [operations runbook](docs/operations-runbook.md).
 
 Tear the stack down after every demo with the [controlled application teardown](docs/infrastructure-lifecycle.md#controlled-application-teardown). Review and apply protection removal, preview and approve storage cleanup, then review and apply destruction. Each apply requires approval and the environment-specific `CONFIRM_TEARDOWN`; verify empty application state and retained prerequisites.
 

@@ -95,7 +95,6 @@ fi
   -q
 
 terraform -chdir="$REPO_ROOT/infra" test -filter=tests/ci_plan.tftest.hcl
-terraform -chdir="$REPO_ROOT/infra/bootstrap" test -filter=tests/ci_plan.tftest.hcl
 
 echo "Reproducibility verification passed: two builds produced identical artifact checksums."
 echo "A real clean-account deployment remains the release acceptance test."

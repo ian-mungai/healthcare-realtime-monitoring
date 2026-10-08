@@ -94,18 +94,20 @@ class Context:
 
 
 def load_context(env_file: Path) -> Context:
-    """Read .env, check that infra/ points at this environment's state and read outputs and the cohort."""
+    """Read .env, check that infra/ has this environment's local state workspace selected and read outputs and the cohort."""
     try:
         env = load_environment_file(env_file)
     except Exception as error:
         raise Blocked(f"cannot read the environment file: {error}") from None
-    for name in ("AWS_PROFILE", "AWS_REGION", "TF_STATE_BUCKET"):
+    for name in ("AWS_PROFILE", "AWS_REGION"):
         if not env.get(name):
             raise Blocked(f"{name} is not set in the environment file")
-    backend = INFRA / ".terraform" / "terraform.tfstate"
-    selected = json.loads(backend.read_text()).get("backend", {}).get("config", {}).get("bucket") if backend.is_file() else None
-    if selected != env["TF_STATE_BUCKET"]:
-        raise Blocked("infra/ is not initialized for this environment's state bucket; run bootstrap.sh main-init")
+    # Each environment keeps its local state in its own workspace (environment_workspace in project_env.sh).
+    environment = env.get("DEPLOYMENT_ENVIRONMENT") or "development"
+    expected = "default" if environment == "development" else environment
+    workspace = run_command("terraform", ["-chdir=infra", "workspace", "show"], cwd=ROOT, timeout=60)
+    if workspace.returncode or workspace.stdout.strip() != expected:
+        raise Blocked(f"infra/ does not have the {expected} workspace selected; run bootstrap.sh init with this environment file")
     result = run_command("terraform", ["-chdir=infra", "output", "-json"], cwd=ROOT, timeout=120)
     if result.returncode:
         raise Blocked("terraform output failed; check the backend and credentials")

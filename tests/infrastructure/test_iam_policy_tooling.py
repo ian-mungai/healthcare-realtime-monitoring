@@ -39,15 +39,6 @@ def load_module(path: Path, name: str) -> ModuleType:
     return module
 
 
-def test_state_policy_limits_object_access_to_backend_prefix() -> None:
-    policy = json.loads(POLICY_PATH.read_text(encoding="utf-8"))
-    statements = {statement["Sid"]: statement for statement in policy["Statement"]}
-
-    expect.equal(statements["ManageTerraformStateBucket"]["Resource"], "arn:aws:s3:::${TF_STATE_BUCKET}")
-    expect.equal(statements["ManageTerraformStateObjects"]["Resource"], "arn:aws:s3:::${TF_STATE_BUCKET}/${PROJECT_NAME}/terraform/*")
-    expect.not_in("s3:DeleteBucket", statements["ManageTerraformStateBucket"]["Action"])
-
-
 def test_ecr_policy_can_read_image_scan_findings() -> None:
     policy = json.loads(ECR_POLICY_PATH.read_text(encoding="utf-8"))
     statements = {statement["Sid"]: statement for statement in policy["Statement"]}
@@ -79,22 +70,21 @@ def test_region_readiness_permissions_are_tracked() -> None:
         expect.fail('expected: {"iam:GetAccountSummary", "cloudformation:DescribeType", "servicequotas:GetServiceQuota"} <= actions')
 
 
-def test_renderer_replaces_state_bucket_placeholder(tmp_path: Path) -> None:
+def test_renderer_replaces_the_data_bucket_placeholder(tmp_path: Path) -> None:
     rendered_path = tmp_path / "s3-policy.json"
     environment = {
         **os.environ,
         "AWS_ACCOUNT_ID": "111111111111",
         "AWS_REGION": "example-region-1",
         "DATA_BUCKET_NAME": "example-data",
-        "TF_STATE_BUCKET": "example-state",
         "PROJECT_NAME": "example-project",
     }
 
     run_command(sys.executable, [str(RENDERER_PATH), str(POLICY_PATH), "--output", str(rendered_path)], check=True, env=environment)
 
     rendered = rendered_path.read_text(encoding="utf-8")
-    expect.not_in("${TF_STATE_BUCKET}", rendered)
-    expect.is_in("arn:aws:s3:::example-state/example-project/terraform/*", rendered)
+    expect.not_in("${", rendered)
+    expect.is_in("arn:aws:s3:::example-data/*", rendered)
 
 
 def test_kms_policy_uses_configured_project_tag(tmp_path: Path) -> None:
@@ -169,14 +159,11 @@ def test_terraform_reads_the_grafana_secret_and_creates_none() -> None:
     expect.equal([secret["name"].strip('"') for secret in secrets], ["healthcare-realtime/grafana-admin"])
 
 
-def test_exporter_redacts_state_bucket(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_exporter_redacts_the_data_bucket(monkeypatch: pytest.MonkeyPatch) -> None:
     exporter = load_module(EXPORTER_PATH, "export_policies_for_test")
-    monkeypatch.setenv("TF_STATE_BUCKET", "private-state-bucket")
+    monkeypatch.setenv("DATA_BUCKET_NAME", "private-data-bucket")
 
-    expect.equal(
-        exporter.sanitize_string("arn:aws:s3:::private-state-bucket/example-project/terraform/terraform.tfstate"),
-        "arn:aws:s3:::${TF_STATE_BUCKET}/example-project/terraform/terraform.tfstate",
-    )
+    expect.equal(exporter.sanitize_string("arn:aws:s3:::private-data-bucket/raw/*"), "arn:aws:s3:::${DATA_BUCKET_NAME}/raw/*")
 
 
 class PolicyPaginator:
@@ -287,9 +274,9 @@ def test_policy_manager_loads_ignored_environment_values(tmp_path: Path, monkeyp
     monkeypatch.syspath_prepend(str(MANAGER_PATH.parent))
     manager = load_module(MANAGER_PATH, "manage_policies_environment_for_test")
     environment_file = tmp_path / ".env"
-    environment_file.write_text("AWS_PROFILE=example\nTF_STATE_BUCKET='example-state'\n", encoding="utf-8")
+    environment_file.write_text("AWS_PROFILE=example\nDATA_BUCKET_NAME='example-data'\n", encoding="utf-8")
 
-    expect.equal(manager.load_environment_file(environment_file), {"AWS_PROFILE": "example", "TF_STATE_BUCKET": "example-state"})
+    expect.equal(manager.load_environment_file(environment_file), {"AWS_PROFILE": "example", "DATA_BUCKET_NAME": "example-data"})
 
 
 def test_policy_manager_can_limit_an_update_to_selected_templates(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -309,7 +296,7 @@ def test_every_policy_placeholder_resolves_from_the_deployment_defaults(tmp_path
     defaults = json.loads((REPO_ROOT / "config/deployment.defaults.json").read_text(encoding="utf-8"))["terraform"]
     var_file = tmp_path / "deployment.auto.tfvars.json"
     var_file.write_text(json.dumps({**defaults, "aws_region": "example-region-1", "project_name": "example-project", "data_bucket_name": "example-bucket"}))
-    environment = {"AWS_ACCOUNT_ID": "111111111111", "TF_STATE_BUCKET": "example-state", "FHIR_WEBHOOK_SECRET_ID": "example-project/fhir-webhook"}
+    environment = {"AWS_ACCOUNT_ID": "111111111111", "FHIR_WEBHOOK_SECRET_ID": "example-project/fhir-webhook"}
 
     for source in sorted((REPO_ROOT / "infra/iam/policies").glob("*.json")):
         renderer.render_policy_document(source, var_file, environment)

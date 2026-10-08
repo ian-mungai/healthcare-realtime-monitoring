@@ -1,7 +1,7 @@
 ---
 title: "Release Checklist"
 description: "Evaluate the release gate while retaining the checked historical acceptance record."
-last_updated: 2026-10-07
+last_updated: 2026-10-08
 audience: [developer, operator]
 ---
 
@@ -140,6 +140,7 @@ These checks cover the Fast Healthcare Interoperability Resources (FHIR) setup t
 - [ ] The [load test](load-testing.md) passes with its report retained.
 - [ ] The MWAA workflow runs Glue under its scoped role before `ENABLE_ICEBERG_TABLE_OPTIMIZERS=true` is applied through a reviewed plan.
 - [ ] The realtime alarms are `OK`, both failure queues are empty and no `healthcare_realtime_e2e_replay_*` policy remains on the processor role.
+- [ ] The deployment runs from one checkout with local Terraform state. `teardown.sh destroy-apply` removes that state once it lists no resource. The checked items above that name a state bucket or GitHub OpenID Connect (OIDC) record the v1.0.1 release; this release has neither.
 
 ## Release Tag
 
