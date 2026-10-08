@@ -7,7 +7,7 @@ This is the known truth of the simulation study (config/planted_signal.json). Fa
 2. Every deterioration encounter gets a precursor: the model would separate the classes perfectly. A seeded share of
    them is silent.
 3. The precursor leaks into the outcome window or starts before its ramp: it rises only between ramp start and the
-   feature-window end, and the outcome window keeps the scenario's fixed values.
+   feature-window end, and the outcome window keeps the scenario's values.
 4. Patients aged 65 and over must show a blunted heart-rate response (the RQ3 effect): their heart-rate drift is the
    configured fraction of the others'; the other vitals are unchanged.
 5. A rerun must repeat the study: the same seed, patient and run give the same precursor; another run differs.

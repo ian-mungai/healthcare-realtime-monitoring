@@ -19,6 +19,8 @@ Failure modes the generator must handle (written before the generator):
 14. A stay that would end after the batch is generated cannot be a finished stay or reach the training set: stop
     before any HAPI write.
 15. A patient's runs must not copy each other: each run's feature window differs (its own record stretch and offsets).
+16. Deterioration encounters must not share one outcome value: each draws its own seeded targets inside the approved
+    ranges, and its readings vary around them.
 
 The local end-to-end run (python -m e2e.local_cohort) remains the proof against a real HAPI server.
 """
@@ -139,6 +141,7 @@ def test_records_pass_the_stream_processor_schema_and_cover_the_full_window(tmp_
 def test_outcome_window_follows_each_scenario(tmp_path: Path) -> None:
     folder = run(tmp_path)
     manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
+    deterioration_means: set[float] = set()
 
     for entry in manifest["files"]:
         lines = [json.loads(line) for line in (folder / entry["name"]).read_text(encoding="utf-8").splitlines()]
@@ -149,9 +152,13 @@ def test_outcome_window_follows_each_scenario(tmp_path: Path) -> None:
             if "heart_rate" in line and (datetime.fromisoformat(line["event_timestamp"]) - encounter_start).total_seconds() >= 900
         }
         if entry["scenario"] == DETERIORATION_SCENARIO:
-            expect.equal(outcome_heart_rates, {135.0})
+            if not all(131.0 <= value <= 150.0 for value in outcome_heart_rates) or len(outcome_heart_rates) < 2:
+                expect.fail(f"expected: varied deterioration heart rates inside 131 to 150, got {sorted(outcome_heart_rates)}")
+            deterioration_means.add(round(sum(outcome_heart_rates) / len(outcome_heart_rates), 1))
         elif not all(50.0 <= value <= 100.0 for value in outcome_heart_rates):
             expect.fail(f"expected: normal outcome heart rates inside 50 to 100, got {sorted(outcome_heart_rates)}")
+    if len(deterioration_means) < 2:
+        expect.fail(f"expected: each deterioration encounter near its own heart rate, got means {sorted(deterioration_means)}")
 
 
 def test_a_rerun_reuses_encounters_and_writes_identical_files(tmp_path: Path) -> None:
@@ -259,7 +266,7 @@ def test_every_observation_set_carries_the_bedside_measures(tmp_path: Path) -> N
 
     expect.equal(len(temperatures), 12 * 6)
     expect.equal(len([record for record in bedside if "inhaled_oxygen_concentration" in record]), 12 * 6)
-    expect.equal({record["consciousness_level"] for record in bedside if "consciousness_level" in record}, {0, 1})
+    expect.equal({record["consciousness_level"] for record in bedside if "consciousness_level" in record}, {0, 1, 2})
     for record in bedside:
         validate_vitals_payload(record)
         expect.equal(record["schema_version"], "1.2")

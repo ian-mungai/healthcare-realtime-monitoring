@@ -34,7 +34,15 @@ from services.vitals_simulator.app.simulation.precursor import (
     load_planted_signal,
     sample_precursor,
 )
-from services.vitals_simulator.app.simulation.scenario import LABEL_WINDOW_SECONDS, NORMAL_SCENARIO, SCENARIOS, apply_vital_scenario, choose_patient_scenarios
+from services.vitals_simulator.app.simulation.scenario import (
+    LABEL_WINDOW_SECONDS,
+    NORMAL_SCENARIO,
+    SCENARIOS,
+    DeteriorationTargets,
+    apply_vital_scenario,
+    choose_patient_scenarios,
+    deterioration_targets,
+)
 from services.vitals_simulator.app.synthea.blood_pressure import load_synthea_blood_pressure_readings, readings_for_patient
 from services.vitals_simulator.app.synthea.blood_pressure_cadence import BloodPressureCadence
 
@@ -92,6 +100,7 @@ class PatientSimulation:
     # Set per run by initialize_simulation_run, seeded by the scenario seed, the patient and the run.
     bedside_cadence: BedsideCadence | None = None
     precursor: Precursor = NO_PRECURSOR
+    deterioration_targets: DeteriorationTargets | None = None
 
 
 @dataclass(frozen=True)
@@ -275,7 +284,15 @@ def initialize_simulation_run(
         # Each run gets its own stretch of the patient's record and its own small offsets, so runs do not copy each other.
         readings = vary_run_readings(simulation.readings, f"{seed}:{patient_id}:{run_id}")
         initialized.append(
-            replace(simulation, context=context, readings=readings, scenario=scenarios[patient_id], bedside_cadence=bedside, precursor=precursor)
+            replace(
+                simulation,
+                context=context,
+                readings=readings,
+                scenario=scenarios[patient_id],
+                bedside_cadence=bedside,
+                precursor=precursor,
+                deterioration_targets=deterioration_targets(seed, patient_id, run_id),
+            )
         )
     return run_id, initialized
 
@@ -294,7 +311,7 @@ def publish_patient_cycle(
     reading = get_replay_reading(source_reading, replay_index, available_cycles)
     scenario_elapsed_seconds = reading.offset_seconds if bp_elapsed_seconds is None else bp_elapsed_seconds
     reading = apply_precursor_to_vitals(reading, simulation.precursor, scenario_elapsed_seconds)
-    reading = apply_vital_scenario(reading, simulation.scenario, scenario_elapsed_seconds)
+    reading = apply_vital_scenario(reading, simulation.scenario, scenario_elapsed_seconds, simulation.deterioration_targets)
     simulation_start = get_cycle_simulation_start(cycle_timestamp, reading)
     event = build_simulator_event(
         reading=reading,
@@ -306,6 +323,7 @@ def publish_patient_cycle(
         scenario=simulation.scenario,
         bedside_cadence=simulation.bedside_cadence,
         precursor=simulation.precursor,
+        targets=simulation.deterioration_targets,
     )
     client = HAPIFHIRClient(max_retries=fhir_max_attempts, retry_delay_seconds=fhir_retry_backoff_seconds)
     return publish_simulator_event(event, client)

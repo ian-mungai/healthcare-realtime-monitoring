@@ -4,9 +4,10 @@ Usage: python -m e2e.local_cohort [--seed SEED] [--output DIRECTORY] [--signal s
 
 Run it after the local stack is started, the cohort is loaded into local HAPI FHIR and the batch is generated. It reads COHORT_SIZE, FHIR_BASE_URL and FHIR_RESOURCE_MAP_FILE like the generator. The run checks
 that every cohort patient exists in HAPI with three normal and three deterioration batch encounters, that the manifest
-and files agree, that every record passes the stream processor's schema and follows its scenario in the outcome window,
-that planted_truth.json follows the selected signal and the feature-window heart rate shows only the planted rise, and
-that a second generation run reuses the encounters and writes identical files. Every run writes report.json and
+and files agree, that every record passes the stream processor's schema and follows its scenario in the outcome window
+(deterioration values inside the approved ranges, varying within and between encounters), that planted_truth.json
+follows the selected signal and the feature-window heart rate shows only the planted rise, and that a second
+generation run reuses the encounters and writes identical files. Every run writes report.json and
 report.md under artifacts/e2e/local_cohort/, passed, failed or blocked.
 """
 
@@ -28,7 +29,7 @@ from jobs.batch_vitals import generate
 from scripts.synthea_loader.src.cohort import cohort_patient_ids, cohort_size
 from services.vitals_simulator.app.fhir.encounter import SIMULATOR_ENCOUNTER_IDENTIFIER_SYSTEM, SIMULATOR_SCENARIO_TAG_SYSTEM
 from services.vitals_simulator.app.simulation.precursor import SIGNAL_MODES
-from services.vitals_simulator.app.simulation.scenario import DETERIORATION_SCENARIO, FEATURE_WINDOW_SECONDS, NORMAL_SCENARIO
+from services.vitals_simulator.app.simulation.scenario import DETERIORATION_RANGES, DETERIORATION_SCENARIO, FEATURE_WINDOW_SECONDS, NORMAL_SCENARIO
 from services.vitals_stream_processor.schema import validate_vitals_payload
 
 DEFAULT_MAP = ROOT / "build" / "local" / "fhir_resource_map.json"
@@ -41,8 +42,6 @@ LIMITS = (
     "the 53 waveform records reuse a record from its midpoint with seeded variation, so the 100 patients are not fully independent."
 )
 REPRODUCE = "Start the stack, load the cohort, generate the batch, then `.venv/bin/python -m e2e.local_cohort`."
-# Outcome-window values set by services/vitals_simulator/app/simulation/scenario.py.
-DETERIORATION_VALUES = {"heart_rate": 135.0, "respiratory_rate": 28.0, "spo2": 89.0}
 # Positions past the 53 BIDMC records reuse record position - 53 (services/vitals_simulator/app/bidmc/source.py).
 REUSED_FROM = 53
 # The smallest seeded offset per vital (REUSE_VARIATION in services/vitals_simulator/app/bidmc/source.py).
@@ -102,6 +101,8 @@ def check_files(report: Report, folder: Path, patient_ids: tuple[str, ...], scen
         counts == {DETERIORATION_SCENARIO: PER_SCENARIO * len(patient_ids), NORMAL_SCENARIO: PER_SCENARIO * len(patient_ids)},
     )
     bad_hashes = invalid = off_scenario = wrong_encounter = 0
+    # Each deterioration encounter's outcome-window heart rates, to show the values vary within and between encounters.
+    deterioration_heart_rates: dict[str, set[float]] = {}
     observation_ids: set[str] = set()
     records = 0
     for entry in manifest["files"]:
@@ -119,11 +120,21 @@ def check_files(report: Report, folder: Path, patient_ids: tuple[str, ...], scen
             wrong_encounter += scenarios.get(record["encounter_id"]) != entry["scenario"]
             if (datetime.fromisoformat(record["event_timestamp"]) - started).total_seconds() >= FEATURE_WINDOW_SECONDS:
                 off_scenario += not follows_scenario(record, entry["scenario"])
+                if entry["scenario"] == DETERIORATION_SCENARIO and "heart_rate" in record:
+                    deterioration_heart_rates.setdefault(entry["name"], set()).add(record["heart_rate"])
     report.check("File checksums", "all match the manifest", f"{bad_hashes} differ", bad_hashes == 0)
     report.check("Records accepted by the stream processor schema", f"all {records}", f"{invalid} rejected", invalid == 0 and records == manifest["records"])
     report.check("Observation IDs unique", f"{records} unique", f"{len(observation_ids)} unique", len(observation_ids) == records)
     report.check("Records belong to the HAPI encounter of their scenario", "all", f"{wrong_encounter} differ", wrong_encounter == 0)
     report.check("Outcome window follows the scenario", "all outcome-window records", f"{off_scenario} differ", off_scenario == 0)
+    steady = sum(len(values) < 2 for values in deterioration_heart_rates.values())
+    means = {round(sum(values) / len(values)) for values in deterioration_heart_rates.values()}
+    report.check(
+        "Deterioration values vary",
+        "every encounter's heart rate varies and encounters differ",
+        f"{steady} of {len(deterioration_heart_rates)} steady; {len(means)} distinct mean heart rates",
+        steady == 0 and len(means) > 1,
+    )
     rejected = sum(manifest.get("rejected_records", {}).values())
     report.check(
         "Waveform dropouts left out",
@@ -141,14 +152,9 @@ def check_files(report: Report, folder: Path, patient_ids: tuple[str, ...], scen
 
 
 def follows_scenario(record: dict, scenario: str) -> bool:
-    for name, value in DETERIORATION_VALUES.items():
-        if name in record:
-            if scenario == DETERIORATION_SCENARIO and record[name] != value:
-                return False
-            low, high = NORMAL_RANGES[name]
-            if scenario == NORMAL_SCENARIO and not low <= record[name] <= high:
-                return False
-    return True
+    """A deterioration record lies inside every approved deterioration range; a normal one inside the normal ranges."""
+    ranges = DETERIORATION_RANGES if scenario == DETERIORATION_SCENARIO else NORMAL_RANGES
+    return all(low <= record[name] <= high for name, (low, high) in ranges.items() if name in record)
 
 
 def check_reuse(report: Report, folder: Path, patient_ids: tuple[str, ...]) -> None:

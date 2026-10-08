@@ -13,7 +13,7 @@ Failure modes (written before the code):
 """
 
 from services.vitals_simulator.app.simulation.bedside import BASELINE_RANGE, ROOM_AIR_PERCENT, BedsideCadence, BedsideReading, baseline_temperature
-from services.vitals_simulator.app.simulation.scenario import DETERIORATION_SCENARIO, NORMAL_SCENARIO, apply_bedside_scenario
+from services.vitals_simulator.app.simulation.scenario import DETERIORATION_SCENARIO, NORMAL_SCENARIO, apply_bedside_scenario, deterioration_targets
 from testkit import expect
 
 
@@ -48,11 +48,12 @@ def test_values_are_seeded_by_patient_and_run() -> None:
 def test_the_outcome_window_follows_the_scenario_and_the_feature_window_does_not() -> None:
     baseline = BedsideReading(temperature=36.9, inhaled_oxygen_concentration=ROOM_AIR_PERCENT, consciousness_level=0)
 
-    deteriorating = apply_bedside_scenario(baseline, DETERIORATION_SCENARIO, 1200)
-    normal = apply_bedside_scenario(baseline, NORMAL_SCENARIO, 1200)
+    targets = deterioration_targets("seed", "patient", "run-1")
+    deteriorating = apply_bedside_scenario(baseline, DETERIORATION_SCENARIO, 1200, targets)
+    normal = apply_bedside_scenario(baseline, NORMAL_SCENARIO, 1200, targets)
 
     temperature, oxygen, consciousness = deteriorating.temperature, deteriorating.inhaled_oxygen_concentration, deteriorating.consciousness_level
     if temperature is None or oxygen is None or consciousness is None or not (temperature >= 38.1 and oxygen > ROOM_AIR_PERCENT and consciousness >= 1):
         expect.fail(f"expected: fever, supplemental oxygen and new confusion, got {deteriorating}")
     expect.equal(normal, baseline)
-    expect.equal(apply_bedside_scenario(baseline, DETERIORATION_SCENARIO, 600), baseline)
+    expect.equal(apply_bedside_scenario(baseline, DETERIORATION_SCENARIO, 600, targets), baseline)

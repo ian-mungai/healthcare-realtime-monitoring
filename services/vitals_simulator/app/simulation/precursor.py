@@ -3,7 +3,7 @@
 The simulation study plants it so that models can be scored against a known truth (config/planted_signal.json). Each
 deterioration encounter draws its own effect sizes, seeded by the seed, the patient and the run; a configured share
 gets none, so the classes overlap. Normal encounters, and every encounter of the null control, get none. The drift
-ramps in linearly from ramp_start_seconds to the feature-window end and never touches the outcome window, whose fixed
+ramps in linearly from ramp_start_seconds to the feature-window end and never touches the outcome window, whose
 scenario values define the label. Patients aged 65 and over get a blunted heart-rate drift.
 """
 

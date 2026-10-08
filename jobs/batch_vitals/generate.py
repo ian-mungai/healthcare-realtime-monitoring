@@ -62,7 +62,7 @@ from services.vitals_simulator.app.simulation.precursor import (
     load_planted_signal,
     sample_precursor,
 )
-from services.vitals_simulator.app.simulation.scenario import LABEL_WINDOW_SECONDS, SCENARIOS, apply_vital_scenario
+from services.vitals_simulator.app.simulation.scenario import LABEL_WINDOW_SECONDS, SCENARIOS, DeteriorationTargets, apply_vital_scenario, deterioration_targets
 from services.vitals_simulator.app.synthea.blood_pressure import BloodPressureReading, load_synthea_blood_pressure_readings
 from services.vitals_simulator.app.synthea.blood_pressure_cadence import BloodPressureCadence
 from services.vitals_stream_processor.schema import PermanentRecordError, validate_vitals_payload
@@ -118,6 +118,7 @@ class PlannedEncounter:
     admission: Admission
     baseline_temperature: float
     precursor: Precursor
+    targets: DeteriorationTargets
 
 
 def run_identifier(settings: BatchSettings, run: int) -> str:
@@ -195,6 +196,7 @@ def plan_encounters(
                     admission=admission,
                     baseline_temperature=baseline_temperature(context.synthea_patient_id),
                     precursor=sample_precursor(signal, scenario, settings.seed, context.hapi_patient_id, run_identifier(settings, run), older),
+                    targets=deterioration_targets(settings.seed, context.hapi_patient_id, run_identifier(settings, run)),
                 )
             )
     return planned
@@ -219,7 +221,7 @@ def encounter_records(settings: BatchSettings, encounter: PlannedEncounter, enco
         elapsed_seconds = cycle * settings.interval_seconds
         reading = replace(source, offset_seconds=source.offset_seconds + (cycle // available) * available)
         reading = apply_precursor_to_vitals(reading, encounter.precursor, elapsed_seconds)
-        reading = apply_vital_scenario(reading, encounter.scenario, elapsed_seconds)
+        reading = apply_vital_scenario(reading, encounter.scenario, elapsed_seconds, encounter.targets)
         cycle_timestamp = encounter.started_at + timedelta(seconds=elapsed_seconds)
         event = build_simulator_event(
             reading=reading,
@@ -231,6 +233,7 @@ def encounter_records(settings: BatchSettings, encounter: PlannedEncounter, enco
             scenario=encounter.scenario,
             bedside_cadence=bedside,
             precursor=encounter.precursor,
+            targets=encounter.targets,
         )
         for observation in event.observations:
             identifier = observation["identifier"][0]["value"]

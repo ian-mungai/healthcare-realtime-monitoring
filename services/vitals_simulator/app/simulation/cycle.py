@@ -11,7 +11,7 @@ from services.vitals_simulator.app.fhir.observation import (
 from services.vitals_simulator.app.simulation.bedside import BedsideCadence
 from services.vitals_simulator.app.simulation.event import SimulatorEvent
 from services.vitals_simulator.app.simulation.precursor import NO_PRECURSOR, Precursor, apply_precursor_to_bedside, apply_precursor_to_blood_pressure
-from services.vitals_simulator.app.simulation.scenario import NORMAL_SCENARIO, apply_bedside_scenario, apply_blood_pressure_scenario
+from services.vitals_simulator.app.simulation.scenario import NORMAL_SCENARIO, DeteriorationTargets, apply_bedside_scenario, apply_blood_pressure_scenario
 from services.vitals_simulator.app.synthea.blood_pressure_cadence import BloodPressureCadence
 
 
@@ -25,6 +25,7 @@ def build_simulator_event(
     scenario: str = NORMAL_SCENARIO,
     bedside_cadence: BedsideCadence | None = None,
     precursor: Precursor = NO_PRECURSOR,
+    targets: DeteriorationTargets | None = None,
 ) -> SimulatorEvent:
     observations = build_observations_from_reading(reading=reading, patient_id=patient_id, encounter_id=encounter_id, simulation_start=simulation_start)
 
@@ -33,7 +34,7 @@ def build_simulator_event(
     if bp_reading is not None:
         scenario_elapsed_seconds = reading.offset_seconds if bp_elapsed_seconds is None else bp_elapsed_seconds
         bp_reading = apply_precursor_to_blood_pressure(bp_reading, precursor, scenario_elapsed_seconds)
-        bp_reading = apply_blood_pressure_scenario(bp_reading, scenario, scenario_elapsed_seconds)
+        bp_reading = apply_blood_pressure_scenario(bp_reading, scenario, scenario_elapsed_seconds, targets)
         effective_datetime = build_effective_datetime(simulation_start, reading.offset_seconds)
 
         observations.append(
@@ -52,7 +53,7 @@ def build_simulator_event(
     if bedside_reading is not None:
         observations.extend(
             build_bedside_observations(
-                reading=apply_bedside_scenario(apply_precursor_to_bedside(bedside_reading, precursor, elapsed_seconds), scenario, elapsed_seconds),
+                reading=apply_bedside_scenario(apply_precursor_to_bedside(bedside_reading, precursor, elapsed_seconds), scenario, elapsed_seconds, targets),
                 patient_id=patient_id,
                 encounter_id=encounter_id,
                 effective_datetime=build_effective_datetime(simulation_start, reading.offset_seconds),
