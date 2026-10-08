@@ -291,6 +291,34 @@ variable "openlineage_collector_desired_count" {
   }
 }
 
+variable "enable_grafana" {
+  description = "Run Grafana on ECS with the Athena dashboards, reached through an SSM port forward."
+  type        = bool
+  default     = false
+}
+
+variable "grafana_image_tag" {
+  description = "Immutable ECR tag of the Grafana image (deploy/grafana/Dockerfile)."
+  type        = string
+  default     = "sha-bootstrap"
+
+  validation {
+    condition     = !var.enable_grafana || (startswith(var.grafana_image_tag, "sha-") && var.grafana_image_tag != "sha-bootstrap")
+    error_message = "grafana_image_tag must be a pushed sha-* tag when Grafana is enabled."
+  }
+}
+
+variable "grafana_desired_count" {
+  description = "Number of Grafana ECS tasks to run. Use zero to stop it without removing it."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = contains([0, 1], var.grafana_desired_count)
+    error_message = "grafana_desired_count must be zero or one."
+  }
+}
+
 variable "enable_github_oidc" {
   description = "Create the repository-scoped GitHub Actions deployment identity."
   type        = bool

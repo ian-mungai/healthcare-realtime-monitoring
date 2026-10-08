@@ -72,7 +72,9 @@ services:
       LOCAL_GRAFANA_READER_PASSWORD: ${LOCAL_GRAFANA_READER_PASSWORD:?run scripts/local/local_stack.sh start}
     volumes:
       - grafana-data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      # The dashboard provider is shared with the AWS image.
+      - ../grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
       # Rendered from deploy/grafana/dashboards/ by scripts/local/local_stack.sh start; ignored by Git.
       - ./grafana/dashboards:/etc/grafana/dashboards:ro
     ports:

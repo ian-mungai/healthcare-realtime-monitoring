@@ -78,8 +78,9 @@ airflow/serverless/generated/
 # Local documentation-review evidence; never committed.
 /.documentation_review.json
 
-# Grafana dashboards rendered for the local stack from deploy/grafana/dashboards/.
+# Grafana dashboards rendered from deploy/grafana/dashboards/ for the local stack and the AWS image.
 /deploy/local/grafana/dashboards/
+/deploy/grafana/rendered/
 /deploy/local/compose.memory.yaml
 
 # Local plans (analysis, implementation and gap plans); never committed or pushed.

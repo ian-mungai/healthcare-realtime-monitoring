@@ -117,6 +117,26 @@ output "dbt_ecr_repository_url" {
   value       = module.dbt_ecs.ecr_repository_url
 }
 
+output "grafana_ecr_repository_url" {
+  description = "ECR repository of the Grafana image."
+  value       = module.grafana_ecs.ecr_repository_url
+}
+
+output "grafana_service_name" {
+  description = "Grafana ECS service in the services cluster, or null when Grafana is disabled."
+  value       = module.grafana_ecs.service_name
+}
+
+output "grafana_admin_secret_arn" {
+  description = "Secrets Manager secret holding the Grafana admin password, or null when Grafana is disabled."
+  value       = module.grafana_ecs.admin_secret_arn
+}
+
+output "grafana_container_port" {
+  description = "Port Grafana listens on inside its task, the target of the SSM port forward."
+  value       = module.grafana_ecs.container_port
+}
+
 output "dbt_ecs_cluster_name" {
   description = "ECS cluster running dbt."
   value       = module.dbt_ecs.cluster_name

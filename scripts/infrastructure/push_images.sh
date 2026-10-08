@@ -23,9 +23,10 @@ simulator_url="$(terraform -chdir="$INFRA_DIR" output -raw vitals_simulator_ecr_
 dbt_url="$(terraform -chdir="$INFRA_DIR" output -raw dbt_ecr_repository_url)"
 soda_url="$(terraform -chdir="$INFRA_DIR" output -raw soda_ecr_repository_url)"
 marquez_url="$(terraform -chdir="$INFRA_DIR" output -raw openlineage_collector_ecr_repository_url)"
+grafana_url="$(terraform -chdir="$INFRA_DIR" output -raw grafana_ecr_repository_url)"
 registry="${simulator_url%%/*}"
 
-for repository in "$simulator_url" "$dbt_url" "$soda_url" "$marquez_url"; do
+for repository in "$simulator_url" "$dbt_url" "$soda_url" "$marquez_url" "$grafana_url"; do
   if image_check="$(aws ecr describe-images --region "$AWS_REGION" --repository-name "${repository##*/}" --image-ids imageTag="$IMAGE_TAG" 2>&1)"; then
     echo "Refusing to overwrite existing image ${repository##*/}:$IMAGE_TAG." >&2
     exit 2
@@ -44,6 +45,9 @@ docker buildx build --platform linux/amd64 --provenance=false --file "$REPO_ROOT
 docker buildx build --platform linux/amd64 --provenance=false --file "$REPO_ROOT/deploy/dbt/Dockerfile" --tag "$dbt_url:$IMAGE_TAG" --push "$REPO_ROOT"
 docker buildx build --platform linux/amd64 --provenance=false --file "$REPO_ROOT/deploy/soda/Dockerfile" --tag "$soda_url:$IMAGE_TAG" --push "$REPO_ROOT"
 docker buildx build --platform linux/amd64 --provenance=false --file "$REPO_ROOT/deploy/marquez/Dockerfile" --tag "$marquez_url:$IMAGE_TAG" --push "$REPO_ROOT/deploy/marquez"
+# Grafana's dashboards are rendered for Athena from the committed deployment config before the image is built.
+(cd "$REPO_ROOT" && .venv/bin/python -m scripts.grafana.render_dashboards --target aws --output "$REPO_ROOT/deploy/grafana/rendered")
+docker buildx build --platform linux/amd64 --provenance=false --file "$REPO_ROOT/deploy/grafana/Dockerfile" --tag "$grafana_url:$IMAGE_TAG" --push "$REPO_ROOT/deploy/grafana"
 
 update_env_value() {
   local key="$1" value="$2" env_file="$3" temporary
@@ -57,9 +61,9 @@ update_env_value() {
 }
 
 ENV_FILE="${PROJECT_ENV_FILE:-$REPO_ROOT/.env}"
-for key in VITALS_SIMULATOR_IMAGE_TAG DBT_IMAGE_TAG SODA_IMAGE_TAG OPENLINEAGE_COLLECTOR_IMAGE_TAG; do
+for key in VITALS_SIMULATOR_IMAGE_TAG DBT_IMAGE_TAG SODA_IMAGE_TAG OPENLINEAGE_COLLECTOR_IMAGE_TAG GRAFANA_IMAGE_TAG; do
   update_env_value "$key" "$IMAGE_TAG" "$ENV_FILE"
 done
 "$REPO_ROOT/scripts/infrastructure/render_project_config.sh" --env-file "$ENV_FILE"
 
-printf '\nPublished all four images and recorded %s in .env.\n' "$IMAGE_TAG"
+printf '\nPublished all five images and recorded %s in .env.\n' "$IMAGE_TAG"

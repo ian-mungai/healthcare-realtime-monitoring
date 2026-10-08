@@ -56,7 +56,7 @@ RUFF_LOOSENING_KEYS = {"ignore", "extend-ignore", "per-file-ignores", "extend-pe
 MYPY_BASELINE_EXCLUDES = {"^airflow/", "^build/", "^tmp/", "^\\.venv/", "^scripts/synthea_loader/synthea/"}
 MYPY_ALLOWED_KEYS = {"python_version", "ignore_missing_imports", "explicit_package_bases", "exclude", "strict", "check_untyped_defs", "no_implicit_optional"}
 MYPY_TIGHTENING_PREFIXES = ("disallow_", "warn_")
-# checkov rules the repository owner accepted on 2026-09-28; the reasons are in repository-policy.
+# checkov rules the repository owner accepted on 2026-09-28 (CKV2_AWS_57 on 2026-10-08); the reasons are in repository-policy.
 CHECKOV_ACCEPTED = {
     "CKV2_AWS_11",
     "CKV2_AWS_20",
@@ -64,6 +64,7 @@ CHECKOV_ACCEPTED = {
     "CKV2_AWS_30",
     "CKV2_AWS_5",
     "CKV2_AWS_51",
+    "CKV2_AWS_57",
     "CKV2_AWS_60",
     "CKV2_AWS_61",
     "CKV2_AWS_62",

@@ -38,6 +38,7 @@ def environment() -> dict[str, str]:
         "DBT_IMAGE_TAG": "sha-example",
         "SODA_IMAGE_TAG": "sha-example",
         "OPENLINEAGE_COLLECTOR_IMAGE_TAG": "sha-example",
+        "GRAFANA_IMAGE_TAG": "sha-example",
         "ML_APPROVED_MODEL_VERSION": "",
     }
 

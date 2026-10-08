@@ -36,13 +36,14 @@ GENERATED_STRING_VARIABLES = {
     "DBT_IMAGE_TAG": "dbt_image_tag",
     "SODA_IMAGE_TAG": "soda_image_tag",
     "OPENLINEAGE_COLLECTOR_IMAGE_TAG": "openlineage_collector_image_tag",
+    "GRAFANA_IMAGE_TAG": "grafana_image_tag",
 }
 
 BOOLEAN_VARIABLES = {"ENABLE_OPENLINEAGE_COLLECTOR": "enable_openlineage_collector", "ENABLE_GITHUB_OIDC": "enable_github_oidc"}
 
 ENVIRONMENT_NAME = re.compile(r"[a-z][a-z0-9-]{0,31}")
 
-OPTIONAL_BOOLEAN_VARIABLES = {"ENABLE_ICEBERG_TABLE_OPTIMIZERS": "enable_iceberg_table_optimizers"}
+OPTIONAL_BOOLEAN_VARIABLES = {"ENABLE_ICEBERG_TABLE_OPTIMIZERS": "enable_iceberg_table_optimizers", "ENABLE_GRAFANA": "enable_grafana"}
 
 INTEGER_VARIABLES = {"OPENLINEAGE_COLLECTOR_DESIRED_COUNT": "openlineage_collector_desired_count"}
 

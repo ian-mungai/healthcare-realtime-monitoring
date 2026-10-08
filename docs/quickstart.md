@@ -202,7 +202,7 @@ Create the protected state bucket and initialize a new empty main backend:
 
     The state plan must create a new bucket and its protection controls. Stop if Terraform refreshes, imports or updates an existing state bucket; that indicates stale local metadata or a non-first deployment. Do not continue to `main-init` until the state-bucket apply and backup both succeed.
 
-    Create the Elastic Container Registry (ECR) repositories and push immutable images. The publishing script records the generated immutable tag in the selected environment file and rerenders Terraform inputs only after all four pushes succeed:
+    Create the Elastic Container Registry (ECR) repositories and push immutable images. The publishing script records the generated immutable tag in the selected environment file and rerenders Terraform inputs only after all five pushes succeed:
 
 6. Run the following command block:
 

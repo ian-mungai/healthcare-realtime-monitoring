@@ -21,6 +21,7 @@ COST_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_cost_mana
 KMS_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_kms_policy.json"
 SECRETSMANAGER_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_secretsmanager_policy.json"
 EC2_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_ec2_policy.json"
+ECS_POLICY_PATH = REPO_ROOT / "infra/iam/policies/healthcare_realtime_ecs_policy.json"
 RENDERER_PATH = REPO_ROOT / "infra/iam/scripts/render_policy.py"
 EXPORTER_PATH = REPO_ROOT / "infra/iam/scripts/export_policies.py"
 MANAGER_PATH = REPO_ROOT / "infra/iam/scripts/manage_policies.py"
@@ -117,6 +118,38 @@ def test_secretsmanager_policy_reads_only_configured_webhook_secret(tmp_path: Pa
     webhook_access = statements["ReadFHIRWebhookSecret"]
     expect.equal(webhook_access["Action"], ["secretsmanager:DescribeSecret", "secretsmanager:GetSecretValue"])
     expect.equal(webhook_access["Resource"], "arn:aws:secretsmanager:example-region-1:111111111111:secret:example-project/fhir-webhook-*")
+
+
+def rendered_statements(tmp_path: Path, source: Path) -> dict[str, dict]:
+    rendered_path = tmp_path / source.name
+    environment = {**os.environ, "AWS_ACCOUNT_ID": "111111111111", "AWS_REGION": "example-region-1", "FHIR_WEBHOOK_SECRET_ID": "example-project/fhir-webhook"}
+    run_command(sys.executable, [str(RENDERER_PATH), str(source), "--output", str(rendered_path)], check=True, env=environment)
+    return {statement["Sid"]: statement for statement in json.loads(rendered_path.read_text(encoding="utf-8"))["Statement"]}
+
+
+def test_the_operator_port_forward_reaches_only_service_tasks_through_the_forwarding_document(tmp_path: Path) -> None:
+    """The deploy user opens the Grafana port forward; it must not open shells or sessions on other targets."""
+    statements = rendered_statements(tmp_path, ECS_POLICY_PATH)
+
+    start = statements["StartServicePortForward"]
+    expect.equal(start["Action"], ["ssm:StartSession"])
+    expect.equal(
+        sorted(start["Resource"]),
+        [
+            "arn:aws:ecs:example-region-1:111111111111:task/healthcare-realtime-services/*",
+            "arn:aws:ssm:example-region-1::document/AWS-StartPortForwardingSession",
+        ],
+    )
+    expect.equal(statements["EndOwnSessions"]["Resource"], "arn:aws:ssm:example-region-1:111111111111:session/${aws:userid}-*")
+
+
+def test_the_grafana_secret_is_managed_and_read_only_by_its_name(tmp_path: Path) -> None:
+    statements = rendered_statements(tmp_path, SECRETSMANAGER_POLICY_PATH)
+
+    grafana = statements["ManageGrafanaAdminSecret"]
+    expect.equal(grafana["Resource"], "arn:aws:secretsmanager:example-region-1:111111111111:secret:healthcare-realtime/grafana-admin-*")
+    expect.is_in("secretsmanager:GetSecretValue", grafana["Action"])
+    expect.is_in("secretsmanager:PutSecretValue", grafana["Action"])
 
 
 def test_exporter_redacts_state_bucket(monkeypatch: pytest.MonkeyPatch) -> None:

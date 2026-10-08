@@ -1,20 +1,22 @@
 """The one place repository tooling starts another program.
 
 Every call resolves the program to its full path, passes a list of arguments (never a shell string), closes stdin and
-applies a timeout. Repository checks import from here instead of ``subprocess``, so the lint exception for starting a
-process exists on one line.
+applies a timeout; background() bounds a long-running program by a block instead. Repository checks import from here
+instead of ``subprocess``, so the lint exceptions for starting a process stay in this file.
 """
 
 from __future__ import annotations
 
 import os
 import shutil
+import signal
 import subprocess
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 from subprocess import CompletedProcess, TimeoutExpired
 
-__all__ = ["CompletedProcess", "TimeoutExpired", "clear_git_environment", "find_program", "run_command"]
+__all__ = ["CompletedProcess", "TimeoutExpired", "background", "clear_git_environment", "find_program", "run_command"]
 
 DEFAULT_TIMEOUT_SECONDS = 300
 
@@ -88,3 +90,42 @@ def run_command(
     return subprocess.run(  # noqa: S603 - the only process launcher: full path, list arguments, no shell, stdin closed, timeout
         [executable, *args], cwd=cwd, env=env, stdin=subprocess.DEVNULL, capture_output=capture, text=True, timeout=timeout, check=check
     )
+
+
+@contextmanager
+def background(
+    program: str, args: Sequence[str], cwd: Path | None = None, env: Mapping[str, str] | None = None, grace_seconds: float = 10.0
+) -> Iterator[subprocess.Popen[str]]:
+    """Run ``program`` for the length of the block, such as a port forward, and stop it and its children on every exit.
+
+    The program runs in its own process group with stdin closed and stdout and stderr merged into one text pipe the
+    caller may read; a program that writes more than the pipe holds without being read blocks. On exit the group gets
+    SIGTERM, then SIGKILL after ``grace_seconds``. Failure modes: tests/contracts/test_background_process.py.
+    """
+    executable = find_program(program)
+    if executable is None:
+        raise FileNotFoundError(f"{program} is not installed")
+    process = subprocess.Popen(  # noqa: S603 - full path, list arguments, no shell, stdin closed, stopped on every exit
+        [executable, *args], cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, start_new_session=True
+    )
+    try:
+        yield process
+    finally:
+        _stop_group(process, grace_seconds)
+
+
+def _stop_group(process: subprocess.Popen[str], grace_seconds: float) -> None:
+    for stop, wait in ((signal.SIGTERM, grace_seconds), (signal.SIGKILL, None)):
+        try:
+            os.killpg(process.pid, stop)
+        except ProcessLookupError:
+            break
+        try:
+            process.wait(timeout=wait)
+        except subprocess.TimeoutExpired:
+            continue
+        # The leader is gone; its children may remain in the group until the next signal.
+        if stop == signal.SIGKILL:
+            break
+    if process.stdout is not None:
+        process.stdout.close()

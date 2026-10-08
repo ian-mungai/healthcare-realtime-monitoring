@@ -145,7 +145,7 @@ Prerequisites:
 
 The managed collector runs Marquez on private Elastic Container Service (ECS) and PostgreSQL Relational Database Service (RDS) resources. An internal load balancer is reachable only through an Identity and Access Management (IAM)-authorized application programming interface (API) Gateway endpoint, so no custom domain or public Marquez port is required. S3 remains the fallback when the collector is disabled.
 
-The Marquez repository and image are part of the standard deployment: `bootstrap.sh repositories-plan` creates the Marquez Elastic Container Registry (ECR) repository with the other three and `push_images.sh` builds and pushes the pinned Marquez image with the same immutable tag, recording it as `OPENLINEAGE_COLLECTOR_IMAGE_TAG` in the selected `${PROJECT_ENV_FILE:-.env}` file ([quickstart](quickstart.md) step 3). No separate build is needed.
+The Marquez repository and image are part of the standard deployment: `bootstrap.sh repositories-plan` creates the Marquez Elastic Container Registry (ECR) repository with the other four and `push_images.sh` builds and pushes the pinned Marquez image with the same immutable tag, recording it as `OPENLINEAGE_COLLECTOR_IMAGE_TAG` in the selected `${PROJECT_ENV_FILE:-.env}` file ([quickstart](quickstart.md) step 3). No separate build is needed. The Grafana image is built the same way: `push_images.sh` renders the dashboards for Athena and records `GRAFANA_IMAGE_TAG`. Grafana runs only when `ENABLE_GRAFANA=true`; it has no public endpoint and is reached through an AWS Systems Manager (SSM) port forward, checked by `e2e.aws_grafana`.
 
 Prerequisites:
 

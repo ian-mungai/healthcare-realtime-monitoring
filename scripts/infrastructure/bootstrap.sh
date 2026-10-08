@@ -23,7 +23,7 @@ Actions:
   state-backup Save the local bootstrap state in the protected state bucket.
   main-init    Configure a fresh application stack to use the persistent bucket.
   main-migrate Migrate an existing application state into the persistent bucket.
-  repositories-plan  Save a plan containing only the four ECR repositories.
+  repositories-plan  Save a plan containing only the five ECR repositories.
   repositories-apply Apply the reviewed ECR repository plan.
   foundation-plan  Save the network, data-bucket, HAPI, Glue, dbt, and Soda foundation plan.
   foundation-apply Apply the reviewed foundation plan after images are published.
@@ -115,6 +115,7 @@ case "$ACTION" in
       -target=module.dbt_ecs.aws_ecr_repository.dbt \
       -target=module.soda_ecs.aws_ecr_repository.soda \
       -target=module.openlineage_collector.aws_ecr_repository.marquez \
+      -target=module.grafana_ecs.aws_ecr_repository.grafana \
       -out=tfplan-bootstrap-ecr-$ENVIRONMENT
     terraform -chdir="$INFRA_DIR" show -no-color tfplan-bootstrap-ecr-$ENVIRONMENT
     ;;

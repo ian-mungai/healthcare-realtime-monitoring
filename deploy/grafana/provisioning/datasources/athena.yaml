@@ -1,0 +1,17 @@
+# The AWS warehouse: Athena over the Glue databases, with the ECS task role's credentials (the SDK default chain).
+# The task definition (infra/modules/grafana_ecs) sets every variable below.
+apiVersion: 1
+
+datasources:
+  - name: Athena
+    uid: athena
+    type: grafana-athena-datasource
+    isDefault: true
+    editable: false
+    jsonData:
+      authType: default
+      defaultRegion: $ATHENA_REGION
+      catalog: $ATHENA_CATALOG
+      database: $ATHENA_DATABASE
+      workgroup: $ATHENA_WORKGROUP
+      outputLocation: $ATHENA_RESULTS_S3_URI

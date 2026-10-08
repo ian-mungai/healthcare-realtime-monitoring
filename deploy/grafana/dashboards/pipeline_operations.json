@@ -128,7 +128,7 @@
         {
           "refId": "A",
           "format": "table",
-          "sql": "select rejection_reason, count(*) as records from @@RAW@@.@@QUARANTINE@@ where $__timeFilter(received_at) group by 1 order by 2 desc"
+          "sql": "select rejection_reason, count(*) as records from @@RAW@@.@@QUARANTINE@@ where $__timeFilter(@@QUARANTINE_RECEIVED_AT@@) group by 1 order by 2 desc"
         }
       ],
       "fieldConfig": {

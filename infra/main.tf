@@ -51,6 +51,24 @@ module "openlineage_collector" {
   alarm_topic_arn            = module.realtime_observability.alert_topic_arn
 }
 
+module "grafana_ecs" {
+  source = "./modules/grafana_ecs"
+
+  enabled                    = var.enable_grafana
+  vpc_id                     = module.network.vpc_id
+  private_subnet_ids         = module.network.private_subnet_ids
+  ecs_cluster_arn            = module.hapi_ecs.cluster_arn
+  image_tag                  = var.grafana_image_tag
+  desired_count              = var.grafana_desired_count
+  allow_destructive_teardown = var.allow_destructive_teardown
+
+  data_bucket_name      = module.raw_s3.bucket_name
+  athena_workgroup_name = var.athena_workgroup_name
+  athena_catalog_name   = var.athena_catalog_name
+  source_database_name  = var.source_database_name
+  dbt_database_name     = var.dbt_database_name
+}
+
 locals {
   common_tags = {
     Project     = var.project_name

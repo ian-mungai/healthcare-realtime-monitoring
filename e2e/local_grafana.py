@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import httpx
@@ -30,7 +31,7 @@ CENSUS_SQL = "select sum(census) from analytics.fact_unit_hourly_census"
 PURPOSE = "The provisioned Grafana dashboards load under their uids and every panel query returns rows from the local warehouse."
 LIMITS = (
     "Runs the panel queries through Grafana's query API, not a browser, so it does not check how panels draw. It covers "
-    "the local Postgres warehouse only; the Athena rendering is checked when the AWS image is built. Local results do "
+    "the local Postgres warehouse only; the Athena rendering is checked on AWS by e2e.aws_grafana. Local results do "
     "not prove AWS behavior."
 )
 REPRODUCE = "Start the local stack, build the study warehouse, then run `.venv/bin/python -m e2e.local_grafana`."
@@ -52,7 +53,9 @@ def frame_sum(result: dict) -> float:
     return total
 
 
-def check_dashboards(report: Report, client: httpx.Client) -> None:
+def check_dashboards(report: Report, client: httpx.Client, warehouse_census: Callable[[], float]) -> None:
+    """Every dashboard is provisioned and every panel query runs through the data source the dashboard was rendered for;
+    the census panel's total equals ``warehouse_census()``, the warehouse's own count."""
     for name, source in render.load_sources().items():
         response = client.get(f"/api/dashboards/uid/{source['uid']}")
         report.check(f"{name}: provisioned", f"uid {source['uid']}", f"HTTP {response.status_code}", response.status_code == 200)
@@ -63,7 +66,8 @@ def check_dashboards(report: Report, client: httpx.Client) -> None:
             if panel.get("type") == "row":
                 continue
             for target in panel.get("targets", []):
-                query = {**QUERY_RANGE, "queries": [{key: target[key] for key in ("refId", "datasource", "rawSql", "format")}]}
+                # The rendered target as the panel sends it; its query fields depend on the data source.
+                query = {**QUERY_RANGE, "queries": [target]}
                 result = client.post("/api/ds/query", json=query)
                 body = result.json().get("results", {}).get(target["refId"], {}) if result.status_code == 200 else {}
                 rows = frame_rows(body)
@@ -76,7 +80,7 @@ def check_dashboards(report: Report, client: httpx.Client) -> None:
                 )
                 if panel["title"] == CENSUS_PANEL:
                     shown = frame_sum(body)
-                    direct = float(psql("warehouse", CENSUS_SQL) or 0)
+                    direct = warehouse_census()
                     report.check("Census panel equals the warehouse", f"{direct:.0f} patient hours", f"{shown:.0f}", shown == direct and direct > 0)
 
 
@@ -95,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
                 client.get("/api/health")
             except httpx.TransportError:
                 raise Blocked("Grafana is not reachable; start the stack with scripts/local/local_stack.sh start") from None
-            check_dashboards(report, client)
+            check_dashboards(report, client, lambda: float(psql("warehouse", CENSUS_SQL) or 0))
     except Exception as failure:
         error = failure
     report.finish(error)

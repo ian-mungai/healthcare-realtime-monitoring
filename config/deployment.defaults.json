@@ -38,6 +38,7 @@
     "dbt_image_tag": "sha-bootstrap",
     "soda_image_tag": "sha-bootstrap",
     "openlineage_collector_image_tag": "sha-bootstrap",
+    "grafana_image_tag": "sha-bootstrap",
     "allow_destructive_teardown": false,
     "hapi_skip_final_snapshot": true,
     "openlineage_skip_final_snapshot": false,
