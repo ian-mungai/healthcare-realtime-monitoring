@@ -5,7 +5,8 @@ Usage: python -m e2e.local_stack [--env-file PATH]
 Start the stack first with scripts/local/local_stack.sh start. The run checks that Postgres holds the HAPI, warehouse
 and Grafana databases, that HAPI FHIR stores resources in Postgres and assigns UUID patient IDs, that a repeated
 conditional create returns the same patient, that Grafana is healthy and can query the warehouse through its
-provisioned data source and that every published port listens on localhost only. Every run writes report.json and
+provisioned data source, that every published port listens on localhost only and that every container runs with the
+memory limit planned at start. Every run writes report.json and
 report.md under artifacts/e2e/local_stack/, passed, failed or blocked.
 """
 
@@ -63,6 +64,16 @@ def check_ports(report: Report) -> None:
     addresses = sorted({publisher["URL"] for service in published for publisher in service.get("Publishers") or [] if publisher.get("PublishedPort")})
     report.check("Services running", "3 services running", f"{len(published)} running", len(published) == 3)
     report.check("Ports bound to localhost only", "127.0.0.1 only", ", ".join(addresses) or "none", addresses == ["127.0.0.1"])
+
+
+def check_memory_limits(report: Report) -> None:
+    """Each container has the limit local_stack.sh start planned; a direct `docker compose up` leaves them unlimited."""
+    containers = compose("ps", "--quiet").split()
+    result = run_command("docker", ["inspect", "--format", "{{.Name}} {{.HostConfig.Memory}}", *containers], cwd=ROOT, timeout=60) if containers else None
+    rows = [line.split() for line in (result.stdout if result and result.returncode == 0 else "").splitlines() if line.strip()]
+    unlimited = [name.lstrip("/") for name, memory in rows if int(memory) == 0]
+    shown = ", ".join(f"{name.lstrip('/').removeprefix('healthcare-realtime-local-')} {int(memory) // 1024**2} MiB" for name, memory in rows)
+    report.check("Memory limits planned at start", "every container limited", shown or "none", len(rows) == 3 and not unlimited)
 
 
 def check_postgres(report: Report) -> None:
@@ -144,6 +155,7 @@ def main(argv: list[str] | None = None) -> int:
         grafana_password = setting(env, "LOCAL_GRAFANA_ADMIN_PASSWORD")
         report.parameters = {"compose_file": str(COMPOSE_FILE.relative_to(ROOT))}
         check_ports(report)
+        check_memory_limits(report)
         check_postgres(report)
         check_hapi(report, hapi_url)
         check_grafana(report, grafana_url, grafana_password)

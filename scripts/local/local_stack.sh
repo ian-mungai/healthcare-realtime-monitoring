@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Start, check, stop or reset the local Docker stack (deploy/local/compose.yaml).
-#   start   generate deploy/local/.env once, render the Grafana dashboards, start Postgres, HAPI FHIR and Grafana,
-#           wait until each is healthy
+#   start   generate deploy/local/.env once, render the Grafana dashboards, plan each service's memory limit from the
+#           memory free now, start Postgres, HAPI FHIR and Grafana, wait until each is healthy
 #   status  show the services and their localhost ports
 #   stop    stop and remove the containers; the data volumes stay
 #   reset   also delete the data volumes (needs CONFIRM_LOCAL_STACK_RESET=delete-local-stack-data)
@@ -13,6 +13,9 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 STACK_DIR="$REPO_ROOT/deploy/local"
 STACK_ENV="$STACK_DIR/.env"
 COMPOSE=(docker compose -f "$STACK_DIR/compose.yaml")
+# Written at each start by tools/memory_budget.py and ignored by Git; only `up` reads it.
+MEMORY_OVERRIDE="$STACK_DIR/compose.memory.yaml"
+UP=("${COMPOSE[@]}" -f "$MEMORY_OVERRIDE")
 # HAPI FHIR takes about 1 to 3 minutes to create its schema on a new database.
 READY_TIMEOUT_SECONDS="${LOCAL_STACK_READY_TIMEOUT_SECONDS:-300}"
 RESET_CONFIRMATION="delete-local-stack-data"
@@ -60,8 +63,10 @@ case "$COMMAND" in
     ensure_stack_env
     # Grafana loads the dashboards rendered for the local warehouse from deploy/grafana/dashboards/.
     (cd "$REPO_ROOT" && .venv/bin/python -m scripts.grafana.render_dashboards --target local --output "$STACK_DIR/grafana/dashboards")
-    "${COMPOSE[@]}" up --detach --wait postgres
-    "${COMPOSE[@]}" up --detach hapi grafana
+    # Docker's memory is shared with other projects' containers, so no limit is fixed: each start plans them again.
+    (cd "$REPO_ROOT" && .venv/bin/python -m tools.memory_budget stack --output "$MEMORY_OVERRIDE")
+    "${UP[@]}" up --detach --wait postgres
+    "${UP[@]}" up --detach hapi grafana
     set -a
     source "$STACK_ENV"
     set +a

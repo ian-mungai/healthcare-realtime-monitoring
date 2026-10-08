@@ -80,6 +80,7 @@ airflow/serverless/generated/
 
 # Grafana dashboards rendered for the local stack from deploy/grafana/dashboards/.
 /deploy/local/grafana/dashboards/
+/deploy/local/compose.memory.yaml
 
 # Local plans (analysis, implementation and gap plans); never committed or pushed.
 /plans/

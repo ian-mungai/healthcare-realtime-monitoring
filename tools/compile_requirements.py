@@ -20,6 +20,7 @@ from pathlib import Path
 
 import httpx
 
+from tools import memory_budget
 from tools.process import run_command
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,7 +47,13 @@ def compile_lock(source: str) -> int:
     image = f"python:{LOCKS[source]}-slim"
     output = str(Path(source).with_suffix(".txt"))
     script = f"pip install --quiet --disable-pip-version-check {PIP_TOOLS} && pip-compile {' '.join(COMPILE)} --output-file {output} {source}"
-    args = ["run", "--rm", "--platform", "linux/amd64", "--volume", f"{ROOT}:/work", "--workdir", "/work", image, "bash", "-c", script]
+    # Planned again for each lock from the memory free now; Docker's memory is shared with other projects' containers.
+    try:
+        memory = memory_budget.current().require(memory_budget.LOCK_FLOOR)
+    except memory_budget.BudgetError as error:
+        sys.stderr.write(f"{output}: memory budget: {error}\n")
+        return 1
+    args = ["run", "--rm", "--platform", "linux/amd64", "--memory", str(memory), "--volume", f"{ROOT}:/work", "--workdir", "/work", image, "bash", "-c", script]
     result = run_command("docker", args, timeout=3600, capture=False)
     if result.returncode == 0:
         try:

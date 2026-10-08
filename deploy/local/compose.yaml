@@ -2,6 +2,8 @@
 # Start, check and stop it with scripts/local/local_stack.sh. Every port listens on
 # 127.0.0.1 only. Passwords come from the ignored deploy/local/.env, which the start script generates once.
 # Images are pinned by tag and digest; HAPI matches the version deployed on AWS (infra/modules/hapi_ecs/main.tf).
+# Memory limits are not fixed here: local_stack.sh start plans them from the memory free at each start and passes them
+# in the ignored compose.memory.yaml override (tools/memory_budget.py).
 name: healthcare-realtime-local
 
 services:
@@ -44,6 +46,8 @@ services:
       HAPI_FHIR_SUBSCRIPTION_RESTHOOK_ENABLED: "true"
       HAPI_FHIR_SUBSCRIPTION_POLLING_INTERVAL_MS: "1000"
       HAPI_FHIR_SUBSCRIPTION_IMMEDIATELY_QUEUED: "true"
+      # The heap follows the container's planned memory limit.
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75
     ports:
       - "127.0.0.1:${LOCAL_HAPI_PORT:-8080}:8080"
 
