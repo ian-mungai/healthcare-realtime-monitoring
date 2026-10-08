@@ -20,7 +20,7 @@ For developers and operators: evaluate the release gate while retaining the chec
 - [Data and Operations Evidence](#data-and-operations-evidence)
 - [Model Activation](#model-activation)
 - [Public-Artifact Redaction](#public-artifact-redaction)
-- [Next Release](#next-release)
+- [v2.0.0 Release](#v200-release)
 - [Release Tag](#release-tag)
 
 ## Terminology
@@ -53,7 +53,7 @@ Angle-bracket values are placeholders. Replace each with the approved value for 
 
 Use this checklist to close a portfolio release of the healthcare realtime monitoring project. All published evidence must use synthetic data and replace deployment-specific values with placeholders.
 
-The checked items and dated evidence record the v1.0.1 release. The next release repeats them and adds the checks in [Next release](#next-release), which cover changes made after v1.0.1.
+The checked items and dated evidence record the v1.0.1 release. The v2.0.0 release repeated them and added the checks in [v2.0.0 release](#v200-release), which cover changes made after v1.0.1.
 
 The portfolio release includes the completed Power BI-to-Athena connection and reporting documentation. The local `.pbix` remains outside the repository. Power BI Service publishing remains optional and private.
 
@@ -129,24 +129,26 @@ Before committing screenshots, diagrams, examples or portfolio documents:
 - [x] The local Power BI report is complete and the `.pbix` remains outside the repository.
 - [x] The public release does not contain a `.pbix` binary or exported data source name (DSN).
 
-## Next Release
+## v2.0.0 Release
 
 These checks cover the Fast Healthcare Interoperability Resources (FHIR) setup task inside the virtual private cloud (VPC), the scoped IAM policies and roles and the end-to-end runner added after v1.0.1.
 
-- [ ] The changed IAM templates are planned, reviewed and applied using `infra/iam/scripts/manage_policies.py`.
-- [ ] FHIR setup `load` and `register` pass with both reports retained under `artifacts/e2e/fhir_setup/`.
-- [ ] FHIR setup `reference` passes. The workflow's dbt build and Soda checks pass with the cohort reference models.
-- [ ] The E2E session starts with no simulator running and every scenario passes, with reports retained under `artifacts/e2e/`.
-- [ ] The [load test](load-testing.md) passes with its report retained.
-- [ ] The MWAA workflow runs Glue under its scoped role before `ENABLE_ICEBERG_TABLE_OPTIMIZERS=true` is applied through a reviewed plan.
-- [ ] The realtime alarms are `OK`, both failure queues are empty and no `healthcare_realtime_e2e_replay_*` policy remains on the processor role.
-- [ ] The deployment runs from one checkout with local Terraform state. `teardown.sh destroy-apply` removes that state once it lists no resource. The checked items above that name a state bucket or GitHub OpenID Connect (OIDC) record the v1.0.1 release; this release has neither.
+- [x] The changed IAM templates are planned, reviewed and applied using `infra/iam/scripts/manage_policies.py`.
+- [x] FHIR setup `load` and `register` pass with both reports retained under `artifacts/e2e/fhir_setup/`.
+- [x] FHIR setup `reference` passes. The workflow's dbt build and Soda checks pass with the cohort reference models.
+- [x] The E2E session starts with no simulator running and every scenario passes, with reports retained under `artifacts/e2e/`.
+- [x] The [load test](load-testing.md) passes with its report retained.
+- [x] The MWAA workflow runs Glue under its scoped role before `ENABLE_ICEBERG_TABLE_OPTIMIZERS=true` is applied through a reviewed plan.
+- [x] The realtime alarms are `OK`, both failure queues are empty and no `healthcare_realtime_e2e_replay_*` policy remains on the processor role.
+- [x] The deployment runs from one checkout with local Terraform state. `teardown.sh destroy-apply` removes that state once it lists no resource. The checked items above that name a state bucket or GitHub OpenID Connect (OIDC) record the v1.0.1 release; this release has neither.
+
+Verified release evidence on Oct 8 2026, on the release code in one deployment from empty local state: FHIR setup `load`, `register` and `reference` passed; the end-to-end session passed every scenario; the isolated load test passed with no missing observation; one workflow run with an approved model completed all ten tasks, including dbt, scoring and Soda, after the Iceberg optimizers were enabled through a reviewed plan; all 12 alarms were `OK` with both failure queues empty; teardown removed every resource and the local state. The [v2.0.0 release notes](release-notes-v2.0.0.md) record the figures.
 
 ## Release Tag
 
-Create a release tag only after CI is green, Terraform has converged and the evidence checklist is complete. The command below is the v1.0.1 record; use the new version for the next release:
+Create a release tag only after CI is green, Terraform has converged and the evidence checklist is complete. The command below is the v2.0.0 record; use the new version for the next release:
 
 ```zsh
-git tag -a v1.0.1 -m "Portfolio release v1.0.1"
-git push origin v1.0.1
+git tag -a v2.0.0 -m "Portfolio release v2.0.0"
+git push origin v2.0.0
 ```

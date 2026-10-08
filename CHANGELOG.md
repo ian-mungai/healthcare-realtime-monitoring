@@ -4,6 +4,10 @@ Notable changes to the synthetic portfolio system are recorded here. Releases us
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-08
+
+Breaking: deployments keep Terraform state locally and teardown removes it; the state bucket, bootstrap stack, GitHub deployment workflow and its GitHub deployment role are gone. The operator creates the Grafana admin secret. The [v2.0.0 release notes](docs/release-notes-v2.0.0.md#upgrade-from-v1) list the upgrade actions.
+
 ### Changed
 
 - Keep Terraform state local and remove it at teardown, because each deployment is a short-lived demo. `infra/` has no remote backend; each `DEPLOYMENT_ENVIRONMENT` gets its own workspace, `bootstrap.sh init` initializes it and every script that reads state selects it first. `teardown.sh destroy-apply` removes the state, its backups and the saved plans once `terraform state list` is empty. Removed: the state bucket and its `infra/bootstrap` stack, `TF_STATE_BUCKET` and `TF_STATE_PREFIX`, the `state-*`, `main-init` and `main-migrate` actions, the private-configuration sync, the GitHub Deploy workflow and its GitHub OpenID Connect (OIDC) deployment role, the state-bucket deploy-policy statements and the state-bucket prerequisite checks.
@@ -78,6 +82,7 @@ Notable changes to the synthetic portfolio system are recorded here. Releases us
 
 - Reproducible synthetic realtime monitoring, governed analytics and guarded infrastructure lifecycle; see the [release notes](docs/release-notes-v1.0.0.md).
 
-[Unreleased]: https://github.com/ian-mungai/healthcare-realtime-monitoring/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/ian-mungai/healthcare-realtime-monitoring/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/ian-mungai/healthcare-realtime-monitoring/compare/v1.0.1...v2.0.0
 [1.0.1]: https://github.com/ian-mungai/healthcare-realtime-monitoring/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/ian-mungai/healthcare-realtime-monitoring/releases/tag/v1.0.0

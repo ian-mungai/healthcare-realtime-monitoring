@@ -29,7 +29,7 @@ Do not commit secrets, deployment identifiers, Terraform state, signed headers o
 
 ## Background
 
-The project demonstrates a realtime and analytical healthcare data platform built end to end on AWS. Releases v1.0.0 and v1.0.1 include the scope recorded in their release notes; the [v1.0.1 release notes](docs/release-notes-v1.0.1.md) summarize the current verified scope. The stack is torn down between demonstrations because it costs money while running.
+The project demonstrates a realtime and analytical healthcare data platform built end to end on AWS. Releases v1.0.0, v1.0.1 and v2.0.0 include the scope recorded in their release notes; the [v2.0.0 release notes](docs/release-notes-v2.0.0.md) summarize the current verified scope. The stack is torn down between demonstrations because it costs money while running.
 
 ### What It Demonstrates
 
@@ -201,7 +201,7 @@ The [model-training guide](docs/model-training.md) defines the inference-safe tr
 
 The [technology inventory](docs/technology-inventory.md) lists the standards, AWS services, frameworks, libraries, delivery tools and testing methods used by the project.
 
-The [v1.0.1 release notes](docs/release-notes-v1.0.1.md) summarize the current verified release scope, acceptance evidence and documented limitations. The [v1.0.0 release notes](docs/release-notes-v1.0.0.md) remain available as the initial release record.
+The [v2.0.0 release notes](docs/release-notes-v2.0.0.md) summarize the current verified release scope, upgrade actions, acceptance evidence and documented limitations. The [v1.0.1](docs/release-notes-v1.0.1.md) and [v1.0.0](docs/release-notes-v1.0.0.md) release notes remain available as earlier release records.
 
 ## Deploy and Teardown
 

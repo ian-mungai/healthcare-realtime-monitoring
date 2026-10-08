@@ -39,6 +39,7 @@ For developers and operators of the synthetic portfolio system: select the docum
 | [Release Checklist](release-checklist.md) | Historical release checklist and repeatable release gate |
 | [v1.0.0 Release Notes](release-notes-v1.0.0.md) | Historical release evidence; does not certify later changes |
 | [v1.0.1 Release Notes](release-notes-v1.0.1.md) | Historical release evidence; does not certify later changes |
+| [v2.0.0 Release Notes](release-notes-v2.0.0.md) | Current release scope, upgrade actions and acceptance evidence |
 | [Technology Inventory](technology-inventory.md) | Implemented technologies, roles and paths |
 
 ## Local Evidence and Reporting
