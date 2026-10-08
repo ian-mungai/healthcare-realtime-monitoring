@@ -3,6 +3,7 @@ import secrets
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 
+from services.vital_signs import REALTIME_VITAL_RANGES
 from services.vitals_simulator.app.bidmc.source import VitalReading
 from services.vitals_simulator.app.simulation.bedside import BedsideReading
 from services.vitals_simulator.app.synthea.blood_pressure import BloodPressureReading
@@ -128,9 +129,9 @@ def apply_vital_scenario(reading: VitalReading, scenario: str, elapsed_seconds: 
         return reading
     return replace(
         reading,
-        heart_rate=_clamp(reading.heart_rate, 50.0, 100.0),
-        respiratory_rate=_clamp(reading.respiratory_rate, 12.0, 20.0),
-        spo2=_clamp(reading.spo2, 95.0, 100.0),
+        heart_rate=_reflect("heart_rate", reading.heart_rate),
+        respiratory_rate=_reflect("respiratory_rate", reading.respiratory_rate),
+        spo2=_reflect("spo2", reading.spo2),
     )
 
 
@@ -144,7 +145,7 @@ def apply_blood_pressure_scenario(
         )
     if scenario == DETERIORATION_SCENARIO or not is_outcome_window(elapsed_seconds):
         return reading
-    return replace(reading, systolic=_clamp_required(reading.systolic, 105.0, 130.0), diastolic=_clamp_required(reading.diastolic, 60.0, 85.0))
+    return replace(reading, systolic=_reflect_required("systolic_bp", reading.systolic), diastolic=_reflect_required("diastolic_bp", reading.diastolic))
 
 
 def apply_bedside_scenario(reading: BedsideReading, scenario: str, elapsed_seconds: float, targets: DeteriorationTargets | None = None) -> BedsideReading:
@@ -160,11 +161,30 @@ def apply_bedside_scenario(reading: BedsideReading, scenario: str, elapsed_secon
     )
 
 
-def _clamp(value: float | None, minimum: float, maximum: float) -> float | None:
+# Outcome-window range of each normal vital. A source value outside it is reflected back inside, so a source that stays
+# above or below the range keeps its variation instead of sitting on the limit.
+NORMAL_RANGES: dict[str, tuple[float, float]] = {
+    "heart_rate": (50.0, 100.0),
+    "respiratory_rate": (12.0, 20.0),
+    "spo2": (95.0, 100.0),
+    "systolic_bp": (105.0, 130.0),
+    "diastolic_bp": (60.0, 85.0),
+}
+
+
+def _reflect(name: str, value: float | None) -> float | None:
+    """The value folded into the normal range at its limits; a value the stream processor rejects stays a dropout."""
     if value is None:
         return None
-    return min(max(value, minimum), maximum)
+    accepted_low, accepted_high = REALTIME_VITAL_RANGES[name]
+    if not accepted_low <= value <= accepted_high:
+        return value
+    low, high = NORMAL_RANGES[name]
+    span = high - low
+    offset = (value - low) % (2 * span)
+    return round(low + (offset if offset <= span else 2 * span - offset), 1)
 
 
-def _clamp_required(value: float, minimum: float, maximum: float) -> float:
-    return min(max(value, minimum), maximum)
+def _reflect_required(name: str, value: float) -> float:
+    reflected = _reflect(name, value)
+    return value if reflected is None else reflected

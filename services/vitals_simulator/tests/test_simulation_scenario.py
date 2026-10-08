@@ -9,6 +9,17 @@ Failure modes of the varied deterioration values (written before the code):
    time, never from a random source, so the batch files repeat exactly.
 4. A deterioration reading is built without its targets and silently falls back to fixed values: it raises instead.
 5. The normal scenario or the feature window changes: neither reads the targets.
+
+Failure modes of the normal outcome window (written before the code):
+
+6. A source vital that stays outside its normal range is pinned to the limit, so the reading never moves (a flat line
+   at heart rate 100): an out-of-range value is reflected back inside the range, which keeps the source's variation.
+7. A reflected value leaves the normal range, which could cross a label limit: every value lands inside the range,
+   however far outside the source value was.
+8. A waveform dropout that the stream processor rejects becomes a valid reading only normal encounters have: values
+   outside the processor's accepted range stay as they are.
+9. A value already inside the normal range changes, or a rerun gives another value: values inside the range are kept and
+   the reflection is plain arithmetic, so it repeats exactly.
 """
 
 import pytest
@@ -116,15 +127,53 @@ def test_a_deterioration_outcome_window_needs_targets():
         apply_vital_scenario(VitalReading("bidmc01n", 0, 82.0, 18.0, 97.0), DETERIORATION_SCENARIO, FEATURE_WINDOW_SECONDS)
 
 
-def test_normal_scenario_clamps_extreme_values_in_outcome_window():
-    reading = VitalReading("bidmc01n", 0, 150.0, 30.0, 88.0)
-    blood_pressure = BloodPressureReading("patient-1", "bp-1", 80.0, 45.0)
+NORMAL_RANGES = {
+    "heart_rate": (50.0, 100.0),
+    "respiratory_rate": (12.0, 20.0),
+    "spo2": (95.0, 100.0),
+    "systolic_bp": (105.0, 130.0),
+    "diastolic_bp": (60.0, 85.0),
+}
 
-    changed = apply_vital_scenario(reading, NORMAL_SCENARIO, FEATURE_WINDOW_SECONDS)
-    changed_bp = apply_blood_pressure_scenario(blood_pressure, NORMAL_SCENARIO, FEATURE_WINDOW_SECONDS)
 
-    expect.equal((changed.heart_rate, changed.respiratory_rate, changed.spo2), (100.0, 20.0, 95.0))
-    expect.equal((changed_bp.systolic, changed_bp.diastolic), (105.0, 60.0))
+def normal_values(heart_rate: float, respiratory_rate: float, spo2: float, systolic: float, diastolic: float) -> dict[str, float | None]:
+    vitals = apply_vital_scenario(VitalReading("bidmc01n", 0, heart_rate, respiratory_rate, spo2), NORMAL_SCENARIO, FEATURE_WINDOW_SECONDS)
+    pressure = apply_blood_pressure_scenario(BloodPressureReading("patient-1", "bp-1", systolic, diastolic), NORMAL_SCENARIO, FEATURE_WINDOW_SECONDS)
+    return {
+        "heart_rate": vitals.heart_rate,
+        "respiratory_rate": vitals.respiratory_rate,
+        "spo2": vitals.spo2,
+        "systolic_bp": pressure.systolic,
+        "diastolic_bp": pressure.diastolic,
+    }
+
+
+def test_normal_values_outside_the_range_are_reflected_inside_it():
+    expect.equal(
+        normal_values(107.4, 23.0, 92.5, 141.0, 52.0), {"heart_rate": 92.6, "respiratory_rate": 17.0, "spo2": 97.5, "systolic_bp": 119.0, "diastolic_bp": 68.0}
+    )
+
+
+def test_a_source_that_stays_above_the_range_still_varies():
+    heart_rates = [normal_values(value, 16.0, 97.0, 120.0, 70.0)["heart_rate"] for value in (101.2, 103.8, 106.1, 104.0, 102.5)]
+
+    expect.equal(len(set(heart_rates)), 5)
+
+
+def test_every_normal_value_lands_inside_its_range():
+    for heart_rate in (20.0, 49.0, 100.0, 151.3, 249.0):
+        for name, value in normal_values(heart_rate, 79.0, 50.0, 299.0, 20.0).items():
+            low, high = NORMAL_RANGES[name]
+            if value is None or not low <= value <= high:
+                expect.fail(f"{name} {value} is outside {low} to {high} for source heart rate {heart_rate}")
+
+
+def test_values_inside_the_range_and_dropouts_are_kept():
+    expect.equal(
+        normal_values(72.3, 15.0, 98.0, 118.0, 74.0), {"heart_rate": 72.3, "respiratory_rate": 15.0, "spo2": 98.0, "systolic_bp": 118.0, "diastolic_bp": 74.0}
+    )
+    dropout = normal_values(0.0, 2.0, 30.0, 40.0, 10.0)
+    expect.equal(dropout, {"heart_rate": 0.0, "respiratory_rate": 2.0, "spo2": 30.0, "systolic_bp": 40.0, "diastolic_bp": 10.0})
 
 
 def test_scenario_selection_gives_each_patient_the_less_frequent_outcome():

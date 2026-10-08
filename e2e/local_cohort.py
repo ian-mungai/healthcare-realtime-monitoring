@@ -30,7 +30,13 @@ from jobs.batch_vitals import generate
 from scripts.synthea_loader.src.cohort import cohort_patient_ids, cohort_size
 from services.vitals_simulator.app.fhir.encounter import SIMULATOR_ENCOUNTER_IDENTIFIER_SYSTEM, SIMULATOR_SCENARIO_TAG_SYSTEM
 from services.vitals_simulator.app.simulation.precursor import SIGNAL_MODES
-from services.vitals_simulator.app.simulation.scenario import DETERIORATION_RANGES, DETERIORATION_SCENARIO, FEATURE_WINDOW_SECONDS, NORMAL_SCENARIO
+from services.vitals_simulator.app.simulation.scenario import (
+    DETERIORATION_RANGES,
+    DETERIORATION_SCENARIO,
+    FEATURE_WINDOW_SECONDS,
+    NORMAL_RANGES,
+    NORMAL_SCENARIO,
+)
 from services.vitals_stream_processor.schema import validate_vitals_payload
 
 DEFAULT_MAP = ROOT / "build" / "local" / "fhir_resource_map.json"
@@ -49,7 +55,6 @@ REUSED_FROM = 53
 MIN_REUSED_DIFFERENCE = {"heart_rate": 2.0, "respiratory_rate": 1.0, "spo2": 0.5}
 PER_SCENARIO = generate.RUNS_PER_PATIENT // 2
 RAMP_START_SECONDS = 300
-NORMAL_RANGES = {"heart_rate": (50.0, 100.0), "respiratory_rate": (12.0, 20.0), "spo2": (95.0, 100.0)}
 
 
 def batch_encounters(client: httpx.Client, settings: generate.BatchSettings, patient_id: str) -> list[dict]:
@@ -104,6 +109,8 @@ def check_files(report: Report, folder: Path, patient_ids: tuple[str, ...], scen
     bad_hashes = invalid = off_scenario = wrong_encounter = 0
     # Each deterioration encounter's outcome-window heart rates, to show the values vary within and between encounters.
     deterioration_heart_rates: dict[str, set[float]] = {}
+    # Each normal encounter's outcome-window heart rates: a source above or below the range must not sit on its limit.
+    normal_heart_rates: dict[str, set[float]] = {}
     observation_ids: set[str] = set()
     records = 0
     for entry in manifest["files"]:
@@ -123,6 +130,8 @@ def check_files(report: Report, folder: Path, patient_ids: tuple[str, ...], scen
                 off_scenario += not follows_scenario(record, entry["scenario"])
                 if entry["scenario"] == DETERIORATION_SCENARIO and "heart_rate" in record:
                     deterioration_heart_rates.setdefault(entry["name"], set()).add(record["heart_rate"])
+                if entry["scenario"] == NORMAL_SCENARIO and "heart_rate" in record:
+                    normal_heart_rates.setdefault(entry["name"], set()).add(record["heart_rate"])
     report.check("File checksums", "all match the manifest", f"{bad_hashes} differ", bad_hashes == 0)
     report.check("Records accepted by the stream processor schema", f"all {records}", f"{invalid} rejected", invalid == 0 and records == manifest["records"])
     report.check("Observation IDs unique", f"{records} unique", f"{len(observation_ids)} unique", len(observation_ids) == records)
@@ -135,6 +144,10 @@ def check_files(report: Report, folder: Path, patient_ids: tuple[str, ...], scen
         "every encounter's heart rate varies and encounters differ",
         f"{steady} of {len(deterioration_heart_rates)} steady; {len(means)} distinct mean heart rates",
         steady == 0 and len(means) > 1,
+    )
+    flat = sum(len(values) < 2 for values in normal_heart_rates.values())
+    report.check(
+        "Normal values vary", "no normal encounter's outcome-window heart rate stays on one value", f"{flat} of {len(normal_heart_rates)} steady", flat == 0
     )
     rejected = sum(manifest.get("rejected_records", {}).values())
     report.check(
