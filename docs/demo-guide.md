@@ -103,6 +103,8 @@ Start the live cohort dashboard in its own terminal:
    - [ ] Heart rate, oxygen saturation and respiratory rate are no more than 10 seconds old; blood pressure follows its separate five-minute cadence and remains current for up to 310 seconds.
    - [ ] The chart time axis advances with full timestamps.
    - [ ] Selecting **View trends** focuses a patient without hiding the rest of the cohort.
+   - [ ] Each patient shows live NEWS2 with its risk band from the measurements still current. The model score appears once the encounter's 15-minute feature window has closed.
+   - [ ] The **NEWS2 5+** count matches the patients whose live NEWS2 is 5 or more.
 
    Start the separate model analytics dashboard in another terminal:
 

@@ -219,6 +219,40 @@ Prerequisites:
 
 4. Repeat the list command and verify the selected policy is absent. Verify restored processor writes before treating the incident as resolved.
 
+### Grafana on AWS
+
+With `ENABLE_GRAFANA=true`, one private Grafana task serves the pipeline, quality and capacity dashboards from the warehouse through Athena. It has no public address; open it through an AWS Systems Manager (SSM) port forward. The AWS CLI needs the Session Manager plugin.
+
+1. Find the running task and its container's runtime ID:
+
+   ```zsh
+   CLUSTER="$(terraform -chdir=infra output -raw hapi_ecs_cluster_name)"
+   SERVICE="$(terraform -chdir=infra output -raw grafana_service_name)"
+   TASK_ID="$(aws ecs list-tasks --cluster "$CLUSTER" --service-name "$SERVICE" --desired-status RUNNING \
+     --query 'taskArns[0]' --output text)"
+   TASK_ID="${TASK_ID##*/}"
+   RUNTIME_ID="$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ID" \
+     --query "tasks[0].containers[?name=='grafana'].runtimeId | [0]" --output text)"
+   ```
+
+2. Forward local port 3000 to the task:
+
+   ```zsh
+   aws ssm start-session \
+     --target "ecs:${CLUSTER}_${TASK_ID}_${RUNTIME_ID}" \
+     --document-name AWS-StartPortForwardingSession \
+     --parameters "{\"portNumber\":[\"$(terraform -chdir=infra output -raw grafana_container_port)\"],\"localPortNumber\":[\"3000\"]}"
+   ```
+
+3. Open `http://127.0.0.1:3000` and sign in as `admin` with the password from the `healthcare-realtime/grafana-admin` secret. Copy it without printing it:
+
+   ```zsh
+   aws secretsmanager get-secret-value --secret-id healthcare-realtime/grafana-admin \
+     --query SecretString --output text | pbcopy
+   ```
+
+4. Stop the port forward with Ctrl-C when you are done. `e2e.aws_grafana` runs the same forward and checks that every panel query returns rows from Athena and that the task has no public address.
+
 ## Incident Triage and Recovery
 
 1. Check the two CloudWatch dashboards for processor errors, Kinesis iterator age, processing latency and WebSocket delivery failures.
@@ -227,6 +261,7 @@ Prerequisites:
 4. For processing failures, inspect the encrypted failure queue and replay dead-letter queue before redriving any message.
 5. Correct the underlying data or deployment cause, then use the replay workflow only with a reviewed sequence range and a bounded replay attempt.
 6. Verify fresh current-state records, dashboard updates and alarm recovery before closing the incident.
+7. For a task-failure alarm from `healthcare_realtime_ingestion`, open the failed run's task log in MWAA Serverless. The webhook check fails when the webhook API is missing or answers with anything other than its health response or its refusal of a missing secret. The subscription check fails when HAPI's subscription to the webhook is not active; re-register it with `./scripts/infrastructure/run_fhir_setup.sh register`. The error check fails when the webhook Lambda logged errors in the last 30 minutes.
 
 ### Analytical Quarantine Recovery
 

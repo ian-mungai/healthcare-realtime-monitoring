@@ -143,6 +143,7 @@ flowchart LR
 2. The HAPI subscription invokes the webhook Lambda. The webhook validates its shared secret and publishes normalized events to Kinesis.
 3. The processor Lambda validates realtime payloads, rejects stale or duplicate state updates, writes the newest state per patient to DynamoDB and broadcasts accepted updates to connected WebSocket clients.
 4. The Representational State Transfer (REST) application programming interface (API) provides an Identity and Access Management (IAM)-authorized latest-state fallback. The Streamlit dashboard uses the WebSocket feed while merging REST-polling results to remain responsive during a transient connection interruption.
+5. The processor also keeps each encounter's readings from its first 15 minutes in a feature-window table. The early-warning endpoint, `GET /patients/{patient_id}/early-warning` on the same REST API, returns NEWS2 from the patient's latest cached vitals with each parameter's score and the RCP 2017 risk band. It also returns the approved model's score for the current encounter once that encounter's feature window has closed ([real-time scoring](model-predictions.md#real-time-scoring)). The live dashboard shows both.
 
 The realtime serving model is deliberately cohort-first: the live dashboard keeps all simulated patients visible and permits an operator to focus on one patient without losing the wider clinical context.
 
@@ -184,6 +185,10 @@ terraform -chdir=infra output -raw realtime_observability_dashboard_name
 | --- | --- |
 | Pipeline observability output | End-to-End pipeline: Kinesis, Firehose, Glue, MWAA, dbt, Soda and analytical failures |
 | Realtime observability output | Realtime state: processor errors, iterator age, processing latency, WebSocket delivery and simulator activity |
+
+A second workflow, `healthcare_realtime_ingestion`, checks every 30 minutes that the webhook Lambda answers on its health route, HAPI's subscription to it is active and the webhook Lambda logged no errors. A failed check fails its task and raises the task-failure alarm. Both workflows run on their schedules only once a model version is approved; before that they run manually.
+
+Grafana runs on AWS only when `ENABLE_GRAFANA=true`. One private Fargate task serves the pipeline, quality and capacity dashboards from the warehouse through Athena. It has no public address: operators reach it through an AWS Systems Manager (SSM) port forward ([Grafana on AWS](operations-runbook.md#grafana-on-aws)).
 
 Alarms cover pipeline task failures, throttling, Firehose delivery, processor errors and throttles, iterator age, live processing latency, WebSocket-delivery failures, collector health, missing lineage events and client-side lineage-emission failures. Operational validation is complete only when current state advances, monitoring clients receive updates and the relevant alarms are `OK`.
 

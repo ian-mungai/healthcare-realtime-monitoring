@@ -35,10 +35,14 @@ The project demonstrates a realtime and analytical healthcare data platform buil
 
 - FHIR R4 observation ingestion through HAPI FHIR and a protected webhook.
 - Kinesis-based realtime processing with latest-state delivery over Identity and Access Management (IAM)-authorized Representational State Transfer (REST) and WebSocket APIs.
-- Separate Streamlit dashboards for live cohort monitoring and approved-model analytics.
+- Separate Streamlit dashboards for live cohort monitoring and approved-model analytics. The live dashboard shows each patient's NEWS2 with its risk band and the approved model's score once the encounter's 15-minute feature window closes.
+- A real-time early-warning endpoint that scores the approved model from its published parameters, giving the same probability as the daily batch scoring.
 - Durable normalized-event landing, Glue/Iceberg processing, Athena validation, dbt models, automated approved-model scoring, Soda contracts and OpenLineage events collected by IAM-protected Marquez or stored in S3.
 - Bounded replay through encrypted Simple Queue Service (SQS) failure queues and a replay Lambda.
-- Terraform-managed AWS infrastructure, CloudWatch dashboards, alarms and workload-scoped IAM roles.
+- Terraform-managed AWS infrastructure, CloudWatch dashboards, alarms and workload-scoped IAM roles, with Terraform state kept only for the life of a deployment.
+- Grafana pipeline, quality and capacity dashboards on a local warehouse or, on AWS, through Athena behind an SSM port forward.
+- A 30-minute ingestion health workflow that checks the webhook, HAPI's subscription and webhook errors.
+- A local Docker stack with a 100-patient cohort, reproducible batch vitals and a pre-specified simulation study that compares NEWS2 with three models.
 
 ## Install
 
@@ -133,7 +137,7 @@ Launch the separate model analytics dashboard in another terminal:
 ./scripts/demo/start_model_analytics_dashboard.sh
 ```
 
-The launch scripts load the selected AWS profile and region from the selected `${PROJECT_ENV_FILE:-.env}` file. They retrieve realtime endpoints from Terraform outputs and analytical names from generated Terraform configuration. The live dashboard uses AWS IAM credentials to sign REST and WebSocket requests. The model dashboard queries Athena for probability-ranked approved-model scores, feature-window vital summaries, encounter context, freshness and governance labels.
+The launch scripts load the selected AWS profile and region from the selected `${PROJECT_ENV_FILE:-.env}` file. They retrieve realtime endpoints from Terraform outputs and analytical names from generated Terraform configuration. The live dashboard uses AWS IAM credentials to sign REST and WebSocket requests and reads NEWS2 and the model score from the early-warning endpoint. The model dashboard queries Athena for probability-ranked approved-model scores, feature-window vital summaries, encounter context, freshness and governance labels.
 
 ### Demo and Operations
 

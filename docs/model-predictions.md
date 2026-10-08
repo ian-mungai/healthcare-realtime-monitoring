@@ -69,6 +69,23 @@ Select an exact version-named model prefix rather than resolving a mutable `late
 - `proxy_risk_band` uses `baseline_proxy` and `elevated_proxy`; it does not represent a diagnosis.
 - `prediction_scope` and `is_clinically_validated` prevent the analytical output from being presented as a clinical system.
 
+## Real-Time Scoring
+
+Training publishes `scoring_parameters.json` beside each model: the model version, feature list, median imputation values, standard-scaling means and scales. It also holds the logistic regression's coefficients and intercept. The early-warning endpoint scores the approved model from these parameters in plain Python without scikit-learn. It returns the same probability as the trained model.
+
+The endpoint builds the model's features over the encounter's feature window as dbt does: from the first reading to 15 minutes later, the end excluded. It scores an encounter only after the window closes, plus a 60-second grace period for late readings. It stores the score once per model version beside the readings, so every later request returns the same score. The feature-window readings expire after two days.
+
+| Model status | Meaning |
+| --- | --- |
+| `scored` | The probability, model version, window start and cutoff, reading count and scoring time |
+| `window_open` | The feature window has not closed; `window_closes_at` gives the time |
+| `no_readings` | The encounter has no feature-window readings |
+| `no_encounter` | The patient's latest vitals name no encounter |
+| `no_approved_model` | No model version is approved |
+| `model_unavailable` | The approved model's scoring parameters cannot be read |
+
+`e2e.aws_early_warning` checks that the endpoint's NEWS2 matches `services/news2.py` and that its live score equals the daily batch score for the same encounter.
+
 ## Daily Orchestration
 
 The native Airflow directed acyclic graph (DAG) and generated Managed Workflows for Apache Airflow (MWAA) Serverless workflow run this sequence each day at `02:00` Coordinated Universal Time (UTC):
