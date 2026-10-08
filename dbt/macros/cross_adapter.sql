@@ -108,3 +108,20 @@ date_add('hour', {{ hours }}, {{ expression }})
 {% macro postgres__add_hours(hours, expression) -%}
 ({{ expression }} + ({{ hours }}) * interval '1 hour')
 {%- endmacro %}
+
+{#-
+    An ORDER BY inside a float aggregate (avg, stddev_samp, regr_slope) that fixes the order its rows are summed in.
+    Postgres sums in the order it reads rows, so loading the same batch again changed means and slopes in the 15th
+    significant digit, enough to change the gradient-boosted trees in the analysis. Ordering by the row's unique key
+    makes every rebuild repeat to the last digit. Athena output is unchanged.
+-#}
+{% macro in_row_order(key) -%}
+    {{ return(adapter.dispatch('in_row_order', 'healthcare_realtime')(key)) }}
+{%- endmacro %}
+
+{% macro default__in_row_order(key) -%}
+{%- endmacro %}
+
+{% macro postgres__in_row_order(key) -%}
+order by {{ key }}
+{%- endmacro %}

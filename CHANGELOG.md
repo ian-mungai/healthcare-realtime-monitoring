@@ -25,6 +25,7 @@ Notable changes to the synthetic portfolio system are recorded here. Releases us
 
 ### Fixed
 
+- The study results repeat after a warehouse rebuild. Postgres summed floats in the order it read rows, so reloading the same batch changed feature means, standard deviations and slopes in the 15th significant digit and moved the gradient-boosted trees' AUC (0.8607 to 0.8659). Each float aggregate in the feature models now orders its rows by their key on Postgres (`in_row_order`); Athena SQL is unchanged. `e2e.local_warehouse` reloads the batch between its two builds and compares the feature tables to the last digit instead of 9 decimal places.
 - The ingestion workflow's webhook check accepts the Lambda's own 401 refusal (`Invalid webhook secret`) as reachable: every webhook route needs the shared secret, which the workflow does not hold, so the check failed on every run. A 200 `healthy` still passes; any other answer fails.
 - `e2e.aws_ingestion` reads each task's status from its last try; task instance IDs end in the try number, so an earlier failed try hid the final result.
 - The Grafana panel checks query a fixed range and the Capacity census is compared with the warehouse over the same hours.

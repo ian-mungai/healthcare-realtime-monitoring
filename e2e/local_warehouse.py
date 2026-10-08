@@ -5,7 +5,8 @@ Usage: python -m e2e.local_warehouse [--batch DIRECTORY]
 Run it after the local stack is started, the cohort is loaded and the batch is generated. It reads
 COHORT_SIZE, FHIR_BASE_URL and FHIR_RESOURCE_MAP_FILE like the loader and the extract. The run loads the batch and the
 cohort reference tables twice and checks that the second run leaves identical rows, builds every dbt model and test on
-the local Postgres warehouse twice and checks that the training dataset is identical, then checks the admissions, the
+the local Postgres warehouse, loads the batch again and builds again, and checks that every row of the feature tables
+is identical to the last digit, then checks the admissions, the
 patient versions, the record-grouped split and the 1-minute windows. Every run writes report.json and report.md under
 artifacts/e2e/local_warehouse/, passed, failed or blocked.
 """
@@ -47,26 +48,9 @@ FINGERPRINT_SQL = Template(
     "from (select cast(t as text) as row_text from $schema.$table as t) as rows"
 )
 COUNT_SQL = Template("select count(*) from $schema.$table")
-# Floating-point sums depend on the order Postgres reads rows, so the standard deviation can differ in the 15th
-# significant digit between builds. The training fingerprint rounds every feature to 9 decimal places.
-TRAINING_FEATURES = (
-    "heart_rate_mean",
-    "heart_rate_min",
-    "heart_rate_max",
-    "heart_rate_stddev",
-    "respiratory_rate_mean",
-    "respiratory_rate_min",
-    "respiratory_rate_max",
-    "spo2_mean",
-    "spo2_min",
-    "systolic_bp_mean",
-    "systolic_bp_min",
-    "diastolic_bp_mean",
-)
-TRAINING_FINGERPRINT_SQL = Template(
-    "select count(*), md5(string_agg(row_text, '' order by row_text)) from (select concat_ws('|', encounter_key, patient_key, "
-    "data_split, split_bucket, deterioration_proxy_label, $features) as row_text from $analytics.ml_training_dataset) as rows"
-)
+# The analysis models read these tables. Every float feature must repeat to the last digit after the batch is loaded
+# again, because gradient-boosted trees bin on exact values: a difference in the 15th significant digit changed its AUC.
+FEATURE_TABLES = ("ml_training_dataset", "fact_encounter_trend_features", "fact_encounter_minute_features")
 MODEL_TABLES = ("dim_patient_version", "dim_facility", "dim_unit", "fact_admissions", "fact_encounter_minute_features", "ml_training_dataset")
 RAW_TABLE_NAMES = ("processed_fhir_observations", "patient_split_groups", *extract.TABLES)
 # The signal's schemas (LOCAL_WAREHOUSE_SIGNAL); every SQL string names them as $raw and $analytics.
@@ -144,9 +128,9 @@ def table_sql(template: Template, qualified: str) -> str:
     return template.substitute(schema=schema, table=table)
 
 
-def training_fingerprint() -> list[str]:
-    load.checked(*TRAINING_FEATURES)
-    return query(TRAINING_FINGERPRINT_SQL.safe_substitute(features=", ".join(f"round(cast({name} as numeric), 9)" for name in TRAINING_FEATURES)))
+def feature_fingerprints() -> dict[str, str]:
+    """Each feature table's row count and the fingerprint of its rows as text, which keeps every digit of a float."""
+    return {table: query(table_sql(FINGERPRINT_SQL, f"{SCHEMAS.analytics}.{table}"))[0] for table in FEATURE_TABLES}
 
 
 def fingerprints(tables: tuple[str, ...]) -> dict[str, str]:
@@ -206,17 +190,20 @@ def check_loads(report: Report, folder: Path) -> None:
     report.evidence["raw_row_counts"] = {table: int(value.split(",")[0]) for table, value in second.items()}
 
 
-def check_dbt(report: Report) -> None:
+def check_dbt(report: Report, folder: Path) -> None:
+    """Build, load the batch again and build again: the reload stores the rows in another physical order."""
     first_code = dbt.main(list(DBT_BUILD))
-    first = training_fingerprint()
+    first = feature_fingerprints()
+    load_all(folder)
     second_code = dbt.main(list(DBT_BUILD))
-    second = training_fingerprint()
+    second = feature_fingerprints()
     report.check("dbt build passes twice", "exit code 0 both times", f"{first_code} and {second_code}", first_code == 0 and second_code == 0)
+    changed = [table for table in FEATURE_TABLES if first[table] != second[table]]
     report.check(
-        "Training dataset is reproducible",
-        "identical rows after the second build, features to 9 decimal places",
-        "identical" if first == second else "differs",
-        first == second,
+        "Features are reproducible after a reload",
+        "identical rows to the last digit in every feature table after loading the batch again and rebuilding",
+        f"{len(changed)} tables differ" + (f": {', '.join(changed)}" if changed else ""),
+        not changed,
     )
 
 
@@ -453,7 +440,7 @@ def main(argv: list[str] | None = None) -> int:
             raise Blocked("dbt-postgres is not installed; run .venv/bin/python -m tools.install_tools")
         report.parameters = {"batch": args.batch.name, "signal": SCHEMAS.signal, "schemas": f"{SCHEMAS.raw}, {SCHEMAS.analytics}"}
         check_loads(report, args.batch)
-        check_dbt(report)
+        check_dbt(report, args.batch)
         check_models(report, args.batch)
         check_calibration_features(report, args.batch)
         check_news2_and_trends(report, args.batch)

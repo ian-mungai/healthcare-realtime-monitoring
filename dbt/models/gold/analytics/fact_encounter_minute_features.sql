@@ -6,6 +6,7 @@ with feature_observations as (
         features.encounter_key,
         features.patient_key,
         features.deterioration_proxy_label,
+        facts.fact_observation_key,
         facts.loinc_code,
         facts.value,
         cast(floor({{ seconds_between('features.encounter_start_at', 'facts.effective_datetime') }} / 60) as integer) as minute_index
@@ -24,12 +25,30 @@ select
     minute_index,
     deterioration_proxy_label,
     count(*) as observation_count,
-    avg(case when loinc_code = '{{ var("vital_sign_loinc_codes")["heart_rate"] }}' then value end) as heart_rate_mean,
-    avg(case when loinc_code = '{{ var("vital_sign_loinc_codes")["respiratory_rate"] }}' then value end) as respiratory_rate_mean,
-    avg(case when loinc_code = '{{ var("vital_sign_loinc_codes")["spo2"] }}' then value end) as spo2_mean,
-    avg(case when loinc_code = '{{ var("vital_sign_loinc_codes")["systolic_bp"] }}' then value end) as systolic_bp_mean,
-    avg(case when loinc_code = '{{ var("vital_sign_loinc_codes")["diastolic_bp"] }}' then value end) as diastolic_bp_mean,
-    avg(case when loinc_code = '{{ var("vital_sign_loinc_codes")["temperature"] }}' then value end) as temperature_mean,
+    avg(
+        case when loinc_code = '{{ var("vital_sign_loinc_codes")["heart_rate"] }}' then value end
+        {{ in_row_order('fact_observation_key') }}
+    ) as heart_rate_mean,
+    avg(
+        case when loinc_code = '{{ var("vital_sign_loinc_codes")["respiratory_rate"] }}' then value end
+        {{ in_row_order('fact_observation_key') }}
+    ) as respiratory_rate_mean,
+    avg(
+        case when loinc_code = '{{ var("vital_sign_loinc_codes")["spo2"] }}' then value end
+        {{ in_row_order('fact_observation_key') }}
+    ) as spo2_mean,
+    avg(
+        case when loinc_code = '{{ var("vital_sign_loinc_codes")["systolic_bp"] }}' then value end
+        {{ in_row_order('fact_observation_key') }}
+    ) as systolic_bp_mean,
+    avg(
+        case when loinc_code = '{{ var("vital_sign_loinc_codes")["diastolic_bp"] }}' then value end
+        {{ in_row_order('fact_observation_key') }}
+    ) as diastolic_bp_mean,
+    avg(
+        case when loinc_code = '{{ var("vital_sign_loinc_codes")["temperature"] }}' then value end
+        {{ in_row_order('fact_observation_key') }}
+    ) as temperature_mean,
     max(case when loinc_code = '{{ var("vital_sign_loinc_codes")["inhaled_oxygen_concentration"] }}' then value end) as inhaled_oxygen_concentration_max,
     max(case when loinc_code = '{{ var("vital_sign_loinc_codes")["consciousness_level"] }}' then value end) as consciousness_level_max
 from feature_observations
