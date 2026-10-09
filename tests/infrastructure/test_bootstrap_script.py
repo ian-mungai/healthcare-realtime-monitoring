@@ -56,7 +56,9 @@ def test_storage_cleanup_covers_every_ecr_repository() -> None:
 # Terraform state stays local and is not kept after teardown (owner decision, Oct 8 2026): no state bucket, no
 # bootstrap stack, no remote backend and no deploy workflow that would need one.
 STATE_BUCKET_TERMS = ("TF_STATE_BUCKET", "TF_STATE_PREFIX", "backend.hcl", "sync_deployment_config", "state-backup", "infra/bootstrap")
-HISTORY = ("CHANGELOG.md", "docs/release-notes-v1.0.0.md", "docs/release-notes-v1.0.1.md")
+# Release records may name what a release removed.
+HISTORY = ("CHANGELOG.md",)
+RELEASE_NOTES = "docs/release-notes-"
 
 
 def test_terraform_state_stays_local() -> None:
@@ -69,7 +71,7 @@ def test_terraform_state_stays_local() -> None:
     this_file = str(Path(__file__).relative_to(REPO_ROOT))
     for term in STATE_BUCKET_TERMS:
         found = run_command("git", ["grep", "-l", "--fixed-strings", term], cwd=REPO_ROOT).stdout.splitlines()
-        expect.equal([path for path in found if path not in (*HISTORY, this_file)], [], f"{term} is still referenced")
+        expect.equal([path for path in found if path not in (*HISTORY, this_file) and not path.startswith(RELEASE_NOTES)], [], f"{term} is still referenced")
 
 
 def test_every_terraform_script_selects_the_environment_workspace() -> None:
